@@ -1,0 +1,20 @@
+default-max-year: 2020
+
+result-sets:
+  test:
+    description: "test"
+    matrix:
+      images:
+        - docker.io/anchore/test_images:java-56d52bc@sha256:10008791acbc5866de04108746a02a0c4029ce3a4400a9b3dad45d7f2245f9da
+      tools:
+        - name: syft
+          version: v0.54.0
+          produces: SBOM
+          refresh: False
+
+        - name: grype
+          version: v0.27.0
+
+        - name: grype
+          version: v0.50.2
+          takes: SBOM
