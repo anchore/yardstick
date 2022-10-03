@@ -147,7 +147,7 @@ def result_set(
 
         if existing_result_set_obj and not refresh:
             result_state = existing_result_set_obj.get(image=scan_request.image, tool=scan_request.tool)
-            if result_state:
+            if result_state and result_state.config:
                 try:
                     scan_config = store.scan_result.find_one(by_description=result_state.config.path)
                 except RuntimeError:

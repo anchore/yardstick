@@ -3,7 +3,7 @@ yardstick = "yardstick.cli.cli:cli"
 
 [tool.poetry]
 name = "yardstick"
-version = "0.1.0"
+version = "0.1.1"
 description = "Tool for comparing the results from vulnerability scanners"
 authors = ["Alex Goodman <alex.goodman@anchore.com>"]
 license = "Apache 2.0"
