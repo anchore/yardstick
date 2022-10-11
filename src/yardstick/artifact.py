@@ -452,10 +452,17 @@ class ScanRequest(DataClassYAMLMixin):
         if "@git:current-commit" in tool:
             name, val = tool.split("@git:current-commit")
             val = subprocess.check_output(["git", "rev-parse", "HEAD"]).decode("ascii").strip()
-            tool = f"{name}@{val}"
+            # preserve the name and any other suffix
+            tool = tool.replace("@git:current-commit", f"@{val}")
+
         if "@env:" in tool:
             name, val = tool.split("@env:")
+            val, metadata = val.split("+", 1)
+            # preserve the name and any other suffix
             tool = f"{name}@{os.environ[val]}"
+            if metadata:
+                tool += f"+{metadata}"
+
         return tool
 
     def __post_init__(self):
