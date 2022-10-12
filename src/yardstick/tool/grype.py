@@ -140,6 +140,7 @@ class Grype(VulnerabilityScanner):
         **kwargs,
     ) -> "Grype":
 
+        original_version = version
         specified_db = "+import-db=" in version
         if specified_db:
             # note: doesn't allow for additional version modifiers
@@ -147,6 +148,8 @@ class Grype(VulnerabilityScanner):
             db_import_path = fields[1]
             version = fields[0]
             update_db = False
+
+        logging.debug(f"parsed import-db={db_import_path!r} from version={original_version!r} new version={version!r}")
 
         if version == "latest":
             response = requests.get("https://api.github.com/repos/anchore/grype/releases/latest")
@@ -170,6 +173,7 @@ class Grype(VulnerabilityScanner):
             logging.debug(f"using given db from {db_import_path!r}")
             tool_obj.run("db", "import", db_import_path)
         elif update_db:
+            logging.debug("updating db")
             tool_obj.run("db", "update")
 
         return tool_obj
@@ -181,6 +185,9 @@ class Grype(VulnerabilityScanner):
     def env(self, override=None):
         env = os.environ.copy()
         env["GRYPE_CHECK_FOR_APP_UPDATE"] = "false"
+        env[
+            "GRYPE_DB_VALIDATE_AGE"
+        ] = "false"  # if we are using a local DB, we don't want to validate it (but we should be consistent all the time)
         env["GRYPE_DB_AUTO_UPDATE"] = "false"
         env["GRYPE_DB_CACHE_DIR"] = self.db_root
         if self._env:
