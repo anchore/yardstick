@@ -1,4 +1,3 @@
-import json
 from dataclasses import InitVar, dataclass, field
 from typing import Any, Dict, Optional
 
@@ -109,8 +108,8 @@ def load(path: str = ".yardstick.yaml") -> Application:
 
     if cfg.profile_path:
         try:
-            with open(cfg.profile_path, encoding="utf-8") as json_file:
-                profile = Profiles(json.load(json_file))
+            with open(cfg.profile_path, encoding="utf-8") as yaml_file:
+                profile = Profiles(yaml_decoder(yaml_file))
         except:  # pylint: disable=bare-except
             profile = Profiles({})
         cfg.profiles = profile
