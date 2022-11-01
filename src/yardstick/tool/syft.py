@@ -108,7 +108,8 @@ class Syft(SBOMGenerator):
         abspath = os.path.abspath(path)
         if not tool_exists:
             logging.debug(f"installing syft to {abspath!r}")
-            c = f"go build -ldflags \"-w -s -extldflags '-static' -X github.com/anchore/syft/internal/version.version={description}\" -o {abspath} ."
+            # pylint: disable=line-too-long
+            c = f"go build -ldflags \"-w -s -extldflags '-static' -X github.com/anchore/syft/internal/version.version={description}\" -o {abspath} ./cmd/syft/"
             logging.debug(f"running {c!r}")
             subprocess.check_call(
                 shlex.split(c),
