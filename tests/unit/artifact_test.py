@@ -138,7 +138,7 @@ def test_scan_configuration():
     assert s.image_tag == "stuff"
     assert s.tool_name == "grype"
     assert s.tool_version == "main"
-    assert s.tool_input == "docker.io/place/ubuntu@sha256:123"
+    assert s.tool_input == "docker.io/place/ubuntu:stuff@sha256:123"
     assert s.timestamp == datetime.fromisoformat(ts_rfc3339)
     assert s.timestamp_rfc3339 == ts_rfc3339
     assert s.tool == "grype@main"
