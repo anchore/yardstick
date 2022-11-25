@@ -9,7 +9,7 @@ else:
 
 def load_plugins():
     tool_plugins = entry_points(group="yardstick.plugins.tools")
-    logging.warning(tool_plugins)
+    logging.debug(f"discovered plugin entrypoints: {tool_plugins}")
 
     for tool in tool_plugins:
         try:
