@@ -111,7 +111,7 @@ class ScanConfiguration(DataClassYAMLMixin):
     def __post_init__(self):
         self.image_repo = self.image_repo.replace("+", "/")
         if not self.tool_input:
-            self.tool_input = self.image
+            self.tool_input = self.full_image
 
     @property
     def path(self):
@@ -136,6 +136,13 @@ class ScanConfiguration(DataClassYAMLMixin):
     @property
     def image(self):
         return f"{self.image_repo}@{self.image_digest}"
+
+    @property
+    def full_image(self):
+        if self.image_tag == "":
+            return self.image
+
+        return f"{self.image_repo}:{self.image_tag}@{self.image_digest}"
 
     @property
     def image_encoded(self):
