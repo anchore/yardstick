@@ -239,5 +239,5 @@ class Grype(VulnerabilityScanner):
         return subprocess.check_output([f"{self.path}/grype", *args], env=self.env(override=env)).decode("utf-8")
 
     @staticmethod
-    def parse_package_type(full_entry: Any) -> str:
+    def parse_package_type(full_entry: Dict[str, Any]) -> str:
         return str(utils.dig(full_entry, "artifact", "type", default=utils.dig(full_entry, "package_type", default="unknown")))
