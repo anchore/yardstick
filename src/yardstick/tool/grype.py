@@ -8,7 +8,7 @@ import shutil
 import subprocess
 import sys
 import tempfile
-from typing import Dict, List, Optional
+from typing import Any, Dict, List, Optional
 
 import git
 import requests
@@ -237,3 +237,7 @@ class Grype(VulnerabilityScanner):
 
     def run(self, *args, env=None) -> str:
         return subprocess.check_output([f"{self.path}/grype", *args], env=self.env(override=env)).decode("utf-8")
+
+    @staticmethod
+    def parse_package_type(full_entry: Any) -> str:
+        return str(utils.dig(full_entry, "artifact", "type", default=utils.dig(full_entry, "package_type", default="unknown")))
