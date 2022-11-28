@@ -11,20 +11,21 @@ from prompt_toolkit.validation import ValidationError, Validator
 from pygments.lexers.data import JsonLexer
 from pygments.styles.monokai import MonokaiStyle
 
-from yardstick import artifact, utils
+from yardstick import artifact
+from yardstick.tool import get_tool
 
 
 def display_match_table_row(match: artifact.Match) -> str:
-    ty = utils.dig(match.fullentry, "artifact", "type", default=utils.dig(match.fullentry, "package_type", default="unknown"))
-
-    return f"{match.vulnerability.id:20} {match.package.name}@{match.package.version} {ty}"
+    t = get_tool(match.config.tool_name)
+    package_type = t.parse_package_type(match.fullentry)
+    return f"{match.vulnerability.id:20} {match.package.name}@{match.package.version} {package_type}"
 
 
 def display_match(match: artifact.Match) -> str:
-    ty = utils.dig(match.fullentry, "artifact", "type", default=utils.dig(match.fullentry, "package_type", default="unknown"))
-
+    t = get_tool(match.config.tool_name)
+    package_type = t.parse_package_type(match.fullentry)
     pkg = f"{match.package.name}@{match.package.version}"
-    return f"match vuln='{match.vulnerability.id}', cve='{match.vulnerability.cve_id}', package='{pkg}', type='{ty}', id='{match.ID}'"
+    return f"match vuln='{match.vulnerability.id}', cve='{match.vulnerability.cve_id}', package='{pkg}', type='{package_type}', id='{match.ID}'"
 
 
 class MatchCollection:
@@ -51,14 +52,14 @@ class MatchCollection:
             filter_text = filter_text.lower()
 
             def condition(match: artifact.Match) -> bool:
+                t = get_tool(match.config.tool_name)
+                package_type = t.parse_package_type(match.fullentry)
+
                 return (
                     filter_text in match.vulnerability.id.lower()
                     or filter_text in match.package.name.lower()
                     or filter_text in match.package.version.lower()
-                    or filter_text
-                    in utils.dig(
-                        match.fullentry, "artifact", "type", default=utils.dig(match.fullentry, "package_type", default="")
-                    )
+                    or filter_text in package_type
                 )
 
         else:

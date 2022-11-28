@@ -22,7 +22,7 @@ from yardstick import artifact, comparison, store
 from yardstick.cli.explore.image_labels.history import Command, History
 from yardstick.cli.explore.result import MatchCollection
 from yardstick.label import find_labels_for_match
-from yardstick.utils import dig
+from yardstick.tool import get_tool
 
 # a set of unique locks for each object
 _locks: Dict[int, Lock] = defaultdict(Lock)
@@ -139,10 +139,11 @@ class LabelManager:
             entries: List[MatchSelectEntry] = []
 
             for match in all_matches:
-                ty = dig(match.fullentry, "artifact", "type", default=dig(match.fullentry, "package_type", default=None))
+                t = get_tool(match.config.tool_name)
+                package_type = t.parse_package_type(match.fullentry)
                 row = [match.vulnerability.id, f"{match.package.name} @ {match.package.version}"]
-                if ty:
-                    row.append(ty)
+                if package_type and package_type != "unknown":
+                    row.append(package_type)
                 table.append(row)
 
             rows = tabulate(table, tablefmt="plain").split("\n")

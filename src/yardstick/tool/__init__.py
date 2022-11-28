@@ -1,4 +1,4 @@
-from typing import Union
+from typing import Optional, Union
 
 from .grype import Grype
 from .plugin import load_plugins
@@ -16,6 +16,10 @@ tools = {
 
 def Register(name: str, tool: Union[SBOMGenerator, VulnerabilityScanner]) -> None:
     tools[name] = tool
+
+
+def get_tool(name: str) -> Optional[Union[SBOMGenerator, VulnerabilityScanner]]:
+    return tools.get(name.lower())
 
 
 load_plugins()
