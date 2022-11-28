@@ -17,7 +17,7 @@ from yardstick.artifact import (  # MatchLabelEntry,
     Vulnerability,
 )
 from yardstick.label import find_labels_for_match, label_entry_matches_image_lineage
-from yardstick.tool import tools as yardstick_tools
+from yardstick.tool import get_tool
 
 
 # AgainstLabels compares a scan result against a set of labels
@@ -658,7 +658,7 @@ class ToolLabelStatsByEcosystem:
             return e
 
         def ecosystem(match: Match) -> str:
-            t = yardstick_tools[match.config.tool_name]
+            t = get_tool(match.config.tool_name)
             package_type = t.parse_package_type(match.fullentry)
             return normalize_ecosystem(package_type)
 

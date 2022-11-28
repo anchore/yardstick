@@ -3,7 +3,7 @@ import logging
 from typing import Any, Dict, Optional, Tuple
 
 from yardstick import artifact, store
-from yardstick.tool import sbom_generator, tools, vulnerability_scanner
+from yardstick.tool import get_tool, sbom_generator, vulnerability_scanner
 
 
 class Timer:
@@ -23,7 +23,7 @@ def run_scan(
 ) -> Tuple[artifact.ScanResult, str]:
     logging.debug(f"capturing via run config image={config.image} tool={config.tool}")
 
-    tool_cls = tools[config.tool_name]
+    tool_cls = get_tool(config.tool_name)
     if not tool_cls:
         raise RuntimeError(f"unknown tool: {config.tool_name}")
 
@@ -65,7 +65,7 @@ def run_scan(
 def intake(config: artifact.ScanConfiguration, raw_results: str) -> artifact.ScanResult:
     logging.info(f"capturing via intake config={config}")
 
-    tool_cls = tools[config.tool_name]
+    tool_cls = get_tool(config.tool_name)
     if not tool_cls:
         raise RuntimeError(f"unknown tool: {config.tool_name}")
 

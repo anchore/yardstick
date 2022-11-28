@@ -12,17 +12,17 @@ from pygments.lexers.data import JsonLexer
 from pygments.styles.monokai import MonokaiStyle
 
 from yardstick import artifact
-from yardstick.tool import tools
+from yardstick.tool import get_tool
 
 
 def display_match_table_row(match: artifact.Match) -> str:
-    t = tools[match.config.tool_name]
+    t = get_tool(match.config.tool_name)
     package_type = t.parse_package_type(match.fullentry)
     return f"{match.vulnerability.id:20} {match.package.name}@{match.package.version} {package_type}"
 
 
 def display_match(match: artifact.Match) -> str:
-    t = tools[match.config.tool_name]
+    t = get_tool(match.config.tool_name)
     package_type = t.parse_package_type(match.fullentry)
     pkg = f"{match.package.name}@{match.package.version}"
     return f"match vuln='{match.vulnerability.id}', cve='{match.vulnerability.cve_id}', package='{pkg}', type='{package_type}', id='{match.ID}'"
@@ -52,7 +52,7 @@ class MatchCollection:
             filter_text = filter_text.lower()
 
             def condition(match: artifact.Match) -> bool:
-                t = tools[match.config.tool_name]
+                t = get_tool(match.config.tool_name)
                 package_type = t.parse_package_type(match.fullentry)
 
                 return (
