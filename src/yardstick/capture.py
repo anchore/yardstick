@@ -39,7 +39,7 @@ def run_scan(
             config.tool_version = installed_version
 
     with Timer() as timer:
-        raw_json = tool.capture(config.tool_input)
+        raw_json = tool.capture(image=config.full_image, tool_input=config.tool_input)
         result = tool.parse(raw_json, config=config)
 
     # patch the start time onto the configuration before writing it to the store

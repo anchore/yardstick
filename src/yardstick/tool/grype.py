@@ -230,10 +230,10 @@ class Grype(VulnerabilityScanner):
             results.append(match)
         return results
 
-    def capture(self, image: str) -> str:
-        logging.debug(f"running grype with input={image}")
-
-        return self.run("-o", "json", image)
+    def capture(self, image: str, tool_input: Optional[str]) -> str:
+        i = image if tool_input is None else tool_input
+        logging.debug(f"running grype with input={i}")
+        return self.run("-o", "json", i)
 
     def run(self, *args, env=None) -> str:
         return subprocess.check_output([f"{self.path}/grype", *args], env=self.env(override=env)).decode("utf-8")
