@@ -174,10 +174,10 @@ class Syft(SBOMGenerator):
             results.append(pkg)
         return results
 
-    def capture(self, image: str) -> str:
-        logging.info(f"running syft with input={image}")
-
-        return self.run("-o", "json", image)
+    def capture(self, image: str, tool_input: Optional[str]) -> str:
+        i = image if tool_input is None else tool_input
+        logging.debug(f"running syft with input={i}")
+        return self.run("-o", "json", i)
 
     def run(self, *args) -> str:
         return subprocess.check_output([f"{self.path}/syft", *args], env=self.env()).decode("utf-8")

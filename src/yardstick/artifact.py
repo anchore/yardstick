@@ -110,8 +110,6 @@ class ScanConfiguration(DataClassYAMLMixin):
 
     def __post_init__(self):
         self.image_repo = self.image_repo.replace("+", "/")
-        if not self.tool_input:
-            self.tool_input = self.full_image
 
     @property
     def path(self):
