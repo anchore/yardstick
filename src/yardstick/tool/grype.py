@@ -152,7 +152,17 @@ class Grype(VulnerabilityScanner):
         logging.debug(f"parsed import-db={db_import_path!r} from version={original_version!r} new version={version!r}")
 
         if version == "latest":
-            response = requests.get("https://api.github.com/repos/anchore/grype/releases/latest")
+            headers={}
+            if os.environ.get("GITHUB_TOKEN") is not None:
+                headers["Authorization"] = "Bearer " + os.environ.get("GITHUB_TOKEN")
+
+            response = requests.get("https://api.github.com/repos/anchore/grype/releases/latest", headers=headers)
+
+            if response.status_code >= 400:
+                logging.error(f"error while fetching latest grype version: {response.status_code}: {response.reason} {response.text}")
+
+            response.raise_for_status()
+
             version = response.json()["name"]
 
             path = os.path.join(os.path.dirname(path), version)
