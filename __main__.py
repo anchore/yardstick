@@ -1,3 +1,3 @@
-from src.yardstick.cli.cli import cli
+from yardstick.cli.cli import cli
 
 cli()
