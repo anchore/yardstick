@@ -31,7 +31,12 @@ class Grype(VulnerabilityScanner):
             self.version_detail = version_detail
 
     @staticmethod
-    def _install_from_installer(version: str, path: Optional[str] = None, use_cache: Optional[bool] = True, **kwargs) -> "Grype":
+    def _install_from_installer(
+        version: str,
+        path: Optional[str] = None,
+        use_cache: Optional[bool] = True,
+        **kwargs,
+    ) -> "Grype":
         logging.debug(f"installing grype version={version!r} from installer")
         tool_exists = False
 
@@ -62,7 +67,12 @@ class Grype(VulnerabilityScanner):
         return Grype(path=path, version_detail=version, **kwargs)
 
     @staticmethod
-    def _install_from_git(version: str, path: Optional[str] = None, use_cache: Optional[bool] = True, **kwargs) -> "Grype":
+    def _install_from_git(
+        version: str,
+        path: Optional[str] = None,
+        use_cache: Optional[bool] = True,
+        **kwargs,
+    ) -> "Grype":
         logging.debug(f"installing grype version={version!r} from git")
         tool_exists = False
 
@@ -88,7 +98,9 @@ class Grype(VulnerabilityScanner):
             logging.debug("cloning the grype git repo")
             # clone the repo
             os.makedirs(repo_path)
-            repo = git.Repo.clone_from("https://github.com/anchore/grype.git", repo_path)
+            repo = git.Repo.clone_from(
+                "https://github.com/anchore/grype.git", repo_path
+            )
 
         # checkout the ref in question
         repo.git.fetch("origin", version)
@@ -149,17 +161,24 @@ class Grype(VulnerabilityScanner):
             version = fields[0]
             update_db = False
 
-        logging.debug(f"parsed import-db={db_import_path!r} from version={original_version!r} new version={version!r}")
+        logging.debug(
+            f"parsed import-db={db_import_path!r} from version={original_version!r} new version={version!r}"
+        )
 
         if version == "latest":
-            headers={}
+            headers = {}
             if os.environ.get("GITHUB_TOKEN") is not None:
                 headers["Authorization"] = "Bearer " + os.environ.get("GITHUB_TOKEN")
 
-            response = requests.get("https://api.github.com/repos/anchore/grype/releases/latest", headers=headers)
+            response = requests.get(
+                "https://api.github.com/repos/anchore/grype/releases/latest",
+                headers=headers,
+            )
 
             if response.status_code >= 400:
-                logging.error(f"error while fetching latest grype version: {response.status_code}: {response.reason} {response.text}")
+                logging.error(
+                    f"error while fetching latest grype version: {response.status_code}: {response.reason} {response.text}"
+                )
 
             response.raise_for_status()
 
@@ -174,9 +193,13 @@ class Grype(VulnerabilityScanner):
             r"^v(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-((?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*)(?:\.(?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*))*))?(?:\+([0-9a-zA-Z-]+(?:\.[0-9a-zA-Z-]+)*))?$",
             version,
         ):
-            tool_obj = cls._install_from_installer(version=version, path=path, use_cache=use_cache, **kwargs)
+            tool_obj = cls._install_from_installer(
+                version=version, path=path, use_cache=use_cache, **kwargs
+            )
         else:
-            tool_obj = cls._install_from_git(version=version, path=path, use_cache=use_cache, **kwargs)
+            tool_obj = cls._install_from_git(
+                version=version, path=path, use_cache=use_cache, **kwargs
+            )
 
         # always update the DB, raise exception on failure
         if db_import_path:
@@ -225,7 +248,9 @@ class Grype(VulnerabilityScanner):
 
         for entry in obj["matches"]:
             # TODO: normalize version here
-            pkg = artifact.Package(name=entry["artifact"]["name"], version=entry["artifact"]["version"])
+            pkg = artifact.Package(
+                name=entry["artifact"]["name"], version=entry["artifact"]["version"]
+            )
             vuln_id = entry["vulnerability"]["id"]
             cve_id = vuln_id if vuln_id.startswith("CVE-") else None
 
@@ -236,7 +261,9 @@ class Grype(VulnerabilityScanner):
                         break
 
             vuln = artifact.Vulnerability(id=vuln_id, cve_id=cve_id)
-            match = artifact.Match(package=pkg, vulnerability=vuln, fullentry=entry, config=config)
+            match = artifact.Match(
+                package=pkg, vulnerability=vuln, fullentry=entry, config=config
+            )
             results.append(match)
         return results
 
@@ -246,8 +273,17 @@ class Grype(VulnerabilityScanner):
         return self.run("-o", "json", i)
 
     def run(self, *args, env=None) -> str:
-        return subprocess.check_output([f"{self.path}/grype", *args], env=self.env(override=env)).decode("utf-8")
+        return subprocess.check_output(
+            [f"{self.path}/grype", *args], env=self.env(override=env)
+        ).decode("utf-8")
 
     @staticmethod
     def parse_package_type(full_entry: Dict[str, Any]) -> str:
-        return str(utils.dig(full_entry, "artifact", "type", default=utils.dig(full_entry, "package_type", default="unknown")))
+        return str(
+            utils.dig(
+                full_entry,
+                "artifact",
+                "type",
+                default=utils.dig(full_entry, "package_type", default="unknown"),
+            )
+        )
