@@ -31,7 +31,12 @@ class Grype(VulnerabilityScanner):
             self.version_detail = version_detail
 
     @staticmethod
-    def _install_from_installer(version: str, path: Optional[str] = None, use_cache: Optional[bool] = True, **kwargs) -> "Grype":
+    def _install_from_installer(
+        version: str,
+        path: Optional[str] = None,
+        use_cache: Optional[bool] = True,
+        **kwargs,
+    ) -> "Grype":
         logging.debug(f"installing grype version={version!r} from installer")
         tool_exists = False
 
@@ -62,7 +67,12 @@ class Grype(VulnerabilityScanner):
         return Grype(path=path, version_detail=version, **kwargs)
 
     @staticmethod
-    def _install_from_git(version: str, path: Optional[str] = None, use_cache: Optional[bool] = True, **kwargs) -> "Grype":
+    def _install_from_git(
+        version: str,
+        path: Optional[str] = None,
+        use_cache: Optional[bool] = True,
+        **kwargs,
+    ) -> "Grype":
         logging.debug(f"installing grype version={version!r} from git")
         tool_exists = False
 
@@ -152,7 +162,22 @@ class Grype(VulnerabilityScanner):
         logging.debug(f"parsed import-db={db_import_path!r} from version={original_version!r} new version={version!r}")
 
         if version == "latest":
-            response = requests.get("https://api.github.com/repos/anchore/grype/releases/latest")
+            headers = {}
+            if os.environ.get("GITHUB_TOKEN") is not None:
+                headers["Authorization"] = "Bearer " + os.environ.get("GITHUB_TOKEN")
+
+            response = requests.get(
+                "https://api.github.com/repos/anchore/grype/releases/latest",
+                headers=headers,
+            )
+
+            if response.status_code >= 400:
+                logging.error(
+                    f"error while fetching latest grype version: {response.status_code}: {response.reason} {response.text}"
+                )
+
+            response.raise_for_status()
+
             version = response.json()["name"]
 
             path = os.path.join(os.path.dirname(path), version)
@@ -240,4 +265,11 @@ class Grype(VulnerabilityScanner):
 
     @staticmethod
     def parse_package_type(full_entry: Dict[str, Any]) -> str:
-        return str(utils.dig(full_entry, "artifact", "type", default=utils.dig(full_entry, "package_type", default="unknown")))
+        return str(
+            utils.dig(
+                full_entry,
+                "artifact",
+                "type",
+                default=utils.dig(full_entry, "package_type", default="unknown"),
+            )
+        )

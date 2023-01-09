@@ -33,6 +33,9 @@ def capture_results(cfg: config.Application, image: str, tool: str, profile: str
     if (image or tool or profile) and result_set:
         raise RuntimeError("cannot specify both image+tool and result-set, choose one")
 
+    if not ((image and tool) or result_set):
+        raise RuntimeError("must specify image and tool OR result-set")
+
     if result_set:
         result_set_config = cfg.result_sets.get(result_set, None)
         if not result_set_config:
