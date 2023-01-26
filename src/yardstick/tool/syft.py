@@ -18,6 +18,8 @@ from yardstick.tool.sbom_generator import SBOMGenerator
 
 
 class Syft(SBOMGenerator):
+    _latest_version_from_github: Optional[str] = None
+
     def __init__(self, path: str, version_detail: Optional[str] = None, env: Optional[Dict[str, str]] = None):
         self.path = path
         self._env = env
@@ -126,14 +128,20 @@ class Syft(SBOMGenerator):
         return Syft(path=path, version_detail=description)
 
     @classmethod
-    def install(cls, version: str, path: Optional[str] = None, **kwargs) -> "Syft":
+    def install(cls, version: str, path: Optional[str] = None, use_cache: Optional[bool] = True, **kwargs) -> "Syft":
 
         if version == "latest":
-            response = requests.get("https://api.github.com/repos/anchore/syft/releases/latest")
-            version = response.json()["name"]
+            if cls._latest_version_from_github:
+                version = cls._latest_version_from_github
+                logging.info(f"latest syft release found (cached) is {version}")
 
-            path = os.path.join(os.path.dirname(path), version)
-            logging.info(f"latest syft release found is {version}")
+            else:
+                response = requests.get("https://api.github.com/repos/anchore/syft/releases/latest")
+                version = response.json()["name"]
+                cls._latest_version_from_github = version
+
+                path = os.path.join(os.path.dirname(path), version)
+                logging.info(f"latest syft release found is {version}")
 
         # check if the version is a semver...
         if re.match(
@@ -141,9 +149,9 @@ class Syft(SBOMGenerator):
             r"^v(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-((?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*)(?:\.(?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*))*))?(?:\+([0-9a-zA-Z-]+(?:\.[0-9a-zA-Z-]+)*))?$",
             version,
         ):
-            tool_obj = cls._install_from_installer(version=version, path=path, **kwargs)
+            tool_obj = cls._install_from_installer(version=version, path=path, use_cache=use_cache, **kwargs)
         else:
-            tool_obj = cls._install_from_git(version=version, path=path, **kwargs)
+            tool_obj = cls._install_from_git(version=version, path=path, use_cache=use_cache, **kwargs)
 
         return tool_obj
 
