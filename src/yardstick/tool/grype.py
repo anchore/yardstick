@@ -18,6 +18,8 @@ from yardstick.tool.vulnerability_scanner import VulnerabilityScanner
 
 
 class Grype(VulnerabilityScanner):
+    _latest_version_from_github: Optional[str] = None
+
     def __init__(
         self,
         path: str,
@@ -162,26 +164,31 @@ class Grype(VulnerabilityScanner):
         logging.debug(f"parsed import-db={db_import_path!r} from version={original_version!r} new version={version!r}")
 
         if version == "latest":
-            headers = {}
-            if os.environ.get("GITHUB_TOKEN") is not None:
-                headers["Authorization"] = "Bearer " + os.environ.get("GITHUB_TOKEN")
+            if cls._latest_version_from_github:
+                version = cls._latest_version_from_github
+                logging.info(f"latest grype release found (cached) is {version}")
+            else:
+                headers = {}
+                if os.environ.get("GITHUB_TOKEN") is not None:
+                    headers["Authorization"] = "Bearer " + os.environ.get("GITHUB_TOKEN")
 
-            response = requests.get(
-                "https://api.github.com/repos/anchore/grype/releases/latest",
-                headers=headers,
-            )
-
-            if response.status_code >= 400:
-                logging.error(
-                    f"error while fetching latest grype version: {response.status_code}: {response.reason} {response.text}"
+                response = requests.get(
+                    "https://api.github.com/repos/anchore/grype/releases/latest",
+                    headers=headers,
                 )
 
-            response.raise_for_status()
+                if response.status_code >= 400:
+                    logging.error(
+                        f"error while fetching latest grype version: {response.status_code}: {response.reason} {response.text}"
+                    )
 
-            version = response.json()["name"]
+                response.raise_for_status()
 
-            path = os.path.join(os.path.dirname(path), version)
-            logging.info(f"latest grype release found is {version}")
+                version = response.json()["name"]
+                cls._latest_version_from_github = version
+
+                path = os.path.join(os.path.dirname(path), version)
+                logging.info(f"latest grype release found is {version}")
 
         # check if the version is a semver...
         if re.match(
