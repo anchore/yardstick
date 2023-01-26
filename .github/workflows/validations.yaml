@@ -24,7 +24,7 @@ jobs:
           poetry-version: ${{ env.POETRY_VERSION }}
 
       - name: Cache Poetry virtualenv
-        uses: actions/cache@v1
+        uses: actions/cache@v3
         id: cache
         with:
           path: ~/.virtualenvs
