@@ -26,7 +26,7 @@ Colr = "^0.9.1"
 omitempty = "^0.1.1"
 
 [tool.poetry.dev-dependencies]
-pytest = "^6.2.2"
+pytest = "^7.2.1"
 black = "^22.6.0"
 pre-commit = "^2.11.1"
 mypy = "^0.991"
