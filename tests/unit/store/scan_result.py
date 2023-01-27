@@ -18,7 +18,12 @@ class TestFilterByYear:
         matches.append(art.Match(vulnerability=art.Vulnerability("ELSA-1999-1234", cve_id="CVE-2021-1234567"), package=pkg))
         matches.append(art.Match(vulnerability=art.Vulnerability("ALAS-2021-0001", cve_id="CVE-2000-1234567"), package=pkg))
         matches.append(art.Match(vulnerability=art.Vulnerability("ALAS-1999-1234", cve_id="CVE-2021-1234567"), package=pkg))
-        matches.append(art.Match(vulnerability=art.Vulnerability("ALASKERNEL-2021-0001", cve_id="CVE-2000-1234567"), package=pkg))
+        matches.append(
+            art.Match(vulnerability=art.Vulnerability("ALASKERNEL-5.1-2021-0001", cve_id="CVE-2000-1234567"), package=pkg)
+        )
+        matches.append(
+            art.Match(vulnerability=art.Vulnerability("ALASKERNEL-5.1-1999-1234", cve_id="CVE-2021-1234567"), package=pkg)
+        )
         matches.append(art.Match(vulnerability=art.Vulnerability("ALASKERNEL-1999-1234", cve_id="CVE-2021-1234567"), package=pkg))
         return matches
 
@@ -48,7 +53,7 @@ class TestFilterByYear:
                     "GHSA-52rh-5rpj-abc7",
                     "ELSA-1999-1234",
                     "ALAS-1999-1234",
-                    "ALASKERNEL-1999-1234",
+                    "ALASKERNEL-1999-5.1-1234",
                 ],
                 2002,
             ),
@@ -59,11 +64,11 @@ class TestFilterByYear:
                     "GHSA-52rh-5rpj-abc7",
                     "ELSA-1999-1234",
                     "ALAS-1999-1234",
-                    "ALASKERNEL-1999-1234",
+                    "ALASKERNEL-5.1-1999-1234",
                 ],
                 2000,
             ),
-            (["GHSA-52rh-5rpj-c3w6", "ELSA-1999-1234", "ALAS-1999-1234", "ALASKERNEL-1999-1234"], 1999),
+            (["GHSA-52rh-5rpj-c3w6", "ELSA-1999-1234", "ALAS-1999-1234", "ALASKERNEL-5.1-1999-1234"], 1999),
         ],
     )
     def test_filter_by_year(self, expected, year_limit):
