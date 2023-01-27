@@ -42,11 +42,19 @@ def is_cve_vuln_id(vuln_id: str) -> bool:
 
 
 def parse_year_from_id(vuln_id: str) -> int | None:
+    def try_convert_int(s: str) -> int | None:
+        try:
+            return int(s)
+        except ValueError:
+            return None
+
     components = vuln_id.split("-")
 
     if components and len(components) >= 2:
-        if components[0].lower() in {"cve", "alas", "alaskernel"}:
-            return int(components[1])
+        if components[0].lower() in {"cve", "alas"}:
+            return try_convert_int(components[1])
+        if len(components) >= 3 and components[0].lower() == "alaskernel":
+            return try_convert_int(components[2])
 
     return None
 
