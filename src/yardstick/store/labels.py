@@ -171,7 +171,7 @@ def filter_by_year(label_entries: list[artifact.LabelEntry], year_max_limit: int
     label_entries_copy = []
 
     for l in label_entries:
-        year = l.effective_cve_year
+        year = l.effective_year
         if (year and year <= year_max_limit) or not year:
             label_entries_copy.append(l)
 

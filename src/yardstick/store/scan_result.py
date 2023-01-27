@@ -12,7 +12,7 @@ from yardstick import artifact
 from yardstick.store import config as store_config
 from yardstick.store import naming, tool
 from yardstick.tool import sbom_generator, tools, vulnerability_scanner
-from yardstick.utils import grype_db, is_cve_vuln_id
+from yardstick.utils import grype_db, is_cve_vuln_id, parse_year_from_id
 
 
 def _store_root(store_root: str = None):
@@ -224,17 +224,15 @@ def filter_by_year(results: list[artifact.ScanResult], year_max_limit: int) -> l
 
         for m in r.matches:
             vuln_id = m.vulnerability.cve_id or m.vulnerability.id
-            cve_id = grype_db.normalize_to_cve(vuln_id)
+            year = parse_year_from_id(vuln_id)
 
-            if not is_cve_vuln_id(cve_id):
-                # TODO: for non-CVE IDs we might have to add NVD data
-                # for better filtering. For now we don't filter them out
-                results_copy[i].matches.append(m)
-                continue
+            if not year:
+                cve_id = grype_db.normalize_to_cve(vuln_id)
 
-            cve = cve_id.split("-")
-            year = int(cve[1])
-            if year <= year_max_limit:
+                if is_cve_vuln_id(cve_id):
+                    year = parse_year_from_id(cve_id)
+
+            if not year or year <= year_max_limit:
                 results_copy[i].matches.append(m)
 
     return results_copy
