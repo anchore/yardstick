@@ -14,6 +14,12 @@ class TestFilterByYear:
 
         matches.append(art.Match(vulnerability=art.Vulnerability("GHSA-52rh-5rpj-c3w6"), package=pkg))
         matches.append(art.Match(vulnerability=art.Vulnerability("GHSA-52rh-5rpj-abc7", cve_id="CVE-2000-1234567"), package=pkg))
+        matches.append(art.Match(vulnerability=art.Vulnerability("ELSA-2021-0001", cve_id="CVE-2000-1234567"), package=pkg))
+        matches.append(art.Match(vulnerability=art.Vulnerability("ELSA-1999-1234", cve_id="CVE-2021-1234567"), package=pkg))
+        matches.append(art.Match(vulnerability=art.Vulnerability("ALAS-2021-0001", cve_id="CVE-2000-1234567"), package=pkg))
+        matches.append(art.Match(vulnerability=art.Vulnerability("ALAS-1999-1234", cve_id="CVE-2021-1234567"), package=pkg))
+        matches.append(art.Match(vulnerability=art.Vulnerability("ALASKERNEL-2021-0001", cve_id="CVE-2000-1234567"), package=pkg))
+        matches.append(art.Match(vulnerability=art.Vulnerability("ALASKERNEL-1999-1234", cve_id="CVE-2021-1234567"), package=pkg))
         return matches
 
     def make_results(self) -> list[art.ScanResult]:
@@ -33,9 +39,31 @@ class TestFilterByYear:
     @pytest.mark.parametrize(
         "expected, year_limit",
         [
-            (["CVE-2000-1", "CVE-2001-1", "CVE-2002-1", "GHSA-52rh-5rpj-c3w6", "GHSA-52rh-5rpj-abc7"], 2002),
-            (["CVE-2000-1", "GHSA-52rh-5rpj-c3w6", "GHSA-52rh-5rpj-abc7"], 2000),
-            (["GHSA-52rh-5rpj-c3w6"], 1999),
+            (
+                [
+                    "CVE-2000-1",
+                    "CVE-2001-1",
+                    "CVE-2002-1",
+                    "GHSA-52rh-5rpj-c3w6",
+                    "GHSA-52rh-5rpj-abc7",
+                    "ELSA-1999-1234",
+                    "ALAS-1999-1234",
+                    "ALASKERNEL-1999-1234",
+                ],
+                2002,
+            ),
+            (
+                [
+                    "CVE-2000-1",
+                    "GHSA-52rh-5rpj-c3w6",
+                    "GHSA-52rh-5rpj-abc7",
+                    "ELSA-1999-1234",
+                    "ALAS-1999-1234",
+                    "ALASKERNEL-1999-1234",
+                ],
+                2000,
+            ),
+            (["GHSA-52rh-5rpj-c3w6", "ELSA-1999-1234", "ALAS-1999-1234", "ALASKERNEL-1999-1234"], 1999),
         ],
     )
     def test_filter_by_year(self, expected, year_limit):

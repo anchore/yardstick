@@ -15,7 +15,7 @@ import rfc3339
 from dataclasses_json import config, dataclass_json
 from mashumaro.mixins.yaml import DataClassYAMLMixin
 
-from yardstick.utils import grype_db, is_cve_vuln_id
+from yardstick.utils import grype_db, is_cve_vuln_id, parse_year_from_id
 
 
 def get_image_digest(image: str) -> str:
@@ -433,10 +433,17 @@ id: {self.ID}
         return None
 
     @property
-    def effective_cve_year(self):
+    def effective_cve_year(self) -> int | None:
         if not self.effective_cve:
             return None
-        return int(self.effective_cve.split("-")[1])
+        return parse_year_from_id(self.effective_cve)
+
+    @property
+    def effective_year(self) -> int | None:
+        year = parse_year_from_id(self.vulnerability_id)
+        if not year:
+            year = self.effective_cve_year
+        return year
 
 
 @dataclass()

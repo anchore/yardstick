@@ -41,6 +41,16 @@ def is_cve_vuln_id(vuln_id: str) -> bool:
     return vuln_id.lower().startswith("cve-")
 
 
+def parse_year_from_id(vuln_id: str) -> int | None:
+    components = vuln_id.split("-")
+
+    if components and len(components) >= 2:
+        if components[0].lower() in {"cve", "alas", "alaskernel"}:
+            return int(components[1])
+
+    return None
+
+
 def remove_prefix(s: str, prefix: str, /) -> str:
     if s.startswith(prefix):
         return s[len(prefix) :]
