@@ -80,7 +80,6 @@ class TextArea:
         key_bindings: Optional["KeyBindingsBase"] = None,
         right_margins: List[Margin] = None,
     ) -> None:
-
         if search_field is None:
             search_control = None
         elif isinstance(search_field, SearchToolbar):

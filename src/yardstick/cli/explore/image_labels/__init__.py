@@ -297,5 +297,4 @@ class Controller:
 
 
 def run(result: artifact.ScanResult, label_entries: List[artifact.LabelEntry], lineage: List[str], filter_spec: str = ""):
-
     Controller(result, label_entries, lineage, filter_spec).run()

@@ -308,7 +308,6 @@ def label_comparison(
     show_indeterminates: bool = False,
     show_summaries: bool = True,
 ):
-
     for result in results:
         comp = comparisons_by_result_id[result.ID]
 
@@ -349,7 +348,6 @@ def labels_by_ecosystem_comparison(
     stats: comparison.ToolLabelStatsByEcosystem,
     show_images_used: bool = True,
 ):
-
     if show_images_used:
         print("Images used:")
         for image in results_by_image.keys():
@@ -357,7 +355,6 @@ def labels_by_ecosystem_comparison(
 
     # show table per-tool... rows are ecosystems and columns are TPs, FPs, Precision
     for tool in stats.tools:
-
         header = [
             "",
             "TPs",

@@ -151,7 +151,6 @@ class Grype(VulnerabilityScanner):
         db_import_path=None,
         **kwargs,
     ) -> "Grype":
-
         original_version = version
         specified_db = "+import-db=" in version
         if specified_db:

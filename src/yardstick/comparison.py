@@ -568,7 +568,6 @@ class ImageToolLabelStats:
 
     @staticmethod
     def new(comparisons: List[AgainstLabels]) -> "ImageToolLabelStats":
-
         indeterminate: dict[str, dict[str, int]] = collections.defaultdict(lambda: collections.defaultdict(int))
         indeterminate_percent: dict[str, dict[str, str]] = collections.defaultdict(dict)
         true_positives: dict[str, dict[str, int]] = collections.defaultdict(lambda: collections.defaultdict(int))
@@ -699,7 +698,6 @@ def of_results_against_label_by_ecosystem(
     label_entries,
     fuzzy_package_match: bool = False,
 ) -> ToolLabelStatsByEcosystem:
-
     comparisons_by_result_id_by_image = collections.defaultdict(list)
     for image, results in results_by_image.items():
         comparisons_by_result_id, _ = of_results_against_label(

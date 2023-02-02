@@ -6,7 +6,6 @@ from yardstick import artifact
 
 
 def test_sort_matches():
-
     a = artifact.Match(
         vulnerability=artifact.Vulnerability(id="CVE-2019-18276"),
         package=artifact.Package(name="bash", version="5.0-6ubuntu1.1"),
@@ -39,7 +38,6 @@ def test_sort_matches():
 
 
 def test_sort_packages():
-
     a = artifact.Package(name="bash", version="5.0-6ubuntu1.1")
 
     b = artifact.Package(name="coreutils", version="8.30-3ubuntu2")
@@ -96,7 +94,6 @@ class TestImageSpecifier:
 
 
 def test_tool():
-
     t = artifact.Tool("grype@main")
 
     assert t.name == "grype"
@@ -104,7 +101,6 @@ def test_tool():
 
 
 def test_image():
-
     i = artifact.Image("docker.io/place/ubuntu:thing@sha256:123")
 
     assert i.repository == "docker.io/place/ubuntu"
@@ -120,7 +116,6 @@ def test_image():
 
 
 def test_scan_configuration():
-
     ts_rfc3339 = "2022-09-06T16:07:01+00:00"
     ts = datetime.fromisoformat(ts_rfc3339)
 
