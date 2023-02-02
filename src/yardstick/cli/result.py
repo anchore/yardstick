@@ -29,7 +29,6 @@ def group(
 @click.option("--only-producers", help="only capture results from producers", is_flag=True)
 @click.pass_obj
 def capture_results(cfg: config.Application, image: str, tool: str, profile: str, result_set: str, only_producers: bool):
-
     if (image or tool or profile) and result_set:
         raise RuntimeError("cannot specify both image+tool and result-set, choose one")
 
@@ -76,7 +75,6 @@ def compare_results(
     summary: bool,
     show_common: bool,
 ):
-
     if not year_max_limit:
         year_max_limit = cfg.default_max_year
 
@@ -189,7 +187,6 @@ class ResultDescription:
 def result_descriptions(result_set: Optional[str] = None) -> list[ResultDescription]:
     results = []
     if result_set:
-
         result_set_obj = store.result_set.load(result_set)
 
         for result_state in result_set_obj.state:

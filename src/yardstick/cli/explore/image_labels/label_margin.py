@@ -10,7 +10,6 @@ if TYPE_CHECKING:
 
 class LabelMargin(Margin):
     def __init__(self, label_manager) -> None:
-
         self.label_manager = label_manager
         self.minwidth = 8
         self.maxwidth = 8 * 3  # no more than about 3 tags worth
@@ -20,7 +19,6 @@ class LabelMargin(Margin):
         return min(self.maxwidth, self.width * 2)
 
     def create_margin(self, window_render_info: "WindowRenderInfo", width: int, height: int) -> StyleAndTextTuples:
-
         # Get current line number.
         current_lineno = window_render_info.ui_content.cursor_position.y
 

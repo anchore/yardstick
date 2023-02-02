@@ -118,7 +118,6 @@ def result_set(
     only_producers: bool = False,
     profiles=Optional[Dict[str, Dict[str, Any]]],
 ) -> artifact.ResultSet:
-
     logging.info(f"capturing data result_set={result_set}")
 
     if not profiles:

@@ -8,7 +8,6 @@ def compare_results(
     descriptions: list[str],
     year_max_limit: Optional[int] = None,
 ) -> comparison.ByPreservedMatch:
-
     results = store.scan_result.load_by_descriptions(
         descriptions=descriptions, year_max_limit=year_max_limit, skip_sbom_results=True
     )

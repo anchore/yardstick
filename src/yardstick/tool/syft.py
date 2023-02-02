@@ -129,7 +129,6 @@ class Syft(SBOMGenerator):
 
     @classmethod
     def install(cls, version: str, path: Optional[str] = None, use_cache: Optional[bool] = True, **kwargs) -> "Syft":
-
         if version == "latest":
             if cls._latest_version_from_github:
                 version = cls._latest_version_from_github
