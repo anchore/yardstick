@@ -561,14 +561,14 @@ marshmallow = ">=2.0.0"
 
 [[package]]
 name = "mashumaro"
-version = "3.4"
+version = "3.5"
 description = "Fast serialization framework on top of dataclasses"
 category = "main"
 optional = false
 python-versions = ">=3.7"
 files = [
-    {file = "mashumaro-3.4-py3-none-any.whl", hash = "sha256:70eb96d03bac05cfd517abf470ed2316aca0e121123124673cb9fbd6bf3c126e"},
-    {file = "mashumaro-3.4.tar.gz", hash = "sha256:2ee791d7713b574ca6ca3fc575dce16928fe06a94cf97d18e27d7f07ae29da13"},
+    {file = "mashumaro-3.5-py3-none-any.whl", hash = "sha256:2fc228b9153aef6273c86a33b049b819d62abea850ad60ba54b8801a546720a3"},
+    {file = "mashumaro-3.5.tar.gz", hash = "sha256:0b33fda1cd711950eab2bc0f28fecdf72b5ce80724095927146f70de23929451"},
 ]
 
 [package.dependencies]
@@ -1249,4 +1249,4 @@ testing = ["flake8 (<5)", "func-timeout", "jaraco.functools", "jaraco.itertools"
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.7"
-content-hash = "c0854d49b3bd8fef50ab9a935503672b9f803968e924bed525220248e7f9b913"
+content-hash = "0c2f30b485bb5f47a70c07f4c2d380c481d523c76d0d8630418cef70c463727e"

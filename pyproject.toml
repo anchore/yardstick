@@ -21,7 +21,7 @@ Pygments = "^2.8.1"
 requests = "^2.25.1"
 GitPython = "^3.1.15"
 rfc3339 = "^6.2"
-mashumaro = {extras = ["yaml"], version = "^3.4"}
+mashumaro = {extras = ["yaml"], version = "^3.5"}
 Colr = "^0.9.1"
 omitempty = "^0.1.1"
 
