@@ -9,6 +9,7 @@ env:
 
 jobs:
 
+  # note: changing the job name requires a quality gate reference change in .github/workflows/release.yaml
   validations:
     runs-on: ubuntu-20.04
     steps:
