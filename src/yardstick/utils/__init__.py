@@ -51,7 +51,7 @@ def parse_year_from_id(vuln_id: str) -> int | None:
     components = vuln_id.split("-")
 
     if components and len(components) >= 2:
-        if components[0].lower() in {"cve", "alas"}:
+        if components[0].lower() in {"cve", "alas", "elsa"}:
             return try_convert_int(components[1])
         if len(components) >= 3 and components[0].lower() == "alaskernel":
             return try_convert_int(components[2])
