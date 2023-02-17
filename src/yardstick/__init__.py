@@ -24,7 +24,7 @@ def compare_results(
     return comparison.ByPreservedMatch(results=results)
 
 
-def compare_results_against_labels(
+def compare_results_against_labels(  # pylint: disable=too-many-arguments
     descriptions: list[str],
     result_set: Optional[str] = None,
     fuzzy: bool = False,

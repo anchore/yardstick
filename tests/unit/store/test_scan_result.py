@@ -5,7 +5,8 @@ from yardstick import store, utils
 
 
 class TestFilterByYear:
-    def make_matches(self) -> list[art.Match]:
+    @pytest.fixture
+    def matches(self) -> list[art.Match]:
         matches: list[art.Match] = []
         pkg = art.Package("busybox", "1.34.1-r5")
         for i in range(3):
@@ -27,9 +28,9 @@ class TestFilterByYear:
         matches.append(art.Match(vulnerability=art.Vulnerability("ALASKERNEL-1999-1234", cve_id="CVE-2021-1234567"), package=pkg))
         return matches
 
-    def make_results(self) -> list[art.ScanResult]:
+    @pytest.fixture
+    def results(self, matches) -> list[art.ScanResult]:
         results: list[art.ScanResults] = []
-        matches = self.make_matches()
 
         for i in range(1):
             cfg = art.ScanConfiguration(
@@ -68,11 +69,13 @@ class TestFilterByYear:
                 ],
                 2000,
             ),
-            (["GHSA-52rh-5rpj-c3w6", "ELSA-1999-1234", "ALAS-1999-1234", "ALASKERNEL-5.1-1999-1234"], 1999),
+            (
+                ["GHSA-52rh-5rpj-c3w6", "ELSA-1999-1234", "ALAS-1999-1234", "ALASKERNEL-5.1-1999-1234"],
+                1999,
+            ),
         ],
     )
-    def test_filter_by_year(self, expected, year_limit):
-        results = self.make_results()
+    def test_filter_by_year(self, expected, year_limit, results):
         assert len(results) == 1
 
         utils.grype_db.raise_on_failure(False)

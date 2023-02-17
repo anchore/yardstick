@@ -64,6 +64,7 @@ class Tool(DataClassYAMLMixin):
             return NotImplemented
         return self.id < other.id
 
+
 @dataclass()
 class Image:
     image: str
@@ -130,11 +131,15 @@ class ScanConfiguration(DataClassYAMLMixin):
 
     @property
     def path(self):
-        return f"{self.image_repo}@{self.image_digest}/{self.tool_name}@{self.tool_version}/{self.timestamp_rfc3339}"
+        return f"{self.image_repo}@{self.image_digest}/{self.tool}/{self.timestamp_rfc3339}"
+
+    @property
+    def tool(self):
+        return f"{self.tool_name}@{self.tool_version}"
 
     @property
     def encoded_path(self):
-        return f"{self.image_encoded}/{self.tool_name}@{self.tool_version}/{self.timestamp_rfc3339}"
+        return f"{self.image_encoded}/{self.tool}/{self.timestamp_rfc3339}"
 
     @property
     def image_repo_encoded(self) -> str:
@@ -168,7 +173,9 @@ tool:\t{self.tool}"""
         return s
 
     @staticmethod
-    def new(image: str = None, tool: str = None, path: str = None, timestamp: datetime = None, label: str = None) -> "ScanConfiguration":
+    def new(
+        image: str = None, tool: str = None, path: str = None, timestamp: datetime = None, label: str = None
+    ) -> "ScanConfiguration":
         if tool:
             tool = Tool(tool, label=label)
 

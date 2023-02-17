@@ -98,6 +98,13 @@ def test_tool():
 
     assert t.name == "grype"
     assert t.version == "main"
+    assert t.id == "grype"
+
+    t = artifact.Tool("grype@main", label="frank")
+
+    assert t.name == "grype"
+    assert t.version == "main"
+    assert t.id == "grype[frank]"
 
 
 def test_image():
@@ -116,7 +123,7 @@ def test_image():
 
 
 def test_scan_configuration():
-    ts_rfc3339 = "2022-09-06T16:07:01+00:00"
+    ts_rfc3339 = "2022-09-06T16:07:01.138937+00:00"
     ts = datetime.fromisoformat(ts_rfc3339)
 
     s = artifact.ScanConfiguration(
@@ -140,10 +147,13 @@ def test_scan_configuration():
     assert s.image == "docker.io/place/ubuntu@sha256:123"
     assert s.image_encoded == "docker.io+place+ubuntu@sha256:123"
     assert s.image_repo_encoded == "docker.io+place+ubuntu"
-    assert s.path == "docker.io/place/ubuntu@sha256:123/grype@main/2022-09-06T16:07:01+00:00"
-    assert s.encoded_path == "docker.io+place+ubuntu@sha256:123/grype@main/2022-09-06T16:07:01+00:00"
+    assert s.path == "docker.io/place/ubuntu@sha256:123/grype@main/2022-09-06T16:07:01.138937+00:00"
+    assert s.encoded_path == "docker.io+place+ubuntu@sha256:123/grype@main/2022-09-06T16:07:01.138937+00:00"
 
 
 def test_dt_encoder():
     ts = datetime.fromisoformat("2022-09-06T16:07:01+00:00")
     assert artifact.DTEncoder().default(ts) == "2022-09-06T16:07:01+00:00"
+
+    ts = datetime.fromisoformat("2022-09-06T16:07:01.133789+00:00")
+    assert artifact.DTEncoder().default(ts) == "2022-09-06T16:07:01.133789+00:00"

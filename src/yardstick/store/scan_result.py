@@ -35,7 +35,10 @@ def store_paths(config: artifact.ScanConfiguration, suffix: str = naming.SUFFIX,
 
     parent_dir = _store_root(store_root=store_root)
     result_dir = os.path.join(
-        parent_dir, f"{config.image_encoded}", f"{config.tool_name.replace('/', '_')}@{config.tool_version.replace('/', '_')}", config.timestamp_rfc3339
+        parent_dir,
+        f"{config.image_encoded}",
+        f"{config.tool_name.replace('/', '_')}@{config.tool_version.replace('/', '_')}",
+        config.timestamp_rfc3339,
     )
 
     return os.path.join(result_dir, "data" + suffix), os.path.join(result_dir, "metadata" + suffix)
