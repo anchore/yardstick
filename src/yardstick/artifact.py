@@ -11,7 +11,6 @@ from datetime import datetime
 from enum import Enum
 from typing import Any, Dict, List, Optional
 
-import rfc3339
 from dataclasses_json import config, dataclass_json
 from mashumaro.mixins.yaml import DataClassYAMLMixin
 
@@ -36,16 +35,34 @@ def get_image_digest(image: str) -> str:
 
 
 @dataclass(frozen=True, eq=True)
-class Tool:
+class Tool(DataClassYAMLMixin):
     tool: str
     name: str = field(init=False)
     version: str = field(init=False)
+    label: Optional[str] = None
 
     def __post_init__(self):
         name, version = self.tool.split("@")
         object.__setattr__(self, "name", name)
         object.__setattr__(self, "version", version)
 
+    def __str__(self):
+        return self.id_version
+
+    @property
+    def id_version(self):
+        return f"{self.id}@{self.version}"
+
+    @property
+    def id(self):
+        if self.label:
+            return f"{self.name}[{self.label}]"
+        return self.name
+
+    def __lt__(self, other):
+        if not isinstance(other, Tool):
+            return NotImplemented
+        return self.id < other.id
 
 @dataclass()
 class Image:
@@ -101,7 +118,7 @@ class ScanConfiguration(DataClassYAMLMixin):
     timestamp: Optional[datetime] = field(
         default=None,
         metadata=config(
-            encoder=rfc3339.rfc3339,
+            encoder=lambda dt: dt.isoformat(),
             decoder=datetime.fromisoformat,
         ),
     )
@@ -125,11 +142,7 @@ class ScanConfiguration(DataClassYAMLMixin):
 
     @property
     def timestamp_rfc3339(self) -> str:
-        return rfc3339.rfc3339(self.timestamp) if self.timestamp else ""
-
-    @property
-    def tool(self):
-        return f"{self.tool_name}@{self.tool_version}"
+        return self.timestamp.isoformat() if self.timestamp else ""
 
     @property
     def image(self):
@@ -149,16 +162,15 @@ class ScanConfiguration(DataClassYAMLMixin):
     def __str__(self):
         s = f"""\
 image:\t\t{self.image_repo}{':'+self.image_tag if self.image_tag else ''}@{self.image_digest}
-tool_name:\t{self.tool_name}
-tool_version:\t{self.tool_version}"""
+tool:\t{self.tool}"""
         if self.timestamp:
             s += f"\ntimestamp:\t{self.timestamp}"
         return s
 
     @staticmethod
-    def new(image: str = None, tool: str = None, path: str = None, timestamp: datetime = None) -> "ScanConfiguration":
+    def new(image: str = None, tool: str = None, path: str = None, timestamp: datetime = None, label: str = None) -> "ScanConfiguration":
         if tool:
-            tool_name, tool_version = tool.split("@")
+            tool = Tool(tool, label=label)
 
         if image:
             img = Image(image)
@@ -167,7 +179,7 @@ tool_version:\t{self.tool_version}"""
 
         if path:
             image_and_digest, tool_and_version, timestamp = path.rsplit(path, "/", 2)
-            tool_name, tool_version = tool_and_version.split("@")
+            tool = Tool(tool_and_version)
             timestamp = datetime.fromisoformat(timestamp)
             img = Image(image_and_digest)
 
@@ -175,8 +187,8 @@ tool_version:\t{self.tool_version}"""
             image_repo=img.repository,
             image_digest=img.digest,
             image_tag=img.tag,
-            tool_name=tool_name,
-            tool_version=tool_version,
+            tool_name=tool.id,
+            tool_version=tool.version,
             timestamp=timestamp,
         )
 
@@ -185,7 +197,7 @@ tool_version:\t{self.tool_version}"""
 class ScanMetadata(DataClassYAMLMixin):
     timestamp: datetime = field(
         metadata=config(
-            encoder=rfc3339.rfc3339,
+            encoder=lambda dt: dt.isoformat(),
             decoder=datetime.fromisoformat,
         )
     )
@@ -212,7 +224,7 @@ class DTEncoder(json.JSONEncoder):
     def default(self, o):
         # if passed in object is datetime object convert it to a string
         if isinstance(o, datetime):
-            return rfc3339.rfc3339(o)
+            return o.isoformat()
         # otherwise use the default behavior
         return json.JSONEncoder.default(self, o)
 
@@ -373,7 +385,7 @@ class LabelEntry:
     timestamp: datetime = field(
         default_factory=lambda: datetime.utcnow(),
         metadata=config(
-            encoder=rfc3339.rfc3339,
+            encoder=lambda dt: dt.isoformat(),
             decoder=datetime.fromisoformat,
         ),
     )
@@ -450,6 +462,7 @@ id: {self.ID}
 class ScanRequest(DataClassYAMLMixin):
     image: str
     tool: str
+    label: Optional[str] = None
     profile: Optional[str] = None
     provides: Optional[str] = None
     takes: Optional[str] = None
@@ -462,7 +475,6 @@ class ScanRequest(DataClassYAMLMixin):
     @staticmethod
     def render_tool(tool: str) -> str:
         if "@git:current-commit" in tool:
-            name, val = tool.split("@git:current-commit")
             val = subprocess.check_output(["git", "rev-parse", "HEAD"]).decode("ascii").strip()
             # preserve the name and any other suffix
             tool = tool.replace("@git:current-commit", f"@{val}")

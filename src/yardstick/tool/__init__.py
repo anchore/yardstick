@@ -19,7 +19,8 @@ def Register(name: str, tool: Union[SBOMGenerator, VulnerabilityScanner]) -> Non
 
 
 def get_tool(name: str) -> Optional[Union[SBOMGenerator, VulnerabilityScanner]]:
-    return tools.get(name.lower())
+    # this normalizes the name and removes labels in [brackets]
+    return tools.get(name.split("[")[0].lower())
 
 
 load_plugins()

@@ -25,6 +25,7 @@ class Profiles(DataClassYAMLMixin):
 class Tool(DataClassYAMLMixin):
     name: str
     version: str
+    label: Optional[str] = None
     produces: Optional[str] = None
     takes: Optional[str] = None
     profile: Optional[str] = None
@@ -68,6 +69,7 @@ class ResultSet(DataClassYAMLMixin):
                     artifact.ScanRequest(
                         image=image,
                         tool=tool.short,
+                        label=tool.label,
                         profile=tool.profile,
                         provides=tool.produces,
                         takes=tool.takes,

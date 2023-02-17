@@ -35,7 +35,7 @@ def store_paths(config: artifact.ScanConfiguration, suffix: str = naming.SUFFIX,
 
     parent_dir = _store_root(store_root=store_root)
     result_dir = os.path.join(
-        parent_dir, f"{config.image_encoded}", f"{config.tool_name}@{config.tool_version}", config.timestamp_rfc3339
+        parent_dir, f"{config.image_encoded}", f"{config.tool_name.replace('/', '_')}@{config.tool_version.replace('/', '_')}", config.timestamp_rfc3339
     )
 
     return os.path.join(result_dir, "data" + suffix), os.path.join(result_dir, "metadata" + suffix)
@@ -97,15 +97,23 @@ def find(
     is_id = "/" not in by_description and by_description
 
     if by_description:
-        if by_description.count("/") >= 2:
-            repos, tool_spec, time_spec = by_description.rsplit("/", 2)
-            image_spec = repos.replace("/", "+")
+        tool_name_side, tool_version_side = by_description.rsplit("@", 1)
+        tool_name_side_fields = tool_name_side.rsplit("/", 1)
+        tool_name = tool_name_side_fields[-1]
+        repos = tool_name_side_fields[0]
+        image_spec = repos.replace("/", "+")
+        tool_version_side_fields = tool_version_side.rsplit("/", 1)
+        tool_version = tool_version_side_fields[0]
+        tool_spec = f"{tool_name}@{tool_version}"
+        time_spec = tool_version_side_fields[-1]
 
-    search_tuple = f"{image_spec}/{tool_spec}/{time_spec}"
+    search_tuple = f"{image_spec}/{tool_spec.replace('/', '_')}/{time_spec}"
 
     results = defaultdict(list)
 
-    for metadata_file in glob.glob(f"{json_path}/{search_tuple}/metadata.json"):
+    glob_str = glob.escape(f"{json_path}/{search_tuple}/metadata.json")
+
+    for metadata_file in glob.glob(glob_str):
         image_tool_dir = os.path.dirname(os.path.dirname(metadata_file))
         with open(metadata_file, "r", encoding="utf-8") as fd:
             metadata_dict = json.load(fd)
@@ -168,7 +176,10 @@ def load(config: artifact.ScanConfiguration, year_max_limit: Optional[int] = Non
     with open(metadata_path, "r", encoding="utf-8") as metadata_file:
         metadata_dict = json.load(metadata_file)
 
-    selected_tool = tools[metadata_dict["config"]["tool_name"]]
+    tool_name_and_label = metadata_dict["config"]["tool_name"]
+    tool_name = tool_name_and_label.split("[")[0]
+    selected_tool = tools[tool_name]
+
     result = selected_tool.parse(data_json, config=config)
 
     keys = {}

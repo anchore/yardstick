@@ -7,10 +7,15 @@ from . import arrange, artifact, capture, cli, comparison, label, store, tool, u
 def compare_results(
     descriptions: list[str],
     year_max_limit: Optional[int] = None,
+    matches_filter: Optional[callable] = None,
 ) -> comparison.ByPreservedMatch:
     results = store.scan_result.load_by_descriptions(
         descriptions=descriptions, year_max_limit=year_max_limit, skip_sbom_results=True
     )
+
+    if matches_filter:
+        for result in results:
+            result.matches = matches_filter(result.matches)
 
     digests = set(r.config.image_digest for r in results)
     if len(digests) != 1:
@@ -25,6 +30,7 @@ def compare_results_against_labels(
     fuzzy: bool = False,
     year_max_limit: Optional[int] = None,
     label_entries: Optional[list[artifact.LabelEntry]] = None,
+    matches_filter: Optional[callable] = None,
 ) -> tuple[
     list[artifact.ScanResult],
     list[artifact.LabelEntry],
@@ -42,6 +48,10 @@ def compare_results_against_labels(
     logging.info(f"running label comparison with {descriptions}")
 
     results = store.scan_result.load_by_descriptions(descriptions, skip_sbom_results=True, year_max_limit=year_max_limit)
+
+    if matches_filter:
+        for result in results:
+            result.matches = matches_filter(result.matches)
 
     if not label_entries:
         label_entries = store.labels.load_all(year_max_limit=year_max_limit)
