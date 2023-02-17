@@ -100,21 +100,25 @@ def find(
     is_id = "/" not in by_description and by_description
 
     if by_description:
-        tool_name_side, tool_version_side = by_description.rsplit("@", 1)
-        tool_name_side_fields = tool_name_side.rsplit("/", 1)
-        tool_name = tool_name_side_fields[-1]
-        repos = tool_name_side_fields[0]
-        image_spec = repos.replace("/", "+")
-        tool_version_side_fields = tool_version_side.rsplit("/", 1)
-        tool_version = tool_version_side_fields[0]
-        tool_spec = f"{tool_name}@{tool_version}"
-        time_spec = tool_version_side_fields[-1]
+        if by_description.count("/") >= 2:
+            tool_name_side, tool_version_side = by_description.rsplit("@", 1)
+            tool_name_side_fields = tool_name_side.rsplit("/", 1)
+            tool_name = tool_name_side_fields[-1]
+            repos = tool_name_side_fields[0]
+            image_spec = repos.replace("/", "+")
+            tool_version_side_fields = tool_version_side.rsplit("/", 1)
+            tool_version = tool_version_side_fields[0]
+            tool_spec = f"{tool_name}@{tool_version}"
+            time_spec = tool_version_side_fields[-1]
+
+            # to account for lables with [], which should be escaped
+            tool_spec = glob.escape(tool_spec)
 
     search_tuple = f"{image_spec}/{tool_spec.replace('/', '_')}/{time_spec}"
 
     results = defaultdict(list)
 
-    glob_str = glob.escape(f"{json_path}/{search_tuple}/metadata.json")
+    glob_str = f"{json_path}/{search_tuple}/metadata.json"
 
     for metadata_file in glob.glob(glob_str):
         image_tool_dir = os.path.dirname(os.path.dirname(metadata_file))
