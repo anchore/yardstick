@@ -1015,14 +1015,14 @@ files = [
 
 [[package]]
 name = "tox"
-version = "4.4.5"
+version = "4.4.6"
 description = "tox is a generic virtualenv management and test command line tool"
 category = "dev"
 optional = false
 python-versions = ">=3.7"
 files = [
-    {file = "tox-4.4.5-py3-none-any.whl", hash = "sha256:1081864f1a1393ffa11ebe9beaa280349020579310d217a594a4e7b6124c5425"},
-    {file = "tox-4.4.5.tar.gz", hash = "sha256:f9bc83c5da8666baa2a4d4e884bbbda124fe646e4b1c0e412949cecc2b6e8f90"},
+    {file = "tox-4.4.6-py3-none-any.whl", hash = "sha256:e3d4a65852f029e5ba441a01824d2d839d30bb8fb071635ef9cb53952698e6bf"},
+    {file = "tox-4.4.6.tar.gz", hash = "sha256:9786671d23b673ace7499c602c5746e2a225d1ecd9d9f624d0461303f40bd93b"},
 ]
 
 [package.dependencies]
@@ -1249,4 +1249,4 @@ testing = ["flake8 (<5)", "func-timeout", "jaraco.functools", "jaraco.itertools"
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.7"
-content-hash = "0c2f30b485bb5f47a70c07f4c2d380c481d523c76d0d8630418cef70c463727e"
+content-hash = "c1e0a92aee975c1b819035e7d515ec7ae5cc886768fc05a01d50eb3261b1d826"
