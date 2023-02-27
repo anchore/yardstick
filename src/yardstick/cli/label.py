@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import logging
 
 import click
@@ -166,15 +168,21 @@ def remove_label(
 @group.command(name="explore", help="interact with an label results for a single image scan")
 @click.argument("description")
 @click.option("--year-max-limit", "-y", help="max year to include in comparison (relative to the CVE ID)")
+@click.option("--derive-year-from-cve-only", "-c", default=None, help="only use the CVE ID year-max-limit", is_flag=True)
 @click.pass_obj
-def explore_labels(cfg: config.Application, description: str, year_max_limit: int):
+def explore_labels(cfg: config.Application, description: str, year_max_limit: int, derive_year_from_cve_only: bool | None):
     logging.disable(level=logging.CRITICAL)
 
     if not year_max_limit:
         year_max_limit = cfg.default_max_year
 
+    if derive_year_from_cve_only is None:
+        derive_year_from_cve_only = cfg.derive_year_from_cve_only
+
     scan_config = store.scan_result.find_one(by_description=description)
-    result = store.scan_result.load(config=scan_config, year_max_limit=year_max_limit)
+    result = store.scan_result.load(
+        config=scan_config, year_max_limit=year_max_limit, year_from_cve_only=derive_year_from_cve_only
+    )
 
     lineage = store.image_lineage.get(scan_config.image)
     label_entries = store.labels.load_for_image([scan_config.image] + lineage, year_max_limit=year_max_limit)
@@ -211,24 +219,39 @@ def show_image_lineage(_: config.Application, image: str):
 @click.option("--inverse", "-i", help="show image lables that should not be applied", is_flag=True)
 @click.option("--id", "show_ids", help="show IDs only", is_flag=True)
 @click.option("--year-max-limit", "-y", help="max year to include in comparison (relative to the CVE ID)")
+@click.option("--derive-year-from-cve-only", "-c", default=None, help="only use the CVE ID year-max-limit", is_flag=True)
 @click.pass_obj
-def apply_labels(cfg: config.Application, description: str, inverse: bool, show_ids: bool, year_max_limit: int):
-    logging.info(f"applying labels to {description!r}")
-
+def apply_labels(
+    cfg: config.Application,
+    description: str,
+    inverse: bool,
+    show_ids: bool,
+    year_max_limit: int,
+    derive_year_from_cve_only: bool | None,
+):
     if not year_max_limit:
         year_max_limit = cfg.default_max_year
+
+    if derive_year_from_cve_only is None:
+        derive_year_from_cve_only = cfg.derive_year_from_cve_only
+
+    logging.info(f"applying labels to {description!r} (year limit: {year_max_limit})")
 
     scan_config = store.scan_result.find_one(by_description=description)
     result = store.scan_result.load(config=scan_config)
 
     lineage = store.image_lineage.get(scan_config.image)
     images = [scan_config.image] + lineage
-    label_entries_for_images = store.labels.load_for_image(images)
+    label_entries_for_images = store.labels.load_for_image(
+        images, year_max_limit=year_max_limit, year_from_cve_only=derive_year_from_cve_only
+    )
     label_entries = {l.ID: l for l in label_entries_for_images}
 
     labels = []
     for i in images:
-        label_entries_for_image = store.labels.load_for_image(i)
+        label_entries_for_image = store.labels.load_for_image(
+            i, year_max_limit=year_max_limit, year_from_cve_only=derive_year_from_cve_only
+        )
         labels.append(label_entries_for_image)
 
     found = {}
@@ -272,13 +295,19 @@ def apply_labels(cfg: config.Application, description: str, inverse: bool, show_
 )
 @click.option("--result-set", "-r", help="use a named result set as description input")
 @click.option("--year-max-limit", "-y", help="max year to include in comparison (relative to the CVE ID)")
+@click.option("--derive-year-from-cve-only", "-c", default=None, help="only use the CVE ID year-max-limit", is_flag=True)
 @click.pass_obj
-def compare_results_against_labels_by_ecosystem(cfg: config.Application, result_set: str, year_max_limit: int):
+def compare_results_against_labels_by_ecosystem(
+    cfg: config.Application, result_set: str, year_max_limit: int, derive_year_from_cve_only: bool | None
+):
     if not year_max_limit:
         year_max_limit = cfg.default_max_year
 
+    if derive_year_from_cve_only is None:
+        derive_year_from_cve_only = cfg.derive_year_from_cve_only
+
     results_by_image, _, stats = yardstick.compare_results_against_labels_by_ecosystem(
-        result_set=result_set, year_max_limit=year_max_limit
+        result_set=result_set, year_max_limit=year_max_limit, year_from_cve_only=derive_year_from_cve_only
     )
 
     display.labels_by_ecosystem_comparison(

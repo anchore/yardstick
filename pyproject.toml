@@ -1,6 +1,7 @@
 [tool.poetry.scripts]
 yardstick = "yardstick.cli.cli:cli"
 
+
 [tool.poetry]
 name = "yardstick"
 version = "0.0.0" # note: this is automagically managed -- no need to manually change this
@@ -25,7 +26,8 @@ mashumaro = {extras = ["yaml"], version = "^3.5"}
 Colr = "^0.9.1"
 omitempty = "^0.1.1"
 
-[tool.poetry.dev-dependencies]
+[tool.poetry.group.dev.dependencies]
+pytest-mock = "^3.10.0"
 pytest = "^7.2.1"
 black = "^23.1.0"
 pre-commit = "^2.11.1"

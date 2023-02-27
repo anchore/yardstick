@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from . import grype_db
 
 
@@ -37,26 +39,43 @@ def safe_div(one, two):
 
 # CVE prefix + Year + Arbitrary Digits
 # CVE-YYYY-NNNNN
-def is_cve_vuln_id(vuln_id: str) -> bool:
+def is_cve_vuln_id(vuln_id: str | None) -> bool:
+    if not vuln_id:
+        return False
     return vuln_id.lower().startswith("cve-")
 
 
 def parse_year_from_id(vuln_id: str) -> int | None:
-    def try_convert_int(s: str) -> int | None:
+    def try_convert_year(s: str) -> int | None:
         try:
-            return int(s)
+            value = int(s)
+            if value < 1990 or digits_in_number(value) != 4:
+                return None
+            return value
         except ValueError:
             return None
 
     components = vuln_id.split("-")
+    if not components:
+        return None
 
-    if components and len(components) >= 2:
-        if components[0].lower() in {"cve", "alas", "elsa"}:
-            return try_convert_int(components[1])
-        if len(components) >= 3 and components[0].lower() == "alaskernel":
-            return try_convert_int(components[2])
+    first_component = components[0].lower()
+
+    if len(components) == 4 and first_component == "alaskernel":
+        return try_convert_year(components[2])
+
+    if len(components) == 3 and first_component in {"cve", "alas", "elsa"}:
+        return try_convert_year(components[1])
 
     return None
+
+
+def digits_in_number(n: int) -> int:
+    count = 0
+    while n > 0:
+        count = count + 1
+        n = n // 10
+    return count
 
 
 def remove_prefix(s: str, prefix: str, /) -> str:

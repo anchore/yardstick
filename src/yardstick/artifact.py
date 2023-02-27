@@ -224,7 +224,36 @@ class Package(DataClassYAMLMixin):
 @dataclass(frozen=True, eq=True, order=True)
 class Vulnerability(DataClassYAMLMixin):
     id: str
-    cve_id: Optional[str] = None
+    cve_id: Optional[str] = field(default=None, hash=False)
+
+    def __post_init__(self):
+        if is_cve_vuln_id(self.id) and not self.cve_id:
+            object.__setattr__(self, "cve_id", self.id)
+
+    def _get_cve(self):
+        cve = grype_db.normalize_to_cve(self.id)
+        if is_cve_vuln_id(cve):
+            return cve
+        return None
+
+    def _effective_cve_year(self) -> int | None:
+        cve = self.cve_id
+        if not cve:
+            # this is rather expensive, so try this last
+            cve = self._get_cve()
+        if not cve:
+            return None
+        return parse_year_from_id(cve)
+
+    def effective_year(self, by_cve=False) -> int | None:
+        if by_cve:
+            return self._effective_cve_year()
+        year = self.id
+        if self.id:
+            year = parse_year_from_id(self.id)
+        if not year:
+            year = self._effective_cve_year()
+        return year
 
 
 class DTEncoder(json.JSONEncoder):
@@ -451,17 +480,23 @@ id: {self.ID}
             return cve
         return None
 
-    @property
-    def effective_cve_year(self) -> int | None:
-        if not self.effective_cve:
+    def _effective_cve_year(self) -> int | None:
+        cve = self.effective_cve
+        if not cve:
+            # this is rather expensive, so try this last
+            cve = self._get_cve()
+        if not cve:
             return None
-        return parse_year_from_id(self.effective_cve)
+        return parse_year_from_id(cve)
 
-    @property
-    def effective_year(self) -> int | None:
-        year = parse_year_from_id(self.vulnerability_id)
+    def effective_year(self, by_cve=False) -> int | None:
+        if by_cve:
+            return self._effective_cve_year()
+        year = self.vulnerability_id
+        if self.vulnerability_id:
+            year = parse_year_from_id(self.vulnerability_id)
         if not year:
-            year = self.effective_cve_year
+            year = self._effective_cve_year()
         return year
 
 

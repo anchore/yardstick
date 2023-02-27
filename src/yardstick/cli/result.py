@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import logging
 import sys
 from dataclasses import dataclass
@@ -84,17 +86,24 @@ def compare_results(
 
 
 @group.command(name="show", help="show a the results for a single scan + tool")
+@click.option("--year-max-limit", "-y", help="max year to include in comparison (relative to the CVE ID)")
+@click.option("--derive-year-from-cve-only", "-c", default=None, help="only use the CVE ID year-max-limit", is_flag=True)
 @click.argument("description")
 @click.pass_obj
-def show_results(
-    _: config.Application,
-    description: str,
-):
-    logging.info(f"showing capture data for {description}")
+def show_results(cfg: config.Application, description: str, year_max_limit: int, derive_year_from_cve_only: None | bool):
+    if not year_max_limit:
+        year_max_limit = cfg.default_max_year
+
+    if derive_year_from_cve_only is None:
+        derive_year_from_cve_only = cfg.derive_year_from_cve_only
+
+    logging.info(f"showing capture data for {description} (year limit: {year_max_limit})")
 
     scan_config = store.scan_result.find_one(by_description=description)
 
-    result = store.scan_result.load(config=scan_config)
+    result = store.scan_result.load(
+        config=scan_config, year_max_limit=year_max_limit, year_from_cve_only=derive_year_from_cve_only
+    )
 
     for match in sorted(result.matches):
         print(match)
@@ -243,14 +252,18 @@ def import_results(_: config.Application, image: str, tool: str, file: str = Non
 @group.command(name="explore", help="interact with an image scan result")
 @click.argument("description")
 @click.option("--year-max-limit", "-y", help="max year to include in comparison (relative to the CVE ID)")
+@click.option("--derive-year-from-cve-only", "-c", default=None, help="only use the CVE ID year-max-limit", is_flag=True)
 @click.pass_obj
-def explore_results(cfg: config.Application, description: str, year_max_limit: int):
+def explore_results(cfg: config.Application, description: str, year_max_limit: int, derive_year_from_cve_only: None | bool):
     if not year_max_limit:
         year_max_limit = cfg.default_max_year
+
+    if derive_year_from_cve_only is None:
+        derive_year_from_cve_only = cfg.derive_year_from_cve_only
 
     scan_config = store.scan_result.find_one(by_description=description)
     result = store.scan_result.load(config=scan_config)
     if year_max_limit:
-        results = store.scan_result.filter_by_year([result], int(year_max_limit))
+        results = store.scan_result.filter_by_year([result], int(year_max_limit), year_from_cve_only=derive_year_from_cve_only)
         result = results[0]
     explore.result.run(result)

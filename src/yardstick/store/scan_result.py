@@ -12,7 +12,6 @@ from yardstick import artifact
 from yardstick.store import config as store_config
 from yardstick.store import naming, tool
 from yardstick.tool import sbom_generator, tools, vulnerability_scanner
-from yardstick.utils import grype_db, is_cve_vuln_id, parse_year_from_id
 
 
 def _store_root(store_root: str = None):
@@ -152,12 +151,16 @@ def find_one(*args, **kwargs) -> artifact.ScanConfiguration:
 
 
 def load_by_descriptions(
-    descriptions: list[str], year_max_limit: Optional[int] = None, skip_sbom_results: bool = False, store_root: str = None
+    descriptions: list[str],
+    year_max_limit: Optional[int] = None,
+    year_from_cve_only: bool = False,
+    skip_sbom_results: bool = False,
+    store_root: str = None,
 ) -> list[artifact.ScanResult]:
     results = []
     for description in descriptions:
         config = find_one(by_description=description, store_root=store_root)
-        result = load(config=config, year_max_limit=year_max_limit, store_root=store_root)
+        result = load(config=config, year_max_limit=year_max_limit, year_from_cve_only=year_from_cve_only, store_root=store_root)
         if skip_sbom_results and result.packages is not None:
             # note: we look at a NONE value, not just an empty list
             logging.info(f"skipping SBOM result from {description}")
@@ -167,13 +170,24 @@ def load_by_descriptions(
 
 
 def load_all(
-    configs: list[artifact.ScanConfiguration], year_max_limit: Optional[int] = None, store_root: str = None
+    configs: list[artifact.ScanConfiguration],
+    year_max_limit: Optional[int] = None,
+    year_from_cve_only: bool = False,
+    store_root: str = None,
 ) -> list[artifact.ScanResult]:
-    return [load(config, year_max_limit=year_max_limit, store_root=store_root) for config in configs]
+    return [
+        load(config, year_max_limit=year_max_limit, year_from_cve_only=year_from_cve_only, store_root=store_root)
+        for config in configs
+    ]
 
 
 # note: we read the raw data and metadata and recompute the matches
-def load(config: artifact.ScanConfiguration, year_max_limit: Optional[int] = None, store_root: str = None) -> artifact.ScanResult:
+def load(
+    config: artifact.ScanConfiguration,
+    year_max_limit: Optional[int] = None,
+    year_from_cve_only: bool = False,
+    store_root: str = None,
+) -> artifact.ScanResult:
     data_path, metadata_path = store_paths(config, store_root=store_root)
     logging.debug(f"loading result config={config!r} location={data_path!r}")
 
@@ -209,7 +223,7 @@ def load(config: artifact.ScanConfiguration, year_max_limit: Optional[int] = Non
         )
 
     if year_max_limit:
-        results = filter_by_year([result_obj], int(year_max_limit))
+        results = filter_by_year([result_obj], year_max_limit=int(year_max_limit), year_from_cve_only=year_from_cve_only)
         result_obj = results[0]
 
     return result_obj
@@ -231,7 +245,9 @@ def list_all_configs(store_root: str = None) -> List[artifact.ScanConfiguration]
 
 # filter_by_year filters out CVE vuln IDs above a given year. We attempt to normalize all vuln IDs to CVEs,
 # but will include any if normalization fails.
-def filter_by_year(results: list[artifact.ScanResult], year_max_limit: int) -> list[artifact.ScanResult]:
+def filter_by_year(
+    results: list[artifact.ScanResult], year_max_limit: int, year_from_cve_only: bool = False
+) -> list[artifact.ScanResult]:
     results_copy = copy.deepcopy(results)
 
     for i, r in enumerate(results):
@@ -241,14 +257,7 @@ def filter_by_year(results: list[artifact.ScanResult], year_max_limit: int) -> l
             continue
 
         for m in r.matches:
-            vuln_id = m.vulnerability.cve_id or m.vulnerability.id
-            year = parse_year_from_id(vuln_id)
-
-            if not year:
-                cve_id = grype_db.normalize_to_cve(vuln_id)
-
-                if is_cve_vuln_id(cve_id):
-                    year = parse_year_from_id(cve_id)
+            year = m.vulnerability.effective_year(by_cve=year_from_cve_only)
 
             if not year or year <= year_max_limit:
                 results_copy[i].matches.append(m)

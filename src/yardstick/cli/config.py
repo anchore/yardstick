@@ -86,6 +86,7 @@ class Application(DataClassYAMLMixin):
     profiles: Profiles = field(default_factory=Profiles)
     result_sets: dict[str, ResultSet] = field(default_factory=dict)
     default_max_year: Optional[int] = None
+    derive_year_from_cve_only: bool = False
 
 
 def clean_dict_keys(d):
