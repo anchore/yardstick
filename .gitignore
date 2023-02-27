@@ -3,6 +3,7 @@ VERSION
 .tmp/
 
 .idea/
+.vscode/
 scratch/
 /.yardstick/
 /.yardstick*

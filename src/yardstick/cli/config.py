@@ -25,6 +25,7 @@ class Profiles(DataClassYAMLMixin):
 class Tool(DataClassYAMLMixin):
     name: str
     version: str
+    label: Optional[str] = None
     produces: Optional[str] = None
     takes: Optional[str] = None
     profile: Optional[str] = None
@@ -68,6 +69,7 @@ class ResultSet(DataClassYAMLMixin):
                     artifact.ScanRequest(
                         image=image,
                         tool=tool.short,
+                        label=tool.label,
                         profile=tool.profile,
                         provides=tool.produces,
                         takes=tool.takes,
@@ -84,6 +86,7 @@ class Application(DataClassYAMLMixin):
     profiles: Profiles = field(default_factory=Profiles)
     result_sets: dict[str, ResultSet] = field(default_factory=dict)
     default_max_year: Optional[int] = None
+    derive_year_from_cve_only: bool = False
 
 
 def clean_dict_keys(d):

@@ -21,11 +21,11 @@ class Timer:
 def run_scan(
     config: artifact.ScanConfiguration, tool: vulnerability_scanner.VulnerabilityScanner = None, reinstall: bool = False, **kwargs
 ) -> Tuple[artifact.ScanResult, str]:
-    logging.debug(f"capturing via run config image={config.image} tool={config.tool}")
+    logging.debug(f"capturing via run config image={config.image} tool={config.tool_name}@{config.tool_version}")
 
-    tool_cls = get_tool(config.tool_name)
+    tool_cls = get_tool(str(config.tool_name))
     if not tool_cls:
-        raise RuntimeError(f"unknown tool: {config.tool_name}")
+        raise RuntimeError(f"unknown tool: {config.tool.name}")
 
     if not tool:
         path = store.tool.install_path(config=config)
@@ -42,8 +42,7 @@ def run_scan(
         raw_json = tool.capture(image=config.full_image, tool_input=config.tool_input)
         result = tool.parse(raw_json, config=config)
 
-    # patch the start time onto the configuration before writing it to the store
-    config.timestamp = timer.start.replace(microsecond=0)
+    config.timestamp = timer.start
 
     keys = {}
     if issubclass(tool_cls, vulnerability_scanner.VulnerabilityScanner):
@@ -92,7 +91,7 @@ def one(
     if not profiles:
         profiles = {}
 
-    scan_config = artifact.ScanConfiguration.new(image=request.image, tool=request.tool)
+    scan_config = artifact.ScanConfiguration.new(image=request.image, tool=request.tool, label=request.label)
 
     if producer_state:
         scan_config.tool_input = producer_state

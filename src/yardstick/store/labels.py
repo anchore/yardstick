@@ -85,7 +85,9 @@ def overwrite_all(label_entries: List[artifact.LabelEntry], store_root: str = No
                 )
 
 
-def load_label_file(filename: str, year_max_limit: Optional[int] = None, store_root: str = None) -> List[artifact.LabelEntry]:
+def load_label_file(
+    filename: str, year_max_limit: Optional[int] = None, year_from_cve_only: bool = False, store_root: str = None
+) -> List[artifact.LabelEntry]:
     # why note take a file path? in this way we control that all input/output data was derived from the same store,
     # and not another store.
     path = store_path(filename=filename, store_root=store_root)
@@ -103,14 +105,18 @@ def load_label_file(filename: str, year_max_limit: Optional[int] = None, store_r
             except:  # pylint: disable=bare-except
                 label_entries = artifact.LabelEntry.schema().load(data_json, many=True)  # pylint: disable=no-member
             if year_max_limit:
-                label_entries = filter_by_year(label_entries, int(year_max_limit))
+                label_entries = filter_by_year(
+                    label_entries, year_max_limit=int(year_max_limit), year_from_cve_only=year_from_cve_only
+                )
             return label_entries
 
     except FileNotFoundError:
         return []
 
 
-def load_all(year_max_limit: Optional[int] = None, store_root: str = None) -> List[artifact.LabelEntry]:
+def load_all(
+    year_max_limit: Optional[int] = None, year_from_cve_only: bool = False, store_root: str = None
+) -> List[artifact.LabelEntry]:
     root_path = label_store_root(store_root=store_root)
     logging.debug(f"loading all labels (location={root_path})")
 
@@ -122,14 +128,16 @@ def load_all(year_max_limit: Optional[int] = None, store_root: str = None) -> Li
     )
     for file in files:
         filepath = remove_prefix(file, root_path + "/")
-        loaded_label_entries = load_label_file(filepath, year_max_limit=year_max_limit, store_root=store_root)
+        loaded_label_entries = load_label_file(
+            filepath, year_max_limit=year_max_limit, year_from_cve_only=year_from_cve_only, store_root=store_root
+        )
         label_entries.extend(loaded_label_entries)
 
     return label_entries
 
 
 def load_for_image(
-    images: Union[str, List[str]], year_max_limit: Optional[int] = None, store_root: str = None
+    images: Union[str, List[str]], year_max_limit: Optional[int] = None, year_from_cve_only: bool = False, store_root: str = None
 ) -> List[artifact.LabelEntry]:
     root_path = label_store_root(store_root=store_root)
     if isinstance(images, str):
@@ -142,7 +150,12 @@ def load_for_image(
     # load entries that don't have specific image
     for file in glob.glob(f"{root_path}/*.json"):
         filepath = remove_prefix(file, root_path + "/")
-        loaded_label_entries = load_label_file(filepath, store_root=store_root)
+        loaded_label_entries = load_label_file(
+            filepath,
+            year_max_limit=year_max_limit,
+            year_from_cve_only=year_from_cve_only,
+            store_root=store_root,
+        )
         for entry in loaded_label_entries:
             for image in images:
                 if entry.matches_image(image):
@@ -154,24 +167,28 @@ def load_for_image(
             + list(glob.glob(f"{root_path}/{naming.image.encode(image)}/*.json"))
         ):
             filename = remove_prefix(file, root_path + "/")
-            loaded_label_entries = load_label_file(filename, store_root=store_root)
+            loaded_label_entries = load_label_file(
+                filename,
+                year_max_limit=year_max_limit,
+                year_from_cve_only=year_from_cve_only,
+                store_root=store_root,
+            )
             for entry in loaded_label_entries:
                 if entry.matches_image(image):
                     label_entries.append(entry)
-
-    if year_max_limit:
-        label_entries = filter_by_year(label_entries, int(year_max_limit))
 
     return label_entries
 
 
 # filter_by_year filters out CVE vuln IDs above a given year. We attempt to normalize all vuln IDs to CVEs,
 # but will include any if normalization fails.
-def filter_by_year(label_entries: list[artifact.LabelEntry], year_max_limit: int) -> list[artifact.LabelEntry]:
+def filter_by_year(
+    label_entries: list[artifact.LabelEntry], year_max_limit: int, year_from_cve_only: bool = False
+) -> list[artifact.LabelEntry]:
     label_entries_copy = []
 
     for l in label_entries:
-        year = l.effective_year
+        year = l.effective_year(by_cve=year_from_cve_only)
         if (year and year <= year_max_limit) or not year:
             label_entries_copy.append(l)
 
