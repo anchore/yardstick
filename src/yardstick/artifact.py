@@ -236,7 +236,7 @@ class Vulnerability(DataClassYAMLMixin):
             return cve
         return None
 
-    def _effective_cve_year(self) -> int | None:
+    def _effective_cve_year(self) -> Optional[int]:
         cve = self.cve_id
         if not cve:
             # this is rather expensive, so try this last
@@ -245,7 +245,7 @@ class Vulnerability(DataClassYAMLMixin):
             return None
         return parse_year_from_id(cve)
 
-    def effective_year(self, by_cve=False) -> int | None:
+    def effective_year(self, by_cve=False) -> Optional[int]:
         if by_cve:
             return self._effective_cve_year()
         year = self.id
@@ -480,7 +480,7 @@ id: {self.ID}
             return cve
         return None
 
-    def _effective_cve_year(self) -> int | None:
+    def _effective_cve_year(self) -> Optional[int]:
         cve = self.effective_cve
         if not cve:
             # this is rather expensive, so try this last
@@ -489,7 +489,7 @@ id: {self.ID}
             return None
         return parse_year_from_id(cve)
 
-    def effective_year(self, by_cve=False) -> int | None:
+    def effective_year(self, by_cve=False) -> Optional[int]:
         if by_cve:
             return self._effective_cve_year()
         year = self.vulnerability_id
