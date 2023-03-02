@@ -12,7 +12,6 @@ from enum import Enum
 from typing import Any, Dict, List, Optional
 
 from dataclasses_json import config, dataclass_json
-from mashumaro.mixins.yaml import DataClassYAMLMixin
 
 from yardstick.utils import grype_db, is_cve_vuln_id, parse_year_from_id
 
@@ -35,14 +34,14 @@ def get_image_digest(image: str) -> str:
 
 
 @dataclass(frozen=True, eq=True)
-class Tool(DataClassYAMLMixin):
+class Tool:
     tool: str
     name: str = field(init=False)
     version: str = field(init=False)
     label: Optional[str] = None
 
     def __post_init__(self):
-        name, version = self.tool.split("@")
+        name, version = self.tool.split("@", 1)
         object.__setattr__(self, "name", name)
         object.__setattr__(self, "version", version)
 
@@ -109,7 +108,7 @@ class Image:
 # note: we cannot freeze this class since the tool installation may add additional metadata
 @dataclass_json
 @dataclass(frozen=False, eq=True, order=True)
-class ScanConfiguration(DataClassYAMLMixin):
+class ScanConfiguration:
     image_repo: str
     image_digest: str
     tool_name: str
@@ -201,7 +200,7 @@ tool:\t{self.tool}"""
 
 
 @dataclass(frozen=True, eq=True, order=True)
-class ScanMetadata(DataClassYAMLMixin):
+class ScanMetadata:
     timestamp: datetime = field(
         metadata=config(
             encoder=lambda dt: dt.isoformat(),
@@ -213,7 +212,7 @@ class ScanMetadata(DataClassYAMLMixin):
 
 
 @dataclass(frozen=True, eq=True, order=True)
-class Package(DataClassYAMLMixin):
+class Package:
     name: str
     version: str
 
@@ -222,7 +221,7 @@ class Package(DataClassYAMLMixin):
 
 
 @dataclass(frozen=True, eq=True, order=True)
-class Vulnerability(DataClassYAMLMixin):
+class Vulnerability:
     id: str
     cve_id: Optional[str] = field(default=None, hash=False)
 
@@ -268,7 +267,7 @@ class DTEncoder(json.JSONEncoder):
 # note: cannot use order=True since lt/gt/etc require not including the fullentry dict
 @dataclass_json
 @dataclass(frozen=True)
-class Match(DataClassYAMLMixin):
+class Match:
     vulnerability: Vulnerability
     package: Package
     fullentry: Optional[Dict[str, Any]] = field(default=None, hash=False)
@@ -313,7 +312,7 @@ class Match(DataClassYAMLMixin):
 
 @dataclass_json
 @dataclass(frozen=False, eq=True, order=True)
-class ScanResult(DataClassYAMLMixin):
+class ScanResult:
     config: ScanConfiguration
     matches: Optional[List[Match]] = field(default=None)
     packages: Optional[List[Package]] = field(default=None)
@@ -501,7 +500,7 @@ id: {self.ID}
 
 
 @dataclass()
-class ScanRequest(DataClassYAMLMixin):
+class ScanRequest:
     image: str
     tool: str
     label: Optional[str] = None

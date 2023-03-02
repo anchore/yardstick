@@ -78,6 +78,15 @@ class Grype(VulnerabilityScanner):
         logging.debug(f"installing grype version={version!r} from git")
         tool_exists = False
 
+        repo_url = "github.com/anchore/grype"
+        if version.startswith("github.com"):
+            repo_url = version
+            if "@" in version:
+                version = version.split("@")[1]
+                repo_url = repo_url.split("@")[0]
+            else:
+                version = "main"
+
         if not use_cache and path:
             shutil.rmtree(path, ignore_errors=True)
 
@@ -97,10 +106,10 @@ class Grype(VulnerabilityScanner):
                 logging.error(f"failed to open existing grype repo at {repo_path!r}")
                 raise
         else:
-            logging.debug("cloning the grype git repo")
+            logging.debug(f"cloning the grype git repo: {repo_url!r}")
             # clone the repo
             os.makedirs(repo_path)
-            repo = git.Repo.clone_from("https://github.com/anchore/grype.git", repo_path)
+            repo = git.Repo.clone_from(f"https://{repo_url}.git", repo_path)
 
         # checkout the ref in question
         repo.git.fetch("origin", version)

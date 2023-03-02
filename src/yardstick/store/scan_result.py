@@ -8,6 +8,8 @@ import shutil
 from collections import defaultdict
 from typing import List, Optional, Tuple
 
+from dataclass_wizard import fromdict
+
 from yardstick import artifact
 from yardstick.store import config as store_config
 from yardstick.store import naming, tool
@@ -123,7 +125,7 @@ def find(
         image_tool_dir = os.path.dirname(os.path.dirname(metadata_file))
         with open(metadata_file, "r", encoding="utf-8") as fd:
             metadata_dict = json.load(fd)
-            cfg = artifact.ScanConfiguration.from_dict(metadata_dict["config"])
+            cfg = fromdict(artifact.ScanConfiguration, metadata_dict["config"])
 
             if is_id and cfg.ID != by_description:
                 continue
@@ -214,7 +216,7 @@ def load(
     results = {**metadata_dict, **keys}
 
     # pylint: disable=no-member
-    result_obj: artifact.ScanResult = artifact.ScanResult.from_dict(results)
+    result_obj: artifact.ScanResult = fromdict(artifact.ScanResult, results)
 
     # TODO: allow for searching for more results until there is a matching digest
     if config.image_digest and result_obj.config.image_digest != config.image_digest:
@@ -239,7 +241,7 @@ def list_all_configs(store_root: str = None) -> List[artifact.ScanConfiguration]
     for metadata_file in list_all_metadata_json(store_root=store_root):
         with open(metadata_file, "r", encoding="utf-8") as metadata_file:
             metadata_dict = json.load(metadata_file)
-            results.append(artifact.ScanConfiguration.from_dict(metadata_dict["config"]))
+            results.append(fromdict(artifact.ScanConfiguration, metadata_dict["config"]))
     return sorted(results)
 
 
