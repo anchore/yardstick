@@ -772,14 +772,14 @@ virtualenv = ">=20.10.0"
 
 [[package]]
 name = "prompt-toolkit"
-version = "3.0.37"
+version = "3.0.38"
 description = "Library for building powerful interactive command lines in Python"
 category = "main"
 optional = false
 python-versions = ">=3.7.0"
 files = [
-    {file = "prompt_toolkit-3.0.37-py3-none-any.whl", hash = "sha256:6a2948ec427dfcc7c983027b1044b355db6aaa8be374f54ad2015471f7d81c5b"},
-    {file = "prompt_toolkit-3.0.37.tar.gz", hash = "sha256:d5d73d4b5eb1a92ba884a88962b157f49b71e06c4348b417dd622b25cdd3800b"},
+    {file = "prompt_toolkit-3.0.38-py3-none-any.whl", hash = "sha256:45ea77a2f7c60418850331366c81cf6b5b9cf4c7fd34616f733c5427e6abbb1f"},
+    {file = "prompt_toolkit-3.0.38.tar.gz", hash = "sha256:23ac5d50538a9a38c8bde05fecb47d0b403ecd0662857a86f886f798563d5b9b"},
 ]
 
 [package.dependencies]
@@ -1287,4 +1287,4 @@ testing = ["big-O", "flake8 (<5)", "jaraco.functools", "jaraco.itertools", "more
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.7"
-content-hash = "ce6375798174fa46a5aa3a804fabffe6e12a9c5d20cd0251b44dc65d99609fe5"
+content-hash = "b5650f17bd288b73d03945b5f3831e9c336a37fa25e3f443c073df39b9a0383e"
