@@ -904,7 +904,7 @@ dev = ["pre-commit", "pytest-asyncio", "tox"]
 name = "pyyaml"
 version = "6.0"
 description = "YAML parser and emitter for Python"
-category = "dev"
+category = "main"
 optional = false
 python-versions = ">=3.6"
 files = [
@@ -1287,4 +1287,4 @@ testing = ["big-O", "flake8 (<5)", "jaraco.functools", "jaraco.itertools", "more
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.7"
-content-hash = "002e3a091d651a566eaca89beb522a4cc275acd4e472894821896d636765bc4b"
+content-hash = "ce6375798174fa46a5aa3a804fabffe6e12a9c5d20cd0251b44dc65d99609fe5"
