@@ -1,15 +1,16 @@
 from dataclasses import InitVar, dataclass, field
 from typing import Any, Dict, Optional
 
+import mergedeep
 import yaml
-from mashumaro.mixins.yaml import DataClassYAMLMixin
+from dataclass_wizard import asdict, fromdict
 
 from yardstick import artifact
 from yardstick.store import config as store_config
 
 
 @dataclass()
-class Profiles(DataClassYAMLMixin):
+class Profiles:
     data: InitVar[Dict[str, Dict[str, str]]] = None
 
     def __init__(self, data: Dict[str, Dict[str, str]] = None):
@@ -22,7 +23,7 @@ class Profiles(DataClassYAMLMixin):
 
 
 @dataclass()
-class Tool(DataClassYAMLMixin):
+class Tool:
     name: str
     version: str
     label: Optional[str] = None
@@ -37,13 +38,13 @@ class Tool(DataClassYAMLMixin):
 
 
 @dataclass()
-class ScanMatrix(DataClassYAMLMixin):
+class ScanMatrix:
     images: list[str] = field(default_factory=list)
     tools: list[Tool] = field(default_factory=list)
 
     def __post_init__(self):
         for idx, tool in enumerate(self.tools):
-            self.tools[idx].name, self.tools[idx].version = artifact.ScanRequest.render_tool(tool.short).split("@")
+            self.tools[idx].name, self.tools[idx].version = artifact.ScanRequest.render_tool(tool.short).split("@", 1)
 
         # flatten elements in images (in case yaml anchores are used)
         images = []
@@ -56,7 +57,7 @@ class ScanMatrix(DataClassYAMLMixin):
 
 
 @dataclass()
-class ResultSet(DataClassYAMLMixin):
+class ResultSet:
     description: str = ""
     declared: list[artifact.ScanRequest] = field(default_factory=list)
     matrix: ScanMatrix = field(default_factory=ScanMatrix)
@@ -80,7 +81,7 @@ class ResultSet(DataClassYAMLMixin):
 
 
 @dataclass()
-class Application(DataClassYAMLMixin):
+class Application:
     store_root: str = store_config.DEFAULT_STORE_ROOT
     profile_path: str = ".yardstick.profiles.yaml"
     profiles: Profiles = field(default_factory=Profiles)
@@ -105,7 +106,22 @@ def yaml_decoder(data) -> Dict[Any, Any]:
 def load(path: str = ".yardstick.yaml") -> Application:
     try:
         with open(path, encoding="utf-8") as f:
-            cfg: Application = Application.from_yaml(f.read(), decoder=yaml_decoder)
+            app_object = yaml.safe_load(f.read()) or {}
+            # we need a full default application config first then merge the loaded config on top.
+            # Why? dataclass_wizard.fromdict() will create instances from the dataclass default
+            # and NOT the field definition from the container. So it is possible to specify a
+            # single field in the config and all other fields would be set to the default value
+            # based on the dataclass definition and not any field(default_factory=...) hints
+            # from the containing class.
+            instance = asdict(Application())
+
+            mergedeep.merge(instance, app_object)
+            cfg = fromdict(
+                Application,
+                instance,
+            )
+            if cfg is None:
+                raise FileNotFoundError("parsed empty config")
     except FileNotFoundError:
         cfg: Application = Application()
 

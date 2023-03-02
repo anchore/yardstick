@@ -123,7 +123,7 @@ def find(
         image_tool_dir = os.path.dirname(os.path.dirname(metadata_file))
         with open(metadata_file, "r", encoding="utf-8") as fd:
             metadata_dict = json.load(fd)
-            cfg = artifact.ScanConfiguration.from_dict(metadata_dict["config"])
+            cfg = artifact.ScanConfiguration.from_dict(metadata_dict["config"])  # pylint: disable=no-member
 
             if is_id and cfg.ID != by_description:
                 continue
@@ -239,7 +239,7 @@ def list_all_configs(store_root: str = None) -> List[artifact.ScanConfiguration]
     for metadata_file in list_all_metadata_json(store_root=store_root):
         with open(metadata_file, "r", encoding="utf-8") as metadata_file:
             metadata_dict = json.load(metadata_file)
-            results.append(artifact.ScanConfiguration.from_dict(metadata_dict["config"]))
+            results.append(artifact.ScanConfiguration.from_dict(metadata_dict["config"]))  # pylint: disable=no-member
     return sorted(results)
 
 
