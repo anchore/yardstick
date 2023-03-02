@@ -51,6 +51,9 @@ class ScanMatrix:
         for image in self.images:
             if isinstance(image, list):
                 images += image
+            if image.startswith("["):
+                # technically yaml anchors to lists of lists are interpreted as strings... which is terrible
+                images += yaml.safe_load(image)
             else:
                 images += [image]
         self.images = images
@@ -122,6 +125,10 @@ def load(path: str = ".yardstick.yaml") -> Application:
             )
             if cfg is None:
                 raise FileNotFoundError("parsed empty config")
+
+            # for _, result_set in cfg.result_sets.items():
+            #     result_set.matrix.__post_init__()
+
     except FileNotFoundError:
         cfg: Application = Application()
 
