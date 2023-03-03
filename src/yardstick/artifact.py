@@ -41,7 +41,7 @@ class Tool:
     label: Optional[str] = None
 
     def __post_init__(self):
-        name, version = self.tool.split("@")
+        name, version = self.tool.split("@", 1)
         object.__setattr__(self, "name", name)
         object.__setattr__(self, "version", version)
 
