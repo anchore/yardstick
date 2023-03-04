@@ -25,7 +25,7 @@ def run_scan(
 
     tool_cls = get_tool(str(config.tool_name))
     if not tool_cls:
-        raise RuntimeError(f"unknown tool: {config.tool.name}")
+        raise RuntimeError(f"unknown tool: {config.tool_name}")
 
     if not tool:
         path = store.tool.install_path(config=config)

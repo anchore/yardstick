@@ -1,3 +1,4 @@
+import logging
 from dataclasses import InitVar, dataclass, field
 from typing import Any, Dict, Optional
 
@@ -93,17 +94,8 @@ class Application:
     derive_year_from_cve_only: bool = False
 
 
-def clean_dict_keys(d):
-    new = {}
-    for k, v in d.items():
-        if isinstance(v, dict):
-            v = clean_dict_keys(v)
-        new[k.replace("-", "_")] = v
-    return new
-
-
 def yaml_decoder(data) -> Dict[Any, Any]:
-    return clean_dict_keys(yaml.load(data, yaml.CSafeLoader))
+    return yaml.load(data, yaml.CSafeLoader)
 
 
 def load(path: str = ".yardstick.yaml") -> Application:
@@ -126,17 +118,15 @@ def load(path: str = ".yardstick.yaml") -> Application:
             if cfg is None:
                 raise FileNotFoundError("parsed empty config")
 
-            # for _, result_set in cfg.result_sets.items():
-            #     result_set.matrix.__post_init__()
-
     except FileNotFoundError:
-        cfg: Application = Application()
+        cfg = Application()
 
     if cfg.profile_path:
         try:
             with open(cfg.profile_path, encoding="utf-8") as yaml_file:
                 profile = Profiles(yaml_decoder(yaml_file))
-        except:  # pylint: disable=bare-except
+        except FileNotFoundError:
+            logging.warning(f"profile file {cfg.profile_path!r} could not be found, using empty profiles")
             profile = Profiles({})
         cfg.profiles = profile
 
