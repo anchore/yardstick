@@ -4,6 +4,7 @@ import os
 import sqlite3
 import subprocess
 import sys
+from contextlib import closing
 from typing import Optional
 
 
@@ -13,7 +14,6 @@ def remove_prefix(text, prefix):
 
 class GrypeDBManager:
     def __init__(self, db_location: str = None):
-        self.connection = None
         self.enabled = False
         self.message = ""
         self.db_location = db_location
@@ -42,21 +42,14 @@ class GrypeDBManager:
             self.message = str(e)
             logging.error("unable to open grype DB %s", e)
 
-    def close(self):
-        if self.connection:
-            self.connection.close()
-            self.connection = None
-        self.enabled = False
-
     def connect(self):
-        if not self.connection:
-            self.connection = sqlite3.connect(os.path.join(self.db_location, "vulnerability.db"))
-        return self.connection
+        return sqlite3.connect(os.path.join(self.db_location, "vulnerability.db"))
 
     def get_upstream_vulnerability(self, vuln_id: str) -> Optional[str]:
-        cur = self.connect().cursor()
-        cur.execute("select related_vulnerabilities from vulnerability where id == ? ;", (vuln_id,))
-        vulnerability_info = cur.fetchall()
+        with closing(self.connect()) as conn:
+            with closing(conn.cursor()) as cur:
+                cur.execute("select related_vulnerabilities from vulnerability where id == ? ;", (vuln_id,))
+                vulnerability_info = cur.fetchall()
 
         for info in vulnerability_info:
             if info and len(info) > 0 and info[0]:
@@ -66,9 +59,10 @@ class GrypeDBManager:
         return None
 
     def get_vuln_description(self, vuln_id: str) -> str:
-        cur = self.connect().cursor()
-        cur.execute("select description from vulnerability_metadata where id == ? ;", (vuln_id,))
-        results = cur.fetchall()
+        with closing(self.connect()) as conn:
+            with closing(conn.cursor()) as cur:
+                cur.execute("select description from vulnerability_metadata where id == ? ;", (vuln_id,))
+                results = cur.fetchall()
 
         for result in results:
             if result and len(result) > 0 and result[0]:
@@ -107,8 +101,6 @@ def raise_on_failure(value: bool):
 
 def use(location: str):
     global _instance  # pylint: disable=global-statement
-    if _instance:
-        _instance.close()
 
     _instance = GrypeDBManager(location)
 
