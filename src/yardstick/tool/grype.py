@@ -252,6 +252,17 @@ class Grype(VulnerabilityScanner):
 
         # patch the config with the db information found
         config.detail["db"] = utils.dig(obj, "descriptor", "db", default={})
+        db_location = config.detail["db"].get("location", None)
+        if db_location:
+            # we should always interpret results with the same DB if the DB is still there (e.g. to support
+            # GHSA to CVE mapping for the latest results) if the DB is not there, we try to fall back to
+            # the DB found on the system (which isn't ideal, but is better than nothing)
+            logging.debug(f"using db location found in results to interpret vulnerability definitions: {db_location!r}")
+            utils.grype_db.use(db_location)
+        else:
+            logging.debug(
+                "no db location found in results, using system grype DB (not ideal and may cause issues with date filtering)"
+            )
 
         for entry in obj["matches"]:
             # TODO: normalize version here

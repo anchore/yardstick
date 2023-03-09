@@ -13,7 +13,6 @@ class CveDescriptions:
         if cve in self.cache:
             return self.cache[cve]
 
-        description = ""
         if not self.grype_db.enabled:
             description = "could not connect to grype db:\n" + self.grype_db.message
         else:

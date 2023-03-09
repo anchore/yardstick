@@ -4,6 +4,8 @@ import os
 import sqlite3
 import subprocess
 import sys
+import threading
+from contextlib import closing
 from typing import Optional
 
 
@@ -13,49 +15,69 @@ def remove_prefix(text, prefix):
 
 class GrypeDBManager:
     def __init__(self, db_location: str = None):
-        self.connection = None
         self.enabled = False
         self.message = ""
         self.db_location = db_location
+        self.connections = {}
+
+        if self.db_location:
+            try:
+                self.connect()
+            except:  # pylint: disable=bare-except
+                self.db_location = None
+                logging.error(f"unable to open grype DB at {self.db_location}. Falling back to system grype DB.")
+
+        if not self.db_location:
+            self.set_db_to_system_grype_db()
+
+        if self.db_location:
+            self.enabled = True
+
+    def close(self):
+        for conn in self.connections.values():
+            conn.close()
+        self.connections = {}
+
+    def set_db_to_system_grype_db(self):
         try:
-            if not self.db_location:
-                out = subprocess.check_output(["grype", "db", "status"]).decode(sys.stdout.encoding)
-                for line in out.split("\n"):
-                    if line.startswith("Location:"):
-                        self.db_location = remove_prefix(line, "Location:").strip()
+            logging.debug("using system grype DB...")
+            out = subprocess.check_output(["grype", "db", "status"]).decode(sys.stdout.encoding)
+            for line in out.split("\n"):
+                if line.startswith("Location:"):
+                    self.db_location = remove_prefix(line, "Location:").strip()
         except Exception as e:  # pylint: disable=broad-except
             self.message = str(e)
             logging.error("unable to open grype DB %s", e)
 
-        if self.db_location:
-            self._connection().close()
-            self.enabled = True
+    def connect(self):
+        # sqlite3 is not thread safe, so we need to create a connection per thread
+        tid = threading.get_ident()
+        if tid in self.connections:
+            return self.connections[tid]
 
-    def _connection(self):
-        return sqlite3.connect(os.path.join(self.db_location, "vulnerability.db"))
+        conn = sqlite3.connect(os.path.join(self.db_location, "vulnerability.db"))
+        self.connections[tid] = conn
+        return conn
 
     def get_upstream_vulnerability(self, vuln_id: str) -> Optional[str]:
-        connection = self._connection()
-        cur = connection.cursor()
-        cur.execute("select related_vulnerabilities from vulnerability where id == ? ;", (vuln_id,))
-        vulnerability_info = cur.fetchall()
-        connection.close()
+        with closing(self.connect().cursor()) as cur:
+            cur.execute("select related_vulnerabilities from vulnerability where id == ? ;", (vuln_id,))
+            vulnerability_info = cur.fetchall()
 
         for info in vulnerability_info:
-            if info and info[0]:
+            if info and len(info) > 0 and info[0]:
                 loaded_info = json.loads(info[0])
                 if len(loaded_info) > 0:
                     return loaded_info[0]["id"]
         return None
 
     def get_vuln_description(self, vuln_id: str) -> str:
-        connection = self._connection()
-        cur = connection.cursor()
-        cur.execute("select description from vulnerability_metadata where id == ? ;", (vuln_id,))
-        results = cur.fetchall()
-        connection.close()
+        with closing(self.connect().cursor()) as cur:
+            cur.execute("select description from vulnerability_metadata where id == ? ;", (vuln_id,))
+            results = cur.fetchall()
+
         for result in results:
-            if result and result[0]:
+            if result and len(result) > 0 and result[0]:
                 return result[0]
         return ""
 
@@ -91,6 +113,10 @@ def raise_on_failure(value: bool):
 
 def use(location: str):
     global _instance  # pylint: disable=global-statement
+
+    if _instance:
+        _instance.close()
+
     _instance = GrypeDBManager(location)
 
 
