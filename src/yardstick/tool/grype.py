@@ -268,6 +268,11 @@ class Grype(VulnerabilityScanner):
             vuln = artifact.Vulnerability(id=vuln_id, cve_id=cve_id)
             match = artifact.Match(package=pkg, vulnerability=vuln, fullentry=entry, config=config)
             results.append(match)
+
+            if cve_id and cve_id != vuln_id:
+                vuln = artifact.Vulnerability(id=cve_id, cve_id=cve_id)
+                match = artifact.Match(package=pkg, vulnerability=vuln, fullentry=entry, config=config)
+                results.append(match)
         return results
 
     def capture(self, image: str, tool_input: Optional[str]) -> str:
