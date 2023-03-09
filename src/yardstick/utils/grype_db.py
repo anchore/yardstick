@@ -17,45 +17,61 @@ class GrypeDBManager:
         self.enabled = False
         self.message = ""
         self.db_location = db_location
+
+        if self.db_location:
+            try:
+                self.connect()
+            except:  # pylint: disable=bare-except
+                self.db_location = None
+                logging.error(f"unable to open grype DB at {self.db_location}. Falling back to system grype DB.")
+
+        if not self.db_location:
+            self.set_db_to_system_grype_db()
+
+        if self.db_location:
+            self.enabled = True
+
+    def set_db_to_system_grype_db(self):
         try:
-            if not self.db_location:
-                out = subprocess.check_output(["grype", "db", "status"]).decode(sys.stdout.encoding)
-                for line in out.split("\n"):
-                    if line.startswith("Location:"):
-                        self.db_location = remove_prefix(line, "Location:").strip()
+            logging.debug("using system grype DB...")
+            out = subprocess.check_output(["grype", "db", "status"]).decode(sys.stdout.encoding)
+            for line in out.split("\n"):
+                if line.startswith("Location:"):
+                    self.db_location = remove_prefix(line, "Location:").strip()
         except Exception as e:  # pylint: disable=broad-except
             self.message = str(e)
             logging.error("unable to open grype DB %s", e)
 
-        if self.db_location:
-            self._connection().close()
-            self.enabled = True
+    def close(self):
+        if self.connection:
+            self.connection.close()
+            self.connection = None
+        self.enabled = False
 
-    def _connection(self):
-        return sqlite3.connect(os.path.join(self.db_location, "vulnerability.db"))
+    def connect(self):
+        if not self.connection:
+            self.connection = sqlite3.connect(os.path.join(self.db_location, "vulnerability.db"))
+        return self.connection
 
     def get_upstream_vulnerability(self, vuln_id: str) -> Optional[str]:
-        connection = self._connection()
-        cur = connection.cursor()
+        cur = self.connect().cursor()
         cur.execute("select related_vulnerabilities from vulnerability where id == ? ;", (vuln_id,))
         vulnerability_info = cur.fetchall()
-        connection.close()
 
         for info in vulnerability_info:
-            if info and info[0]:
+            if info and len(info) > 0 and info[0]:
                 loaded_info = json.loads(info[0])
                 if len(loaded_info) > 0:
                     return loaded_info[0]["id"]
         return None
 
     def get_vuln_description(self, vuln_id: str) -> str:
-        connection = self._connection()
-        cur = connection.cursor()
+        cur = self.connect().cursor()
         cur.execute("select description from vulnerability_metadata where id == ? ;", (vuln_id,))
         results = cur.fetchall()
-        connection.close()
+
         for result in results:
-            if result and result[0]:
+            if result and len(result) > 0 and result[0]:
                 return result[0]
         return ""
 
@@ -91,6 +107,9 @@ def raise_on_failure(value: bool):
 
 def use(location: str):
     global _instance  # pylint: disable=global-statement
+    if _instance:
+        _instance.close()
+
     _instance = GrypeDBManager(location)
 
 
