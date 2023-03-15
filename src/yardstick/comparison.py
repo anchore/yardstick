@@ -256,7 +256,7 @@ class ByPreservedMatch:
                     match_group[result_id].append(match)
 
                 ex = matches[0][1]
-                vuln = Vulnerability(id=ex.vulnerability.id)
+                vuln = Vulnerability(id=ex.vulnerability.id, cve_id=ex.vulnerability.cve_id)
                 pkg = Package(name=ex.package.name, version=ex.package.version)
 
                 self.common.append(EquivalentMatch(vulnerability=vuln, package=pkg, matches=dict(match_group)))
@@ -332,8 +332,16 @@ class ByVulnerability:
         self.vulnerability_set_by_result_id = {}
         self.vulnerabilities = {}
         for result in results:
-            self.vulnerabilities[result.ID] = [m.vulnerability.id for m in result.matches]
-            self.vulnerability_set_by_result_id[result.ID] = set(self.vulnerabilities[result.ID])
+            vuln_set = set()
+
+            for m in result.matches:
+                vuln_set.add(m.vulnerability.id)
+
+                if m.vulnerability.cve_id:
+                    vuln_set.add(m.vulnerability.cve_id)
+
+            self.vulnerabilities[result.ID] = list(vuln_set)
+            self.vulnerability_set_by_result_id[result.ID] = vuln_set
 
         # what set of vulnerabilities were discovered across all results?
         self.common = set.intersection(*self.vulnerability_set_by_result_id.values())

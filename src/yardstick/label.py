@@ -28,7 +28,8 @@ def find_labels_for_match(
     for label_entry in label_entries:
         # this field must be matched to continue
         if label_entry.vulnerability_id != match.vulnerability.id:
-            continue
+            if label_entry.vulnerability_id != match.vulnerability.cve_id:
+                continue
 
         # this field must be matched to continue
         if must_match_image and not label_entry_matches_image_lineage(label_entry, image, lineage):
