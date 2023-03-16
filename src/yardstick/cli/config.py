@@ -103,7 +103,7 @@ def clean_dict_keys(d):
 
 
 def yaml_decoder(data) -> Dict[Any, Any]:
-    return clean_dict_keys(yaml.load(data, yaml.CSafeLoader))
+    return clean_dict_keys(yaml.safe_load(data))
 
 
 def load(path: str = ".yardstick.yaml") -> Application:
