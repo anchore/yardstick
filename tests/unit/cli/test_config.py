@@ -38,6 +38,16 @@ result-sets:
     file = tmp_path / "config.yaml"
     file.write_text(subject)
 
+    profile_text = """
+test_profile:
+  something:
+    name: jim
+    config_path: .abc/xyx.conf
+    refresh: false
+"""
+    profile_file = tmp_path / ".yardstick.profiles.yaml"
+    profile_file.write_text(profile_text)
+
     cfg = config.load(str(file))
 
     assert cfg.result_sets["sboms"].matrix.images == [
@@ -47,3 +57,15 @@ result-sets:
         "docker.io/anchore/test_images:grype-quality-node-d89207b@sha256:f56164678054e5eb59ab838367373a49df723b324617b1ba6de775749d7f91d4",
         "docker.io/vulhub/cve-2017-1000353:latest@sha256:da2a59314b9ccfb428a313a7f163adcef77a74a393b8ebadeca8223b8cea9797",
     ]
+
+    assert cfg.profiles == config.Profiles(
+        {
+            "test_profile": {
+                "something": {
+                    "name": "jim",
+                    "config_path": ".abc/xyx.conf",
+                    "refresh": False,
+                },
+            },
+        }
+    )
