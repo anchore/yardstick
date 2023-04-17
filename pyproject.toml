@@ -37,7 +37,7 @@ pre-commit = "^2.11.1"
 mypy = "^1.2"
 isort = "^5.11.5"
 pylint = "^2.7.2"
-autoflake = "^2.0"
+autoflake = "^2.1"
 tox = "^4.4.7"
 
 [build-system]
