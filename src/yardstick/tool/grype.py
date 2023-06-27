@@ -32,8 +32,6 @@ class Grype(VulnerabilityScanner):
         version_detail: Optional[str] = None,
         env: Optional[Dict[str, str]] = None,
         profile: Optional[GrypeProfile] = None,
-        # TODO: add support for config profile
-        # based on https://github.com/anchore/yardstick-plugin-anchorectl/blob/55ee39cd420df85ea6622ec2701e2a15880b0e90/src/yardstick_plugin_anchorectl/anchorectl.py#L108
         **kwargs,  # pylint: disable=unused-argument
     ):
         if not profile:

@@ -2,9 +2,10 @@ from yardstick.cli import config
 
 
 def test_config(tmp_path):
-    subject = """
+    profile_file = tmp_path / ".yardstick.profiles.yaml"
+    subject = f"""
 store_root: .
-
+profile_path: {profile_file}
 default-max-year: 2021
 
 x-ref:
@@ -45,7 +46,6 @@ test_profile:
     config_path: .abc/xyx.conf
     refresh: false
 """
-    profile_file = tmp_path / ".yardstick.profiles.yaml"
     profile_file.write_text(profile_text)
 
     cfg = config.load(str(file))
