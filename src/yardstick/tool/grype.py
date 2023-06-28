@@ -8,6 +8,7 @@ import shutil
 import subprocess
 import sys
 import tempfile
+from dataclasses import dataclass
 from typing import Any, Dict, List, Optional
 
 import git
@@ -15,6 +16,12 @@ import requests
 
 from yardstick import artifact, utils
 from yardstick.tool.vulnerability_scanner import VulnerabilityScanner
+
+
+@dataclass(frozen=False)
+class GrypeProfile:
+    name: Optional[str] = None
+    config_path: Optional[str] = None
 
 
 class Grype(VulnerabilityScanner):
@@ -25,12 +32,19 @@ class Grype(VulnerabilityScanner):
         path: str,
         version_detail: Optional[str] = None,
         env: Optional[Dict[str, str]] = None,
+        profile: Optional[GrypeProfile] = None,
         **kwargs,  # pylint: disable=unused-argument
     ):
+        if not profile:
+            profile = GrypeProfile()
+        self.profile = profile
+
         self.path = path
         self._env = env
         if version_detail:
             self.version_detail = version_detail
+            if self.profile and self.profile.name:
+                self.version_detail += f"+profile={self.profile.name}"
 
     @staticmethod
     def _install_from_installer(
@@ -158,6 +172,7 @@ class Grype(VulnerabilityScanner):
         use_cache: Optional[bool] = True,
         update_db: bool = True,
         db_import_path=None,
+        profile: Optional[Dict[str, str]] = None,
         **kwargs,
     ) -> "Grype":
         original_version = version
@@ -170,6 +185,10 @@ class Grype(VulnerabilityScanner):
             update_db = False
 
         logging.debug(f"parsed import-db={db_import_path!r} from version={original_version!r} new version={version!r}")
+        if profile:
+            grype_profile = GrypeProfile(**profile)
+        else:
+            grype_profile = GrypeProfile()
 
         if version == "latest":
             if cls._latest_version_from_github:
@@ -204,9 +223,11 @@ class Grype(VulnerabilityScanner):
             r"^v(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-((?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*)(?:\.(?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*))*))?(?:\+([0-9a-zA-Z-]+(?:\.[0-9a-zA-Z-]+)*))?$",
             version,
         ):
-            tool_obj = cls._install_from_installer(version=version, path=path, use_cache=use_cache, **kwargs)
+            tool_obj = cls._install_from_installer(
+                version=version, path=path, use_cache=use_cache, profile=grype_profile, **kwargs
+            )
         else:
-            tool_obj = cls._install_from_git(version=version, path=path, use_cache=use_cache, **kwargs)
+            tool_obj = cls._install_from_git(version=version, path=path, use_cache=use_cache, profile=grype_profile, **kwargs)
 
         # always update the DB, raise exception on failure
         if db_import_path:
@@ -287,7 +308,11 @@ class Grype(VulnerabilityScanner):
         return self.run("-o", "json", i)
 
     def run(self, *args, env=None) -> str:
-        return subprocess.check_output([f"{self.path}/grype", *args], env=self.env(override=env)).decode("utf-8")
+        cmd = [f"{self.path}/grype", *args]
+        if self.profile and self.profile.config_path:
+            cmd.append("-c")
+            cmd.append(self.profile.config_path)
+        return subprocess.check_output(cmd, env=self.env(override=env)).decode("utf-8")
 
     @staticmethod
     def parse_package_type(full_entry: Dict[str, Any]) -> str:

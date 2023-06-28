@@ -1,4 +1,4 @@
-from dataclasses import InitVar, dataclass, field
+from dataclasses import dataclass, field
 from typing import Any, Dict, Optional
 
 import mergedeep
@@ -11,12 +11,7 @@ from yardstick.store import config as store_config
 
 @dataclass()
 class Profiles:
-    data: InitVar[Dict[str, Dict[str, str]]] = None
-
-    def __init__(self, data: Dict[str, Dict[str, str]] = None):
-        if not data:
-            data = {}
-        self.data = data
+    data: Dict[str, Dict[str, str]] = field(default_factory=dict)
 
     def get(self, tool_name: str, profile: str):
         return self.data.get(tool_name, {}).get(profile, {})
