@@ -8,9 +8,9 @@ import shutil
 import subprocess
 import sys
 import tempfile
+from dataclasses import dataclass
 from typing import Any, Dict, List, Optional
 
-from dataclasses import dataclass
 import git
 import requests
 
@@ -22,6 +22,7 @@ from yardstick.tool.vulnerability_scanner import VulnerabilityScanner
 class GrypeProfile:
     name: Optional[str] = None
     config_path: Optional[str] = None
+
 
 class Grype(VulnerabilityScanner):
     _latest_version_from_github: Optional[str] = None
@@ -184,9 +185,7 @@ class Grype(VulnerabilityScanner):
             version = fields[0]
             update_db = False
 
-        logging.debug(
-            f"parsed import-db={db_import_path!r} from version={original_version!r} new version={version!r}"
-        )
+        logging.debug(f"parsed import-db={db_import_path!r} from version={original_version!r} new version={version!r}")
         if profile:
             grype_profile = GrypeProfile(**profile)
         else:
@@ -229,9 +228,7 @@ class Grype(VulnerabilityScanner):
                 version=version, path=path, use_cache=use_cache, profile=grype_profile, **kwargs
             )
         else:
-            tool_obj = cls._install_from_git(
-                version=version, path=path, use_cache=use_cache, profile=grype_profile, **kwargs
-            )
+            tool_obj = cls._install_from_git(version=version, path=path, use_cache=use_cache, profile=grype_profile, **kwargs)
 
         # always update the DB, raise exception on failure
         if db_import_path:
