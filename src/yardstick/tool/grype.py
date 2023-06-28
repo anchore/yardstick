@@ -43,9 +43,8 @@ class Grype(VulnerabilityScanner):
         self._env = env
         if version_detail:
             self.version_detail = version_detail
-
-        if self.profile and self.profile.name and self.version_detail:
-            self.version_detail += f"+profile={self.profile.name}"
+            if self.profile and self.profile.name:
+                self.version_detail += f"+profile={self.profile.name}"
 
     @staticmethod
     def _install_from_installer(
