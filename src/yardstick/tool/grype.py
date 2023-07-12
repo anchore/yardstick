@@ -82,8 +82,9 @@ class Grype(VulnerabilityScanner):
 
         return Grype(path=path, version_detail=version, **kwargs)
 
-    @staticmethod
+    @classmethod
     def _install_from_git(
+        cls,
         version: str,
         path: Optional[str] = None,
         use_cache: Optional[bool] = True,
@@ -142,26 +143,47 @@ class Grype(VulnerabilityScanner):
 
         abspath = os.path.abspath(path)
         if not tool_exists:
-            logging.debug(f"installing grype to {abspath!r}")
-            c = f"go build -ldflags \"-w -s -extldflags '-static' -X github.com/anchore/grype/internal/version.version={description}\" -o {abspath} ."
-            logging.debug(f"running {c!r}")
-
-            e = {"GOBIN": abspath, "CGO_ENABLED": "0"}
-            e.update(os.environ)
-
-            subprocess.check_call(
-                shlex.split(c),
-                stdout=sys.stdout,
-                stderr=sys.stderr,
-                cwd=repo_path,
-                env=e,
+            cls._run_go_build(
+                abspath=abspath,
+                repo_path=repo_path,
+                description=description,
+                binpath=path,
             )
-
-            os.chmod(f"{path}/grype", 0o755)
         else:
             logging.debug(f"using existing grype installation {abspath!r}")
 
         return Grype(path=path, version_detail=description, **kwargs)
+
+    @staticmethod
+    def _run_go_build(
+        abspath: str,
+        repo_path: str,
+        description: str,
+        binpath: str,
+        version_ref: str = "github.com/anchore/grype/internal/version.version",
+    ):
+        logging.debug(f"installing grype via build to {abspath!r}")
+
+        main_pkg_path = "./cmd/grype"
+        if not os.path.exists(os.path.join(repo_path, "cmd", "grype", "main.go")):
+            # support legacy installations, when the main.go was in the root of the repo
+            main_pkg_path = "."
+
+        c = f"go build -ldflags \"-w -s -extldflags '-static' -X {version_ref}={description}\" -o {abspath} {main_pkg_path}"
+        logging.debug(f"running {c!r}")
+
+        e = {"GOBIN": abspath, "CGO_ENABLED": "0"}
+        e.update(os.environ)
+
+        subprocess.check_call(
+            shlex.split(c),
+            stdout=sys.stdout,
+            stderr=sys.stderr,
+            cwd=repo_path,
+            env=e,
+        )
+
+        os.chmod(f"{binpath}/grype", 0o755)
 
     # pylint: disable=too-many-arguments
     @classmethod
