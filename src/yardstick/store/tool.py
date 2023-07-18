@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import os
 
 from yardstick import artifact
@@ -8,7 +10,7 @@ RESULT_DIR = os.path.join("result", "store")
 RESULT_SET_DIR = os.path.join("result", "sets")
 
 
-def install_path(config: artifact.ScanConfiguration, store_root: str = None) -> str:
+def install_path(config: artifact.ScanConfiguration, store_root: str | None = None) -> str:
     if not store_root:
         store_root = store_config.get().store_root
 
@@ -20,14 +22,14 @@ def install_path(config: artifact.ScanConfiguration, store_root: str = None) -> 
     )
 
 
-def results_path(store_root: str = None):
+def results_path(store_root: str | None = None):
     if not store_root:
         store_root = store_config.get().store_root
 
     return os.path.join(store_root, RESULT_DIR)
 
 
-def result_set_path(store_root: str = None):
+def result_set_path(store_root: str | None = None):
     if not store_root:
         store_root = store_config.get().store_root
 

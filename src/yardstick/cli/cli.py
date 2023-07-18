@@ -1,4 +1,5 @@
 import dataclasses
+import datetime
 import enum
 import logging
 from typing import Any
@@ -12,7 +13,7 @@ from yardstick.cli import config, label, result
 
 
 @click.option("--verbose", "-v", default=False, help="show logs", is_flag=True)
-@click.option("--config", "-c", "config_path", default=".yardstick.yaml", help="override config path")
+@click.option("--config", "-c", "config_path", default="", help="override config path")
 @click.group(help="Tool for parsing and comparing the vulnerability report output from multiple tools.")
 @click.pass_context
 def cli(ctx, verbose: bool, config_path: str):
@@ -28,13 +29,21 @@ def cli(ctx, verbose: bool, config_path: str):
     if verbose:
         log_level = "DEBUG"
 
+    class DeltaTimeFormatter(logging.Formatter):
+        def format(self, record):
+            duration = datetime.datetime.utcfromtimestamp(record.relativeCreated / 1000)
+            record.delta = duration.strftime("%H:%M:%S")
+            return super().format(record)
+
     logging.config.dictConfig(
         {
             "version": 1,
             "formatters": {
                 "standard": {
+                    "()": DeltaTimeFormatter,
                     # [%(module)s.%(funcName)s]
-                    "format": "%(asctime)s [%(levelname)s] %(message)s",
+                    # "format": "%(asctime)s [%(levelname)s] %(message)s",
+                    "format": "%(delta)s [%(levelname)s] %(message)s",
                     "datefmt": "",
                 },
             },

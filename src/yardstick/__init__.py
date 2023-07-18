@@ -41,6 +41,14 @@ def compare_results_against_labels(  # pylint: disable=too-many-arguments
 ]:
     descriptions = list(descriptions)
 
+    # this is a description of what was done to the results before comparison
+    # we want to keep this on the comparison to evaluate if the comparison result
+    # can be compared to other comparison results (are they apples to apples).
+    compare_configuration = {
+        "year_max_limit": year_max_limit,
+        "year_from_cve_only": year_from_cve_only,
+    }
+
     if result_set:
         descriptions.extend(store.result_set.load(result_set).descriptions)
 
@@ -67,6 +75,7 @@ def compare_results_against_labels(  # pylint: disable=too-many-arguments
         *results,
         fuzzy_package_match=fuzzy,
         label_entries=label_entries,
+        compare_configuration=compare_configuration,
     )
 
     return results, label_entries, comparisons_by_result_id, stats_by_image_tool_pair

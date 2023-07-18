@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import copy
 import glob
 import itertools
@@ -14,21 +16,23 @@ from yardstick.store import naming, tool
 from yardstick.tool import sbom_generator, tools, vulnerability_scanner
 
 
-def _store_root(store_root: str = None):
+def _store_root(store_root: str | None = None):
     if not store_root:
         store_root = store_config.get().store_root
 
     return tool.results_path(store_root=store_root)
 
 
-def clear(store_root: str = None):
+def clear(store_root: str | None = None):
     try:
         shutil.rmtree(_store_root(store_root=store_root))
     except FileNotFoundError:
         pass
 
 
-def store_paths(config: artifact.ScanConfiguration, suffix: str = naming.SUFFIX, store_root: str = None) -> Tuple[str, str]:
+def store_paths(
+    config: artifact.ScanConfiguration, suffix: str = naming.SUFFIX, store_root: str | None = None
+) -> Tuple[str, str]:
     # repo@digest/tool@version/timestamp/data.json
     # repo@digest/tool@version/timestamp/metadata.json
 
@@ -44,7 +48,7 @@ def store_paths(config: artifact.ScanConfiguration, suffix: str = naming.SUFFIX,
 
 
 # note: we intentionally split up the data and metadata such that matches are recomputed with the latest code changes
-def save(raw: str, results: artifact.ScanResult, store_root: str = None):
+def save(raw: str, results: artifact.ScanResult, store_root: str | None = None):
     if not isinstance(results, artifact.ScanResult):
         raise RuntimeError(f"only ScanResult is supported, given {type(results)}")
 
@@ -155,7 +159,7 @@ def load_by_descriptions(
     year_max_limit: Optional[int] = None,
     year_from_cve_only: bool = False,
     skip_sbom_results: bool = False,
-    store_root: str = None,
+    store_root: str | None = None,
 ) -> list[artifact.ScanResult]:
     results = []
     for description in descriptions:
@@ -173,7 +177,7 @@ def load_all(
     configs: list[artifact.ScanConfiguration],
     year_max_limit: Optional[int] = None,
     year_from_cve_only: bool = False,
-    store_root: str = None,
+    store_root: str | None = None,
 ) -> list[artifact.ScanResult]:
     return [
         load(config, year_max_limit=year_max_limit, year_from_cve_only=year_from_cve_only, store_root=store_root)
@@ -186,7 +190,7 @@ def load(
     config: artifact.ScanConfiguration,
     year_max_limit: Optional[int] = None,
     year_from_cve_only: bool = False,
-    store_root: str = None,
+    store_root: str | None = None,
 ) -> artifact.ScanResult:
     data_path, metadata_path = store_paths(config, store_root=store_root)
     logging.debug(f"loading result config={config!r} location={data_path!r}")
@@ -229,12 +233,12 @@ def load(
     return result_obj
 
 
-def list_all_metadata_json(store_root: str = None):
+def list_all_metadata_json(store_root: str | None = None):
     json_path = tool.results_path(store_root=store_root)
     return glob.glob(f"{json_path}/*/*/*/metadata.json")
 
 
-def list_all_configs(store_root: str = None) -> List[artifact.ScanConfiguration]:
+def list_all_configs(store_root: str | None = None) -> List[artifact.ScanConfiguration]:
     results = []
     for metadata_file in list_all_metadata_json(store_root=store_root):
         with open(metadata_file, "r", encoding="utf-8") as metadata_file:

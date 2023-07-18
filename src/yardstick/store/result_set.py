@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import json
 import logging
 import os
@@ -9,27 +11,27 @@ from yardstick.store import config as store_config
 from yardstick.store import scan_result, tool
 
 
-def _store_root(store_root: str = None):
+def _store_root(store_root: str | None = None):
     if not store_root:
         store_root = store_config.get().store_root
 
     return tool.result_set_path(store_root=store_root)
 
 
-def clear(store_root: str = None):
+def clear(store_root: str | None = None):
     try:
         shutil.rmtree(_store_root(store_root=store_root))
     except FileNotFoundError:
         pass
 
 
-def store_paths(name: str, store_root: str = None) -> str:
+def store_paths(name: str, store_root: str | None = None) -> str:
     parent_dir = _store_root(store_root=store_root)
 
     return os.path.join(parent_dir, f"{name}.json")
 
 
-def save(results: artifact.ResultSet, store_root: str = None):
+def save(results: artifact.ResultSet, store_root: str | None = None):
     if not isinstance(results, artifact.ResultSet):
         raise RuntimeError(f"only ResultSet is supported, given {type(results)}")
 
@@ -42,7 +44,7 @@ def save(results: artifact.ResultSet, store_root: str = None):
         data_file.write(json.dumps(results.to_dict(), indent=2))
 
 
-def load(name: str, store_root: str = None) -> artifact.ResultSet:
+def load(name: str, store_root: str | None = None) -> artifact.ResultSet:
     data_path = store_paths(name, store_root=store_root)
     logging.debug(f"loading result set {name!r} location={data_path!r}")
 
@@ -53,7 +55,7 @@ def load(name: str, store_root: str = None) -> artifact.ResultSet:
 
 
 def load_scan_results(
-    name: str, year_max_limit: Optional[int] = None, store_root: str = None, skip_sbom_results: bool = False
+    name: str, year_max_limit: Optional[int] = None, store_root: str | None = None, skip_sbom_results: bool = False
 ) -> list[artifact.ScanResult]:
     data_path = store_paths(name, store_root=store_root)
     logging.debug(f"loading scan results from result set {name!r} location={data_path!r}")
@@ -68,6 +70,6 @@ def load_scan_results(
     return results
 
 
-def exists(name: str, store_root: str = None) -> bool:
+def exists(name: str, store_root: str | None = None) -> bool:
     data_path = store_paths(name, store_root=store_root)
     return os.path.exists(data_path)
