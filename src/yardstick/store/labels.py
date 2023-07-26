@@ -36,14 +36,18 @@ def store_path(filename: str, store_root: str = None) -> str:
 
 
 def append_and_update(
-    new_and_modified_entries: List[artifact.LabelEntry], delete_entries: List[str] = None, store_root: str = None
+    new_and_modified_entries: List[artifact.LabelEntry], delete_entries: List[artifact.LabelEntry] = None, store_root: str = None
 ) -> List[artifact.LabelEntry]:
     for label_entry in delete_entries:
         filepath = store_path(filename=store_filename_by_entry(entry=label_entry))
         try:
+            logging.debug(f"deleting label {label_entry.ID} from {filepath}")
             os.remove(filepath)
-        except:  # pylint: disable=bare-except
-            pass
+        except FileNotFoundError:
+            logging.debug(f"skipping deleting on {label_entry.ID} from {filepath}: File not found")
+        except Exception as e:  # pylint: disable=broad-except
+            logging.error(f"failed to delete label {label_entry.ID} from {filepath}: {e}")
+            raise e
 
     overwrite_all(label_entries=new_and_modified_entries, store_root=store_root)
 

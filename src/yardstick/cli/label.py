@@ -159,10 +159,10 @@ def remove_label(
     label_ids: list[str],
 ):
     label_entries = store.labels.load_all()
-    old_len = len(label_entries)
-    label_entries = [l for l in label_entries if l.ID not in label_ids]
-    store.labels.overwrite_all(label_entries)
-    logging.info(f"removed {old_len-len(label_entries)} labels")
+    to_delete = [l for l in label_entries if l.ID in label_ids]
+    to_keep = [l for l in label_entries if l.ID not in label_ids]
+    store.labels.append_and_update(to_keep, delete_entries=to_delete)
+    logging.info(f"removed {len(label_entries) - len(to_keep)} labels")
 
 
 @group.command(name="explore", help="interact with an label results for a single image scan")
