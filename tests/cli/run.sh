@@ -76,6 +76,12 @@ run yardstick label apply $(yardstick result list -r test --ids -t grype@v0.50.2
 
 assert_last_output_contains "label: TruePositive"
 
+ID_TO_REMOVE="$(yardstick label list | grep id: | cut -d ' ' -f 2 | head -n 1)"
+BAK_FILE="$(yardstick label list | grep id: | cut -d ' ' -f 2 | head -n 1).bak"
+run yardstick label remove ${ID_TO_REMOVE}
+run find . -name "${ID_TO_REMOVE}.json"
+assert_last_output_length 0
+
 echo "cleaning up temp files created:"
 for i in ${!temp_files[@]}; do
   echo "   " ${temp_files[$i]}
