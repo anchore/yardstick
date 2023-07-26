@@ -7,7 +7,7 @@ from typing import Dict, List, Optional, Union
 
 import omitempty
 
-from yardstick import artifact, label
+from yardstick import artifact
 from yardstick.store import config as store_config
 from yardstick.store import naming
 from yardstick.utils import remove_prefix
@@ -47,7 +47,8 @@ def append_and_update(
 
     save_label_entries(label_entries=new_and_modified_entries, store_root=store_root)
 
-def delete_entries(label_ids_to_delete: List[str], store_root: str = None) -> List[str]:
+
+def delete_labels_by_id(label_ids_to_delete: List[str], store_root: str = None) -> List[str]:
     """delete_entries takes a list of ids to be deleted and returns a list of deleted files.
     FileNotFound exceptions are ignored."""
     label_store_dir = label_store_root(store_root=store_root)
@@ -64,6 +65,7 @@ def delete_entries(label_ids_to_delete: List[str], store_root: str = None) -> Li
                 logging.error(f"failed to delete label {label_id} from {p}: {e}")
                 raise e
     return deleted_ids
+
 
 def save_label_entries(label_entries: List[artifact.LabelEntry], store_root: str = None):
     root_path = label_store_root(store_root=store_root)

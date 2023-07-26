@@ -7,7 +7,7 @@ import click
 import yardstick
 from yardstick import artifact, label, store
 from yardstick.cli import config, display, explore
-from yardstick.store.labels import delete_entries
+from yardstick.store.labels import delete_labels_by_id
 
 
 @click.group(name="label", help="manage match labels")
@@ -158,7 +158,7 @@ def remove_label(
     _: config.Application,
     label_ids: list[str],
 ):
-    deleted_ids = delete_entries(label_ids)
+    deleted_ids = delete_labels_by_id(label_ids)
     for d in deleted_ids:
         print(d)
     logging.info(f"removed {len(deleted_ids)} labels")
