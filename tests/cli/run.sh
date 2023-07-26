@@ -77,10 +77,12 @@ run yardstick label apply $(yardstick result list -r test --ids -t grype@v0.50.2
 assert_last_output_contains "label: TruePositive"
 
 ID_TO_REMOVE="$(yardstick label list | grep id: | cut -d ' ' -f 2 | head -n 1)"
-BAK_FILE="$(yardstick label list | grep id: | cut -d ' ' -f 2 | head -n 1).bak"
+LABEL_FILE=".yardstick/labels/docker.io+anchore+test_images@sha256:10008791acbc5866de04108746a02a0c4029ce3a4400a9b3dad45d7f2245f9da/${ID_TO_REMOVE}.json"
+BAK_FILE="${LABEL_FILE}.bak"
+cp ${LABEL_FILE} ${BAK_FILE}
 run yardstick label remove ${ID_TO_REMOVE}
-run find . -name "${ID_TO_REMOVE}.json"
-assert_last_output_length 0
+test -f ${LABEL_FILE} && echo -e "${ERROR}Label file not removed${RESET}" && exit 1
+cp ${BAK_FILE} ${LABEL_FILE} && rm ${BAK_FILE}
 
 echo "cleaning up temp files created:"
 for i in ${!temp_files[@]}; do
