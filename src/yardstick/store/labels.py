@@ -22,13 +22,9 @@ def label_store_root(store_root: str = None) -> str:
 
 
 def store_filename_by_entry(entry: artifact.LabelEntry) -> str:
-    if not entry.source or entry.source == label.MANUAL_SOURCE:
-        if entry.image.exact:
-            return f"{naming.image.encode(entry.image.exact)}/{entry.ID}.json"
-        return f"{entry.ID}.json"
     if entry.image.exact:
-        return f"{naming.image.encode(entry.image.exact)}/{entry.source}.json"
-    return f"{entry.source}.json"
+        return f"{naming.image.encode(entry.image.exact)}/{entry.ID}.json"
+    return f"{entry.ID}.json"
 
 
 def store_path(filename: str, store_root: str = None) -> str:
@@ -49,10 +45,27 @@ def append_and_update(
             logging.error(f"failed to delete label {label_entry.ID} from {filepath}: {e}")
             raise e
 
-    overwrite_all(label_entries=new_and_modified_entries, store_root=store_root)
+    save_label_entries(label_entries=new_and_modified_entries, store_root=store_root)
 
+def delete_entries(label_ids_to_delete: List[str], store_root: str = None) -> List[str]:
+    """delete_entries takes a list of ids to be deleted and returns a list of deleted files.
+    FileNotFound exceptions are ignored."""
+    label_store_dir = label_store_root(store_root=store_root)
+    deleted_ids = []
+    for label_id in label_ids_to_delete:
+        g = f"{label_store_dir}/**/{label_id}.json"
+        for p in glob.glob(g):
+            try:
+                os.remove(p)
+                deleted_ids.append(label_id)
+            except FileNotFoundError:
+                logging.debug(f"skipping deleting on {label_id} from {p}: File not found")
+            except Exception as e:  # pylint: disable=broad-except
+                logging.error(f"failed to delete label {label_id} from {p}: {e}")
+                raise e
+    return deleted_ids
 
-def overwrite_all(label_entries: List[artifact.LabelEntry], store_root: str = None):
+def save_label_entries(label_entries: List[artifact.LabelEntry], store_root: str = None):
     root_path = label_store_root(store_root=store_root)
     logging.debug(f"storing all labels location={root_path}")
 

@@ -7,6 +7,7 @@ import click
 import yardstick
 from yardstick import artifact, label, store
 from yardstick.cli import config, display, explore
+from yardstick.store.labels import delete_entries
 
 
 @click.group(name="label", help="manage match labels")
@@ -118,11 +119,11 @@ def list_images(_: config.Application):
 
 
 @group.command(name="add", help="add a match label indication for an image")
-@click.option("--image", "-i", help="the image to use")
-@click.option("--vulnerability", "-c", help="the vulnerability id")
-@click.option("--package-name", "-p", help="the package name")
-@click.option("--package-version", "-v", help="the package version")
-@click.option("--label", "-l", "label_name", help="the match label (tp/fp/unclear)")
+@click.option("--image", "-i", required=True, help="the image to use")
+@click.option("--vulnerability", "-c", required=True, help="the vulnerability id")
+@click.option("--package-name", "-p", required=True, help="the package name")
+@click.option("--package-version", "-v", required=True, help="the package version")
+@click.option("--label", "-l", "label_name", required=True, help="the match label (tp/fp/unclear)")
 @click.option("--note", "-n", help="an optional note")
 @click.pass_obj
 # pylint: disable=too-many-arguments
@@ -146,9 +147,8 @@ def add_label(
         note=note,
         lookup_effective_cve=True,
     )
-    label_entries = store.labels.load_for_image(image)
-    label_entries.append(new_label)
-    store.labels.overwrite_all(label_entries)
+    store.labels.save_label_entries([new_label])
+    print(new_label.ID)
 
 
 @group.command(name="remove", help="remove a match label indication for an image")
@@ -158,11 +158,10 @@ def remove_label(
     _: config.Application,
     label_ids: list[str],
 ):
-    label_entries = store.labels.load_all()
-    to_delete = [l for l in label_entries if l.ID in label_ids]
-    to_keep = [l for l in label_entries if l.ID not in label_ids]
-    store.labels.append_and_update(to_keep, delete_entries=to_delete)
-    logging.info(f"removed {len(label_entries) - len(to_keep)} labels")
+    deleted_ids = delete_entries(label_ids)
+    for d in deleted_ids:
+        print(d)
+    logging.info(f"removed {len(deleted_ids)} labels")
 
 
 @group.command(name="explore", help="interact with an label results for a single image scan")
