@@ -45,10 +45,10 @@ def append_and_update(
             logging.error(f"failed to delete label {label_entry.ID} from {filepath}: {e}")
             raise e
 
-    save_label_entries(label_entries=new_and_modified_entries, store_root=store_root)
+    save(label_entries=new_and_modified_entries, store_root=store_root)
 
 
-def delete_labels_by_id(label_ids_to_delete: List[str], store_root: str = None) -> List[str]:
+def delete(label_ids_to_delete: List[str], store_root: str = None) -> List[str]:
     """delete_entries takes a list of ids to be deleted and returns a list of deleted files.
     FileNotFound exceptions are ignored."""
     label_store_dir = label_store_root(store_root=store_root)
@@ -67,7 +67,7 @@ def delete_labels_by_id(label_ids_to_delete: List[str], store_root: str = None) 
     return deleted_ids
 
 
-def save_label_entries(label_entries: List[artifact.LabelEntry], store_root: str = None):
+def save(label_entries: List[artifact.LabelEntry], store_root: str = None):
     root_path = label_store_root(store_root=store_root)
     logging.debug(f"storing all labels location={root_path}")
 
