@@ -76,6 +76,10 @@ run yardstick label apply $(yardstick result list -r test --ids -t grype@v0.50.2
 
 assert_last_output_contains "label: TruePositive"
 
+ID_TO_REMOVE=$(yardstick label add -i foo -c CVE-1234-ASDF -p test-package -v 1.2.3 -n "testing" --label TP)
+run yardstick label remove ${ID_TO_REMOVE}
+assert_last_output_contains ${ID_TO_REMOVE}
+
 echo "cleaning up temp files created:"
 for i in ${!temp_files[@]}; do
   echo "   " ${temp_files[$i]}
