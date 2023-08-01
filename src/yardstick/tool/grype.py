@@ -154,6 +154,23 @@ class Grype(VulnerabilityScanner):
 
         return Grype(path=path, version_detail=description, **kwargs)
 
+    @classmethod
+    def _install_from_path(
+        cls,
+        path: str,
+        use_cache: Optional[bool] = True,
+        **kwargs,
+    ) -> "Grype":
+        logging.debug(f"installing grype from path={path!r}")
+        buildpath = os.path.abspath(path)
+        if not os.path.exists(buildpath):
+            raise ValueError(f"invalid path={path!r}")
+        repo_path = os.path.join(buildpath, "source")
+        if not os.path.exists(repo_path):
+            os.makedirs(repo_path)
+
+
+        return Grype(path=path, **kwargs)
     @staticmethod
     def _run_go_build(
         abspath: str,
