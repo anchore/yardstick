@@ -20,7 +20,7 @@ def _store_root(store_root: str | None = None) -> str:
 
 
 def store_path(ids: List[str], configuration: list[dict[str, Any]] | None, store_root: str | None = None) -> str:
-    config_str = _derive_configuration_string(configuration)
+    config_str = _configuration_string(configuration)
 
     filename = "_".join(sorted(ids)) + "_" + config_str + ".json"
 
@@ -48,7 +48,7 @@ def save(result: comparison.ImageToolLabelStats, store_root: str | None = None):
         data_file.write(json.dumps(result.to_dict(), indent=2))
 
 
-def _derive_configuration_string(configurations: list[dict[str, str]] | None) -> str:
+def _configuration_string(configurations: list[dict[str, str]] | None) -> str:
     if configurations is None:
         return "no-configuration"
 

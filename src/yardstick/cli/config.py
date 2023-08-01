@@ -163,7 +163,4 @@ def _load(path: str) -> Application:
         if cfg is None:
             raise FileNotFoundError("parsed empty config")
 
-        # for _, result_set in cfg.result_sets.items():
-        #     result_set.matrix.__post_init__()
-
         return cfg

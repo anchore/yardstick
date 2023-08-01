@@ -73,3 +73,13 @@ def load_scan_results(
 def exists(name: str, store_root: str | None = None) -> bool:
     data_path = store_paths(name, store_root=store_root)
     return os.path.exists(data_path)
+
+def all(store_root: str | None = None) -> list[artifact.ResultSet]:
+    parent_dir = _store_root(store_root=store_root)
+    result_sets = []
+
+    for file_name in os.listdir(parent_dir):
+        if file_name.endswith(".json"):
+            result_sets.append(load(file_name[:-5], store_root=store_root))
+
+    return result_sets
