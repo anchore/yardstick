@@ -30,6 +30,7 @@ class Syft(SBOMGenerator):
     def _install_from_installer(
         version: str,
         path: Optional[str] = None,
+        within_path: Optional[str] = None,
         use_cache: Optional[bool] = True,
         **kwargs,  # pylint: disable=unused-argument
     ) -> "Syft":
@@ -39,10 +40,12 @@ class Syft(SBOMGenerator):
         if not use_cache and path:
             shutil.rmtree(path, ignore_errors=True)
 
-        if not path:
+        if not path and not within_path:
             path = tempfile.mkdtemp()
             atexit.register(shutil.rmtree, path)
-        else:
+        elif within_path:
+            path = os.path.join(within_path, version)
+            os.makedirs(path, exist_ok=True)
             if os.path.exists(os.path.join(path, "syft")):
                 tool_exists = True
 
@@ -60,12 +63,13 @@ class Syft(SBOMGenerator):
         else:
             logging.debug(f"using existing syft installation {path!r}")
 
-        return Syft(path=path)
+        return Syft(path=path, version_detail=version)
 
     @staticmethod
     def _install_from_git(
         version: str,
         path: Optional[str] = None,
+        within_path: Optional[str] = None,
         use_cache: Optional[bool] = True,
         **kwargs,  # pylint: disable=unused-argument
     ) -> "Syft":
@@ -74,6 +78,12 @@ class Syft(SBOMGenerator):
 
         if not use_cache and path:
             shutil.rmtree(path, ignore_errors=True)
+
+        if path and within_path:
+            raise ValueError("cannot specify both path and within_path")
+
+        if within_path:
+            path = within_path
 
         if not path:
             path = tempfile.mkdtemp()
@@ -128,7 +138,14 @@ class Syft(SBOMGenerator):
         return Syft(path=path, version_detail=description)
 
     @classmethod
-    def install(cls, version: str, path: Optional[str] = None, use_cache: Optional[bool] = True, **kwargs) -> "Syft":
+    def install(
+        cls,
+        version: str,
+        path: Optional[str] = None,
+        within_path: Optional[str] = None,
+        use_cache: Optional[bool] = True,
+        **kwargs,
+    ) -> "Syft":
         if version == "latest":
             if cls._latest_version_from_github:
                 version = cls._latest_version_from_github
@@ -139,8 +156,12 @@ class Syft(SBOMGenerator):
                 version = response.json()["name"]
                 cls._latest_version_from_github = version
 
-                path = os.path.join(os.path.dirname(path), version)
+                if path:
+                    path = os.path.join(os.path.dirname(path), version)
                 logging.info(f"latest syft release found is {version}")
+
+        if path and within_path:
+            raise ValueError("cannot specify both path and within_path")
 
         # check if the version is a semver...
         if re.match(
@@ -148,9 +169,9 @@ class Syft(SBOMGenerator):
             r"^v(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-((?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*)(?:\.(?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*))*))?(?:\+([0-9a-zA-Z-]+(?:\.[0-9a-zA-Z-]+)*))?$",
             version,
         ):
-            tool_obj = cls._install_from_installer(version=version, path=path, use_cache=use_cache, **kwargs)
+            tool_obj = cls._install_from_installer(version=version, path=path,within_path=within_path, use_cache=use_cache, **kwargs)
         else:
-            tool_obj = cls._install_from_git(version=version, path=path, use_cache=use_cache, **kwargs)
+            tool_obj = cls._install_from_git(version=version, path=path, within_path=within_path, use_cache=use_cache, **kwargs)
 
         return tool_obj
 

@@ -60,6 +60,9 @@ class ResultSet:
     declared: list[artifact.ScanRequest] = field(default_factory=list)
     matrix: ScanMatrix = field(default_factory=ScanMatrix)
 
+    def images(self) -> list[str]:
+        return self.matrix.images + [req.image for req in self.declared]
+
     def scan_requests(self) -> list[artifact.ScanRequest]:
         rendered = []
         for image in self.matrix.images:

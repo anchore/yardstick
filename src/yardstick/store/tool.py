@@ -8,15 +8,26 @@ RESULT_DIR = os.path.join("result", "store")
 RESULT_SET_DIR = os.path.join("result", "sets")
 
 
+def install_base(name: str, store_root: str = None) -> str:
+    if not store_root:
+        store_root = store_config.get().store_root
+
+    return os.path.join(store_config.get().store_root, TOOL_DIR, name.replace("/", "_"))
+
+
 def install_path(config: artifact.ScanConfiguration, store_root: str = None) -> str:
     if not store_root:
         store_root = store_config.get().store_root
 
+    store_base = install_base(name=config.tool_name, store_root=store_root)
+
+    version = config.tool_version
+    if config.tool_name.startswith("grype"):
+        version = version.split("+import-db=")[0]
+
     return os.path.join(
-        store_root,
-        TOOL_DIR,
-        config.tool_name.replace("/", "_"),
-        config.tool_version.replace("/", "_"),
+        store_base,
+        version.replace("/", "_"),
     )
 
 

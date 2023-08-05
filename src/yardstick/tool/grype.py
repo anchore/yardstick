@@ -8,6 +8,7 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import tarfile
 from dataclasses import dataclass
 from typing import Any, Dict, List, Optional
 
@@ -30,6 +31,7 @@ class Grype(VulnerabilityScanner):
     def __init__(
         self,
         path: str,
+        db_identity: str,
         version_detail: Optional[str] = None,
         env: Optional[Dict[str, str]] = None,
         profile: Optional[GrypeProfile] = None,
@@ -38,7 +40,7 @@ class Grype(VulnerabilityScanner):
         if not profile:
             profile = GrypeProfile()
         self.profile = profile
-
+        self.db_identity = db_identity
         self.path = path
         self._env = env
         if version_detail:
@@ -50,21 +52,28 @@ class Grype(VulnerabilityScanner):
     def _install_from_installer(
         version: str,
         path: Optional[str] = None,
+        within_path: Optional[str] = None,
         use_cache: Optional[bool] = True,
         **kwargs,
     ) -> "Grype":
         logging.debug(f"installing grype version={version!r} from installer")
         tool_exists = False
 
+        if path and within_path:
+            raise ValueError("cannot specify both path and within_path")
+
         if not use_cache and path:
             shutil.rmtree(path)
 
-        if not path:
+        if not path and not within_path:
             path = tempfile.mkdtemp()
             atexit.register(shutil.rmtree, path)
-        else:
-            if os.path.exists(os.path.join(path, "grype")):
-                tool_exists = True
+        elif within_path:
+            path = os.path.join(within_path, version)
+            os.makedirs(path, exist_ok=True)
+
+        if os.path.exists(os.path.join(path, "grype")):
+            tool_exists = True
 
         if not tool_exists:
             subprocess.check_call(
@@ -87,6 +96,7 @@ class Grype(VulnerabilityScanner):
         cls,
         version: str,
         path: Optional[str] = None,
+        within_path: Optional[str] = None,
         use_cache: Optional[bool] = True,
         **kwargs,
     ) -> "Grype":
@@ -104,6 +114,12 @@ class Grype(VulnerabilityScanner):
 
         if not use_cache and path:
             shutil.rmtree(path, ignore_errors=True)
+
+        if path and within_path:
+            raise ValueError("cannot specify both path and within_path")
+
+        if within_path:
+            path = within_path
 
         if not path:
             path = tempfile.mkdtemp()
@@ -191,6 +207,7 @@ class Grype(VulnerabilityScanner):
         cls,
         version: str,
         path: Optional[str] = None,
+        within_path: Optional[str] = None,
         use_cache: Optional[bool] = True,
         update_db: bool = True,
         db_import_path=None,
@@ -199,12 +216,33 @@ class Grype(VulnerabilityScanner):
     ) -> "Grype":
         original_version = version
         specified_db = "+import-db=" in version
+        db_identity = "oss"
         if specified_db:
             # note: doesn't allow for additional version modifiers
             fields = version.split("+import-db=")
             db_import_path = fields[1]
             version = fields[0]
             update_db = False
+
+            # extract the metadata.json file from the db tar.gz archive (db_import_path)
+            # and use it to determine the checksum of the DB
+            with tarfile.open(db_import_path, "r:gz") as tar:
+                metadata_path = None
+                for member in tar.getmembers():
+                    if member.name.endswith("metadata.json"):
+                        metadata_path = member.name
+                        break
+
+                if not metadata_path:
+                    raise ValueError(f"could not find metadata.json in {db_import_path!r}")
+
+                with tar.extractfile(metadata_path) as metadata_file:
+                    metadata = json.load(metadata_file)
+
+                db_identity = metadata["checksum"]
+
+        if path and within_path:
+            raise ValueError("cannot specify both path and within_path")
 
         logging.debug(f"parsed import-db={db_import_path!r} from version={original_version!r} new version={version!r}")
         if profile:
@@ -236,7 +274,8 @@ class Grype(VulnerabilityScanner):
                 version = response.json()["name"]
                 cls._latest_version_from_github = version
 
-                path = os.path.join(os.path.dirname(path), version)
+                if path:
+                    path = os.path.join(os.path.dirname(path), version)
                 logging.info(f"latest grype release found is {version}")
 
         # check if the version is a semver...
@@ -246,24 +285,27 @@ class Grype(VulnerabilityScanner):
             version,
         ):
             tool_obj = cls._install_from_installer(
-                version=version, path=path, use_cache=use_cache, profile=grype_profile, **kwargs
+                version=version, path=path, within_path=within_path, use_cache=use_cache, profile=grype_profile, db_identity=db_identity, **kwargs
             )
         else:
-            tool_obj = cls._install_from_git(version=version, path=path, use_cache=use_cache, profile=grype_profile, **kwargs)
+            tool_obj = cls._install_from_git(version=version, path=path, within_path=within_path, use_cache=use_cache, profile=grype_profile, db_identity=db_identity, **kwargs)
 
         # always update the DB, raise exception on failure
         if db_import_path:
-            logging.debug(f"using given db from {db_import_path!r}")
-            tool_obj.run("db", "import", db_import_path)
+            if os.path.exists(tool_obj.db_root):
+                logging.info(f"using existing (custom) db from {tool_obj.db_root!r}")
+            else:
+                logging.info(f"importing given (custom) db from {db_import_path!r}")
+                tool_obj.run("db", "import", db_import_path)
         elif update_db:
-            logging.debug("updating db")
+            logging.debug("updating db from OSS")
             tool_obj.run("db", "update")
 
         return tool_obj
 
     @property
     def db_root(self) -> str:
-        return os.path.join(self.path, "db")
+        return os.path.join(self.path, "db", self.db_identity)
 
     def env(self, override=None):
         env = os.environ.copy()

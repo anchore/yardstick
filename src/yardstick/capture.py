@@ -161,6 +161,8 @@ def result_set(
                     )
 
         if refresh or not scan_config:
+            if scan_config:
+                logging.trace(f"replacing existing scan config {scan_config!r}")
             scan_config = one(scan_request, producer_state=producer_data_path, profiles=profiles)
 
         if not scan_config:
