@@ -169,7 +169,9 @@ class Syft(SBOMGenerator):
             r"^v(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-((?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*)(?:\.(?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*))*))?(?:\+([0-9a-zA-Z-]+(?:\.[0-9a-zA-Z-]+)*))?$",
             version,
         ):
-            tool_obj = cls._install_from_installer(version=version, path=path,within_path=within_path, use_cache=use_cache, **kwargs)
+            tool_obj = cls._install_from_installer(
+                version=version, path=path, within_path=within_path, use_cache=use_cache, **kwargs
+            )
         else:
             tool_obj = cls._install_from_git(version=version, path=path, within_path=within_path, use_cache=use_cache, **kwargs)
 

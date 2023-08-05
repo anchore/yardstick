@@ -163,7 +163,7 @@ def load_by_descriptions(
         result = load(config=config, year_max_limit=year_max_limit, year_from_cve_only=year_from_cve_only, store_root=store_root)
         if skip_sbom_results and result.packages is not None:
             # note: we look at a NONE value, not just an empty list
-            logging.info(f"skipping SBOM result from {description}")
+            logging.debug(f"skipping SBOM result from {description}")
             continue
         results.append(result)
     return results

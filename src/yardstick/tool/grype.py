@@ -7,8 +7,8 @@ import shlex
 import shutil
 import subprocess
 import sys
-import tempfile
 import tarfile
+import tempfile
 from dataclasses import dataclass
 from typing import Any, Dict, List, Optional
 
@@ -285,10 +285,24 @@ class Grype(VulnerabilityScanner):
             version,
         ):
             tool_obj = cls._install_from_installer(
-                version=version, path=path, within_path=within_path, use_cache=use_cache, profile=grype_profile, db_identity=db_identity, **kwargs
+                version=version,
+                path=path,
+                within_path=within_path,
+                use_cache=use_cache,
+                profile=grype_profile,
+                db_identity=db_identity,
+                **kwargs,
             )
         else:
-            tool_obj = cls._install_from_git(version=version, path=path, within_path=within_path, use_cache=use_cache, profile=grype_profile, db_identity=db_identity, **kwargs)
+            tool_obj = cls._install_from_git(
+                version=version,
+                path=path,
+                within_path=within_path,
+                use_cache=use_cache,
+                profile=grype_profile,
+                db_identity=db_identity,
+                **kwargs,
+            )
 
         # always update the DB, raise exception on failure
         if db_import_path:

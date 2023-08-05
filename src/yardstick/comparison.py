@@ -613,13 +613,13 @@ def of_results_against_label(
     label_entries,
     fuzzy_package_match: bool = False,
 ) -> tuple[dict[str, list[AgainstLabels]], ImageToolLabelStats]:
-    logging.info("starting comparison against labels")
+    logging.debug("starting comparison against labels")
 
     comparisons_by_result_id = {}
 
     comparisons = []
     for result in results:
-        logging.info(f"comparing labels for image={result.config.image} tool={result.config.tool}")
+        logging.debug(f"comparing labels for image={result.config.image} tool={result.config.tool}")
 
         lineage = store.image_lineage.get(image=result.config.image)
         comp = AgainstLabels(result=result, label_entries=label_entries, lineage=lineage, fuzzy_package_match=fuzzy_package_match)

@@ -47,7 +47,7 @@ def compare_results_against_labels(  # pylint: disable=too-many-arguments
     if not descriptions:
         raise RuntimeError("no descriptions provided")
 
-    logging.info(f"running label comparison with {descriptions}")
+    logging.debug(f"running label comparison with {descriptions}")
 
     results = store.scan_result.load_by_descriptions(
         descriptions,
