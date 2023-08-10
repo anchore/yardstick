@@ -158,22 +158,35 @@ class Grype(VulnerabilityScanner):
     def _install_from_path(
         cls,
         path: str,
-        use_cache: Optional[bool] = True,
+        src_path: str,
         **kwargs,
     ) -> "Grype":
-        logging.debug(f"installing grype from path={path!r}")
-        buildpath = os.path.abspath(path)
-        if not os.path.exists(buildpath):
-            raise ValueError(f"invalid path={path!r}")
-        repo_path = os.path.join(buildpath, "source")
-        if not os.path.exists(repo_path):
-            os.makedirs(repo_path)
+        # get the description and head ref from the repo
+        src_repo_path = os.path.abspath(src_path)
+        logging.debug(f"installing grype from path={src_repo_path!r}")
+        try:
+            repo = git.Repo(src_repo_path)
+        except:
+            logging.error(f"install from path failed. Is grype cloned at {src_repo_path!r}?")
+            raise
+        description = repo.git.describe("--tags", "--always", "--long")
+        # get the description and head ref from the repo
 
+        description = repo.git.describe("--tags", "--always", "--long")
+        dest_path = os.path.join(path, "git_install", description)
+        os.makedirs(dest_path, exist_ok=True)
+        cls._run_go_build(
+            abspath=os.path.abspath(dest_path),
+            description=description,
+            repo_path=src_repo_path,
+            binpath=dest_path,
+        )
 
-        return Grype(path=path, **kwargs)
+        return Grype(path=dest_path, **kwargs)
+
     @staticmethod
     def _run_go_build(
-        abspath: str,
+        abspath: str,  # TODO: rename; what is an absolute path to?
         repo_path: str,
         description: str,
         binpath: str,
