@@ -173,7 +173,7 @@ class Grype(VulnerabilityScanner):
         # get the description and head ref from the repo
 
         description = repo.git.describe("--tags", "--always", "--long")
-        dest_path = os.path.join(path, "git_install", description)
+        dest_path = os.path.join(path, "local_install", description)
         os.makedirs(dest_path, exist_ok=True)
         cls._run_go_build(
             abspath=os.path.abspath(dest_path),
@@ -276,10 +276,29 @@ class Grype(VulnerabilityScanner):
             version,
         ):
             tool_obj = cls._install_from_installer(
-                version=version, path=path, use_cache=use_cache, profile=grype_profile, **kwargs
+                version=version,
+                path=path,
+                use_cache=use_cache,
+                profile=grype_profile,
+                **kwargs,
+            )
+        elif version.startswith("path:"):
+            tool_obj = cls._install_from_path(
+                path=path.replace("path:", ""),
+                src_path=version.removeprefix("path:"),
+                version=version.removeprefix("path:"),
+                use_cache=use_cache,
+                profile=grype_profile,
+                **kwargs,
             )
         else:
-            tool_obj = cls._install_from_git(version=version, path=path, use_cache=use_cache, profile=grype_profile, **kwargs)
+            tool_obj = cls._install_from_git(
+                version=version,
+                path=path,
+                use_cache=use_cache,
+                profile=grype_profile,
+                **kwargs,
+            )
 
         # always update the DB, raise exception on failure
         if db_import_path:
