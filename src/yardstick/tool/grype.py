@@ -168,12 +168,6 @@ class Grype(VulnerabilityScanner):
         if not path:
             path = tempfile.mkdtemp()
             atexit.register(shutil.rmtree, path)
-        try:
-            repo = git.Repo(src_repo_path)
-        except:
-            logging.error(f"install from path failed. Is grype cloned at {src_repo_path!r}?")
-            raise
-        # get the description and head ref from the repo
         dest_path = os.path.join(path.replace("path:", ""), "local_install")
         os.makedirs(dest_path, exist_ok=True)
         cls._run_go_build(
@@ -216,6 +210,24 @@ class Grype(VulnerabilityScanner):
 
         os.chmod(f"{binpath}/grype", 0o755)
 
+    @classmethod
+    def _get_latest_version_from_github(cls) -> str:
+        headers = {}
+        if os.environ.get("GITHUB_TOKEN") is not None:
+            headers["Authorization"] = "Bearer " + os.environ.get("GITHUB_TOKEN")
+
+        response = requests.get(
+            "https://api.github.com/repos/anchore/grype/releases/latest",
+            headers=headers,
+        )
+
+        if response.status_code >= 400:
+            logging.error(f"error while fetching latest grype version: {response.status_code}: {response.reason} {response.text}")
+
+        response.raise_for_status()
+
+        return response.json()["name"]
+
     # pylint: disable=too-many-arguments
     @classmethod
     def install(
@@ -248,25 +260,8 @@ class Grype(VulnerabilityScanner):
                 version = cls._latest_version_from_github
                 logging.info(f"latest grype release found (cached) is {version}")
             else:
-                headers = {}
-                if os.environ.get("GITHUB_TOKEN") is not None:
-                    headers["Authorization"] = "Bearer " + os.environ.get("GITHUB_TOKEN")
-
-                response = requests.get(
-                    "https://api.github.com/repos/anchore/grype/releases/latest",
-                    headers=headers,
-                )
-
-                if response.status_code >= 400:
-                    logging.error(
-                        f"error while fetching latest grype version: {response.status_code}: {response.reason} {response.text}"
-                    )
-
-                response.raise_for_status()
-
-                version = response.json()["name"]
+                version = cls._get_latest_version_from_github()
                 cls._latest_version_from_github = version
-
                 path = os.path.join(os.path.dirname(path), version)
                 logging.info(f"latest grype release found is {version}")
 
