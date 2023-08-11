@@ -1,5 +1,6 @@
 import atexit
 import json
+import hashlib
 import logging
 import os
 import re
@@ -155,6 +156,20 @@ class Grype(VulnerabilityScanner):
         return Grype(path=path, version_detail=description, **kwargs)
 
     @classmethod
+    def _local_build_version_suffix(cls, src_path: str) -> str:
+        src_path = os.path.abspath(os.path.expanduser(src_path))
+        git_desc = ""
+        diff_digest = "clean"
+        try:
+            repo = git.Repo(src_path)
+        except:
+            logging.error(f"failed to open existing grype repo at {src_path!r}")
+            raise
+        git_desc = repo.git.describe("--tags", "--always", "--long", "--dirty")
+        diff_digest = hashlib.sha1(repo.git.diff("--stat", "HEAD").encode()).hexdigest()
+        return f"{git_desc}-{diff_digest}"
+
+    @classmethod
     def _install_from_path(
         cls,
         path: Optional[str],
@@ -162,17 +177,18 @@ class Grype(VulnerabilityScanner):
         **kwargs,
     ) -> "Grype":
         # get the description and head ref from the repo
-        src_repo_path = os.path.abspath(src_path)
+        src_repo_path = os.path.abspath(os.path.expanduser(src_path))
+        build_version = cls._local_build_version_suffix(src_repo_path)
         logging.debug(f"installing grype from path={src_repo_path!r}")
         logging.debug(f"installing grype to path={path!r}")
         if not path:
             path = tempfile.mkdtemp()
             atexit.register(shutil.rmtree, path)
-        dest_path = os.path.join(path.replace("path:", ""), "local_install")
+        dest_path = os.path.join(path.replace("path:", ""), build_version, "local_install")
         os.makedirs(dest_path, exist_ok=True)
         cls._run_go_build(
             abspath=os.path.abspath(dest_path),
-            description=f"local_build:{src_path}",
+            description=f"{path}:{build_version}",
             repo_path=src_repo_path,
             binpath=dest_path,
         )
