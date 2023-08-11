@@ -21,3 +21,18 @@ def test_grype_no_profile():
         tool = Grype(path="test-path")
         tool.capture(image="test-image", tool_input=None)
         assert check_output.call_args.args[0] == ["test-path/grype", "-o", "json", "test-image"]
+
+def test_install_from_path():
+    with mock.patch("subprocess.check_call") as check_call, \
+        mock.patch("git.Repo") as repo, \
+        mock.patch("os.path.exists") as exists, \
+        mock.patch("os.makedirs") as makedirs, \
+        mock.patch("os.chmod") as chmod:
+        check_call.return_value = bytes("test-output", "utf-8")
+        exists.return_value = True
+        fake_repo = mock.Mock()
+        fake_repo.git = mock.Mock()
+        fake_repo.git.describe.return_value = "test-version"
+        repo.return_value = fake_repo
+        tool = Grype.install(version="path:/where/grype/is/cloned", path=".yardstick/tools/grype/path:_where_grype_is_cloned", update_db=False)
+        assert tool.path == ".yardstick/tools/grype/_where_grype_is_cloned/local_install"

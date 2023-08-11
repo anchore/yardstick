@@ -157,27 +157,28 @@ class Grype(VulnerabilityScanner):
     @classmethod
     def _install_from_path(
         cls,
-        path: str,
+        path: Optional[str],
         src_path: str,
         **kwargs,
     ) -> "Grype":
         # get the description and head ref from the repo
         src_repo_path = os.path.abspath(src_path)
         logging.debug(f"installing grype from path={src_repo_path!r}")
+        logging.debug(f"installing grype to path={path!r}")
+        if not path:
+            path = tempfile.mkdtemp()
+            atexit.register(shutil.rmtree, path)
         try:
             repo = git.Repo(src_repo_path)
         except:
             logging.error(f"install from path failed. Is grype cloned at {src_repo_path!r}?")
             raise
-        description = repo.git.describe("--tags", "--always", "--long")
         # get the description and head ref from the repo
-
-        description = repo.git.describe("--tags", "--always", "--long")
-        dest_path = os.path.join(path, "local_install", description)
+        dest_path = os.path.join(path.replace("path:", ""), "local_install")
         os.makedirs(dest_path, exist_ok=True)
         cls._run_go_build(
             abspath=os.path.abspath(dest_path),
-            description=description,
+            description=f"local_build:{src_path}",
             repo_path=src_repo_path,
             binpath=dest_path,
         )
@@ -284,7 +285,7 @@ class Grype(VulnerabilityScanner):
             )
         elif version.startswith("path:"):
             tool_obj = cls._install_from_path(
-                path=path.replace("path:", ""),
+                path=path,
                 src_path=version.removeprefix("path:"),
                 version=version.removeprefix("path:"),
                 use_cache=use_cache,
