@@ -166,7 +166,8 @@ class Grype(VulnerabilityScanner):
             logging.error(f"failed to open existing grype repo at {src_path!r}")
             raise
         git_desc = repo.git.describe("--tags", "--always", "--long", "--dirty")
-        diff_digest = hashlib.sha1(repo.git.diff("--stat", "HEAD").encode()).hexdigest()
+        if repo.is_dirty():
+            diff_digest = hashlib.sha1(repo.git.diff("--stat", "HEAD").encode()).hexdigest()
         return f"{git_desc}-{diff_digest}"
 
     @classmethod
