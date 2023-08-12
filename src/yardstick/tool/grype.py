@@ -145,7 +145,7 @@ class Grype(VulnerabilityScanner):
         abspath = os.path.abspath(path)
         if not tool_exists:
             cls._run_go_build(
-                abspath=abspath,
+                abs_install_dir=abspath,
                 repo_path=repo_path,
                 description=description,
                 binpath=path,
@@ -188,7 +188,7 @@ class Grype(VulnerabilityScanner):
         dest_path = os.path.join(path.replace("path:", ""), build_version, "local_install")
         os.makedirs(dest_path, exist_ok=True)
         cls._run_go_build(
-            abspath=os.path.abspath(dest_path),
+            abs_install_dir=os.path.abspath(dest_path),
             description=f"{path}:{build_version}",
             repo_path=src_repo_path,
             binpath=dest_path,
@@ -198,23 +198,23 @@ class Grype(VulnerabilityScanner):
 
     @staticmethod
     def _run_go_build(
-        abspath: str,  # TODO: rename; what is an absolute path to?
+        abs_install_dir: str,  # TODO: rename; what is an absolute path to?
         repo_path: str,
         description: str,
         binpath: str,
         version_ref: str = "github.com/anchore/grype/internal/version.version",
     ):
-        logging.debug(f"installing grype via build to {abspath!r}")
+        logging.debug(f"installing grype via build to {abs_install_dir!r}")
 
         main_pkg_path = "./cmd/grype"
         if not os.path.exists(os.path.join(repo_path, "cmd", "grype", "main.go")):
             # support legacy installations, when the main.go was in the root of the repo
             main_pkg_path = "."
 
-        c = f"go build -ldflags \"-w -s -extldflags '-static' -X {version_ref}={description}\" -o {abspath} {main_pkg_path}"
+        c = f"go build -ldflags \"-w -s -extldflags '-static' -X {version_ref}={description}\" -o {abs_install_dir} {main_pkg_path}"
         logging.debug(f"running {c!r}")
 
-        e = {"GOBIN": abspath, "CGO_ENABLED": "0"}
+        e = {"GOBIN": abs_install_dir, "CGO_ENABLED": "0"}
         e.update(os.environ)
 
         subprocess.check_call(
