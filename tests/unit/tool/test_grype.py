@@ -34,12 +34,12 @@ def test_install_from_path():
         git_describe_val = "v0.65.1-1-g74a7a67-dirty"
         hash_of_git_diff = "a29864cf5600b481056b6fa30a21cdbabc15287d"
         fake_repo.git.describe.return_value = git_describe_val
-        fake_repo.git.diff.return_value = "test-diff" # hash is 'a29864cf5600b481056b6fa30a21cdbabc15287d'
+        fake_repo.git.diff.return_value = "test-diff"  # hash is 'a29864cf5600b481056b6fa30a21cdbabc15287d'
         repo.return_value = fake_repo
         version_str = "path:/where/grype/is/cloned"
         normalized_version_str = version_str.replace("/", "_").removeprefix("path:")
-        expected_grype_path = f".yardstick/tools/grype/{normalized_version_str}/{git_describe_val}-{hash_of_git_diff}/local_install"
-        tool = Grype.install(
-            version=version_str, path=".yardstick/tools/grype/path:_where_grype_is_cloned", update_db=False
+        expected_grype_path = (
+            f".yardstick/tools/grype/{normalized_version_str}/{git_describe_val}-{hash_of_git_diff}/local_install"
         )
+        tool = Grype.install(version=version_str, path=".yardstick/tools/grype/path:_where_grype_is_cloned", update_db=False)
         assert tool.path == expected_grype_path
