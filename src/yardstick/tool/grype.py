@@ -169,8 +169,8 @@ class Grype(VulnerabilityScanner):
         if repo.is_dirty():
             hash_obj = hashlib.sha1()
             for untracked in repo.untracked_files:
-                with open(os.path.join(repo.working_dir, untracked), "rb") as f:
-                    for chunk in iter(lambda: f.read(4096), b""):
+                with open(os.path.join(repo.working_dir, untracked), "rb") as untracked_file:
+                    for chunk in iter(lambda: untracked_file.read(4096), b""):  # pylint: disable=cell-var-from-loop
                         hash_obj.update(chunk)
             hash_obj.update(repo.git.diff("--stat", "HEAD").encode())
             diff_digest = hash_obj.hexdigest()[:8]
