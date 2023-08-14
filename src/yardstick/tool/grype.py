@@ -169,12 +169,21 @@ class Grype(VulnerabilityScanner):
         if repo.is_dirty():
             hash_obj = hashlib.sha1()
             for untracked in repo.untracked_files:
-                with open(os.path.join(repo.working_dir, untracked), "rb") as untracked_file:
-                    for chunk in iter(lambda: untracked_file.read(4096), b""):  # pylint: disable=cell-var-from-loop
-                        hash_obj.update(chunk)
-            hash_obj.update(repo.git.diff("--stat", "HEAD").encode())
+                hash_obj.update(cls._hash_file(os.path.join(repo.working_dir, untracked)).encode())
+            hash_obj.update(repo.git.diff("HEAD").encode())
             diff_digest = hash_obj.hexdigest()[:8]
         return f"{git_desc}-{diff_digest}"
+
+    @classmethod
+    def _hash_file(cls, path: str) -> str:
+        hash_obj = hashlib.sha1()
+        with open(path, "rb") as f:
+            while True:
+                data = f.read(4096)
+                if not data:
+                    break
+                hash_obj.update(data)
+        return hash_obj.hexdigest()
 
     @classmethod
     def _install_from_path(
