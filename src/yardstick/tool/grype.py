@@ -198,7 +198,7 @@ class Grype(VulnerabilityScanner):
 
     @staticmethod
     def _run_go_build(
-        abs_install_dir: str,  # TODO: rename; what is an absolute path to?
+        abs_install_dir: str,
         repo_path: str,
         description: str,
         binpath: str,
