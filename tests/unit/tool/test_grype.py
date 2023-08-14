@@ -31,8 +31,9 @@ def test_install_from_path():
         exists.return_value = True
         fake_repo = mock.Mock()
         fake_repo.git = mock.Mock()
+        fake_repo.untracked_files = []
         git_describe_val = "v0.65.1-1-g74a7a67-dirty"
-        hash_of_git_diff = "a29864cf5600b481056b6fa30a21cdbabc15287d"
+        hash_of_git_diff = "a29864cf5600b481056b6fa30a21cdbabc15287d"[:8]
         fake_repo.git.describe.return_value = git_describe_val
         fake_repo.git.diff.return_value = "test-diff"  # hash is 'a29864cf5600b481056b6fa30a21cdbabc15287d'
         repo.return_value = fake_repo
