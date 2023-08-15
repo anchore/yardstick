@@ -9,7 +9,7 @@ from typing import Dict, List, Optional, Union
 
 import omitempty
 
-from yardstick import artifact, label
+from yardstick import artifact
 from yardstick.store import config as store_config
 from yardstick.store import naming
 from yardstick.utils import remove_prefix
@@ -24,13 +24,9 @@ def label_store_root(store_root: str | None = None) -> str:
 
 
 def store_filename_by_entry(entry: artifact.LabelEntry) -> str:
-    if not entry.source or entry.source == label.MANUAL_SOURCE:
-        if entry.image.exact:
-            return f"{naming.image.encode(entry.image.exact)}/{entry.ID}.json"
-        return f"{entry.ID}.json"
     if entry.image.exact:
-        return f"{naming.image.encode(entry.image.exact)}/{entry.source}.json"
-    return f"{entry.source}.json"
+        return f"{naming.image.encode(entry.image.exact)}/{entry.ID}.json"
+    return f"{entry.ID}.json"
 
 
 def store_path(filename: str, store_root: str | None = None) -> str:
@@ -38,19 +34,44 @@ def store_path(filename: str, store_root: str | None = None) -> str:
 
 
 def append_and_update(
-    new_and_modified_entries: List[artifact.LabelEntry], delete_entries: List[str] | None = None, store_root: str | None = None
-) -> List[artifact.LabelEntry]:
+    new_and_modified_entries: List[artifact.LabelEntry],
+    delete_entries: List[artifact.LabelEntry] | None = None,
+    store_root: str | None = None,
+) -> None:
     for label_entry in delete_entries:
         filepath = store_path(filename=store_filename_by_entry(entry=label_entry))
         try:
+            logging.debug(f"deleting label {label_entry.ID} from {filepath}")
             os.remove(filepath)
-        except:  # pylint: disable=bare-except
-            pass
+        except FileNotFoundError:
+            logging.debug(f"skipping deleting on {label_entry.ID} from {filepath}: File not found")
+        except Exception as e:  # pylint: disable=broad-except
+            logging.error(f"failed to delete label {label_entry.ID} from {filepath}: {e}")
+            raise e
 
-    overwrite_all(label_entries=new_and_modified_entries, store_root=store_root)
+    save(label_entries=new_and_modified_entries, store_root=store_root)
 
 
-def overwrite_all(label_entries: List[artifact.LabelEntry], store_root: str = None):
+def delete(label_ids_to_delete: List[str], store_root: str = None) -> List[str]:
+    """delete_entries takes a list of ids to be deleted and returns a list of deleted files.
+    FileNotFound exceptions are ignored."""
+    label_store_dir = label_store_root(store_root=store_root)
+    deleted_ids = []
+    for label_id in label_ids_to_delete:
+        g = f"{label_store_dir}/**/{label_id}.json"
+        for p in glob.glob(g):
+            try:
+                os.remove(p)
+                deleted_ids.append(label_id)
+            except FileNotFoundError:
+                logging.debug(f"skipping deleting on {label_id} from {p}: File not found")
+            except Exception as e:  # pylint: disable=broad-except
+                logging.error(f"failed to delete label {label_id} from {p}: {e}")
+                raise e
+    return deleted_ids
+
+
+def save(label_entries: List[artifact.LabelEntry], store_root: str = None):
     root_path = label_store_root(store_root=store_root)
     logging.debug(f"storing all labels location={root_path}")
 
