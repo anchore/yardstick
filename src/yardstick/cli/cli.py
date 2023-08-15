@@ -40,8 +40,7 @@ def cli(ctx, verbose: bool, config_path: str):
             "version": 1,
             "formatters": {
                 "standard": {
-                    "()": DeltaTimeFormatter,
-                    "format": "%(delta)s [%(levelname)s] %(message)s",
+                    "format": "%(asctime)s [%(levelname)s] %(message)s",
                     "datefmt": "",
                 },
             },
