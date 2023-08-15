@@ -1,5 +1,4 @@
 import dataclasses
-import datetime
 import enum
 import logging
 from typing import Any
@@ -28,12 +27,6 @@ def cli(ctx, verbose: bool, config_path: str):
     log_level = "INFO"
     if verbose:
         log_level = "DEBUG"
-
-    class DeltaTimeFormatter(logging.Formatter):
-        def format(self, record):
-            duration = datetime.datetime.utcfromtimestamp(record.relativeCreated / 1000)
-            record.delta = duration.strftime("%H:%M:%S")
-            return super().format(record)
 
     logging.config.dictConfig(
         {

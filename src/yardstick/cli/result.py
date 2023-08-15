@@ -124,7 +124,7 @@ def clear_results(_: config.Application):
 @click.option("--images", "-i", "images", help="filter results down to that partially match given image names", multiple=True)
 @click.option("--ids", "show_id", help="show result IDs only", is_flag=True)
 @click.pass_obj
-def list_results(cfg: config.Application, result_set: bool, show_id: bool, tools: list[str], images: list[str]):
+def list_results(_: config.Application, result_set: bool, show_id: bool, tools: list[str], images: list[str]):
     results = result_descriptions(result_set=result_set)
 
     if tools:
@@ -218,19 +218,14 @@ def result_descriptions(result_set: Optional[str] = None) -> list[ResultDescript
 
 @group.group(name="set", help="manipulate result sets")
 @click.pass_obj
-def set_group(cfg: config.Application):
+def set_group(_: config.Application):
     pass
+
 
 @set_group.command(name="list", help="list configured result sets")
 @click.pass_obj
-def list_result_sets(cfg: config.Application):
-    # if not cfg.result_sets:
-    #     print("no result sets configured")
-    #     return
-    # for name in cfg.result_sets.keys():
-    #     print(f"{name:40} {cfg.result_sets[name].description}")
-
-    for result_set in store.result_set.all():
+def list_result_sets(_: config.Application):
+    for result_set in store.result_set.load_all():
         print(result_set.name)
 
 
@@ -238,7 +233,7 @@ def list_result_sets(cfg: config.Application):
 @click.argument("ids", nargs=-1)
 @click.option("--name", "-n", "result_set", required=True, help="the name of the result set")
 @click.pass_obj
-def add_result_sets(cfg: config.Application, ids: list[str], result_set: str):
+def add_result_sets(_: config.Application, ids: list[str], result_set: str):
     result_set_obj = artifact.ResultSet(name=result_set)
     for scan_config_id in ids:
         scan_config = store.scan_result.find_one(by_description=scan_config_id)
@@ -249,8 +244,6 @@ def add_result_sets(cfg: config.Application, ids: list[str], result_set: str):
 
         result_set_obj.add(request=scan_request, scan_config=scan_config)
     store.result_set.save(result_set_obj)
-
-
 
 
 @group.command(name="import", help="import results for a tool that were run externally")
