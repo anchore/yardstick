@@ -20,7 +20,7 @@ def group(_: config.Application):
     "compare",
     help="compare a scan result against labeled data",
 )
-@click.argument("result_ids", nargs=-1)
+@click.argument("descriptions", nargs=-1)
 @click.option(
     "--show-fns",
     default=False,
@@ -45,7 +45,7 @@ def group(_: config.Application):
 @click.pass_obj
 def compare_results_against_labels(
     cfg: config.Application,
-    result_ids: list[str],
+    descriptions: list[str],
     show_fns: bool,
     show_indeterminates: bool,
     fuzzy: bool,
@@ -57,7 +57,7 @@ def compare_results_against_labels(
         year_max_limit = cfg.default_max_year
 
     results, _, comparisons_by_result_id, stats_by_image_tool_pair = yardstick.compare_results_against_labels(
-        descriptions=result_ids,
+        descriptions=descriptions,
         result_set=result_set,
         fuzzy=fuzzy,
         year_max_limit=year_max_limit,
