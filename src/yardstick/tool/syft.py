@@ -45,9 +45,13 @@ class Syft(SBOMGenerator):
             atexit.register(shutil.rmtree, path)
         elif within_path:
             path = os.path.join(within_path, version)
-            os.makedirs(path, exist_ok=True)
-            if os.path.exists(os.path.join(path, "syft")):
-                tool_exists = True
+
+        if not path:
+            raise ValueError("no path found to install syft")
+
+        os.makedirs(path, exist_ok=True)
+        if os.path.exists(os.path.join(path, "syft")):
+            tool_exists = True
 
         if not tool_exists:
             subprocess.check_call(

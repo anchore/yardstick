@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import logging
 from typing import Optional
 
@@ -9,9 +11,14 @@ def compare_results(
     year_max_limit: Optional[int] = None,
     year_from_cve_only: bool = False,
     matches_filter: Optional[callable] = None,
+    store_root: str | None = None,
 ) -> comparison.ByPreservedMatch:
     results = store.scan_result.load_by_descriptions(
-        descriptions=descriptions, year_max_limit=year_max_limit, year_from_cve_only=year_from_cve_only, skip_sbom_results=True
+        descriptions=descriptions,
+        year_max_limit=year_max_limit,
+        year_from_cve_only=year_from_cve_only,
+        skip_sbom_results=True,
+        store_root=store_root,
     )
 
     if matches_filter:
@@ -33,6 +40,7 @@ def compare_results_against_labels(  # pylint: disable=too-many-arguments
     year_from_cve_only: bool = False,
     label_entries: Optional[list[artifact.LabelEntry]] = None,
     matches_filter: Optional[callable] = None,
+    store_root: str | None = None,
 ) -> tuple[
     list[artifact.ScanResult],
     list[artifact.LabelEntry],
@@ -54,6 +62,7 @@ def compare_results_against_labels(  # pylint: disable=too-many-arguments
         skip_sbom_results=True,
         year_max_limit=year_max_limit,
         year_from_cve_only=year_from_cve_only,
+        store_root=store_root,
     )
 
     if matches_filter:
@@ -61,7 +70,11 @@ def compare_results_against_labels(  # pylint: disable=too-many-arguments
             result.matches = matches_filter(result.matches)
 
     if not label_entries:
-        label_entries = store.labels.load_all(year_max_limit=year_max_limit, year_from_cve_only=year_from_cve_only)
+        label_entries = store.labels.load_all(
+            year_max_limit=year_max_limit,
+            year_from_cve_only=year_from_cve_only,
+            store_root=store_root,
+        )
 
     comparisons_by_result_id, stats_by_image_tool_pair = comparison.of_results_against_label(
         *results,

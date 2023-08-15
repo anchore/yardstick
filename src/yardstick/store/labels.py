@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import collections
 import glob
 import json
@@ -115,7 +117,7 @@ def load_label_file(
 
 
 def load_all(
-    year_max_limit: Optional[int] = None, year_from_cve_only: bool = False, store_root: str = None
+    year_max_limit: Optional[int] = None, year_from_cve_only: bool = False, store_root: str | None = None
 ) -> List[artifact.LabelEntry]:
     root_path = label_store_root(store_root=store_root)
     logging.debug(f"loading all labels (location={root_path})")

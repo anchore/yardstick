@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import copy
 import glob
 import itertools
@@ -119,6 +121,8 @@ def find(
 
     glob_str = f"{json_path}/{search_tuple}/metadata.json"
 
+    logging.debug(f"searching for {glob_str}")
+
     for metadata_file in glob.glob(glob_str):
         image_tool_dir = os.path.dirname(os.path.dirname(metadata_file))
         with open(metadata_file, "r", encoding="utf-8") as fd:
@@ -155,7 +159,7 @@ def load_by_descriptions(
     year_max_limit: Optional[int] = None,
     year_from_cve_only: bool = False,
     skip_sbom_results: bool = False,
-    store_root: str = None,
+    store_root: str | None = None,
 ) -> list[artifact.ScanResult]:
     results = []
     for description in descriptions:
