@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 import collections
 import getpass
 import hashlib
@@ -541,7 +539,7 @@ class ScanRequest:
 @dataclass()
 class ResultState:
     request: ScanRequest
-    config: ScanConfiguration | None = None
+    config: ScanConfiguration = None
 
 
 @dataclass_json
