@@ -245,7 +245,7 @@ class Syft(SBOMGenerator):
             version,
         ):
             tool_obj = cls._install_from_installer(version=version, path=path, use_cache=use_cache, **kwargs)
-        elif version.startswith("path"):
+        elif version.startswith("path:"):
             tool_obj = cls._install_from_path(
                 path=path,
                 src_path=version.removeprefix("path:"),
