@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 from dataclasses import dataclass, field
 from typing import Any, Dict, Optional
 
@@ -108,30 +109,14 @@ def yaml_decoder(data) -> Dict[Any, Any]:
     return clean_dict_keys(yaml.safe_load(data))
 
 
-def load(path: str | list[str] | tuple[str] = DEFAULT_CONFIGS) -> Application:
-    cfg: Application | None = None
-    try:
-        if isinstance(path, str):
-            if path == "":
-                path = DEFAULT_CONFIGS
-            else:
-                cfg = _load(path)
-
-        if not cfg:
-            if isinstance(path, (list, tuple)):
-                for p in path:
-                    try:
-                        cfg = _load(p)
-                        break
-                    except FileNotFoundError:
-                        pass
-            else:
-                raise ValueError(f"invalid path type {type(path)}")
-    except FileNotFoundError:
-        cfg = Application()
+def load(
+    path: None | str | list[str] | tuple[str] = DEFAULT_CONFIGS,
+) -> Application:
+    cfg = _load_paths(path)
 
     if not cfg:
-        raise FileNotFoundError("no config found")
+        msg = "no config found"
+        raise RuntimeError(msg)
 
     if cfg.profile_path:
         try:
@@ -144,9 +129,35 @@ def load(path: str | list[str] | tuple[str] = DEFAULT_CONFIGS) -> Application:
     return cfg
 
 
+def _load_paths(
+    path: None | str | list[str] | tuple[str],
+) -> Application | None:
+    if not path:
+        path = DEFAULT_CONFIGS
+
+    if isinstance(path, str):
+        if path == "":
+            path = DEFAULT_CONFIGS
+        else:
+            return _load(path)
+
+    if isinstance(path, (list, tuple)):
+        for p in path:
+            if not os.path.exists(p):
+                continue
+
+            return _load(p)
+
+        # use the default application config
+        return Application()
+
+    msg = f"invalid path type {type(path)}"
+    raise ValueError(msg)
+
+
 def _load(path: str) -> Application:
     with open(path, encoding="utf-8") as f:
-        app_object = yaml.safe_load(f.read()) or {}
+        app_object = yaml.load(f.read(), yaml.SafeLoader) or {}  # noqa: S506 (since our loader is using the safe loader)
         # we need a full default application config first then merge the loaded config on top.
         # Why? dataclass_wizard.fromdict() will create instances from the dataclass default
         # and NOT the field definition from the container. So it is possible to specify a
@@ -160,7 +171,9 @@ def _load(path: str) -> Application:
             Application,
             instance,
         )
-        if cfg is None:
-            raise FileNotFoundError("parsed empty config")
 
-        return cfg
+    if cfg is None:
+        msg = "parsed empty config"
+        raise FileNotFoundError(msg)
+
+    return cfg
