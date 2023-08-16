@@ -1,1 +1,1 @@
-from . import config, image_lineage, labels, naming, result_set, scan_result, tool
+from . import config, image_lineage, label_stats, labels, naming, result_set, scan_result, tool

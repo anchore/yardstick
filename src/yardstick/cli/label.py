@@ -164,11 +164,11 @@ def remove_label(
 
 
 @group.command(name="explore", help="interact with an label results for a single image scan")
-@click.argument("description")
+@click.argument("result_id")
 @click.option("--year-max-limit", "-y", help="max year to include in comparison (relative to the CVE ID)")
 @click.option("--derive-year-from-cve-only", "-c", default=None, help="only use the CVE ID year-max-limit", is_flag=True)
 @click.pass_obj
-def explore_labels(cfg: config.Application, description: str, year_max_limit: int, derive_year_from_cve_only: bool | None):
+def explore_labels(cfg: config.Application, result_id: str, year_max_limit: int, derive_year_from_cve_only: bool | None):
     logging.disable(level=logging.CRITICAL)
 
     if not year_max_limit:
@@ -177,7 +177,7 @@ def explore_labels(cfg: config.Application, description: str, year_max_limit: in
     if derive_year_from_cve_only is None:
         derive_year_from_cve_only = cfg.derive_year_from_cve_only
 
-    scan_config = store.scan_result.find_one(by_description=description)
+    scan_config = store.scan_result.find_one(by_description=result_id)
     result = store.scan_result.load(
         config=scan_config, year_max_limit=year_max_limit, year_from_cve_only=derive_year_from_cve_only
     )
@@ -213,7 +213,7 @@ def show_image_lineage(_: config.Application, image: str):
 
 # pylint: disable=too-many-locals
 @group.command(name="apply", help="see which labels apply to the given image and tool pair")
-@click.argument("description")
+@click.argument("result_id")
 @click.option("--inverse", "-i", help="show image lables that should not be applied", is_flag=True)
 @click.option("--id", "show_ids", help="show IDs only", is_flag=True)
 @click.option("--year-max-limit", "-y", help="max year to include in comparison (relative to the CVE ID)")
@@ -221,7 +221,7 @@ def show_image_lineage(_: config.Application, image: str):
 @click.pass_obj
 def apply_labels(
     cfg: config.Application,
-    description: str,
+    result_id: str,
     inverse: bool,
     show_ids: bool,
     year_max_limit: int,
@@ -233,9 +233,9 @@ def apply_labels(
     if derive_year_from_cve_only is None:
         derive_year_from_cve_only = cfg.derive_year_from_cve_only
 
-    logging.info(f"applying labels to {description!r} (year limit: {year_max_limit})")
+    logging.info(f"applying labels to {result_id!r} (year limit: {year_max_limit})")
 
-    scan_config = store.scan_result.find_one(by_description=description)
+    scan_config = store.scan_result.find_one(by_description=result_id)
     result = store.scan_result.load(config=scan_config)
 
     lineage = store.image_lineage.get(scan_config.image)
@@ -284,7 +284,7 @@ def apply_labels(
         for _, l in found.items():
             show(l)
 
-    logging.info(f"found {len(found)} labels that apply to {description!r}")
+    logging.info(f"found {len(found)} labels that apply to {result_id!r}")
 
 
 @group.command(

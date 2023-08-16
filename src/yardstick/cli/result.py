@@ -67,11 +67,11 @@ def capture_results(cfg: config.Application, image: str, tool: str, profile: str
     is_flag=True,
     help="show common match details",
 )
-@click.argument("descriptions", nargs=-1)
+@click.argument("ids", nargs=-1)
 @click.pass_obj
 def compare_results(
     cfg: config.Application,
-    descriptions: list[str],
+    ids: list[str],
     year_max_limit: int,
     # by: str,
     summary: bool,
@@ -80,7 +80,7 @@ def compare_results(
     if not year_max_limit:
         year_max_limit = cfg.default_max_year
 
-    comp = yardstick.compare_results(descriptions=descriptions, year_max_limit=year_max_limit)
+    comp = yardstick.compare_results(descriptions=ids, year_max_limit=year_max_limit)
 
     display.preserved_matches(comp, details=not summary, summary=summary, common=show_common)
 
@@ -124,12 +124,7 @@ def clear_results(_: config.Application):
 @click.option("--images", "-i", "images", help="filter results down to that partially match given image names", multiple=True)
 @click.option("--ids", "show_id", help="show result IDs only", is_flag=True)
 @click.pass_obj
-def list_results(cfg: config.Application, result_set: bool, show_id: bool, tools: list[str], images: list[str]):
-    if result_set:
-        result_set_config = cfg.result_sets.get(result_set, None)
-        if not result_set_config:
-            raise RuntimeError(f"no result set found for {result_set}")
-
+def list_results(_: config.Application, result_set: bool, show_id: bool, tools: list[str], images: list[str]):
     results = result_descriptions(result_set=result_set)
 
     if tools:
@@ -221,11 +216,34 @@ def result_descriptions(result_set: Optional[str] = None) -> list[ResultDescript
     return sorted(results)
 
 
-@group.command(name="sets", help="list configured result sets")
+@group.group(name="set", help="manipulate result sets")
 @click.pass_obj
-def list_result_sets(cfg: config.Application):
-    for name in cfg.result_sets.keys():
-        print(f"{name:40} {cfg.result_sets[name].description}")
+def set_group(_: config.Application):
+    pass
+
+
+@set_group.command(name="list", help="list configured result sets")
+@click.pass_obj
+def list_result_sets(_: config.Application):
+    for result_set in store.result_set.load_all():
+        print(result_set.name)
+
+
+@set_group.command(name="add", help="create a result set")
+@click.argument("ids", nargs=-1)
+@click.option("--name", "-n", "result_set", required=True, help="the name of the result set")
+@click.pass_obj
+def add_result_sets(_: config.Application, ids: list[str], result_set: str):
+    result_set_obj = artifact.ResultSet(name=result_set)
+    for scan_config_id in ids:
+        scan_config = store.scan_result.find_one(by_description=scan_config_id)
+        scan_request = artifact.ScanRequest(image=scan_config.full_image, tool=scan_config.tool)
+
+        if not scan_config:
+            raise RuntimeError(f"unable to find scan configuration for {scan_request}")
+
+        result_set_obj.add(request=scan_request, scan_config=scan_config)
+    store.result_set.save(result_set_obj)
 
 
 @group.command(name="import", help="import results for a tool that were run externally")
@@ -247,21 +265,22 @@ def import_results(_: config.Application, image: str, tool: str, file: str = Non
 
     match_results = capture.intake(config=scan_config, raw_results=raw_results)
     store.scan_result.save(raw_results, match_results)
+    print(scan_config.ID)
 
 
 @group.command(name="explore", help="interact with an image scan result")
-@click.argument("description")
+@click.argument("ids")
 @click.option("--year-max-limit", "-y", help="max year to include in comparison (relative to the CVE ID)")
 @click.option("--derive-year-from-cve-only", "-c", default=None, help="only use the CVE ID year-max-limit", is_flag=True)
 @click.pass_obj
-def explore_results(cfg: config.Application, description: str, year_max_limit: int, derive_year_from_cve_only: None | bool):
+def explore_results(cfg: config.Application, ids: str, year_max_limit: int, derive_year_from_cve_only: None | bool):
     if not year_max_limit:
         year_max_limit = cfg.default_max_year
 
     if derive_year_from_cve_only is None:
         derive_year_from_cve_only = cfg.derive_year_from_cve_only
 
-    scan_config = store.scan_result.find_one(by_description=description)
+    scan_config = store.scan_result.find_one(by_description=ids)
     result = store.scan_result.load(config=scan_config)
     if year_max_limit:
         results = store.scan_result.filter_by_year([result], int(year_max_limit), year_from_cve_only=derive_year_from_cve_only)

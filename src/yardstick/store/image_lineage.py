@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import logging
 import os
 from dataclasses import dataclass
@@ -17,14 +19,14 @@ class ImageLineageDocument:
     lineage: Dict[str, List[str]]
 
 
-def store_path(suffix: str = SUFFIX, store_root: str = None) -> str:
+def store_path(suffix: str = SUFFIX, store_root: str | None = None) -> str:
     if not store_root:
         store_root = store_config.get().store_root
 
     return os.path.join(store_root, IMAGE_LINEAGE_DIR, "image-lineage" + suffix)
 
 
-def add(image: str, lineage: List[str], store_root: str = None):
+def add(image: str, lineage: List[str], store_root: str | None = None):
     data_path = store_path(store_root=store_root)
     logging.debug(f"storing image lineage to {data_path!r}")
 
@@ -37,11 +39,11 @@ def add(image: str, lineage: List[str], store_root: str = None):
         data_file.write(ImageLineageDocument(lineage=existing).to_json(indent=2))  # pylint: disable=no-member
 
 
-def get_parents(image: str, store_root: str = None) -> List[str]:
+def get_parents(image: str, store_root: str | None = None) -> List[str]:
     return load(store_root).get(image, [])
 
 
-def get(image: str, store_root: str = None) -> List[str]:
+def get(image: str, store_root: str | None = None) -> List[str]:
     result = []
     parents = get_parents(image, store_root=store_root)
     result += parents
@@ -53,7 +55,7 @@ def get(image: str, store_root: str = None) -> List[str]:
     return result
 
 
-def load(store_root: str = None) -> Dict[str, List[str]]:
+def load(store_root: str | None = None) -> Dict[str, List[str]]:
     data_path = store_path(store_root=store_root)
     logging.debug(f"loading image lineage location={data_path!r}")
 

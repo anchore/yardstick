@@ -1,3 +1,6 @@
+# pylint: disable=cyclic-import
+from __future__ import annotations
+
 import collections
 import logging
 from dataclasses import InitVar, dataclass, field
@@ -53,7 +56,7 @@ class AgainstLabels:
         init=False
     )  # discovered matches in the result where there is a label that is NOT TP
     true_positive_matches: List[Match] = field(init=False)  # discovered matches in the result where there is a TP label found
-    false_negative_label_entries: List[LabelEntry] = field(
+    false_negative_label_entries: set[LabelEntry] = field(
         init=False
     )  # labels found that indicate TP, but not found as a match in the result
 
@@ -62,8 +65,15 @@ class AgainstLabels:
 
     fuzzy_package_match: bool = field(default=False)
 
+    compare_configuration: dict[str, Any] = field(default_factory=dict)
+
     def __post_init__(self, result: ScanResult, lineage: List[str]):
         self.config = result.config
+
+        if not self.compare_configuration:
+            self.compare_configuration = {}
+
+        self.compare_configuration["fuzzy_package_match"] = self.fuzzy_package_match
 
         self.matches_by_label = {
             Label.TruePositive: [],
@@ -537,8 +547,11 @@ class RelativeComparisonSummary:
         return "\n".join(lines)
 
 
+@dataclass_json
 @dataclass(frozen=True)
 class ImageToolLabelStats:
+    configs: List[ScanConfiguration]
+    compare_configs: List[dict[str, str]] = field(default_factory=list)
     indeterminate: dict[str, dict[str, int]] = field(
         default_factory=lambda: collections.defaultdict(lambda: collections.defaultdict(int))
     )
@@ -568,6 +581,10 @@ class ImageToolLabelStats:
 
     @staticmethod
     def new(comparisons: List[AgainstLabels]) -> "ImageToolLabelStats":
+        configs = [comp.config for comp in comparisons]
+
+        compare_configs = [comp.compare_configuration for comp in comparisons]
+
         indeterminate: dict[str, dict[str, int]] = collections.defaultdict(lambda: collections.defaultdict(int))
         indeterminate_percent: dict[str, dict[str, str]] = collections.defaultdict(dict)
         true_positives: dict[str, dict[str, int]] = collections.defaultdict(lambda: collections.defaultdict(int))
@@ -598,6 +615,8 @@ class ImageToolLabelStats:
             indeterminate_percent[image][tool] = utils.safe_div(comp.summary.indeterminate, comp.summary.total) * 100.0
 
         return ImageToolLabelStats(
+            configs=configs,
+            compare_configs=compare_configs,
             indeterminate=indeterminate,
             indeterminate_percent=indeterminate_percent,
             true_positives=true_positives,
@@ -609,20 +628,27 @@ class ImageToolLabelStats:
 
 
 def of_results_against_label(
-    *results: ScanResult,
-    label_entries,
-    fuzzy_package_match: bool = False,
+    *results: ScanResult, label_entries, fuzzy_package_match: bool = False, compare_configuration: dict[str, str] | None = None
 ) -> tuple[dict[str, list[AgainstLabels]], ImageToolLabelStats]:
     logging.info("starting comparison against labels")
 
     comparisons_by_result_id = {}
+
+    if not compare_configuration:
+        compare_configuration = {}
 
     comparisons = []
     for result in results:
         logging.info(f"comparing labels for image={result.config.image} tool={result.config.tool}")
 
         lineage = store.image_lineage.get(image=result.config.image)
-        comp = AgainstLabels(result=result, label_entries=label_entries, lineage=lineage, fuzzy_package_match=fuzzy_package_match)
+        comp = AgainstLabels(
+            result=result,
+            label_entries=label_entries,
+            lineage=lineage,
+            fuzzy_package_match=fuzzy_package_match,
+            compare_configuration=compare_configuration,
+        )
         comparisons_by_result_id[result.ID] = comp
         comparisons.append(comp)
 
