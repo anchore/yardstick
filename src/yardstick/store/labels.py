@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 import collections
 import glob
 import json
@@ -17,7 +15,7 @@ from yardstick.utils import remove_prefix
 LABELS_DIR = "labels"
 
 
-def label_store_root(store_root: str = None) -> str:
+def label_store_root(store_root: Optional[str] = None) -> str:
     if not store_root:
         store_root = store_config.get().store_root
     return os.path.join(store_root, LABELS_DIR)
@@ -29,12 +27,14 @@ def store_filename_by_entry(entry: artifact.LabelEntry) -> str:
     return f"{entry.ID}.json"
 
 
-def store_path(filename: str, store_root: str = None) -> str:
+def store_path(filename: str, store_root: Optional[str] = None) -> str:
     return os.path.join(label_store_root(store_root=store_root), filename)
 
 
 def append_and_update(
-    new_and_modified_entries: List[artifact.LabelEntry], delete_entries: List[artifact.LabelEntry] = None, store_root: str = None
+    new_and_modified_entries: List[artifact.LabelEntry],
+    delete_entries: List[artifact.LabelEntry] = None,
+    store_root: Optional[str] = None,
 ) -> List[artifact.LabelEntry]:
     for label_entry in delete_entries:
         filepath = store_path(filename=store_filename_by_entry(entry=label_entry))
@@ -50,7 +50,7 @@ def append_and_update(
     save(label_entries=new_and_modified_entries, store_root=store_root)
 
 
-def delete(label_ids_to_delete: List[str], store_root: str = None) -> List[str]:
+def delete(label_ids_to_delete: List[str], store_root: Optional[str] = None) -> List[str]:
     """delete_entries takes a list of ids to be deleted and returns a list of deleted files.
     FileNotFound exceptions are ignored."""
     label_store_dir = label_store_root(store_root=store_root)
@@ -69,7 +69,7 @@ def delete(label_ids_to_delete: List[str], store_root: str = None) -> List[str]:
     return deleted_ids
 
 
-def save(label_entries: List[artifact.LabelEntry], store_root: str = None):
+def save(label_entries: List[artifact.LabelEntry], store_root: Optional[str] = None):
     root_path = label_store_root(store_root=store_root)
     logging.debug(f"storing all labels location={root_path}")
 
@@ -107,7 +107,7 @@ def save(label_entries: List[artifact.LabelEntry], store_root: str = None):
 
 
 def load_label_file(
-    filename: str, year_max_limit: Optional[int] = None, year_from_cve_only: bool = False, store_root: str = None
+    filename: str, year_max_limit: Optional[int] = None, year_from_cve_only: bool = False, store_root: Optional[str] = None
 ) -> List[artifact.LabelEntry]:
     # why note take a file path? in this way we control that all input/output data was derived from the same store,
     # and not another store.
@@ -136,7 +136,7 @@ def load_label_file(
 
 
 def load_all(
-    year_max_limit: Optional[int] = None, year_from_cve_only: bool = False, store_root: str | None = None
+    year_max_limit: Optional[int] = None, year_from_cve_only: bool = False, store_root: Optional[str] = None
 ) -> List[artifact.LabelEntry]:
     root_path = label_store_root(store_root=store_root)
     logging.debug(f"loading all labels (location={root_path})")
@@ -158,7 +158,10 @@ def load_all(
 
 
 def load_for_image(
-    images: Union[str, List[str]], year_max_limit: Optional[int] = None, year_from_cve_only: bool = False, store_root: str = None
+    images: Union[str, List[str]],
+    year_max_limit: Optional[int] = None,
+    year_from_cve_only: bool = False,
+    store_root: Optional[str] = None,
 ) -> List[artifact.LabelEntry]:
     root_path = label_store_root(store_root=store_root)
     if isinstance(images, str):

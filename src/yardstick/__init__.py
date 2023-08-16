@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 import logging
 from typing import Optional
 
@@ -11,7 +9,7 @@ def compare_results(
     year_max_limit: Optional[int] = None,
     year_from_cve_only: bool = False,
     matches_filter: Optional[callable] = None,
-    store_root: str | None = None,
+    store_root: Optional[str] = None,
 ) -> comparison.ByPreservedMatch:
     results = store.scan_result.load_by_descriptions(
         descriptions=descriptions,
@@ -40,7 +38,7 @@ def compare_results_against_labels(  # pylint: disable=too-many-arguments
     year_from_cve_only: bool = False,
     label_entries: Optional[list[artifact.LabelEntry]] = None,
     matches_filter: Optional[callable] = None,
-    store_root: str | None = None,
+    store_root: Optional[str] = None,
 ) -> tuple[
     list[artifact.ScanResult],
     list[artifact.LabelEntry],
