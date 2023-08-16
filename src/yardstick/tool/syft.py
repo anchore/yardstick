@@ -64,7 +64,7 @@ class Syft(SBOMGenerator):
 
         return Syft(path=path)
 
-    @staticmethod
+    @classmethod
     def _install_from_git(
         cls,
         version: str,
