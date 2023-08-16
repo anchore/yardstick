@@ -17,6 +17,7 @@ from yardstick import artifact, utils
 from yardstick.tool.sbom_generator import SBOMGenerator
 
 
+# pylint: disable=no-member
 class Syft(SBOMGenerator):
     _latest_version_from_github: Optional[str] = None
 
@@ -62,8 +63,9 @@ class Syft(SBOMGenerator):
 
         return Syft(path=path)
 
-    @staticmethod
+    @classmethod
     def _install_from_git(
+        cls,
         version: str,
         path: Optional[str] = None,
         use_cache: Optional[bool] = True,
@@ -71,6 +73,15 @@ class Syft(SBOMGenerator):
     ) -> "Syft":
         logging.debug(f"installing syft version={version!r} from git")
         tool_exists = False
+
+        repo_url = "github.com/anchore/syft"
+        if version.startswith("github.com"):
+            repo_url = version
+            if "@" in version:
+                version = version.split("@")[1]
+                repo_url = repo_url.split("@")[0]
+            else:
+                version = "main"
 
         if not use_cache and path:
             shutil.rmtree(path, ignore_errors=True)
@@ -85,12 +96,16 @@ class Syft(SBOMGenerator):
         if os.path.exists(repo_path):
             logging.debug(f"found existing syft repo at {repo_path!r}")
             # use existing source
-            repo = git.Repo(repo_path)
+            try:
+                repo = git.Repo(repo_path)
+            except:
+                logging.error(f"failed to open existing syft repo at {repo_path!r}")
+                raise
         else:
-            logging.debug("cloning the syft git repo")
+            logging.debug("cloning the syft git repo: {repo_url!r}")
             # clone the repo
             os.makedirs(repo_path)
-            repo = git.Repo.clone_from("https://github.com/anchore/syft.git", repo_path)
+            repo = git.Repo.clone_from("https://{repo_url}.git", repo_path)
 
         # checkout the ref in question
         repo.git.fetch("origin", version)
@@ -110,22 +125,85 @@ class Syft(SBOMGenerator):
         abspath = os.path.abspath(path)
         if not tool_exists:
             logging.debug(f"installing syft to {abspath!r}")
-            # pylint: disable=line-too-long
-            c = f"go build -ldflags \"-w -s -extldflags '-static' -X github.com/anchore/syft/internal/version.version={description}\" -o {abspath} ./cmd/syft/"
-            logging.debug(f"running {c!r}")
-            subprocess.check_call(
-                shlex.split(c),
-                stdout=sys.stdout,
-                stderr=sys.stderr,
-                cwd=repo_path,
-                env=dict(**{"GOBIN": abspath, "CGO_ENABLED": "0"}, **os.environ),
-            )
-
-            os.chmod(f"{path}/syft", 0o755)
+            cls._run_go_build(abs_install_dir=abspath, repo_path=repo_path, description=description, binpath=path)
         else:
             logging.debug(f"using existing syft installation {abspath!r}")
 
         return Syft(path=path, version_detail=description)
+
+    @classmethod
+    def _install_from_path(
+        cls,
+        path: Optional[str],
+        src_path: str,
+    ) -> "Syft":
+        # get the description and head ref from the repo
+        src_repo_path = os.path.abspath(os.path.expanduser(src_path))
+        build_version = utils.local_build_version_suffix(src_repo_path)
+        logging.debug(f"installing syft from path={src_repo_path!r}")
+        logging.debug(f"installing syft to path={path!r}")
+        if not path:
+            path = tempfile.mkdtemp()
+            atexit.register(shutil.rmtree, path)
+        dest_path = os.path.join(path.replace("path:", ""), build_version, "local_install")
+        os.makedirs(dest_path, exist_ok=True)
+        cls._run_go_build(
+            abs_install_dir=os.path.abspath(dest_path),
+            description=f"{path}:{build_version}",
+            repo_path=src_repo_path,
+            binpath=dest_path,
+        )
+
+        return Syft(path=dest_path)
+
+    @staticmethod
+    def _run_go_build(
+        abs_install_dir: str,
+        repo_path: str,
+        description: str,
+        binpath: str,
+        version_ref: str = "github.com/anchore/syft/internal/version.version",
+    ):
+        logging.debug(f"installing syft via build to {abs_install_dir!r}")
+
+        main_pkg_path = "./cmd/syft"
+        if not os.path.exists(os.path.join(repo_path, "cmd", "syft", "main.go")):
+            # support legacy installations, when the main.go was in the root of the repo
+            main_pkg_path = "."
+
+        c = f"go build -ldflags \"-w -s -extldflags '-static' -X {version_ref}={description}\" -o {abs_install_dir} {main_pkg_path}"
+        logging.debug(f"running {c!r}")
+
+        e = {"GOBIN": abs_install_dir, "CGO_ENABLED": "0"}
+        e.update(os.environ)
+
+        subprocess.check_call(
+            shlex.split(c),
+            stdout=sys.stdout,
+            stderr=sys.stderr,
+            cwd=repo_path,
+            env=e,
+        )
+
+        os.chmod(f"{binpath}/syft", 0o755)
+
+    @classmethod
+    def _get_latest_version_from_github(cls) -> str:
+        headers = {}
+        if os.environ.get("GITHUB_TOKEN") is not None:
+            headers["Authorization"] = "Bearer " + os.environ.get("GITHUB_TOKEN")
+
+        response = requests.get(
+            "https://api.github.com/repos/anchore/syft/releases/latest",
+            headers=headers,
+        )
+
+        if response.status_code >= 400:
+            logging.error(f"error while fetching latest syft version: {response.status_code}: {response.reason} {response.text}")
+
+        response.raise_for_status()
+
+        return response.json()["name"]
 
     @classmethod
     def install(cls, version: str, path: Optional[str] = None, use_cache: Optional[bool] = True, **kwargs) -> "Syft":
@@ -135,10 +213,8 @@ class Syft(SBOMGenerator):
                 logging.info(f"latest syft release found (cached) is {version}")
 
             else:
-                response = requests.get("https://api.github.com/repos/anchore/syft/releases/latest")
-                version = response.json()["name"]
+                version = cls._get_latest_version_from_github()
                 cls._latest_version_from_github = version
-
                 path = os.path.join(os.path.dirname(path), version)
                 logging.info(f"latest syft release found is {version}")
 
@@ -149,6 +225,11 @@ class Syft(SBOMGenerator):
             version,
         ):
             tool_obj = cls._install_from_installer(version=version, path=path, use_cache=use_cache, **kwargs)
+        elif version.startswith("path:"):
+            tool_obj = cls._install_from_path(
+                path=path,
+                src_path=version.removeprefix("path:"),
+            )
         else:
             tool_obj = cls._install_from_git(version=version, path=path, use_cache=use_cache, **kwargs)
 

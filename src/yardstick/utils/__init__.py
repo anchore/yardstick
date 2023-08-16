@@ -1,6 +1,42 @@
 from __future__ import annotations
 
+import hashlib
+import logging
+import os
+
+import git
+
 from . import grype_db
+
+
+def local_build_version_suffix(src_path: str) -> str:
+    src_path = os.path.abspath(os.path.expanduser(src_path))
+    git_desc = ""
+    diff_digest = "clean"
+    try:
+        repo = git.Repo(src_path)
+    except:
+        logging.error(f"failed to open existing repo at {src_path!r}")
+        raise
+    git_desc = repo.git.describe("--tags", "--always", "--long", "--dirty")
+    if repo.is_dirty():
+        hash_obj = hashlib.sha1()
+        for untracked in repo.untracked_files:
+            hash_obj.update(hash_file(os.path.join(repo.working_dir, untracked)).encode())
+        hash_obj.update(repo.git.diff("HEAD").encode())
+        diff_digest = hash_obj.hexdigest()[:8]
+    return f"{git_desc}-{diff_digest}"
+
+
+def hash_file(path: str) -> str:
+    hash_obj = hashlib.sha1()
+    with open(path, "rb") as f:
+        while True:
+            data = f.read(4096)
+            if not data:
+                break
+            hash_obj.update(data)
+    return hash_obj.hexdigest()
 
 
 def dig(target, *keys, **kwargs):
