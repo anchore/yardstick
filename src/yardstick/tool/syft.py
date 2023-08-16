@@ -1,5 +1,4 @@
 import atexit
-import hashlib
 import json
 import logging
 import os
@@ -133,25 +132,6 @@ class Syft(SBOMGenerator):
         return Syft(path=path, version_detail=description)
 
     @classmethod
-    def _local_build_version_suffix(cls, src_path: str) -> str:
-        src_path = os.path.abspath(os.path.expanduser(src_path))
-        git_desc = ""
-        diff_digest = "clean"
-        try:
-            repo = git.Repo(src_path)
-        except:
-            logging.error(f"failed to open existing grype repo at {src_path!r}")
-            raise
-        git_desc = repo.git.describe("--tags", "--always", "--long", "--dirty")
-        if repo.is_dirty():
-            hash_obj = hashlib.sha1()
-            for untracked in repo.untracked_files:
-                hash_obj.update(cls._hash_file(os.path.join(repo.working_dir, untracked)).encode())
-            hash_obj.update(repo.git.diff("HEAD").encode())
-            diff_digest = hash_obj.hexdigest()[:8]
-        return f"{git_desc}-{diff_digest}"
-
-    @classmethod
     def _install_from_path(
         cls,
         path: Optional[str],
@@ -159,7 +139,7 @@ class Syft(SBOMGenerator):
     ) -> "Syft":
         # get the description and head ref from the repo
         src_repo_path = os.path.abspath(os.path.expanduser(src_path))
-        build_version = cls._local_build_version_suffix(src_repo_path)
+        build_version = utils.local_build_version_suffix(src_repo_path)
         logging.debug(f"installing syft from path={src_repo_path!r}")
         logging.debug(f"installing syft to path={path!r}")
         if not path:
