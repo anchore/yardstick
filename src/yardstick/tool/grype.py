@@ -144,6 +144,7 @@ class Grype(VulnerabilityScanner):
 
         abspath = os.path.abspath(path)
         if not tool_exists:
+            logging.debug(f"installing grype to {abspath!r}")
             cls._run_go_build(
                 abs_install_dir=abspath,
                 repo_path=repo_path,
