@@ -1,4 +1,5 @@
 import atexit
+import hashlib
 import json
 import logging
 import os
@@ -65,6 +66,7 @@ class Syft(SBOMGenerator):
 
     @staticmethod
     def _install_from_git(
+        cls,
         version: str,
         path: Optional[str] = None,
         use_cache: Optional[bool] = True,
