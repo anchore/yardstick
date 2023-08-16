@@ -1,3 +1,6 @@
+from __future__ import annotations
+
+import os
 from dataclasses import dataclass, field
 from typing import Any, Dict, Optional
 
@@ -7,6 +10,11 @@ from dataclass_wizard import asdict, fromdict
 
 from yardstick import artifact
 from yardstick.store import config as store_config
+
+DEFAULT_CONFIGS = (
+    ".yardstick.yaml",
+    "yardstick.yaml",
+)
 
 
 @dataclass()
@@ -104,31 +112,14 @@ def yaml_decoder(data) -> Dict[Any, Any]:
     return clean_dict_keys(yaml.safe_load(data))
 
 
-def load(path: str = ".yardstick.yaml") -> Application:
-    try:
-        with open(path, encoding="utf-8") as f:
-            app_object = yaml.safe_load(f.read()) or {}
-            # we need a full default application config first then merge the loaded config on top.
-            # Why? dataclass_wizard.fromdict() will create instances from the dataclass default
-            # and NOT the field definition from the container. So it is possible to specify a
-            # single field in the config and all other fields would be set to the default value
-            # based on the dataclass definition and not any field(default_factory=...) hints
-            # from the containing class.
-            instance = asdict(Application())
+def load(
+    path: None | str | list[str] | tuple[str] = DEFAULT_CONFIGS,
+) -> Application:
+    cfg = _load_paths(path)
 
-            mergedeep.merge(instance, app_object)
-            cfg = fromdict(
-                Application,
-                instance,
-            )
-            if cfg is None:
-                raise FileNotFoundError("parsed empty config")
-
-            # for _, result_set in cfg.result_sets.items():
-            #     result_set.matrix.__post_init__()
-
-    except FileNotFoundError:
-        cfg: Application = Application()
+    if not cfg:
+        msg = "no config found"
+        raise RuntimeError(msg)
 
     if cfg.profile_path:
         try:
@@ -137,5 +128,55 @@ def load(path: str = ".yardstick.yaml") -> Application:
         except:  # pylint: disable=bare-except
             profile = Profiles({})
         cfg.profiles = profile
+
+    return cfg
+
+
+def _load_paths(
+    path: None | str | list[str] | tuple[str],
+) -> Application | None:
+    if not path:
+        path = DEFAULT_CONFIGS
+
+    if isinstance(path, str):
+        if path == "":
+            path = DEFAULT_CONFIGS
+        else:
+            return _load(path)
+
+    if isinstance(path, (list, tuple)):
+        for p in path:
+            if not os.path.exists(p):
+                continue
+
+            return _load(p)
+
+        # use the default application config
+        return Application()
+
+    msg = f"invalid path type {type(path)}"
+    raise ValueError(msg)
+
+
+def _load(path: str) -> Application:
+    with open(path, encoding="utf-8") as f:
+        app_object = yaml.load(f.read(), yaml.SafeLoader) or {}  # noqa: S506 (since our loader is using the safe loader)
+        # we need a full default application config first then merge the loaded config on top.
+        # Why? dataclass_wizard.fromdict() will create instances from the dataclass default
+        # and NOT the field definition from the container. So it is possible to specify a
+        # single field in the config and all other fields would be set to the default value
+        # based on the dataclass definition and not any field(default_factory=...) hints
+        # from the containing class.
+        instance = asdict(Application())
+
+        mergedeep.merge(instance, app_object)
+        cfg = fromdict(
+            Application,
+            instance,
+        )
+
+    if cfg is None:
+        msg = "parsed empty config"
+        raise FileNotFoundError(msg)
 
     return cfg

@@ -125,7 +125,7 @@ def one(
     return scan_config
 
 
-# pylint: disable=too-many-branches
+# pylint: disable=too-many-branches, too-many-locals
 def result_set(
     result_set: str,  # pylint: disable=redefined-outer-name
     scan_requests: list[artifact.ScanRequest],
@@ -142,12 +142,9 @@ def result_set(
         existing_result_set_obj = store.result_set.load(result_set)
 
     result_set_obj = artifact.ResultSet(name=result_set)
+    total = len(scan_requests)
     for idx, scan_request in enumerate(scan_requests):
-        logging.info(
-            f"fulfulling scan request {idx} of {len(scan_requests)}: image=%s tool=%s",
-            summarize_image(scan_request.image),
-            summarize_tool(scan_request.tool),
-        )
+        logging.info(f"capturing data for request {idx+1} of {total}")
         producer_data_path = None
         if scan_request.takes:
             producer = result_set_obj.provider(image=scan_request.image, provides=scan_request.takes)
