@@ -80,17 +80,20 @@ def intake(config: artifact.ScanConfiguration, raw_results: str) -> artifact.Sca
     metadata = artifact.ScanMetadata(timestamp=datetime.datetime.now(datetime.timezone.utc).replace(microsecond=0))
     return artifact.ScanResult(config=config, metadata=metadata, **keys)
 
+
 def summarize_image(image: str):
     if "@sha256:" in image:
         fields = image.split("@", 1)
         return f"{fields[0]}@{fields[1][:15]}…"
     return image
 
+
 def summarize_tool(tool: str):
     if "+import-db=" in tool:
         fields = tool.split("+import-db=", 1)
         return f"{fields[0]}+import-db=…"
     return tool
+
 
 def one(
     request: artifact.ScanRequest,
@@ -122,6 +125,7 @@ def one(
     return scan_config
 
 
+# pylint: disable=too-many-branches
 def result_set(
     result_set: str,  # pylint: disable=redefined-outer-name
     scan_requests: list[artifact.ScanRequest],
@@ -139,7 +143,11 @@ def result_set(
 
     result_set_obj = artifact.ResultSet(name=result_set)
     for idx, scan_request in enumerate(scan_requests):
-        logging.info(f"fulfulling scan request {idx} of {len(scan_requests)}: image=%s tool=%s", summarize_image(scan_request.image), summarize_tool(scan_request.tool))
+        logging.info(
+            f"fulfulling scan request {idx} of {len(scan_requests)}: image=%s tool=%s",
+            summarize_image(scan_request.image),
+            summarize_tool(scan_request.tool),
+        )
         producer_data_path = None
         if scan_request.takes:
             producer = result_set_obj.provider(image=scan_request.image, provides=scan_request.takes)
@@ -165,19 +173,19 @@ def result_set(
                     scan_config = None
 
                 if scan_config:
-                    logging.info(f"using existing scan result { scan_config.ID}")
+                    logging.info(f"using existing scan result {scan_config.ID}")
                 else:
                     logging.debug(f"unable to find existing scan result by description={result_state.config.path}")
 
             else:
-                logging.debug(f"unable to find existing scan result (missing config)")
+                logging.debug("unable to find existing scan result (missing config)")
 
         else:
             logging.debug(f"unable to find existing result set {result_set!r}")
 
         if refresh or not scan_config:
             if scan_config:
-                logging.trace(f"replacing existing scan config {scan_config!r}")
+                logging.debug(f"replacing existing scan config {scan_config!r}")
             scan_config = one(scan_request, producer_state=producer_data_path, profiles=profiles)
 
         if not scan_config:

@@ -29,7 +29,7 @@ class GrypeProfile:
 class Grype(VulnerabilityScanner):
     _latest_version_from_github: Optional[str] = None
 
-    def __init__(
+    def __init__(  # pylint: disable=too-many-arguments
         self,
         path: str,
         db_identity: str,
@@ -53,24 +53,22 @@ class Grype(VulnerabilityScanner):
     def _install_from_installer(
         version: str,
         path: Optional[str] = None,
-        within_path: Optional[str] = None,
         use_cache: Optional[bool] = True,
+        add_version_to_path: bool = False,
         **kwargs,
     ) -> "Grype":
         logging.debug(f"installing grype version={version!r} from installer")
         tool_exists = False
 
-        if path and within_path:
-            raise ValueError("cannot specify both path and within_path")
-
         if not use_cache and path:
             shutil.rmtree(path)
 
-        if not path and not within_path:
+        if not path:
             path = tempfile.mkdtemp()
             atexit.register(shutil.rmtree, path)
-        elif within_path:
-            path = os.path.join(within_path, version)
+
+        if add_version_to_path:
+            path = os.path.join(path, version)
             os.makedirs(path, exist_ok=True)
 
         if os.path.exists(os.path.join(path, "grype")):
@@ -93,12 +91,12 @@ class Grype(VulnerabilityScanner):
         return Grype(path=path, version_detail=version, **kwargs)
 
     @classmethod
-    def _install_from_git(
+    def _install_from_git(  # pylint: disable=too-many-branches
         cls,
         version: str,
         path: Optional[str] = None,
-        within_path: Optional[str] = None,
         use_cache: Optional[bool] = True,
+        add_version_to_path: bool = False,
         **kwargs,
     ) -> "Grype":
         logging.debug(f"installing grype version={version!r} from git")
@@ -116,15 +114,12 @@ class Grype(VulnerabilityScanner):
         if not use_cache and path:
             shutil.rmtree(path, ignore_errors=True)
 
-        if path and within_path:
-            raise ValueError("cannot specify both path and within_path")
-
-        if within_path:
-            path = within_path
-
         if not path:
             path = tempfile.mkdtemp()
             atexit.register(shutil.rmtree, path)
+
+        if add_version_to_path:
+            path = os.path.join(path, version)
 
         # grab the latest source code into a local directory
         repo_path = os.path.join(path, "source")
@@ -206,18 +201,29 @@ class Grype(VulnerabilityScanner):
         cls,
         path: Optional[str],
         src_path: str,
+        use_cache: Optional[bool] = True,
+        add_version_to_path: bool = False,
         **kwargs,
     ) -> "Grype":
-        # get the description and head ref from the repo
-        src_repo_path = os.path.abspath(os.path.expanduser(src_path))
-        build_version = cls._local_build_version_suffix(src_repo_path)
-        logging.debug(f"installing grype from path={src_repo_path!r}")
-        logging.debug(f"installing grype to path={path!r}")
+        if not use_cache and path:
+            shutil.rmtree(path, ignore_errors=True)
+
         if not path:
             path = tempfile.mkdtemp()
             atexit.register(shutil.rmtree, path)
+
+        # get the description and head ref from the repo
+        src_repo_path = os.path.abspath(os.path.expanduser(src_path))
+        build_version = cls._local_build_version_suffix(src_repo_path)
+
+        if add_version_to_path:
+            path = os.path.join(path, build_version)
+
+        logging.debug(f"installing grype from path={src_repo_path!r} to path={path!r}")
+
         dest_path = os.path.join(path.replace("path:", ""), build_version, "local_install")
         os.makedirs(dest_path, exist_ok=True)
+
         cls._run_go_build(
             abs_install_dir=os.path.abspath(dest_path),
             description=f"{path}:{build_version}",
@@ -276,17 +282,17 @@ class Grype(VulnerabilityScanner):
 
         return response.json()["name"]
 
-    # pylint: disable=too-many-arguments
+    # pylint: disable=too-many-arguments, too-many-locals, too-many-branches
     @classmethod
     def install(
         cls,
         version: str,
         path: Optional[str] = None,
-        within_path: Optional[str] = None,
         use_cache: Optional[bool] = True,
         update_db: bool = True,
         db_import_path=None,
         profile: Optional[Dict[str, str]] = None,
+        add_version_to_path: bool = False,
         **kwargs,
     ) -> "Grype":
         original_version = version
@@ -316,9 +322,6 @@ class Grype(VulnerabilityScanner):
 
                 db_identity = metadata["checksum"]
 
-        if path and within_path:
-            raise ValueError("cannot specify both path and within_path")
-
         logging.debug(f"parsed import-db={db_import_path!r} from version={original_version!r} new version={version!r}")
         if profile:
             grype_profile = GrypeProfile(**profile)
@@ -346,31 +349,31 @@ class Grype(VulnerabilityScanner):
             tool_obj = cls._install_from_installer(
                 version=version,
                 path=path,
-                within_path=within_path,
                 use_cache=use_cache,
                 profile=grype_profile,
                 db_identity=db_identity,
+                add_version_to_path=add_version_to_path,
                 **kwargs,
             )
         elif version.startswith("path:"):
             tool_obj = cls._install_from_path(
                 path=path,
-                within_path=within_path,
                 src_path=version.removeprefix("path:"),
                 version=version.removeprefix("path:"),
                 use_cache=use_cache,
                 db_identity=db_identity,
                 profile=grype_profile,
+                add_version_to_path=add_version_to_path,
                 **kwargs,
             )
         else:
             tool_obj = cls._install_from_git(
                 version=version,
                 path=path,
-                within_path=within_path,
                 db_identity=db_identity,
                 use_cache=use_cache,
                 profile=grype_profile,
+                add_version_to_path=add_version_to_path,
                 **kwargs,
             )
 
