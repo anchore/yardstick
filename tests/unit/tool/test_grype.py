@@ -10,7 +10,7 @@ def test_grype_profiles():
     profile = GrypeProfile(**profile_arg)
     with mock.patch("subprocess.check_output") as check_output:
         check_output.return_value = bytes("test-output", "utf-8")
-        tool = Grype(path="test-path", profile=profile)
+        tool = Grype(path="test-path", profile=profile, db_identity="oss")
         tool.capture(image="test-image", tool_input=None)
         assert check_output.call_args.args[0] == ["test-path/grype", "-o", "json", "test-image", "-c", "test-config-path"]
 
@@ -18,7 +18,7 @@ def test_grype_profiles():
 def test_grype_no_profile():
     with mock.patch("subprocess.check_output") as check_output:
         check_output.return_value = bytes("test-output", "utf-8")
-        tool = Grype(path="test-path")
+        tool = Grype(path="test-path", db_identity="oss")
         tool.capture(image="test-image", tool_input=None)
         assert check_output.call_args.args[0] == ["test-path/grype", "-o", "json", "test-image"]
 
