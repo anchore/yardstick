@@ -89,7 +89,7 @@ class Grype(VulnerabilityScanner):
         return Grype(path=path, version_detail=version, **kwargs)
 
     @classmethod
-    def _install_from_git(  # pylint: disable=too-many-branches
+    def _install_from_git(
         cls,
         version: str,
         path: Optional[str] = None,

@@ -81,20 +81,6 @@ def intake(config: artifact.ScanConfiguration, raw_results: str) -> artifact.Sca
     return artifact.ScanResult(config=config, metadata=metadata, **keys)
 
 
-def summarize_image(image: str):
-    if "@sha256:" in image:
-        fields = image.split("@", 1)
-        return f"{fields[0]}@{fields[1][:15]}…"
-    return image
-
-
-def summarize_tool(tool: str):
-    if "+import-db=" in tool:
-        fields = tool.split("+import-db=", 1)
-        return f"{fields[0]}+import-db=…"
-    return tool
-
-
 def one(
     request: artifact.ScanRequest,
     producer_state: Optional[str] = None,
@@ -125,7 +111,7 @@ def one(
     return scan_config
 
 
-# pylint: disable=too-many-branches, too-many-locals
+# pylint: disable=too-many-locals
 def result_set(
     result_set: str,  # pylint: disable=redefined-outer-name
     scan_requests: list[artifact.ScanRequest],
@@ -171,18 +157,8 @@ def result_set(
 
                 if scan_config:
                     logging.info(f"using existing scan result {scan_config.ID}")
-                else:
-                    logging.debug(f"unable to find existing scan result by description={result_state.config.path}")
-
-            else:
-                logging.debug("unable to find existing scan result (missing config)")
-
-        else:
-            logging.debug(f"unable to find existing result set {result_set!r}")
 
         if refresh or not scan_config:
-            if scan_config:
-                logging.debug(f"replacing existing scan config {scan_config!r}")
             scan_config = one(scan_request, producer_state=producer_data_path, profiles=profiles)
 
         if not scan_config:
