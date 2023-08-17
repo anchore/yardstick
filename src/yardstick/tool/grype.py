@@ -1,4 +1,5 @@
 import atexit
+import functools
 import json
 import logging
 import os
@@ -7,15 +8,16 @@ import shlex
 import shutil
 import subprocess
 import sys
+import tarfile
 import tempfile
 from dataclasses import dataclass
 from typing import Any, Dict, List, Optional
 
 import git
-import requests
 
 from yardstick import artifact, utils
 from yardstick.tool.vulnerability_scanner import VulnerabilityScanner
+from yardstick.utils import github
 
 
 @dataclass(frozen=False)
@@ -25,11 +27,10 @@ class GrypeProfile:
 
 
 class Grype(VulnerabilityScanner):
-    _latest_version_from_github: Optional[str] = None
-
-    def __init__(
+    def __init__(  # pylint: disable=too-many-arguments
         self,
         path: str,
+        db_identity: str,
         version_detail: Optional[str] = None,
         env: Optional[Dict[str, str]] = None,
         profile: Optional[GrypeProfile] = None,
@@ -38,13 +39,18 @@ class Grype(VulnerabilityScanner):
         if not profile:
             profile = GrypeProfile()
         self.profile = profile
-
+        self.db_identity = db_identity
         self.path = path
         self._env = env
         if version_detail:
             self.version_detail = version_detail
             if self.profile and self.profile.name:
                 self.version_detail += f"+profile={self.profile.name}"
+
+    @staticmethod
+    @functools.cache
+    def latest_version_from_github():
+        return github.get_latest_release_version(project="grype")
 
     @staticmethod
     def _install_from_installer(
@@ -62,9 +68,9 @@ class Grype(VulnerabilityScanner):
         if not path:
             path = tempfile.mkdtemp()
             atexit.register(shutil.rmtree, path)
-        else:
-            if os.path.exists(os.path.join(path, "grype")):
-                tool_exists = True
+
+        if os.path.exists(os.path.join(path, "grype")):
+            tool_exists = True
 
         if not tool_exists:
             subprocess.check_call(
@@ -160,18 +166,25 @@ class Grype(VulnerabilityScanner):
         cls,
         path: Optional[str],
         src_path: str,
+        use_cache: Optional[bool] = True,
         **kwargs,
     ) -> "Grype":
-        # get the description and head ref from the repo
-        src_repo_path = os.path.abspath(os.path.expanduser(src_path))
-        build_version = utils.local_build_version_suffix(src_repo_path)
-        logging.debug(f"installing grype from path={src_repo_path!r}")
-        logging.debug(f"installing grype to path={path!r}")
+        if not use_cache and path:
+            shutil.rmtree(path, ignore_errors=True)
+
         if not path:
             path = tempfile.mkdtemp()
             atexit.register(shutil.rmtree, path)
+
+        # get the description and head ref from the repo
+        src_repo_path = os.path.abspath(os.path.expanduser(src_path))
+        build_version = utils.local_build_version_suffix(src_repo_path)
+
+        logging.debug(f"installing grype from path={src_repo_path!r} to path={path!r}")
+
         dest_path = os.path.join(path.replace("path:", ""), build_version, "local_install")
         os.makedirs(dest_path, exist_ok=True)
+
         cls._run_go_build(
             abs_install_dir=os.path.abspath(dest_path),
             description=f"{path}:{build_version}",
@@ -212,25 +225,7 @@ class Grype(VulnerabilityScanner):
 
         os.chmod(f"{binpath}/grype", 0o755)
 
-    @classmethod
-    def _get_latest_version_from_github(cls) -> str:
-        headers = {}
-        if os.environ.get("GITHUB_TOKEN") is not None:
-            headers["Authorization"] = "Bearer " + os.environ.get("GITHUB_TOKEN")
-
-        response = requests.get(
-            "https://api.github.com/repos/anchore/grype/releases/latest",
-            headers=headers,
-        )
-
-        if response.status_code >= 400:
-            logging.error(f"error while fetching latest grype version: {response.status_code}: {response.reason} {response.text}")
-
-        response.raise_for_status()
-
-        return response.json()["name"]
-
-    # pylint: disable=too-many-arguments
+    # pylint: disable=too-many-arguments, too-many-locals, too-many-branches
     @classmethod
     def install(
         cls,
@@ -244,12 +239,30 @@ class Grype(VulnerabilityScanner):
     ) -> "Grype":
         original_version = version
         specified_db = "+import-db=" in version
+        db_identity = "oss"
         if specified_db:
             # note: doesn't allow for additional version modifiers
             fields = version.split("+import-db=")
             db_import_path = fields[1]
             version = fields[0]
             update_db = False
+
+            # extract the metadata.json file from the db tar.gz archive (db_import_path)
+            # and use it to determine the checksum of the DB
+            with tarfile.open(db_import_path, "r:gz") as tar:
+                metadata_path = None
+                for member in tar.getmembers():
+                    if member.name.endswith("metadata.json"):
+                        metadata_path = member.name
+                        break
+
+                if not metadata_path:
+                    raise ValueError(f"could not find metadata.json in {db_import_path!r}")
+
+                with tar.extractfile(metadata_path) as metadata_file:
+                    metadata = json.load(metadata_file)
+
+                db_identity = metadata["checksum"]
 
         logging.debug(f"parsed import-db={db_import_path!r} from version={original_version!r} new version={version!r}")
         if profile:
@@ -258,14 +271,10 @@ class Grype(VulnerabilityScanner):
             grype_profile = GrypeProfile()
 
         if version == "latest":
-            if cls._latest_version_from_github:
-                version = cls._latest_version_from_github
-                logging.info(f"latest grype release found (cached) is {version}")
-            else:
-                version = cls._get_latest_version_from_github()
-                cls._latest_version_from_github = version
+            version = cls.latest_version_from_github()
+            if path:
                 path = os.path.join(os.path.dirname(path), version)
-                logging.info(f"latest grype release found is {version}")
+            logging.info(f"latest grype release found is {version}")
 
         # check if the version is a semver...
         if re.match(
@@ -278,6 +287,7 @@ class Grype(VulnerabilityScanner):
                 path=path,
                 use_cache=use_cache,
                 profile=grype_profile,
+                db_identity=db_identity,
                 **kwargs,
             )
         elif version.startswith("path:"):
@@ -286,6 +296,7 @@ class Grype(VulnerabilityScanner):
                 src_path=version.removeprefix("path:"),
                 version=version.removeprefix("path:"),
                 use_cache=use_cache,
+                db_identity=db_identity,
                 profile=grype_profile,
                 **kwargs,
             )
@@ -293,6 +304,7 @@ class Grype(VulnerabilityScanner):
             tool_obj = cls._install_from_git(
                 version=version,
                 path=path,
+                db_identity=db_identity,
                 use_cache=use_cache,
                 profile=grype_profile,
                 **kwargs,
@@ -300,17 +312,20 @@ class Grype(VulnerabilityScanner):
 
         # always update the DB, raise exception on failure
         if db_import_path:
-            logging.debug(f"using given db from {db_import_path!r}")
-            tool_obj.run("db", "import", db_import_path)
+            if os.path.exists(tool_obj.db_root):
+                logging.info(f"using existing (custom) db from {tool_obj.db_root!r}")
+            else:
+                logging.info(f"importing given (custom) db from {db_import_path!r}")
+                tool_obj.run("db", "import", db_import_path)
         elif update_db:
-            logging.debug("updating db")
+            logging.debug("updating db from OSS")
             tool_obj.run("db", "update")
 
         return tool_obj
 
     @property
     def db_root(self) -> str:
-        return os.path.join(self.path, "db")
+        return os.path.join(self.path, "db", self.db_identity)
 
     def env(self, override=None):
         env = os.environ.copy()

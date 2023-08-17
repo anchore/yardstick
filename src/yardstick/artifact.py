@@ -539,7 +539,7 @@ class ScanRequest:
 @dataclass()
 class ResultState:
     request: ScanRequest
-    config: ScanConfiguration
+    config: ScanConfiguration = None
 
 
 @dataclass_json

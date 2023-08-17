@@ -630,7 +630,7 @@ class ImageToolLabelStats:
 def of_results_against_label(
     *results: ScanResult, label_entries, fuzzy_package_match: bool = False, compare_configuration: dict[str, str] | None = None
 ) -> tuple[dict[str, list[AgainstLabels]], ImageToolLabelStats]:
-    logging.info("starting comparison against labels")
+    logging.debug("starting comparison against labels")
 
     comparisons_by_result_id = {}
 
@@ -639,7 +639,7 @@ def of_results_against_label(
 
     comparisons = []
     for result in results:
-        logging.info(f"comparing labels for image={result.config.image} tool={result.config.tool}")
+        logging.debug(f"comparing labels for image={result.config.image} tool={result.config.tool}")
 
         lineage = store.image_lineage.get(image=result.config.image)
         comp = AgainstLabels(

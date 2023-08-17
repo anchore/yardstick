@@ -86,7 +86,7 @@ def one(
     producer_state: Optional[str] = None,
     profiles: Optional[Dict[str, Dict[str, Any]]] = None,
 ) -> artifact.ScanConfiguration:
-    logging.info(f"capturing data image={request.image} tool={request.tool} profile={request.profile}")
+    logging.debug(f"capturing data image={request.image} tool={request.tool} profile={request.profile}")
 
     if not profiles:
         profiles = {}
@@ -111,7 +111,8 @@ def one(
     return scan_config
 
 
-def result_set(  # pylint: disable=too-many-locals
+# pylint: disable=too-many-locals
+def result_set(
     result_set: str,  # pylint: disable=redefined-outer-name
     scan_requests: list[artifact.ScanRequest],
     only_producers: bool = False,
@@ -155,12 +156,7 @@ def result_set(  # pylint: disable=too-many-locals
                     scan_config = None
 
                 if scan_config:
-                    logging.info(
-                        "using existing scan result for tool=%s image=%s : %s",
-                        scan_config.tool,
-                        scan_config.image,
-                        scan_config.ID,
-                    )
+                    logging.info(f"using existing scan result {scan_config.ID}")
 
         if refresh or not scan_config:
             scan_config = one(scan_request, producer_state=producer_data_path, profiles=profiles)
