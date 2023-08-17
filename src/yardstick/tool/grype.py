@@ -1,5 +1,4 @@
 import atexit
-import hashlib
 import json
 import logging
 import os
@@ -155,6 +154,7 @@ class Grype(VulnerabilityScanner):
 
         abspath = os.path.abspath(path)
         if not tool_exists:
+            logging.debug(f"installing grype to {abspath!r}")
             cls._run_go_build(
                 abs_install_dir=abspath,
                 repo_path=repo_path,
@@ -165,36 +165,6 @@ class Grype(VulnerabilityScanner):
             logging.debug(f"using existing grype installation {abspath!r}")
 
         return Grype(path=path, version_detail=description, **kwargs)
-
-    @classmethod
-    def _local_build_version_suffix(cls, src_path: str) -> str:
-        src_path = os.path.abspath(os.path.expanduser(src_path))
-        git_desc = ""
-        diff_digest = "clean"
-        try:
-            repo = git.Repo(src_path)
-        except:
-            logging.error(f"failed to open existing grype repo at {src_path!r}")
-            raise
-        git_desc = repo.git.describe("--tags", "--always", "--long", "--dirty")
-        if repo.is_dirty():
-            hash_obj = hashlib.sha1()
-            for untracked in repo.untracked_files:
-                hash_obj.update(cls._hash_file(os.path.join(repo.working_dir, untracked)).encode())
-            hash_obj.update(repo.git.diff("HEAD").encode())
-            diff_digest = hash_obj.hexdigest()[:8]
-        return f"{git_desc}-{diff_digest}"
-
-    @classmethod
-    def _hash_file(cls, path: str) -> str:
-        hash_obj = hashlib.sha1()
-        with open(path, "rb") as f:
-            while True:
-                data = f.read(4096)
-                if not data:
-                    break
-                hash_obj.update(data)
-        return hash_obj.hexdigest()
 
     @classmethod
     def _install_from_path(
@@ -214,7 +184,7 @@ class Grype(VulnerabilityScanner):
 
         # get the description and head ref from the repo
         src_repo_path = os.path.abspath(os.path.expanduser(src_path))
-        build_version = cls._local_build_version_suffix(src_repo_path)
+        build_version = utils.local_build_version_suffix(src_repo_path)
 
         if add_version_to_path:
             path = os.path.join(path, build_version)
