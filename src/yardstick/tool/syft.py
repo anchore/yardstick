@@ -1,4 +1,5 @@
 import atexit
+import functools
 import json
 import logging
 import os
@@ -11,10 +12,10 @@ import tempfile
 from typing import Dict, List, Optional
 
 import git
-import requests
 
 from yardstick import artifact, utils
 from yardstick.tool.sbom_generator import SBOMGenerator
+from yardstick.utils import github
 
 
 # pylint: disable=no-member
@@ -27,12 +28,16 @@ class Syft(SBOMGenerator):
         if version_detail:
             self.version_detail = version_detail
 
+    @functools.cache
+    @staticmethod
+    def latest_version_from_github():
+        return github.get_latest_release_version(project="syft")
+
     @staticmethod
     def _install_from_installer(
         version: str,
         path: Optional[str] = None,
         use_cache: Optional[bool] = True,
-        add_version_to_path: bool = False,
         **kwargs,  # pylint: disable=unused-argument
     ) -> "Syft":
         logging.debug(f"installing syft version={version!r} from installer")
@@ -44,9 +49,6 @@ class Syft(SBOMGenerator):
         if not path:
             path = tempfile.mkdtemp()
             atexit.register(shutil.rmtree, path)
-
-        if add_version_to_path:
-            path = os.path.join(path, version)
 
         os.makedirs(path, exist_ok=True)
         if os.path.exists(os.path.join(path, "syft")):
@@ -74,7 +76,6 @@ class Syft(SBOMGenerator):
         version: str,
         path: Optional[str] = None,
         use_cache: Optional[bool] = True,
-        add_version_to_path: bool = False,
         **kwargs,  # pylint: disable=unused-argument
     ) -> "Syft":
         logging.debug(f"installing syft version={version!r} from git")
@@ -95,9 +96,6 @@ class Syft(SBOMGenerator):
         if not path:
             path = tempfile.mkdtemp()
             atexit.register(shutil.rmtree, path)
-
-        if add_version_to_path:
-            path = os.path.join(path, version)
 
         # grab the latest source code into a local directory
         repo_path = os.path.join(path, "source")
@@ -197,43 +195,18 @@ class Syft(SBOMGenerator):
         os.chmod(f"{binpath}/syft", 0o755)
 
     @classmethod
-    def _get_latest_version_from_github(cls) -> str:
-        headers = {}
-        if os.environ.get("GITHUB_TOKEN") is not None:
-            headers["Authorization"] = "Bearer " + os.environ.get("GITHUB_TOKEN")
-
-        response = requests.get(
-            "https://api.github.com/repos/anchore/syft/releases/latest",
-            headers=headers,
-        )
-
-        if response.status_code >= 400:
-            logging.error(f"error while fetching latest syft version: {response.status_code}: {response.reason} {response.text}")
-
-        response.raise_for_status()
-
-        return response.json()["name"]
-
-    @classmethod
     def install(
         cls,
         version: str,
         path: Optional[str] = None,
         use_cache: Optional[bool] = True,
-        add_version_to_path: bool = False,
         **kwargs,
     ) -> "Syft":
         if version == "latest":
-            if cls._latest_version_from_github:
-                version = cls._latest_version_from_github
-                logging.info(f"latest syft release found (cached) is {version}")
-
-            else:
-                version = cls._get_latest_version_from_github()
-                cls._latest_version_from_github = version
-                if path:
-                    path = os.path.join(os.path.dirname(path), version)
-                logging.info(f"latest syft release found is {version}")
+            version = cls.latest_version_from_github()
+            if path:
+                path = os.path.join(os.path.dirname(path), version)
+            logging.info(f"latest syft release found is {version}")
 
         # check if the version is a semver...
         if re.match(
@@ -241,18 +214,14 @@ class Syft(SBOMGenerator):
             r"^v(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-((?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*)(?:\.(?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*))*))?(?:\+([0-9a-zA-Z-]+(?:\.[0-9a-zA-Z-]+)*))?$",
             version,
         ):
-            tool_obj = cls._install_from_installer(
-                version=version, path=path, use_cache=use_cache, add_version_to_path=add_version_to_path, **kwargs
-            )
+            tool_obj = cls._install_from_installer(version=version, path=path, use_cache=use_cache, **kwargs)
         elif version.startswith("path:"):
             tool_obj = cls._install_from_path(
                 path=path,
                 src_path=version.removeprefix("path:"),
             )
         else:
-            tool_obj = cls._install_from_git(
-                version=version, path=path, use_cache=use_cache, add_version_to_path=add_version_to_path, **kwargs
-            )
+            tool_obj = cls._install_from_git(version=version, path=path, use_cache=use_cache, **kwargs)
 
         return tool_obj
 

@@ -1,4 +1,5 @@
 import atexit
+import functools
 import json
 import logging
 import os
@@ -13,10 +14,10 @@ from dataclasses import dataclass
 from typing import Any, Dict, List, Optional
 
 import git
-import requests
 
 from yardstick import artifact, utils
 from yardstick.tool.vulnerability_scanner import VulnerabilityScanner
+from yardstick.utils import github
 
 
 @dataclass(frozen=False)
@@ -26,8 +27,6 @@ class GrypeProfile:
 
 
 class Grype(VulnerabilityScanner):
-    _latest_version_from_github: Optional[str] = None
-
     def __init__(  # pylint: disable=too-many-arguments
         self,
         path: str,
@@ -48,12 +47,16 @@ class Grype(VulnerabilityScanner):
             if self.profile and self.profile.name:
                 self.version_detail += f"+profile={self.profile.name}"
 
+    @functools.cache
+    @staticmethod
+    def latest_version_from_github():
+        return github.get_latest_release_version(project="grype")
+
     @staticmethod
     def _install_from_installer(
         version: str,
         path: Optional[str] = None,
         use_cache: Optional[bool] = True,
-        add_version_to_path: bool = False,
         **kwargs,
     ) -> "Grype":
         logging.debug(f"installing grype version={version!r} from installer")
@@ -65,10 +68,6 @@ class Grype(VulnerabilityScanner):
         if not path:
             path = tempfile.mkdtemp()
             atexit.register(shutil.rmtree, path)
-
-        if add_version_to_path:
-            path = os.path.join(path, version)
-            os.makedirs(path, exist_ok=True)
 
         if os.path.exists(os.path.join(path, "grype")):
             tool_exists = True
@@ -95,7 +94,6 @@ class Grype(VulnerabilityScanner):
         version: str,
         path: Optional[str] = None,
         use_cache: Optional[bool] = True,
-        add_version_to_path: bool = False,
         **kwargs,
     ) -> "Grype":
         logging.debug(f"installing grype version={version!r} from git")
@@ -116,9 +114,6 @@ class Grype(VulnerabilityScanner):
         if not path:
             path = tempfile.mkdtemp()
             atexit.register(shutil.rmtree, path)
-
-        if add_version_to_path:
-            path = os.path.join(path, version)
 
         # grab the latest source code into a local directory
         repo_path = os.path.join(path, "source")
@@ -172,7 +167,6 @@ class Grype(VulnerabilityScanner):
         path: Optional[str],
         src_path: str,
         use_cache: Optional[bool] = True,
-        add_version_to_path: bool = False,
         **kwargs,
     ) -> "Grype":
         if not use_cache and path:
@@ -185,9 +179,6 @@ class Grype(VulnerabilityScanner):
         # get the description and head ref from the repo
         src_repo_path = os.path.abspath(os.path.expanduser(src_path))
         build_version = utils.local_build_version_suffix(src_repo_path)
-
-        if add_version_to_path:
-            path = os.path.join(path, build_version)
 
         logging.debug(f"installing grype from path={src_repo_path!r} to path={path!r}")
 
@@ -234,24 +225,6 @@ class Grype(VulnerabilityScanner):
 
         os.chmod(f"{binpath}/grype", 0o755)
 
-    @classmethod
-    def _get_latest_version_from_github(cls) -> str:
-        headers = {}
-        if os.environ.get("GITHUB_TOKEN") is not None:
-            headers["Authorization"] = "Bearer " + os.environ.get("GITHUB_TOKEN")
-
-        response = requests.get(
-            "https://api.github.com/repos/anchore/grype/releases/latest",
-            headers=headers,
-        )
-
-        if response.status_code >= 400:
-            logging.error(f"error while fetching latest grype version: {response.status_code}: {response.reason} {response.text}")
-
-        response.raise_for_status()
-
-        return response.json()["name"]
-
     # pylint: disable=too-many-arguments, too-many-locals, too-many-branches
     @classmethod
     def install(
@@ -262,7 +235,6 @@ class Grype(VulnerabilityScanner):
         update_db: bool = True,
         db_import_path=None,
         profile: Optional[Dict[str, str]] = None,
-        add_version_to_path: bool = False,
         **kwargs,
     ) -> "Grype":
         original_version = version
@@ -299,16 +271,10 @@ class Grype(VulnerabilityScanner):
             grype_profile = GrypeProfile()
 
         if version == "latest":
-            if cls._latest_version_from_github:
-                version = cls._latest_version_from_github
-                logging.info(f"latest grype release found (cached) is {version}")
-            else:
-                version = cls._get_latest_version_from_github()
-                cls._latest_version_from_github = version
-
-                if path:
-                    path = os.path.join(os.path.dirname(path), version)
-                logging.info(f"latest grype release found is {version}")
+            version = cls.latest_version_from_github()
+            if path:
+                path = os.path.join(os.path.dirname(path), version)
+            logging.info(f"latest grype release found is {version}")
 
         # check if the version is a semver...
         if re.match(
@@ -322,7 +288,6 @@ class Grype(VulnerabilityScanner):
                 use_cache=use_cache,
                 profile=grype_profile,
                 db_identity=db_identity,
-                add_version_to_path=add_version_to_path,
                 **kwargs,
             )
         elif version.startswith("path:"):
@@ -333,7 +298,6 @@ class Grype(VulnerabilityScanner):
                 use_cache=use_cache,
                 db_identity=db_identity,
                 profile=grype_profile,
-                add_version_to_path=add_version_to_path,
                 **kwargs,
             )
         else:
@@ -343,7 +307,6 @@ class Grype(VulnerabilityScanner):
                 db_identity=db_identity,
                 use_cache=use_cache,
                 profile=grype_profile,
-                add_version_to_path=add_version_to_path,
                 **kwargs,
             )
 
