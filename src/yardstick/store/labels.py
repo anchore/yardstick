@@ -38,21 +38,22 @@ def append_and_update(
     delete_entries: List[artifact.LabelEntry] | None = None,
     store_root: str | None = None,
 ) -> None:
-    for label_entry in delete_entries:
-        filepath = store_path(filename=store_filename_by_entry(entry=label_entry))
-        try:
-            logging.debug(f"deleting label {label_entry.ID} from {filepath}")
-            os.remove(filepath)
-        except FileNotFoundError:
-            logging.debug(f"skipping deleting on {label_entry.ID} from {filepath}: File not found")
-        except Exception as e:  # pylint: disable=broad-except
-            logging.error(f"failed to delete label {label_entry.ID} from {filepath}: {e}")
-            raise e
+    if delete_entries:
+        for label_entry in delete_entries:
+            filepath = store_path(filename=store_filename_by_entry(entry=label_entry))
+            try:
+                logging.debug(f"deleting label {label_entry.ID} from {filepath}")
+                os.remove(filepath)
+            except FileNotFoundError:
+                logging.debug(f"skipping deleting on {label_entry.ID} from {filepath}: File not found")
+            except Exception as e:  # pylint: disable=broad-except
+                logging.error(f"failed to delete label {label_entry.ID} from {filepath}: {e}")
+                raise e
 
     save(label_entries=new_and_modified_entries, store_root=store_root)
 
 
-def delete(label_ids_to_delete: List[str], store_root: str = None) -> List[str]:
+def delete(label_ids_to_delete: List[str], store_root: Optional[str] = None) -> List[str]:
     """delete_entries takes a list of ids to be deleted and returns a list of deleted files.
     FileNotFound exceptions are ignored."""
     label_store_dir = label_store_root(store_root=store_root)
@@ -71,7 +72,7 @@ def delete(label_ids_to_delete: List[str], store_root: str = None) -> List[str]:
     return deleted_ids
 
 
-def save(label_entries: List[artifact.LabelEntry], store_root: str = None):
+def save(label_entries: List[artifact.LabelEntry], store_root: Optional[str] = None):
     root_path = label_store_root(store_root=store_root)
     logging.debug(f"storing all labels location={root_path}")
 

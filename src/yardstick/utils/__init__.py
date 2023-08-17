@@ -6,7 +6,7 @@ import os
 
 import git
 
-from . import grype_db
+from . import github, grype_db
 
 
 def local_build_version_suffix(src_path: str) -> str:

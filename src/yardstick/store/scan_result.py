@@ -77,7 +77,7 @@ def find(
     by_tool: str = "",
     by_time: str = "",
     by_description: str = "",
-    store_root: str = None,
+    store_root: Optional[str] = None,
 ) -> List[artifact.ScanConfiguration]:
     json_path = tool.results_path(store_root=store_root)
 
@@ -123,6 +123,8 @@ def find(
 
     glob_str = f"{json_path}/{search_tuple}/metadata.json"
 
+    logging.debug(f"searching for {glob_str}")
+
     for metadata_file in glob.glob(glob_str):
         image_tool_dir = os.path.dirname(os.path.dirname(metadata_file))
         with open(metadata_file, "r", encoding="utf-8") as fd:
@@ -167,7 +169,7 @@ def load_by_descriptions(
         result = load(config=config, year_max_limit=year_max_limit, year_from_cve_only=year_from_cve_only, store_root=store_root)
         if skip_sbom_results and result.packages is not None:
             # note: we look at a NONE value, not just an empty list
-            logging.info(f"skipping SBOM result from {description}")
+            logging.debug(f"skipping SBOM result from {description}")
             continue
         results.append(result)
     return results
