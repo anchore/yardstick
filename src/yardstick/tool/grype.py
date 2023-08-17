@@ -47,8 +47,8 @@ class Grype(VulnerabilityScanner):
             if self.profile and self.profile.name:
                 self.version_detail += f"+profile={self.profile.name}"
 
-    @functools.cache
     @staticmethod
+    @functools.cache
     def latest_version_from_github():
         return github.get_latest_release_version(project="grype")
 

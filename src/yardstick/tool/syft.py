@@ -28,8 +28,8 @@ class Syft(SBOMGenerator):
         if version_detail:
             self.version_detail = version_detail
 
-    @functools.cache
     @staticmethod
+    @functools.cache
     def latest_version_from_github():
         return github.get_latest_release_version(project="syft")
 
