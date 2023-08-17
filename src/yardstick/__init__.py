@@ -68,8 +68,11 @@ def compare_results_against_labels(  # pylint: disable=too-many-arguments
         for result in results:
             result.matches = matches_filter(result.matches)
 
-    if not label_entries:
-        label_entries = store.labels.load_all(year_max_limit=year_max_limit, year_from_cve_only=year_from_cve_only)
+    if label_entries is None:
+        label_entries = store.labels.load_all(
+            year_max_limit=year_max_limit,
+            year_from_cve_only=year_from_cve_only,
+        )
 
     comparisons_by_result_id, stats_by_image_tool_pair = comparison.of_results_against_label(
         *results,
@@ -91,7 +94,7 @@ def compare_results_against_labels_by_ecosystem(
     results = store.result_set.load_scan_results(result_set, year_max_limit=year_max_limit, skip_sbom_results=True)
     results_by_image = arrange.scan_results_by_image(results)
 
-    if not label_entries:
+    if label_entries is None:
         label_entries = store.labels.load_all(year_max_limit=year_max_limit, year_from_cve_only=year_from_cve_only)
 
     stats = comparison.of_results_against_label_by_ecosystem(

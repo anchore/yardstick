@@ -1,4 +1,5 @@
 import collections
+import functools
 import getpass
 import hashlib
 import json
@@ -497,6 +498,15 @@ id: {self.ID}
         if not year:
             year = self._effective_cve_year()
         return year
+
+
+class LabelEntryCollection:
+    def __init__(self, entries: List[LabelEntry]):
+        self.entries = entries
+
+    @functools.cache
+    def for_image(self, image: str) -> List[LabelEntry]:
+        return [e for e in self.entries if e.matches_image(image)]
 
 
 @dataclass()

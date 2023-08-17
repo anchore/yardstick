@@ -114,7 +114,6 @@ def load_label_file(
     # why note take a file path? in this way we control that all input/output data was derived from the same store,
     # and not another store.
     path = store_path(filename=filename, store_root=store_root)
-    logging.debug(f"loading labels location={path}")
 
     try:
         with open(path, "r", encoding="utf-8") as data_file:
