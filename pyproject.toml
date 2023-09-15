@@ -36,7 +36,7 @@ black = "^23.3.0"
 pre-commit = "^2.11.1"
 mypy = "^1.5"
 isort = "^5.12.0"
-pylint = "^2.7.2"
+pylint = "^2.17.5"
 autoflake = "^2.1"
 tox = "^4.10.0"
 
@@ -58,11 +58,6 @@ line_length = 100
 
 [tool.pylint.messages_control]
 disable = [
-        # pylint sometimes complains about black's formatting; we go with black
-        "bad-continuation",
-        "C0330",
-        "C0326",
-
         # pylint wants deferred formatting for log messages (to use less CPU if that log level is disabled). We prefer the legibility of f-strings: f"a is {a}"
         "logging-format-interpolation",
         "logging-fstring-interpolation",
