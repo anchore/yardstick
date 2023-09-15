@@ -504,7 +504,7 @@ class LabelEntryCollection:
     def __init__(self, entries: List[LabelEntry]):
         self.entries = entries
 
-    @functools.cache
+    @functools.cache  # pylint: disable=method-cache-max-size-none
     def for_image(self, image: str) -> List[LabelEntry]:
         return [e for e in self.entries if e.matches_image(image)]
 

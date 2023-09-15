@@ -33,7 +33,7 @@ def run_scan(
 
     # some tools will have additional metadata... persist this on the config
     if hasattr(tool, "version_detail"):
-        installed_version = tool.__getattribute__("version_detail")
+        installed_version = getattr(tool, "version_detail")
         if installed_version != config.tool_version:
             config.detail["version_detail"] = installed_version
             config.tool_version = installed_version

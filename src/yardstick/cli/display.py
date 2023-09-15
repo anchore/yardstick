@@ -226,7 +226,7 @@ Each indeterminate match for each tool-image pair is logged above.""",
                 if lower == -1 or upper == -1:
                     f1_score = "error!"
                 else:
-                    f1_score = color(f"Impractical ({lower:0.2f}-{upper:0.2f})", fore=("red"))
+                    f1_score = color(f"Impractical ({lower:0.2f}-{upper:0.2f})", fore="red")
             else:
                 f1_score = ""
             row.append(f1_score)
@@ -371,8 +371,8 @@ def labels_by_ecosystem_comparison(
             ]
             all_rows.append(row)
 
-        tps = sum([stats.tps_by_tool_by_ecosystem[tool][e] for e in stats.ecosystems])
-        fps = sum([stats.fps_by_tool_by_ecosystem[tool][e] for e in stats.ecosystems])
+        tps = sum([stats.tps_by_tool_by_ecosystem[tool][e] for e in stats.ecosystems])  # pylint: disable=consider-using-generator
+        fps = sum([stats.fps_by_tool_by_ecosystem[tool][e] for e in stats.ecosystems])  # pylint: disable=consider-using-generator
         d = tps + fps
         precision = 0.0
         if d:

@@ -188,12 +188,12 @@ def run(result: artifact.ScanResult):
     completer = ResultCompleter(matches)
     all_completers = merge_completers((completer, executor))
     vaidator = ExploreValidator(all_completers, matches)
-    config = dict(
-        bottom_toolbar=bottom_toolbar(result),
+    config = {
+        "bottom_toolbar": bottom_toolbar(result),
         # mouse_support=True, # with mouse support, scrolling is disabled
-        completer=all_completers,
-        validator=vaidator,
-    )
+        "completer": all_completers,
+        "validator": vaidator,
+    }
     session: PromptSession = PromptSession()
 
     executor.help()

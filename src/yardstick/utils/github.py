@@ -12,6 +12,7 @@ def get_latest_release_version(project: str, owner: str = "anchore") -> str:
     response = requests.get(
         f"https://api.github.com/repos/{owner}/{project}/releases/latest",
         headers=headers,
+        timeout=15.0,
     )
 
     if response.status_code >= 400:

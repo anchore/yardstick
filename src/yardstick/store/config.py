@@ -17,4 +17,4 @@ def get() -> StoreConfig:
 
 def set_values(**kwargs):
     for k, v in kwargs.items():
-        get().__setattr__(k, v)
+        setattr(get(), k, v)
