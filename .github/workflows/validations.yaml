@@ -13,19 +13,19 @@ jobs:
   validations:
     runs-on: ubuntu-20.04
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@3df4ab11eba7bda6032a0b82a6bb43b11571feac #v4.0.0
 
-      - uses: actions/setup-python@v4
+      - uses: actions/setup-python@61a6322f88396a6271a6ee3565807d608ecaddd1 #v4.7.0
         with:
           python-version: ${{ env.PYTHON_VERSION }}
 
       - name: Install poetry
-        uses: abatilo/actions-poetry@v2.3.0
+        uses: abatilo/actions-poetry@437d4fa27baf74d89b789ba2d8cae97dd2365feb #v2.3.0
         with:
           poetry-version: ${{ env.POETRY_VERSION }}
 
       - name: Cache Poetry virtualenv
-        uses: actions/cache@v3
+        uses: actions/cache@704facf57e6136b1bc63b828d79edcd491f0ee84 #v3.3.2
         id: cache
         with:
           path: ~/.virtualenvs
