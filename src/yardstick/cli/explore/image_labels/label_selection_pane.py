@@ -1,15 +1,26 @@
 from asyncio import Future
 from typing import List, Union
 
-from prompt_toolkit.formatted_text import AnyFormattedText, merge_formatted_text, to_formatted_text
+from prompt_toolkit.formatted_text import (
+    AnyFormattedText,
+    merge_formatted_text,
+    to_formatted_text,
+)
 from prompt_toolkit.key_binding import KeyBindings
-from prompt_toolkit.layout import ConditionalContainer, Container, Dimension, FormattedTextControl
+from prompt_toolkit.layout import (
+    ConditionalContainer,
+    Container,
+    Dimension,
+    FormattedTextControl,
+)
 from prompt_toolkit.layout.containers import HSplit, Window
 from prompt_toolkit.layout.margins import ScrollbarMargin
 
 from yardstick import artifact
 from yardstick.cli.explore.image_labels.edit_note_dialog import EditNoteDialog
-from yardstick.cli.explore.image_labels.label_json_editor_dialog import LabelJsonEditorDialog
+from yardstick.cli.explore.image_labels.label_json_editor_dialog import (
+    LabelJsonEditorDialog,
+)
 from yardstick.cli.explore.image_labels.label_manager import LabelManager
 
 
@@ -18,19 +29,22 @@ class LabelSelectionPane:
         self,
         label_manager: LabelManager,
         dialog_executor,
-        filter=None,  # pylint: disable=redefined-builtin
+        filter=None,  # noqa: A002
     ) -> None:
         self.label_manager = label_manager
         self.dialog_executor = dialog_executor
         self.entries: List[artifact.LabelEntry] = []
         self.selected_entry = 0
-        self.match = None
+        self.match: artifact.Match | None = None
         # self.width = 80
         self.container: Union[HSplit, ConditionalContainer] = HSplit(
             [
                 Window(
                     content=FormattedTextControl(
-                        text=to_formatted_text("Match Label Details", style="bold reverse"),
+                        text=to_formatted_text(
+                            "Match Label Details",
+                            style="bold reverse",
+                        ),
                         focusable=False,
                     ),
                     style="class:pane-title",
@@ -77,10 +91,11 @@ class LabelSelectionPane:
                 result.append([("[SetCursorPosition]", "")])
 
             note = entry.note
-            if not note:
-                formatted_note = to_formatted_text("[no note provided]", style="italic")
-            else:
-                formatted_note = to_formatted_text(note)
+            formatted_note = (
+                to_formatted_text("[no note provided]", style="italic")
+                if not note
+                else to_formatted_text(note)
+            )
 
             label_style = ""
             if entry.label == artifact.Label.TruePositive:
@@ -113,24 +128,21 @@ class LabelSelectionPane:
             return None
         return self.entries[self.selected_entry]
 
-    def _get_key_bindings(self) -> KeyBindings:
+    def _get_key_bindings(self) -> KeyBindings:  # noqa: C901
         kb = KeyBindings()
 
         @kb.add("up")
-        # pylint: disable=unused-argument
         def _go_up(event) -> None:
             if self.entries:
                 self.selected_entry = (self.selected_entry - 1) % len(self.entries)
 
         @kb.add("down")
-        # pylint: disable=unused-argument
         def _go_down(event) -> None:
             if self.entries:
                 self.selected_entry = (self.selected_entry + 1) % len(self.entries)
 
         @kb.add("backspace")
         @kb.add("delete")
-        # pylint: disable=unused-argument
         def _delete_entry(event) -> None:
             entry = self.get_selected_entry()
             if not entry:
@@ -141,7 +153,6 @@ class LabelSelectionPane:
             self._update()
 
         @kb.add("e")
-        # pylint: disable=unused-argument
         def _edit_note(event) -> None:
             entry = self.get_selected_entry()
             if not entry:
@@ -165,7 +176,6 @@ class LabelSelectionPane:
             )
 
         @kb.add("j")
-        # pylint: disable=unused-argument
         def _edit_json(event) -> None:
             entry = self.get_selected_entry()
             if not entry:

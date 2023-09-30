@@ -67,5 +67,5 @@ test_profile:
                     "refresh": False,
                 },
             },
-        }
+        },
     )

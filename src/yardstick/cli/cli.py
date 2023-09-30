@@ -13,10 +13,11 @@ from yardstick.cli import config, label, result
 
 @click.option("--verbose", "-v", default=False, help="show logs", is_flag=True)
 @click.option("--config", "-c", "config_path", default="", help="override config path")
-@click.group(help="Tool for parsing and comparing the vulnerability report output from multiple tools.")
+@click.group(
+    help="Tool for parsing and comparing the vulnerability report output from multiple tools.",
+)
 @click.pass_context
 def cli(ctx, verbose: bool, config_path: str):
-    # pylint: disable=redefined-outer-name, import-outside-toplevel
     import logging.config
 
     # initialize yardstick based on the current configuration and
@@ -51,7 +52,7 @@ def cli(ctx, verbose: bool, config_path: str):
                     "level": log_level,
                 },
             },
-        }
+        },
     )
 
 
@@ -60,8 +61,12 @@ def cli(ctx, verbose: bool, config_path: str):
 def show_config(cfg: config.Application):
     logging.info("showing application config")
 
-    class IndentDumper(yaml.Dumper):  # pylint: disable=too-many-ancestors
-        def increase_indent(self, flow: bool = False, indentless: bool = False) -> None:  # noqa: ARG002
+    class IndentDumper(yaml.Dumper):
+        def increase_indent(
+            self,
+            flow: bool = False,
+            indentless: bool = False,
+        ) -> None:  # noqa: ARG002
             return super().increase_indent(flow, False)
 
     def enum_asdict_factory(data: list[tuple[str, Any]]) -> dict[Any, Any]:

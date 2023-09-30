@@ -4,7 +4,6 @@ from datetime import datetime
 from unittest.mock import patch
 
 import pytest
-
 from yardstick import artifact
 
 
@@ -17,13 +16,23 @@ def test_sort_matches():
     b = artifact.Match(
         vulnerability=artifact.Vulnerability(id="CVE-2016-2781"),
         package=artifact.Package(name="coreutils", version="8.30-3ubuntu2"),
-        config=artifact.ScanConfiguration(image_repo="fff", image_digest="fff", tool_name="fff", tool_version="fff"),
+        config=artifact.ScanConfiguration(
+            image_repo="fff",
+            image_digest="fff",
+            tool_name="fff",
+            tool_version="fff",
+        ),
     )
 
     c = artifact.Match(
         vulnerability=artifact.Vulnerability(id="CVE-2016-10228"),
         package=artifact.Package(name="libc-bin", version="2.31-0ubuntu9.2"),
-        config=artifact.ScanConfiguration(image_repo="ddd", image_digest="ddd", tool_name="ddd", tool_version="ddd"),
+        config=artifact.ScanConfiguration(
+            image_repo="ddd",
+            image_digest="ddd",
+            tool_name="ddd",
+            tool_version="ddd",
+        ),
     )
 
     d = artifact.Match(
@@ -34,7 +43,12 @@ def test_sort_matches():
     e = artifact.Match(
         vulnerability=artifact.Vulnerability(id="CVE-2018-299999999"),
         package=artifact.Package(name="libsystemd0", version="25"),
-        config=artifact.ScanConfiguration(image_repo="a", image_digest="a", tool_name="a", tool_version="a"),
+        config=artifact.ScanConfiguration(
+            image_repo="a",
+            image_digest="a",
+            tool_name="a",
+            tool_version="a",
+        ),
     )
 
     assert sorted([d, e, c, b, a]) == [a, b, c, d, e]
@@ -56,7 +70,7 @@ def test_sort_packages():
 
 class TestImageSpecifier:
     @pytest.mark.parametrize(
-        "specifier, image, expected",
+        ("specifier", "image", "expected"),
         [
             # exact match
             (
@@ -143,15 +157,21 @@ def test_scan_configuration():
     assert s.image_tag == "stuff"
     assert s.tool_name == "grype"
     assert s.tool_version == "main"
-    assert s.tool_input == None
+    assert s.tool_input is None
     assert s.timestamp == datetime.fromisoformat(ts_rfc3339)
     assert s.timestamp_rfc3339 == ts_rfc3339
     assert s.tool == "grype@main"
     assert s.image == "docker.io/place/ubuntu@sha256:123"
     assert s.image_encoded == "docker.io+place+ubuntu@sha256:123"
     assert s.image_repo_encoded == "docker.io+place+ubuntu"
-    assert s.path == "docker.io/place/ubuntu@sha256:123/grype@main/2022-09-06T16:07:01.138937+00:00"
-    assert s.encoded_path == "docker.io+place+ubuntu@sha256:123/grype@main/2022-09-06T16:07:01.138937+00:00"
+    assert (
+        s.path
+        == "docker.io/place/ubuntu@sha256:123/grype@main/2022-09-06T16:07:01.138937+00:00"
+    )
+    assert (
+        s.encoded_path
+        == "docker.io+place+ubuntu@sha256:123/grype@main/2022-09-06T16:07:01.138937+00:00"
+    )
 
 
 def test_dt_encoder():
@@ -163,7 +183,7 @@ def test_dt_encoder():
 
 
 @pytest.mark.parametrize(
-    "subject_id, subject_cve_id, expected, year_from_cve_only, cve_id_lookup",
+    ("subject_id", "subject_cve_id", "expected", "year_from_cve_only", "cve_id_lookup"),
     [
         # below cases prefer the primary ID year over the CVE year
         pytest.param(
@@ -314,7 +334,11 @@ def test_dt_encoder():
     ],
 )
 def test_effective_year(
-    subject_id: str, subject_cve_id: str | None, expected: int | None, year_from_cve_only: bool, cve_id_lookup: str | None
+    subject_id: str,
+    subject_cve_id: str | None,
+    expected: int | None,
+    year_from_cve_only: bool,
+    cve_id_lookup: str | None,
 ):
     # first, check that the vulnerability object is alright
     vuln = artifact.Vulnerability(id=subject_id, cve_id=subject_cve_id)
@@ -324,7 +348,12 @@ def test_effective_year(
 
     # now check that the label entry behaves the same
     with patch("yardstick.utils.grype_db.normalize_to_cve", lambda _: subject_cve_id):
-        le = artifact.LabelEntry(vulnerability_id=subject_id, label=artifact.Label.TruePositive, lookup_effective_cve=True)
+        le = artifact.LabelEntry(
+            image="dontcare",
+            vulnerability_id=subject_id,
+            label=artifact.Label.TruePositive,
+            lookup_effective_cve=True,
+        )
 
     with patch("yardstick.utils.grype_db.normalize_to_cve", lambda _: cve_id_lookup):
         assert expected == le.effective_year(by_cve=year_from_cve_only)

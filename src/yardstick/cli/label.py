@@ -15,7 +15,6 @@ def group(_: config.Application):
     pass
 
 
-# pylint: disable=too-many-arguments
 @group.command(
     "compare",
     help="compare a scan result against labeled data",
@@ -40,23 +39,33 @@ def group(_: config.Application):
     help="loosen restrictions on package matching",
 )
 @click.option("--result-set", "-r", help="use a named result set as description input")
-@click.option("--year-max-limit", "-y", help="max year to include in comparison (relative to the CVE ID)")
+@click.option(
+    "--year-max-limit",
+    "-y",
+    default=None,
+    help="max year to include in comparison (relative to the CVE ID)",
+)
 @click.option("--json", "-j", "is_json", help="show results as JSON", is_flag=True)
 @click.pass_obj
-def compare_results_against_labels(
+def compare_results_against_labels(  # noqa: PLR0913
     cfg: config.Application,
     descriptions: list[str],
     show_fns: bool,
     show_indeterminates: bool,
     fuzzy: bool,
     result_set: str,
-    year_max_limit: int,
+    year_max_limit: int | None,
     is_json: bool,
 ):
     if not year_max_limit:
         year_max_limit = cfg.default_max_year
 
-    results, _, comparisons_by_result_id, stats_by_image_tool_pair = yardstick.compare_results_against_labels(
+    (
+        results,
+        _,
+        comparisons_by_result_id,
+        stats_by_image_tool_pair,
+    ) = yardstick.compare_results_against_labels(
         descriptions=descriptions,
         result_set=result_set,
         fuzzy=fuzzy,
@@ -86,10 +95,9 @@ def compare_results_against_labels(
 @click.option("--summarize", "-s", is_flag=True, help="summarize each entry")
 @click.pass_obj
 def list_labels(_: config.Application, image: str, summarize: bool):
-    if image:
-        display_label_entries = store.labels.load_for_image(image)
-    else:
-        display_label_entries = store.labels.load_all()
+    display_label_entries = (
+        store.labels.load_for_image(image) if image else store.labels.load_all()
+    )
 
     for entry in display_label_entries:
         if summarize:
@@ -111,7 +119,7 @@ def list_images(_: config.Application):
         if entry.image and entry.image.exact:
             images.add(entry.image.exact)
 
-    for image in sorted(list(images)):
+    for image in sorted(images):
         print(image)
 
     logging.info(f"total images: {len(images)}")
@@ -122,12 +130,23 @@ def list_images(_: config.Application):
 @click.option("--vulnerability", "-c", required=True, help="the vulnerability id")
 @click.option("--package-name", "-p", required=True, help="the package name")
 @click.option("--package-version", "-v", required=True, help="the package version")
-@click.option("--label", "-l", "label_name", required=True, help="the match label (tp/fp/unclear)")
+@click.option(
+    "--label",
+    "-l",
+    "label_name",
+    required=True,
+    help="the match label (tp/fp/unclear)",
+)
 @click.option("--note", "-n", help="an optional note")
 @click.pass_obj
-# pylint: disable=too-many-arguments
-def add_label(
-    _: config.Application, image: str, vulnerability: str, package_name: str, package_version: str, label_name: str, note: str
+def add_label(  # noqa: PLR0913
+    _: config.Application,
+    image: str,
+    vulnerability: str,
+    package_name: str,
+    package_version: str,
+    label_name: str,
+    note: str,
 ):
     package = artifact.Package(
         name=package_name,
@@ -163,12 +182,31 @@ def remove_label(
     logging.info(f"removed {len(deleted_ids)} labels")
 
 
-@group.command(name="explore", help="interact with an label results for a single image scan")
+@group.command(
+    name="explore",
+    help="interact with an label results for a single image scan",
+)
 @click.argument("result_id")
-@click.option("--year-max-limit", "-y", help="max year to include in comparison (relative to the CVE ID)")
-@click.option("--derive-year-from-cve-only", "-c", default=None, help="only use the CVE ID year-max-limit", is_flag=True)
+@click.option(
+    "--year-max-limit",
+    "-y",
+    default=None,
+    help="max year to include in comparison (relative to the CVE ID)",
+)
+@click.option(
+    "--derive-year-from-cve-only",
+    "-c",
+    default=None,
+    help="only use the CVE ID year-max-limit",
+    is_flag=True,
+)
 @click.pass_obj
-def explore_labels(cfg: config.Application, result_id: str, year_max_limit: int, derive_year_from_cve_only: bool | None):
+def explore_labels(
+    cfg: config.Application,
+    result_id: str,
+    year_max_limit: int | None,
+    derive_year_from_cve_only: bool | None,
+):
     logging.disable(level=logging.CRITICAL)
 
     if not year_max_limit:
@@ -179,11 +217,16 @@ def explore_labels(cfg: config.Application, result_id: str, year_max_limit: int,
 
     scan_config = store.scan_result.find_one(by_description=result_id)
     result = store.scan_result.load(
-        config=scan_config, year_max_limit=year_max_limit, year_from_cve_only=derive_year_from_cve_only
+        config=scan_config,
+        year_max_limit=year_max_limit,
+        year_from_cve_only=derive_year_from_cve_only,
     )
 
     lineage = store.image_lineage.get(scan_config.image)
-    label_entries = store.labels.load_for_image([scan_config.image] + lineage, year_max_limit=year_max_limit)
+    label_entries = store.labels.load_for_image(
+        [scan_config.image, *lineage],
+        year_max_limit=year_max_limit,
+    )
 
     filter_spec = ""
     if year_max_limit:
@@ -203,7 +246,10 @@ def set_image_parent(_: config.Application, child: str, parent: str):
     logging.info(f"full image={child!r} lineage={lineage!r}")
 
 
-@group.command(name="show-image-lineage", help="show all parents and children for the given image")
+@group.command(
+    name="show-image-lineage",
+    help="show all parents and children for the given image",
+)
 @click.option("--image", "-i", help="the container image")
 @click.pass_obj
 def show_image_lineage(_: config.Application, image: str):
@@ -211,20 +257,38 @@ def show_image_lineage(_: config.Application, image: str):
     logging.info(f"full image={image!r} lineage={lineage!r}")
 
 
-# pylint: disable=too-many-locals
-@group.command(name="apply", help="see which labels apply to the given image and tool pair")
+@group.command(
+    name="apply",
+    help="see which labels apply to the given image and tool pair",
+)
 @click.argument("result_id")
-@click.option("--inverse", "-i", help="show image lables that should not be applied", is_flag=True)
+@click.option(
+    "--inverse",
+    "-i",
+    help="show image lables that should not be applied",
+    is_flag=True,
+)
 @click.option("--id", "show_ids", help="show IDs only", is_flag=True)
-@click.option("--year-max-limit", "-y", help="max year to include in comparison (relative to the CVE ID)")
-@click.option("--derive-year-from-cve-only", "-c", default=None, help="only use the CVE ID year-max-limit", is_flag=True)
+@click.option(
+    "--year-max-limit",
+    "-y",
+    default=None,
+    help="max year to include in comparison (relative to the CVE ID)",
+)
+@click.option(
+    "--derive-year-from-cve-only",
+    "-c",
+    default=None,
+    help="only use the CVE ID year-max-limit",
+    is_flag=True,
+)
 @click.pass_obj
-def apply_labels(
+def apply_labels(  # noqa: C901, PLR0913
     cfg: config.Application,
     result_id: str,
     inverse: bool,
     show_ids: bool,
-    year_max_limit: int,
+    year_max_limit: int | None,
     derive_year_from_cve_only: bool | None,
 ):
     if not year_max_limit:
@@ -239,22 +303,29 @@ def apply_labels(
     result = store.scan_result.load(config=scan_config)
 
     lineage = store.image_lineage.get(scan_config.image)
-    images = [scan_config.image] + lineage
+    images = [scan_config.image, *lineage]
     label_entries_for_images = store.labels.load_for_image(
-        images, year_max_limit=year_max_limit, year_from_cve_only=derive_year_from_cve_only
+        images,
+        year_max_limit=year_max_limit,
+        year_from_cve_only=derive_year_from_cve_only,
     )
-    label_entries = {l.ID: l for l in label_entries_for_images}
+    label_entries = {label.ID: label for label in label_entries_for_images}
 
     labels = []
     for i in images:
         label_entries_for_image = store.labels.load_for_image(
-            i, year_max_limit=year_max_limit, year_from_cve_only=derive_year_from_cve_only
+            i,
+            year_max_limit=year_max_limit,
+            year_from_cve_only=derive_year_from_cve_only,
         )
         labels.append(label_entries_for_image)
 
     found = {}
-    for idx, i in enumerate(images):
+    for idx, _ in enumerate(images):
         remaining_label_entries_for_image = labels[idx]
+
+        if result.matches is None:
+            raise ValueError("no matches found in result")
 
         for match in result.matches:
             # look through ancestors from the most root image upwards (not top down)
@@ -266,23 +337,23 @@ def apply_labels(
                 must_match_image=False,
             )
 
-            for l in paired_labels:
-                found[l.ID] = l
-                if l.ID in label_entries:
-                    label_entries.pop(l.ID)
+            for paired_label in paired_labels:
+                found[paired_label.ID] = paired_label
+                if paired_label.ID in label_entries:
+                    label_entries.pop(paired_label.ID)
 
-    def show(l):
+    def show(label_entry):
         if show_ids:
-            print(l.ID)
+            print(label_entry.ID)
         else:
-            print(l)
+            print(label_entry)
 
     if inverse:
-        for l in label_entries.values():
-            show(l)
+        for label_entry in label_entries.values():
+            show(label_entry)
     else:
-        for _, l in found.items():
-            show(l)
+        for _, label_entry in found.items():
+            show(label_entry)
 
     logging.info(f"found {len(found)} labels that apply to {result_id!r}")
 
@@ -292,11 +363,25 @@ def apply_labels(
     help="show TPs/FPs/Precision from label comparison results broken down by ecosystem",
 )
 @click.option("--result-set", "-r", help="use a named result set as description input")
-@click.option("--year-max-limit", "-y", help="max year to include in comparison (relative to the CVE ID)")
-@click.option("--derive-year-from-cve-only", "-c", default=None, help="only use the CVE ID year-max-limit", is_flag=True)
+@click.option(
+    "--year-max-limit",
+    "-y",
+    default=None,
+    help="max year to include in comparison (relative to the CVE ID)",
+)
+@click.option(
+    "--derive-year-from-cve-only",
+    "-c",
+    default=None,
+    help="only use the CVE ID year-max-limit",
+    is_flag=True,
+)
 @click.pass_obj
 def compare_results_against_labels_by_ecosystem(
-    cfg: config.Application, result_set: str, year_max_limit: int, derive_year_from_cve_only: bool | None
+    cfg: config.Application,
+    result_set: str,
+    year_max_limit: int | None,
+    derive_year_from_cve_only: bool | None,
 ):
     if not year_max_limit:
         year_max_limit = cfg.default_max_year
@@ -305,7 +390,9 @@ def compare_results_against_labels_by_ecosystem(
         derive_year_from_cve_only = cfg.derive_year_from_cve_only
 
     results_by_image, _, stats = yardstick.compare_results_against_labels_by_ecosystem(
-        result_set=result_set, year_max_limit=year_max_limit, year_from_cve_only=derive_year_from_cve_only
+        result_set=result_set,
+        year_max_limit=year_max_limit,
+        year_from_cve_only=derive_year_from_cve_only,
     )
 
     display.labels_by_ecosystem_comparison(

@@ -3,7 +3,12 @@ from typing import Callable, Dict, Optional
 
 import pygments
 from prompt_toolkit import PromptSession, print_formatted_text
-from prompt_toolkit.completion import CompleteEvent, Completer, Completion, merge_completers
+from prompt_toolkit.completion import (
+    CompleteEvent,
+    Completer,
+    Completion,
+    merge_completers,
+)
 from prompt_toolkit.document import Document
 from prompt_toolkit.formatted_text import HTML, PygmentsTokens
 from prompt_toolkit.styles import style_from_pygments_cls
@@ -16,14 +21,18 @@ from yardstick.tool import get_tool
 
 
 def display_match_table_row(match: artifact.Match) -> str:
+    if not match.config:
+        return ""
     t = get_tool(match.config.tool_name)
-    package_type = t.parse_package_type(match.fullentry)
+    package_type = t.parse_package_type(match.fullentry)  # type: ignore[union-attr]
     return f"{match.vulnerability.id:20} {match.package.name}@{match.package.version} {package_type}"
 
 
 def display_match(match: artifact.Match) -> str:
+    if not match.config:
+        return ""
     t = get_tool(match.config.tool_name)
-    package_type = t.parse_package_type(match.fullentry)
+    package_type = t.parse_package_type(match.fullentry)  # type: ignore[union-attr]
     pkg = f"{match.package.name}@{match.package.version}"
     return f"match vuln='{match.vulnerability.id}', cve='{match.vulnerability.cve_id}', package='{pkg}', type='{package_type}', id='{match.ID}'"
 
@@ -31,9 +40,16 @@ def display_match(match: artifact.Match) -> str:
 class MatchCollection:
     def __init__(self, result: artifact.ScanResult):
         self.result = result
-        self.match_display_text_by_id = {m.ID: display_match(m) for m in self.result.matches}
+        if not self.result.matches:
+            raise ValueError("no matches provided")
+
+        self.match_display_text_by_id = {
+            m.ID: display_match(m) for m in self.result.matches
+        }
         self.match_by_id = {m.ID: m for m in self.result.matches}
-        self.match_id_by_display_text = {v: k for k, v in self.match_display_text_by_id.items()}
+        self.match_id_by_display_text = {
+            v: k for k, v in self.match_display_text_by_id.items()
+        }
 
     def has_display_text(self, text):
         return text in self.match_display_text_by_id.values()
@@ -52,8 +68,10 @@ class MatchCollection:
             filter_text = filter_text.lower()
 
             def condition(match: artifact.Match) -> bool:
+                if not match.config:
+                    return False
                 t = get_tool(match.config.tool_name)
-                package_type = t.parse_package_type(match.fullentry)
+                package_type = t.parse_package_type(match.fullentry)  # type: ignore[union-attr]
 
                 return (
                     filter_text in match.vulnerability.id.lower()
@@ -64,7 +82,9 @@ class MatchCollection:
 
         else:
 
-            def condition(match: artifact.Match) -> bool:  # pylint: disable=unused-argument
+            def condition(
+                match: artifact.Match,
+            ) -> bool:
                 return True
 
         return [match for match in sorted(self.result.matches) if condition(match)]
@@ -77,7 +97,9 @@ class ResultCompleter(Completer):
     def get_completions(self, document: Document, complete_event: CompleteEvent):
         matches = self.matches.get_matches(filter_text=document.text.strip())
         if document.text.lower().startswith("match"):
-            matches += self.matches.get_matches(filter_text=document.text.lstrip("match").strip())
+            matches += self.matches.get_matches(
+                filter_text=document.text.lstrip("match").strip(),
+            )
 
         for match in matches:
             yield Completion(
@@ -95,7 +117,10 @@ class ExploreValidator(Validator):
 
     def validate(self, document: Document):
         # did we find a match or command? then error out
-        if not self.completers.get_completions(document, None) and not self.matches.has_display_text(document.text):
+        if not self.completers.get_completions(
+            document,
+            None,
+        ) and not self.matches.has_display_text(document.text):
             raise ValidationError(message="Not matches found")
 
 
@@ -110,9 +135,13 @@ class Executor(Completer):
         self.display: Dict[str, HTML] = {
             "list": HTML("<b>list</b> [optional filter text]"),
             "help": HTML("<b>help</b>"),
-            "match": HTML("<b>match</b> <i>vuln</i>=str <i>package</i>=str <i>id</i>=str"),
+            "match": HTML(
+                "<b>match</b> <i>vuln</i>=str <i>package</i>=str <i>id</i>=str",
+            ),
         }
-        self.command_descriptions: Dict[str, Optional[str]] = {cmd: fn.__doc__ for cmd, fn in self.commands.items()}
+        self.command_descriptions: Dict[str, Optional[str]] = {
+            cmd: fn.__doc__ for cmd, fn in self.commands.items()
+        }
 
     def get_completions(self, document: Document, complete_event: CompleteEvent):
         text = document.text.lower()
@@ -143,7 +172,7 @@ class Executor(Completer):
             style = style_from_pygments_cls(pygments_style_cls=MonokaiStyle)
             print_formatted_text(PygmentsTokens(tokens), style=style)
 
-    def list(self, text: Optional[str] = None):
+    def list(self, text: Optional[str] = None):  # noqa: A003
         """
         list all vulnerability matches (accepts optional filter argument)
         """
@@ -151,21 +180,23 @@ class Executor(Completer):
             text = text.lstrip("list").strip()
 
         matches = [
-            f"{str(num+1):3} | " + display_match(match) for num, match in enumerate(sorted(self.matches.get_matches(text)))
+            f"{num+1!s:3} | " + display_match(match)
+            for num, match in enumerate(sorted(self.matches.get_matches(text)))
         ]
         print_formatted_text("\n".join(matches))
 
-    def help(self, _: Optional[str] = None):
+    def help(self, _: Optional[str] = None):  # noqa: A003
         """
         show available commands
         """
         messages = []
         for k in sorted(self.commands):
             description = ""
-            if self.command_descriptions[k]:
-                description = ": " + self.command_descriptions[k]
+            command_description = self.command_descriptions.get(k, None)
+            if command_description:
+                description = ": " + command_description
             messages.append("   <b>" + k + "</b>" + description)
-        print_formatted_text(HTML("\n".join(["Commands:"] + messages)))
+        print_formatted_text(HTML("\n".join(["Commands:", *messages])))
 
 
 def bottom_toolbar(result: artifact.ScanResult):

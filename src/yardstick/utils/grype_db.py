@@ -14,7 +14,12 @@ def remove_prefix(text, prefix):
 
 
 class GrypeDBManager:
-    def __init__(self, db_location: str = None):
+    enabled: bool
+    message: str
+    db_location: Optional[str]
+    connections: dict[int, sqlite3.Connection]
+
+    def __init__(self, db_location: Optional[str] = None):
         self.enabled = False
         self.message = ""
         self.db_location = db_location
@@ -23,9 +28,11 @@ class GrypeDBManager:
         if self.db_location:
             try:
                 self.connect()
-            except:  # pylint: disable=bare-except
+            except:  # noqa: E722
                 self.db_location = None
-                logging.error(f"unable to open grype DB at {self.db_location}. Falling back to system grype DB.")
+                logging.error(
+                    f"unable to open grype DB at {self.db_location}. Falling back to system grype DB.",
+                )
 
         if not self.db_location:
             self.set_db_to_system_grype_db()
@@ -41,11 +48,15 @@ class GrypeDBManager:
     def set_db_to_system_grype_db(self):
         try:
             logging.debug("using system grype DB...")
-            out = subprocess.check_output(["grype", "db", "status"]).decode(sys.stdout.encoding)
+            out = subprocess.check_output(
+                ["grype", "db", "status"],  # noqa: S603, S607
+            ).decode(
+                sys.stdout.encoding,
+            )
             for line in out.split("\n"):
                 if line.startswith("Location:"):
                     self.db_location = remove_prefix(line, "Location:").strip()
-        except Exception as e:  # pylint: disable=broad-except
+        except Exception as e:
             self.message = str(e)
             logging.error("unable to open grype DB %s", e)
 
@@ -61,7 +72,10 @@ class GrypeDBManager:
 
     def get_upstream_vulnerability(self, vuln_id: str) -> Optional[str]:
         with closing(self.connect().cursor()) as cur:
-            cur.execute("select related_vulnerabilities from vulnerability where id == ? ;", (vuln_id,))
+            cur.execute(
+                "select related_vulnerabilities from vulnerability where id == ? ;",
+                (vuln_id,),
+            )
             vulnerability_info = cur.fetchall()
 
         for info in vulnerability_info:
@@ -73,7 +87,10 @@ class GrypeDBManager:
 
     def get_vuln_description(self, vuln_id: str) -> str:
         with closing(self.connect().cursor()) as cur:
-            cur.execute("select description from vulnerability_metadata where id == ? ;", (vuln_id,))
+            cur.execute(
+                "select description from vulnerability_metadata where id == ? ;",
+                (vuln_id,),
+            )
             results = cur.fetchall()
 
         for result in results:
@@ -107,12 +124,12 @@ _raise_on_failure = False
 
 
 def raise_on_failure(value: bool):
-    global _raise_on_failure  # pylint: disable=global-statement
+    global _raise_on_failure  # noqa: PLW0603
     _raise_on_failure = value
 
 
 def use(location: str):
-    global _instance  # pylint: disable=global-statement
+    global _instance  # noqa: PLW0603
 
     if _instance:
         _instance.close()
@@ -121,7 +138,7 @@ def use(location: str):
 
 
 def normalize_to_cve(vuln_id: str):
-    global _instance  # pylint: disable=global-statement
+    global _instance  # noqa: PLW0603
     if vuln_id.lower().startswith("cve-"):
         return vuln_id
 
@@ -130,7 +147,7 @@ def normalize_to_cve(vuln_id: str):
             _instance = GrypeDBManager()
 
         upstream = _instance.get_upstream_vulnerability(vuln_id)
-    except:  # pylint: disable=bare-except
+    except:  # noqa: E722
         if _raise_on_failure:
             raise
         return vuln_id

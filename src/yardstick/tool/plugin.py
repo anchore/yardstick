@@ -15,5 +15,5 @@ def load_plugins():
         try:
             logging.info(f"Loading tool plugin {tool.name}")
             tool.load()
-        except:  # pylint: disable=bare-except
+        except:  # noqa: E722
             logging.exception(f"Failed loading tool plugin {tool.name}")

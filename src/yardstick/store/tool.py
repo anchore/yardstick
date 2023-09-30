@@ -1,9 +1,12 @@
 from __future__ import annotations
 
 import os
+from typing import TYPE_CHECKING
 
-from yardstick import artifact
 from yardstick.store import config as store_config
+
+if TYPE_CHECKING:
+    from yardstick import artifact
 
 TOOL_DIR = "tools"
 RESULT_DIR = os.path.join("result", "store")
@@ -17,7 +20,10 @@ def install_base(name: str, store_root: str | None = None) -> str:
     return os.path.join(store_config.get().store_root, TOOL_DIR, name.replace("/", "_"))
 
 
-def install_path(config: artifact.ScanConfiguration, store_root: str | None = None) -> str:
+def install_path(
+    config: artifact.ScanConfiguration,
+    store_root: str | None = None,
+) -> str:
     if not store_root:
         store_root = store_config.get().store_root
 

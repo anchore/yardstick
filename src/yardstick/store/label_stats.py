@@ -1,11 +1,12 @@
 from __future__ import annotations
 
+import contextlib
 import hashlib
 import json
 import logging
 import os
 import shutil
-from typing import Any, List
+from typing import Any
 
 from yardstick import comparison
 from yardstick.store import config as store_config
@@ -19,7 +20,11 @@ def _store_root(store_root: str | None = None) -> str:
     return os.path.join(store_root, LABEL_STATS_DIR)
 
 
-def store_path(ids: List[str], configuration: list[dict[str, Any]] | None, store_root: str | None = None) -> str:
+def store_path(
+    ids: list[str],
+    configuration: list[dict[str, Any]] | None,
+    store_root: str | None = None,
+) -> str:
     config_str = _configuration_string(configuration)
 
     filename = "_".join(sorted(ids)) + "_" + config_str + ".json"
@@ -28,15 +33,15 @@ def store_path(ids: List[str], configuration: list[dict[str, Any]] | None, store
 
 
 def clear(store_root: str | None = None):
-    try:
+    with contextlib.suppress(FileNotFoundError):
         shutil.rmtree(_store_root(store_root=store_root))
-    except FileNotFoundError:
-        pass
 
 
 def save(result: comparison.ImageToolLabelStats, store_root: str | None = None):
     if not isinstance(result, comparison.ImageToolLabelStats):
-        raise RuntimeError(f"only ImageToolLabelStats is supported, given {type(result)}")
+        raise RuntimeError(
+            f"only ImageToolLabelStats is supported, given {type(result)}",
+        )
 
     ids = [c.ID for c in result.configs]
     path = store_path(ids, result.compare_configs, store_root=store_root)
@@ -45,7 +50,7 @@ def save(result: comparison.ImageToolLabelStats, store_root: str | None = None):
     os.makedirs(os.path.dirname(path), exist_ok=True)
 
     with open(path, "w", encoding="utf-8") as data_file:
-        data_file.write(json.dumps(result.to_dict(), indent=2))
+        data_file.write(json.dumps(result.to_dict(), indent=2))  # type: ignore[attr-defined]
 
 
 def _configuration_string(configurations: list[dict[str, str]] | None) -> str:
@@ -61,13 +66,19 @@ def _configuration_string(configurations: list[dict[str, str]] | None) -> str:
 
 
 def load(
-    ids: List[str], configurations: list[dict[str, Any]] | None = None, store_root: str | None = None
+    ids: list[str],
+    configurations: list[dict[str, Any]] | None = None,
+    store_root: str | None = None,
 ) -> comparison.ImageToolLabelStats:
     data_path = store_path(ids, configurations, store_root=store_root)
 
-    logging.debug(f"loading label comparison state for {ids!r} with detailed configurations location={data_path!r}")
+    logging.debug(
+        f"loading label comparison state for {ids!r} with detailed configurations location={data_path!r}",
+    )
 
-    with open(data_path, "r", encoding="utf-8") as data_file:
+    with open(data_path, encoding="utf-8") as data_file:
         data_json = data_file.read()
 
-    return comparison.ImageToolLabelStats.from_json(data_json)  # pylint: disable=no-member
+    return comparison.ImageToolLabelStats.from_json(  # type: ignore[attr-defined]
+        data_json,
+    )

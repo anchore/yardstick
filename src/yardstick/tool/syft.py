@@ -18,11 +18,15 @@ from yardstick.tool.sbom_generator import SBOMGenerator
 from yardstick.utils import github
 
 
-# pylint: disable=no-member
 class Syft(SBOMGenerator):
     _latest_version_from_github: Optional[str] = None
 
-    def __init__(self, path: str, version_detail: Optional[str] = None, env: Optional[Dict[str, str]] = None):
+    def __init__(
+        self,
+        path: str,
+        version_detail: Optional[str] = None,
+        env: Optional[Dict[str, str]] = None,
+    ):
         self.path = path
         self._env = env
         if version_detail:
@@ -38,7 +42,7 @@ class Syft(SBOMGenerator):
         version: str,
         path: Optional[str] = None,
         use_cache: Optional[bool] = True,
-        **kwargs,  # pylint: disable=unused-argument
+        **kwargs,  # noqa: ARG004
     ) -> "Syft":
         logging.debug(f"installing syft version={version!r} from installer")
         tool_exists = False
@@ -56,27 +60,26 @@ class Syft(SBOMGenerator):
 
         if not tool_exists:
             subprocess.check_call(
-                [
+                [  # noqa: S603, S607
                     "sh",
                     "-c",
-                    # pylint: disable=line-too-long
                     f"curl -sSfL https://raw.githubusercontent.com/anchore/syft/main/install.sh | sh -s -- -b {path} {version}",
-                ]
+                ],
             )
 
-            os.chmod(f"{path}/syft", 0o755)
+            os.chmod(f"{path}/syft", 0o755)  # noqa: S103
         else:
             logging.debug(f"using existing syft installation {path!r}")
 
         return Syft(path=path, version_detail=version)
 
     @classmethod
-    def _install_from_git(  # pylint: disable=too-many-branches
+    def _install_from_git(  # noqa: PLR0912
         cls,
         version: str,
         path: Optional[str] = None,
         use_cache: Optional[bool] = True,
-        **kwargs,  # pylint: disable=unused-argument
+        **kwargs,  # noqa: ARG003
     ) -> "Syft":
         logging.debug(f"installing syft version={version!r} from git")
         tool_exists = False
@@ -132,7 +135,12 @@ class Syft(SBOMGenerator):
         abspath = os.path.abspath(path)
         if not tool_exists:
             logging.debug(f"installing syft to {abspath!r}")
-            cls._run_go_build(abs_install_dir=abspath, repo_path=repo_path, description=description, binpath=path)
+            cls._run_go_build(
+                abs_install_dir=abspath,
+                repo_path=repo_path,
+                description=description,
+                binpath=path,
+            )
         else:
             logging.debug(f"using existing syft installation {abspath!r}")
 
@@ -152,7 +160,11 @@ class Syft(SBOMGenerator):
         if not path:
             path = tempfile.mkdtemp()
             atexit.register(shutil.rmtree, path)
-        dest_path = os.path.join(path.replace("path:", ""), build_version, "local_install")
+        dest_path = os.path.join(
+            path.replace("path:", ""),
+            build_version,
+            "local_install",
+        )
         os.makedirs(dest_path, exist_ok=True)
         cls._run_go_build(
             abs_install_dir=os.path.abspath(dest_path),
@@ -185,14 +197,14 @@ class Syft(SBOMGenerator):
         e.update(os.environ)
 
         subprocess.check_call(
-            shlex.split(c),
+            shlex.split(c),  # noqa: S603
             stdout=sys.stdout,
             stderr=sys.stderr,
             cwd=repo_path,
             env=e,
         )
 
-        os.chmod(f"{binpath}/syft", 0o755)
+        os.chmod(f"{binpath}/syft", 0o755)  # noqa: S103
 
     @classmethod
     def install(
@@ -210,18 +222,27 @@ class Syft(SBOMGenerator):
 
         # check if the version is a semver...
         if re.match(
-            # pylint: disable=line-too-long
             r"^v(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-((?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*)(?:\.(?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*))*))?(?:\+([0-9a-zA-Z-]+(?:\.[0-9a-zA-Z-]+)*))?$",
             version,
         ):
-            tool_obj = cls._install_from_installer(version=version, path=path, use_cache=use_cache, **kwargs)
+            tool_obj = cls._install_from_installer(
+                version=version,
+                path=path,
+                use_cache=use_cache,
+                **kwargs,
+            )
         elif version.startswith("path:"):
             tool_obj = cls._install_from_path(
                 path=path,
                 src_path=version.removeprefix("path:"),
             )
         else:
-            tool_obj = cls._install_from_git(version=version, path=path, use_cache=use_cache, **kwargs)
+            tool_obj = cls._install_from_git(
+                version=version,
+                path=path,
+                use_cache=use_cache,
+                **kwargs,
+            )
 
         return tool_obj
 
@@ -233,7 +254,10 @@ class Syft(SBOMGenerator):
         return env
 
     @staticmethod
-    def parse(result: str, config: artifact.ScanConfiguration) -> List[artifact.Package]:
+    def parse(
+        result: str,
+        config: artifact.ScanConfiguration,
+    ) -> List[artifact.Package]:
         logging.debug("parsing syft results")
 
         results: List[artifact.Package] = []
@@ -258,4 +282,7 @@ class Syft(SBOMGenerator):
         return self.run("-o", "json", i)
 
     def run(self, *args) -> str:
-        return subprocess.check_output([f"{self.path}/syft", *args], env=self.env()).decode("utf-8")
+        return subprocess.check_output(
+            [f"{self.path}/syft", *args],  # noqa: S603
+            env=self.env(),
+        ).decode("utf-8")

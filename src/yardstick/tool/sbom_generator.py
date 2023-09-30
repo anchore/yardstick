@@ -16,5 +16,8 @@ class SBOMGenerator(abc.ABC):
 
     @staticmethod
     @abc.abstractmethod
-    def parse(result: str, config: artifact.ScanConfiguration) -> tuple[str, List[artifact.Package]]:
+    def parse(
+        result: str,
+        config: artifact.ScanConfiguration,
+    ) -> List[artifact.Package]:
         raise NotImplementedError

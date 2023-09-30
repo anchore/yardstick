@@ -5,17 +5,29 @@ from typing import List
 from prompt_toolkit.application import get_app
 from prompt_toolkit.buffer import Buffer
 from prompt_toolkit.filters import Condition
-from prompt_toolkit.formatted_text import AnyFormattedText, merge_formatted_text, to_formatted_text
+from prompt_toolkit.formatted_text import (
+    AnyFormattedText,
+    merge_formatted_text,
+    to_formatted_text,
+)
 from prompt_toolkit.key_binding import KeyBindings
 from prompt_toolkit.layout import Dimension
-from prompt_toolkit.layout.containers import ConditionalContainer, Container, HSplit, VSplit, Window
+from prompt_toolkit.layout.containers import (
+    ConditionalContainer,
+    Container,
+    HSplit,
+    VSplit,
+    Window,
+)
 from prompt_toolkit.layout.controls import BufferControl, FormattedTextControl
 from prompt_toolkit.widgets import Label
 
 from yardstick import artifact
 from yardstick.cli.explore.image_labels.cve_provider import CveDescriptions
 from yardstick.cli.explore.image_labels.edit_note_dialog import EditNoteDialog
-from yardstick.cli.explore.image_labels.label_json_editor_dialog import LabelJsonEditorDialog
+from yardstick.cli.explore.image_labels.label_json_editor_dialog import (
+    LabelJsonEditorDialog,
+)
 from yardstick.cli.explore.image_labels.label_manager import LabelManager
 from yardstick.cli.explore.image_labels.label_margin import LabelMargin
 from yardstick.cli.explore.image_labels.text_area import TextArea
@@ -38,7 +50,7 @@ class Worker:
 class FilterToolbar:
     def __init__(
         self,
-        filter,  # pylint: disable=redefined-builtin
+        filter,  # noqa: A002
         apply_fn,
         accept_fn,
     ) -> None:
@@ -65,9 +77,17 @@ class FilterToolbar:
         self.container = ConditionalContainer(
             content=VSplit(
                 [
-                    Label(text="Filter by Package/CVE: ", style="class:filter-title", dont_extend_width=True),
-                    Window(content=self.control, height=1, style="class:filter-toolbar-text"),
-                ]
+                    Label(
+                        text="Filter by Package/CVE: ",
+                        style="class:filter-title",
+                        dont_extend_width=True,
+                    ),
+                    Window(
+                        content=self.control,
+                        height=1,
+                        style="class:filter-toolbar-text",
+                    ),
+                ],
             ),
             filter=filter,
         )
@@ -86,7 +106,13 @@ class FilterToolbar:
 
 
 class ResultSelectionPane:
-    def __init__(self, label_manager: LabelManager, dialog_executor, match_setter, filter_spec: str = "") -> None:
+    def __init__(
+        self,
+        label_manager: LabelManager,
+        dialog_executor,
+        match_setter,
+        filter_spec: str = "",
+    ) -> None:
         self.label_manager = label_manager
         self.dialog_executor = dialog_executor
         self.match_setter = match_setter
@@ -99,7 +125,11 @@ class ResultSelectionPane:
         def search_filter():
             return self.result_filter_active
 
-        self.search_field = FilterToolbar(filter=search_filter, apply_fn=self._apply_filter, accept_fn=self.focus)
+        self.search_field = FilterToolbar(
+            filter=search_filter,
+            apply_fn=self._apply_filter,
+            accept_fn=self.focus,
+        )
 
         self.text_area = TextArea(
             text=self.get_result_text(),
@@ -124,7 +154,10 @@ class ResultSelectionPane:
             [
                 Window(
                     content=FormattedTextControl(
-                        text=to_formatted_text(f"Match Results {filter_spec}", style="bold reverse"),
+                        text=to_formatted_text(
+                            f"Match Results {filter_spec}",
+                            style="bold reverse",
+                        ),
                         focusable=False,
                     ),
                     style="class:pane-title",
@@ -135,7 +168,7 @@ class ResultSelectionPane:
                 ),
                 self.text_area,
                 self.search_field,
-            ]
+            ],
         )
 
         # load the details pane for the current selection
@@ -154,13 +187,18 @@ class ResultSelectionPane:
     def get_formatted_cve_details(self) -> AnyFormattedText:
         entry = self.get_selected_entry()
         if not entry:
-            return merge_formatted_text([to_formatted_text("no selection", style="italic")])
+            return merge_formatted_text(
+                [to_formatted_text("no selection", style="italic")],
+            )
         if self.cve_descriptions.is_cached(entry.match.vulnerability.id):
             text = self.cve_descriptions.get(entry.match.vulnerability.id)
         else:
 
             def fetch_in_background():
-                if self.get_selected_entry().match.vulnerability.id == entry.match.vulnerability.id:
+                if (
+                    self.get_selected_entry().match.vulnerability.id
+                    == entry.match.vulnerability.id
+                ):
                     self.cve_descriptions.get(entry.match.vulnerability.id)
                     get_app().invalidate()
 
@@ -172,7 +210,9 @@ class ResultSelectionPane:
     def get_formatted_result_details(self) -> AnyFormattedText:
         entry = self.get_selected_entry()
         if not entry:
-            return merge_formatted_text([to_formatted_text("no selection", style="italic")])
+            return merge_formatted_text(
+                [to_formatted_text("no selection", style="italic")],
+            )
         return entry.get_formatted_details()
 
     def get_result_text(self) -> AnyFormattedText:
@@ -184,7 +224,7 @@ class ResultSelectionPane:
         for _, entry in enumerate(self.entries):
             result.append(entry.display)
 
-        return "\n".join(result)
+        return "\n".join(result)  # type: ignore[arg-type]
 
     def get_selected_entry(self):
         if self.selected_entry >= len(self.entries):
@@ -211,11 +251,10 @@ class ResultSelectionPane:
         self._update()
         get_app().invalidate()
 
-    def _get_key_bindings(self) -> KeyBindings:
+    def _get_key_bindings(self) -> KeyBindings:  # noqa: C901, PLR0915
         kb = KeyBindings()
 
         @kb.add("up")
-        # pylint: disable=unused-argument
         def _go_up(event) -> None:
             if len(self.entries):
                 selected_entry = self.selected_entry - 1
@@ -225,7 +264,6 @@ class ResultSelectionPane:
                     self._update()
 
         @kb.add("down")
-        # pylint: disable=unused-argument
         def _go_down(event) -> None:
             if len(self.entries):
                 selected_entry = self.selected_entry + 1
@@ -235,25 +273,28 @@ class ResultSelectionPane:
                     self._update()
 
         @kb.add("f")
-        # pylint: disable=unused-argument
         def _fp(event) -> None:
             entry = self.get_selected_entry()
             if entry:
-                self.label_manager.add_label_entry(entry.match, artifact.Label.FalsePositive)
+                self.label_manager.add_label_entry(
+                    entry.match,
+                    artifact.Label.FalsePositive,
+                )
             self._update()
             get_app().invalidate()
 
         @kb.add("t")
-        # pylint: disable=unused-argument
         def _tp(event) -> None:
             entry = self.get_selected_entry()
             if entry:
-                self.label_manager.add_label_entry(entry.match, artifact.Label.TruePositive)
+                self.label_manager.add_label_entry(
+                    entry.match,
+                    artifact.Label.TruePositive,
+                )
             self._update()
             get_app().invalidate()
 
         @kb.add("?")
-        # pylint: disable=unused-argument
         def _unknown(event) -> None:
             entry = self.get_selected_entry()
             if entry:
@@ -262,7 +303,6 @@ class ResultSelectionPane:
             get_app().invalidate()
 
         @kb.add("/")
-        # pylint: disable=unused-argument
         def _filter(event) -> None:
             self._toggle_filter()
 
@@ -270,7 +310,9 @@ class ResultSelectionPane:
             selected_entry = self.get_selected_entry()
             if not selected_entry:
                 return None
-            label_entries = self.label_manager.get_label_entries_by_match(selected_entry.match)
+            label_entries = self.label_manager.get_label_entries_by_match(
+                selected_entry.match,
+            )
 
             if not label_entries:
                 return None
@@ -278,7 +320,6 @@ class ResultSelectionPane:
             return label_entries[0]
 
         @kb.add("e")
-        # pylint: disable=unused-argument
         def _edit_note(event) -> None:
             entry = get_single_label_entry()
 
@@ -303,7 +344,6 @@ class ResultSelectionPane:
             )
 
         @kb.add("j")
-        # pylint: disable=unused-argument
         def _edit_json(event) -> None:
             entry = get_single_label_entry()
 
@@ -319,7 +359,6 @@ class ResultSelectionPane:
 
         @kb.add("backspace")
         @kb.add("delete")
-        # pylint: disable=unused-argument
         def _delete_label(event) -> None:
             entry = get_single_label_entry()
 
