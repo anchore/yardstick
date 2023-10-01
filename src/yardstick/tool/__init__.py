@@ -15,7 +15,8 @@ tools: dict[str, Union[Type[SBOMGenerator], Type[VulnerabilityScanner]]] = {
 
 
 def Register(
-    name: str, tool: Union[Type[SBOMGenerator], Type[VulnerabilityScanner]],
+    name: str,
+    tool: Union[Type[SBOMGenerator], Type[VulnerabilityScanner]],
 ) -> None:
     tools[name] = tool
 
