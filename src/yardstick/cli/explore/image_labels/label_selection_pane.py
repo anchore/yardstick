@@ -1,5 +1,5 @@
 from asyncio import Future
-from typing import List, Union
+from typing import List, Optional, Union
 
 from prompt_toolkit.formatted_text import (
     AnyFormattedText,
@@ -35,7 +35,7 @@ class LabelSelectionPane:
         self.dialog_executor = dialog_executor
         self.entries: List[artifact.LabelEntry] = []
         self.selected_entry = 0
-        self.match: artifact.Match | None = None
+        self.match: Optional[artifact.Match] = None
         # self.width = 80
         self.container: Union[HSplit, ConditionalContainer] = HSplit(
             [

@@ -8,7 +8,7 @@ MANUAL_SOURCE = "manual"
 
 def label_entry_matches_image_lineage(
     label_entry: LabelEntry,
-    image: str | None,
+    image: Optional[str],
     lineage: Optional[List[str]] = None,
 ):
     if not lineage:
@@ -17,7 +17,7 @@ def label_entry_matches_image_lineage(
 
 
 def find_labels_for_match(  # noqa: PLR0913, PLR0912, C901
-    image: str | None,
+    image: Optional[str],
     match: Match,
     label_entries: List[LabelEntry],
     lineage: Optional[List[str]] = None,

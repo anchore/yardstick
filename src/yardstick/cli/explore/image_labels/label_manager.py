@@ -120,7 +120,7 @@ class LabelManager:
         self._last_match_select_entries: List[MatchSelectEntry] = []
         self.deleted_label_entries: List[artifact.LabelEntry] = []
         self.worker = WorkerWithTaskInvalidation()
-        self.comparison: comparison.AgainstLabels | None = None
+        self.comparison: Optional[comparison.AgainstLabels] = None
         self.history = History()
         self.labels_invalidated = False
         self._update_comparison()

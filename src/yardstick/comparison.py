@@ -93,7 +93,7 @@ class AgainstLabels:
         self.false_positive_matches = []
         self.matches_with_indeterminate_labels = []
 
-        if not result.matches:
+        if result.matches is None:
             raise ValueError("no matches found in result")
 
         for match in result.matches:

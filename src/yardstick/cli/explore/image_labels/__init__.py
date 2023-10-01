@@ -1,5 +1,5 @@
 from asyncio import Future, ensure_future
-from typing import List
+from typing import List, Optional
 
 # from pygments.styles.monokai import MonokaiStyle as PygmentsStyle
 from prompt_toolkit.application import Application
@@ -60,7 +60,7 @@ class Controller:
         )
 
         self.root_container = self._layout()
-        self.application: Application | None = None
+        self.application: Optional[Application] = None
 
     def show_dialog_as_float(self, dialog, done_callback):
         async def coroutine():

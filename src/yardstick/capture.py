@@ -1,6 +1,6 @@
 import datetime
 import logging
-from typing import Any, Dict, Optional, Tuple
+from typing import Any, Dict, Optional, Tuple, Union
 
 from yardstick import artifact, store
 from yardstick.tool import get_tool, sbom_generator, vulnerability_scanner
@@ -20,9 +20,9 @@ class Timer:
 
 def run_scan(
     config: artifact.ScanConfiguration,
-    tool: vulnerability_scanner.VulnerabilityScanner
-    | sbom_generator.SBOMGenerator
-    | None = None,
+    tool: Optional[
+        Union[vulnerability_scanner.VulnerabilityScanner, sbom_generator.SBOMGenerator]
+    ] = None,
     reinstall: bool = False,
     **kwargs,
 ) -> Tuple[artifact.ScanResult, str]:

@@ -416,7 +416,7 @@ class Grype(VulnerabilityScanner):
         ).decode("utf-8")
 
     @staticmethod
-    def parse_package_type(full_entry: Dict[str, Any] | None) -> str:
+    def parse_package_type(full_entry: Optional[Dict[str, Any]]) -> str:
         if not full_entry:
             return "unknown"
         return str(

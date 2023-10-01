@@ -10,7 +10,7 @@ import subprocess
 import uuid
 from dataclasses import InitVar, asdict, dataclass, field
 from enum import Enum
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Union
 
 from dataclasses_json import config, dataclass_json
 
@@ -257,7 +257,7 @@ class Vulnerability:
     def effective_year(self, by_cve=False) -> Optional[int]:
         if by_cve:
             return self._effective_cve_year()
-        candidate: int | str | None = self.id
+        candidate: Optional[Union[int, str]] = self.id
         if self.id:
             candidate = parse_year_from_id(self.id)
         if not isinstance(candidate, int):
@@ -493,7 +493,7 @@ id: {self.ID}
     def __eq__(self, other: Any) -> bool:
         return hash(self) == hash(other)
 
-    def matches_image(self, image: str | None):
+    def matches_image(self, image: Optional[str]):
         if not self.image or not image:
             # if no imag specifier is provided, then any image matches automatically
             return True
@@ -520,7 +520,7 @@ id: {self.ID}
     def effective_year(self, by_cve=False) -> Optional[int]:
         if by_cve:
             return self._effective_cve_year()
-        candidate: int | str | None = self.vulnerability_id
+        candidate: Optional[Union[int, str]] = self.vulnerability_id
         if self.vulnerability_id:
             candidate = parse_year_from_id(self.vulnerability_id)
         if not isinstance(candidate, int):
@@ -585,7 +585,7 @@ class ScanRequest:
 @dataclass()
 class ResultState:
     request: ScanRequest
-    config: ScanConfiguration | None = None
+    config: Optional[ScanConfiguration] = None
 
 
 @dataclass_json

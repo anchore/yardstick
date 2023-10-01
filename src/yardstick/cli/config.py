@@ -116,7 +116,7 @@ def yaml_decoder(data) -> dict[Any, Any]:
 
 
 def load(
-    path: None | str | Sequence[str] = DEFAULT_CONFIGS,
+    path: str | Sequence[str] = DEFAULT_CONFIGS,
 ) -> Application:
     cfg = _load_paths(path)
 
@@ -136,7 +136,7 @@ def load(
 
 
 def _load_paths(
-    path: None | str | Sequence[str],
+    path: str | Sequence[str],
 ) -> Application | None:
     if not path:
         path = DEFAULT_CONFIGS
