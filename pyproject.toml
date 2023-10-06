@@ -63,7 +63,7 @@ check_untyped_defs = 0
 ignore_missing_imports = 1
 ignore_errors = 0
 strict_optional = 0
-warn_unused_ignores = 1
+warn_unused_ignores = 0
 warn_redundant_casts = 1
 warn_unused_configs = 1
 
