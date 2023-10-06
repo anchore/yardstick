@@ -66,7 +66,7 @@ def show_config(cfg: config.Application):
             self,
             flow: bool = False,
             indentless: bool = False,
-        ) -> None:  # noqa: ARG002
+        ) -> None:
             return super().increase_indent(flow, False)
 
     def enum_asdict_factory(data: list[tuple[str, Any]]) -> dict[Any, Any]:
