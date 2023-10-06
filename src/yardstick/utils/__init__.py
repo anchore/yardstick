@@ -18,6 +18,8 @@ def local_build_version_suffix(src_path: str) -> str:
         raise
     git_desc = repo.git.describe("--tags", "--always", "--long", "--dirty")
     if repo.is_dirty():
+        # note on S324 usage: this is currently only used for deriving a unique, content-sensitive
+        # value to use for identifying local builds. This is not used for cryptographic purposes.
         hash_obj = hashlib.sha1()  # noqa: S324
         for untracked in repo.untracked_files:
             hash_obj.update(
@@ -29,6 +31,8 @@ def local_build_version_suffix(src_path: str) -> str:
 
 
 def hash_file(path: str) -> str:
+    # note on S324 usage: this is currently only used for deriving a unique, content-sensitive
+    # value to use for identifying local builds. This is not used for cryptographic purposes.
     hash_obj = hashlib.sha1()  # noqa: S324
     with open(path, "rb") as f:
         while True:

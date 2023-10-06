@@ -60,13 +60,16 @@ class Syft(SBOMGenerator):
 
         if not tool_exists:
             subprocess.check_call(
-                [  # noqa: S603, S607
+                [
                     "sh",
                     "-c",
                     f"curl -sSfL https://raw.githubusercontent.com/anchore/syft/main/install.sh | sh -s -- -b {path} {version}",
                 ],
             )
 
+            # note on S103 exception: syft must be executable and it is not valid to assume that
+            # a single user or group should be restricted to using it. 0755 is the default
+            # permission used for system bin/* contents.
             os.chmod(f"{path}/syft", 0o755)  # noqa: S103
         else:
             logging.debug(f"using existing syft installation {path!r}")
@@ -197,13 +200,16 @@ class Syft(SBOMGenerator):
         e.update(os.environ)
 
         subprocess.check_call(
-            shlex.split(c),  # noqa: S603
+            shlex.split(c),
             stdout=sys.stdout,
             stderr=sys.stderr,
             cwd=repo_path,
             env=e,
         )
 
+        # note on S103 exception: syft must be executable and it is not valid to assume that
+        # a single user or group should be restricted to using it. 0755 is the default
+        # permission used for system bin/* contents.
         os.chmod(f"{binpath}/syft", 0o755)  # noqa: S103
 
     @classmethod
@@ -283,6 +289,6 @@ class Syft(SBOMGenerator):
 
     def run(self, *args) -> str:
         return subprocess.check_output(
-            [f"{self.path}/syft", *args],  # noqa: S603
+            [f"{self.path}/syft", *args],
             env=self.env(),
         ).decode("utf-8")

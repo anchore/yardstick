@@ -74,13 +74,16 @@ class Grype(VulnerabilityScanner):
 
         if not tool_exists:
             subprocess.check_call(
-                [  # noqa: S603, S607
+                [
                     "sh",
                     "-c",
                     f"curl -sSfL https://raw.githubusercontent.com/anchore/grype/main/install.sh | sh -s -- -b {path} {version}",
                 ],
             )
 
+            # note on S103 exception: grype must be executable and it is not valid to assume that
+            # a single user or group should be restricted to using it. 0755 is the default
+            # permission used for system bin/* contents.
             os.chmod(f"{path}/grype", 0o755)  # noqa: S103
         else:
             logging.debug(f"using existing grype installation {path!r}")
@@ -219,13 +222,16 @@ class Grype(VulnerabilityScanner):
         e.update(os.environ)
 
         subprocess.check_call(
-            shlex.split(c),  # noqa: S603
+            shlex.split(c),
             stdout=sys.stdout,
             stderr=sys.stderr,
             cwd=repo_path,
             env=e,
         )
 
+        # note on S103 exception: grype must be executable and it is not valid to assume that
+        # a single user or group should be restricted to using it. 0755 is the default
+        # permission used for system bin/* contents.
         os.chmod(f"{binpath}/grype", 0o755)  # noqa: S103
 
     @classmethod
@@ -411,7 +417,7 @@ class Grype(VulnerabilityScanner):
             cmd.append("-c")
             cmd.append(self.profile.config_path)
         return subprocess.check_output(
-            cmd,  # noqa: S603
+            cmd,
             env=self.env(override=env),
         ).decode("utf-8")
 

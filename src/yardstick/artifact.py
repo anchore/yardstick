@@ -19,7 +19,7 @@ from yardstick.utils import grype_db, is_cve_vuln_id, parse_year_from_id
 
 def get_image_digest(image: str) -> str:
     result = subprocess.run(
-        ["docker", "manifest", "inspect", image],  # noqa: S603, S607
+        ["docker", "manifest", "inspect", image],
         stdout=subprocess.PIPE,
         check=False,
     )
@@ -296,6 +296,8 @@ class Match:
                 asdict(self.config).items(),
             )
 
+        # note on S324 usage: we are not using these IDs for crytographic purposes, only
+        # for having simple content-sensitive IDs for use for match comparison.
         match_id = hashlib.md5(  # noqa: S324
             json.dumps(identifier, sort_keys=True, cls=DTEncoder).encode(),
         ).hexdigest()
@@ -558,7 +560,7 @@ class ScanRequest:
         if "@git:current-commit" in tool:
             val = (
                 subprocess.check_output(
-                    ["git", "rev-parse", "HEAD"],  # noqa: S603, S607
+                    ["git", "rev-parse", "HEAD"],
                 )
                 .decode("ascii")
                 .strip()

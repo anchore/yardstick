@@ -44,7 +44,7 @@ static-analysis: virtual-env-check  ## Run all static analyses
 	pre-commit run -a --hook-stage push
 
 .PHONY: test
-test: unit  ## Run all tests
+test: unit cli  ## Run all tests
 
 virtual-env-check:
 	@ if [ "${VIRTUAL_ENV}" = "" ]; then \

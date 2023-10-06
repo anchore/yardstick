@@ -49,7 +49,7 @@ class GrypeDBManager:
         try:
             logging.debug("using system grype DB...")
             out = subprocess.check_output(
-                ["grype", "db", "status"],  # noqa: S603, S607
+                ["grype", "db", "status"],
             ).decode(
                 sys.stdout.encoding,
             )
