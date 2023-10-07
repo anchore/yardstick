@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import contextlib
 import json
 import logging
 import os
@@ -19,8 +18,7 @@ def _store_root(store_root: str | None = None):
 
 
 def clear(store_root: str | None = None):
-    with contextlib.suppress(FileNotFoundError):
-        shutil.rmtree(_store_root(store_root=store_root))
+    shutil.rmtree(_store_root(store_root=store_root), ignore_errors=True)
 
 
 def store_paths(name: str, store_root: str | None = None) -> str:

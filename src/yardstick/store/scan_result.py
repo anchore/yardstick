@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import contextlib
 import copy
 import glob
 import itertools
@@ -24,8 +23,7 @@ def _store_root(store_root: str | None = None):
 
 
 def clear(store_root: str | None = None):
-    with contextlib.suppress(FileNotFoundError):
-        shutil.rmtree(_store_root(store_root=store_root))
+    shutil.rmtree(_store_root(store_root=store_root), ignore_errors=True)
 
 
 def store_paths(

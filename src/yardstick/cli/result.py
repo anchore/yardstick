@@ -276,7 +276,7 @@ def result_descriptions(result_set: str | None = None) -> list[ResultDescription
 
         for result_state in result_set_obj.state:
             if not result_state.config:
-                continue
+                raise ValueError("result set missing a configuration")
 
             scan_config = store.scan_result.find_one(
                 by_description=result_state.config.path,
