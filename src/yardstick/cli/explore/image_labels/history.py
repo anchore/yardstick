@@ -9,8 +9,11 @@ class Command:
 
 
 class History:
+    history: List[Command]
+    index: int
+
     def __init__(self):
-        self.history: List[Command] = []
+        self.history = []
         self.index = 0
 
     def record(self, command: Command):

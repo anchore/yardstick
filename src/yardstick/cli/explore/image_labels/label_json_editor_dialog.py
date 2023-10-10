@@ -14,6 +14,8 @@ from yardstick import artifact
 
 
 class LabelJsonEditorDialog:
+    future: Future
+
     def __init__(
         self,
         entry: artifact.LabelEntry,
@@ -39,10 +41,20 @@ class LabelJsonEditorDialog:
         def cancel():
             self.future.set_result(None)
 
-        formatted_json = entry.to_json(indent=2)
+        formatted_json = entry.to_json(indent=2)  # type: ignore[attr-defined]
 
-        ok_button = Button(text=ok_button_text, left_symbol="[", right_symbol="]", handler=accept)
-        cancel_button = Button(text=cancel_button_text, left_symbol="[", right_symbol="]", handler=cancel)
+        ok_button = Button(
+            text=ok_button_text,
+            left_symbol="[",
+            right_symbol="]",
+            handler=accept,
+        )
+        cancel_button = Button(
+            text=cancel_button_text,
+            left_symbol="[",
+            right_symbol="]",
+            handler=cancel,
+        )
 
         self.text_area = TextArea(
             text=formatted_json,
@@ -62,7 +74,8 @@ class LabelJsonEditorDialog:
 
         self.dialog = Dialog(
             title=title,
-            body=HSplit(layout_items, key_bindings=kb),
+            # layout_items is a list of MagicContainer, which is only exported when checking types unfortunately
+            body=HSplit(layout_items, key_bindings=kb),  # type: ignore[arg-type]
             buttons=[ok_button, cancel_button],
             width=Dimension(preferred=100),
             modal=True,
@@ -78,9 +91,11 @@ class ValidationToolbar:
 
         def get_formatted_text() -> StyleAndTextTuples:
             try:
-                artifact.LabelEntry.from_json(text_area.text)  # pylint: disable=no-member
+                artifact.LabelEntry.from_json(  # type: ignore[attr-defined]
+                    text_area.text,
+                )
                 self.is_value = True
-            except Exception as e:  # pylint: disable=broad-except
+            except Exception as e:
                 self.is_value = False
                 return [("class:validation-toolbar", "Invalid LabelEntry: " + repr(e))]
 
@@ -88,7 +103,12 @@ class ValidationToolbar:
 
         self.control = FormattedTextControl(get_formatted_text)
 
-        self.container = Window(self.control, height=1, always_hide_cursor=True, wrap_lines=True)
+        self.container = Window(
+            self.control,
+            height=1,
+            always_hide_cursor=True,
+            wrap_lines=True,
+        )
 
     def __pt_container__(self) -> Container:
         return self.container

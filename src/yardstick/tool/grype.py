@@ -27,14 +27,14 @@ class GrypeProfile:
 
 
 class Grype(VulnerabilityScanner):
-    def __init__(  # pylint: disable=too-many-arguments
+    def __init__(  # noqa: PLR0913
         self,
         path: str,
         db_identity: str,
         version_detail: Optional[str] = None,
         env: Optional[Dict[str, str]] = None,
         profile: Optional[GrypeProfile] = None,
-        **kwargs,  # pylint: disable=unused-argument
+        **kwargs,
     ):
         if not profile:
             profile = GrypeProfile()
@@ -77,19 +77,21 @@ class Grype(VulnerabilityScanner):
                 [
                     "sh",
                     "-c",
-                    # pylint: disable=line-too-long
                     f"curl -sSfL https://raw.githubusercontent.com/anchore/grype/main/install.sh | sh -s -- -b {path} {version}",
-                ]
+                ],
             )
 
-            os.chmod(f"{path}/grype", 0o755)
+            # note on S103 exception: grype must be executable and it is not valid to assume that
+            # a single user or group should be restricted to using it. 0755 is the default
+            # permission used for system bin/* contents.
+            os.chmod(f"{path}/grype", 0o755)  # noqa: S103
         else:
             logging.debug(f"using existing grype installation {path!r}")
 
         return Grype(path=path, version_detail=version, **kwargs)
 
     @classmethod
-    def _install_from_git(
+    def _install_from_git(  # noqa: PLR0912
         cls,
         version: str,
         path: Optional[str] = None,
@@ -182,7 +184,11 @@ class Grype(VulnerabilityScanner):
 
         logging.debug(f"installing grype from path={src_repo_path!r} to path={path!r}")
 
-        dest_path = os.path.join(path.replace("path:", ""), build_version, "local_install")
+        dest_path = os.path.join(
+            path.replace("path:", ""),
+            build_version,
+            "local_install",
+        )
         os.makedirs(dest_path, exist_ok=True)
 
         cls._run_go_build(
@@ -223,11 +229,13 @@ class Grype(VulnerabilityScanner):
             env=e,
         )
 
-        os.chmod(f"{binpath}/grype", 0o755)
+        # note on S103 exception: grype must be executable and it is not valid to assume that
+        # a single user or group should be restricted to using it. 0755 is the default
+        # permission used for system bin/* contents.
+        os.chmod(f"{binpath}/grype", 0o755)  # noqa: S103
 
-    # pylint: disable=too-many-arguments, too-many-locals, too-many-branches
     @classmethod
-    def install(
+    def install(  # noqa: C901, PLR0913
         cls,
         version: str,
         path: Optional[str] = None,
@@ -257,18 +265,21 @@ class Grype(VulnerabilityScanner):
                         break
 
                 if not metadata_path:
-                    raise ValueError(f"could not find metadata.json in {db_import_path!r}")
+                    raise ValueError(
+                        f"could not find metadata.json in {db_import_path!r}",
+                    )
 
-                with tar.extractfile(metadata_path) as metadata_file:
-                    metadata = json.load(metadata_file)
+                extractor = tar.extractfile(metadata_path)
+                if extractor:
+                    with extractor as metadata_file:
+                        metadata = json.load(metadata_file)
 
-                db_identity = metadata["checksum"]
+                    db_identity = metadata["checksum"]
 
-        logging.debug(f"parsed import-db={db_import_path!r} from version={original_version!r} new version={version!r}")
-        if profile:
-            grype_profile = GrypeProfile(**profile)
-        else:
-            grype_profile = GrypeProfile()
+        logging.debug(
+            f"parsed import-db={db_import_path!r} from version={original_version!r} new version={version!r}",
+        )
+        grype_profile = GrypeProfile(**profile) if profile else GrypeProfile()
 
         if version == "latest":
             version = cls.latest_version_from_github()
@@ -278,7 +289,6 @@ class Grype(VulnerabilityScanner):
 
         # check if the version is a semver...
         if re.match(
-            # pylint: disable=line-too-long
             r"^v(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-((?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*)(?:\.(?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*))*))?(?:\+([0-9a-zA-Z-]+(?:\.[0-9a-zA-Z-]+)*))?$",
             version,
         ):
@@ -362,16 +372,21 @@ class Grype(VulnerabilityScanner):
             # we should always interpret results with the same DB if the DB is still there (e.g. to support
             # GHSA to CVE mapping for the latest results) if the DB is not there, we try to fall back to
             # the DB found on the system (which isn't ideal, but is better than nothing)
-            logging.debug(f"using db location found in results to interpret vulnerability definitions: {db_location!r}")
+            logging.debug(
+                f"using db location found in results to interpret vulnerability definitions: {db_location!r}",
+            )
             utils.grype_db.use(db_location)
         else:
             logging.debug(
-                "no db location found in results, using system grype DB (not ideal and may cause issues with date filtering)"
+                "no db location found in results, using system grype DB (not ideal and may cause issues with date filtering)",
             )
 
         for entry in obj["matches"]:
             # TODO: normalize version here
-            pkg = artifact.Package(name=entry["artifact"]["name"], version=entry["artifact"]["version"])
+            pkg = artifact.Package(
+                name=entry["artifact"]["name"],
+                version=entry["artifact"]["version"],
+            )
             vuln_id = entry["vulnerability"]["id"]
             cve_id = vuln_id if vuln_id.startswith("CVE-") else None
 
@@ -382,7 +397,12 @@ class Grype(VulnerabilityScanner):
                         break
 
             vuln = artifact.Vulnerability(id=vuln_id, cve_id=cve_id)
-            match = artifact.Match(package=pkg, vulnerability=vuln, fullentry=entry, config=config)
+            match = artifact.Match(
+                package=pkg,
+                vulnerability=vuln,
+                fullentry=entry,
+                config=config,
+            )
             results.append(match)
         return results
 
@@ -396,15 +416,20 @@ class Grype(VulnerabilityScanner):
         if self.profile and self.profile.config_path:
             cmd.append("-c")
             cmd.append(self.profile.config_path)
-        return subprocess.check_output(cmd, env=self.env(override=env)).decode("utf-8")
+        return subprocess.check_output(
+            cmd,
+            env=self.env(override=env),
+        ).decode("utf-8")
 
     @staticmethod
-    def parse_package_type(full_entry: Dict[str, Any]) -> str:
+    def parse_package_type(full_entry: Optional[Dict[str, Any]]) -> str:
+        if not full_entry:
+            return "unknown"
         return str(
             utils.dig(
                 full_entry,
                 "artifact",
                 "type",
                 default=utils.dig(full_entry, "package_type", default="unknown"),
-            )
+            ),
         )

@@ -3,6 +3,9 @@ on:
   workflow_dispatch:
   push:
 
+permissions:
+  contents: read
+
 env:
   PYTHON_VERSION: "3.9"
   POETRY_VERSION: "1.3.2"
@@ -43,10 +46,10 @@ jobs:
         if: steps.cache.outputs.cache-hit != 'true'
 
       - name: Run static analysis
-        run: make static-analysis
+        run: poetry run make static-analysis
 
       - name: Run unit tests
-        run: poetry run pytest
+        run: poetry run make unit
 
       - name: Build test
         run: poetry run make build

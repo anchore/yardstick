@@ -2,11 +2,11 @@ from __future__ import annotations
 
 import os
 from dataclasses import dataclass, field
-from typing import Any, Dict, Optional
+from typing import Any, Sequence
 
-import mergedeep
+import mergedeep  # type: ignore[import]
 import yaml
-from dataclass_wizard import asdict, fromdict
+from dataclass_wizard import asdict, fromdict  # type: ignore[import]
 
 from yardstick import artifact
 from yardstick.store import config as store_config
@@ -19,7 +19,7 @@ DEFAULT_CONFIGS = (
 
 @dataclass()
 class Profiles:
-    data: Dict[str, Dict[str, str]] = field(default_factory=dict)
+    data: dict[str, dict[str, str]] = field(default_factory=dict)
 
     def get(self, tool_name: str, profile: str):
         return self.data.get(tool_name, {}).get(profile, {})
@@ -29,10 +29,10 @@ class Profiles:
 class Tool:
     name: str
     version: str
-    label: Optional[str] = None
-    produces: Optional[str] = None
-    takes: Optional[str] = None
-    profile: Optional[str] = None
+    label: str | None = None
+    produces: str | None = None
+    takes: str | None = None
+    profile: str | None = None
     refresh: bool = True
 
     @property
@@ -47,7 +47,10 @@ class ScanMatrix:
 
     def __post_init__(self):
         for idx, tool in enumerate(self.tools):
-            self.tools[idx].name, self.tools[idx].version = artifact.ScanRequest.render_tool(tool.short).split("@", 1)
+            (
+                self.tools[idx].name,
+                self.tools[idx].version,
+            ) = artifact.ScanRequest.render_tool(tool.short).split("@", 1)
 
         # flatten elements in images (in case yaml anchores are used)
         images = []
@@ -84,7 +87,7 @@ class ResultSet:
                         provides=tool.produces,
                         takes=tool.takes,
                         refresh=tool.refresh,
-                    )
+                    ),
                 )
         return self.declared + rendered
 
@@ -95,7 +98,7 @@ class Application:
     profile_path: str = ".yardstick.profiles.yaml"
     profiles: Profiles = field(default_factory=Profiles)
     result_sets: dict[str, ResultSet] = field(default_factory=dict)
-    default_max_year: Optional[int] = None
+    default_max_year: int | None = None
     derive_year_from_cve_only: bool = False
 
 
@@ -108,12 +111,12 @@ def clean_dict_keys(d):
     return new
 
 
-def yaml_decoder(data) -> Dict[Any, Any]:
+def yaml_decoder(data) -> dict[Any, Any]:
     return clean_dict_keys(yaml.safe_load(data))
 
 
 def load(
-    path: None | str | list[str] | tuple[str] = DEFAULT_CONFIGS,
+    path: str | Sequence[str] = DEFAULT_CONFIGS,
 ) -> Application:
     cfg = _load_paths(path)
 
@@ -125,7 +128,7 @@ def load(
         try:
             with open(cfg.profile_path, encoding="utf-8") as yaml_file:
                 profile = Profiles(yaml_decoder(yaml_file))
-        except:  # pylint: disable=bare-except
+        except FileNotFoundError:
             profile = Profiles({})
         cfg.profiles = profile
 
@@ -133,7 +136,7 @@ def load(
 
 
 def _load_paths(
-    path: None | str | list[str] | tuple[str],
+    path: str | Sequence[str],
 ) -> Application | None:
     if not path:
         path = DEFAULT_CONFIGS
@@ -160,7 +163,9 @@ def _load_paths(
 
 def _load(path: str) -> Application:
     with open(path, encoding="utf-8") as f:
-        app_object = yaml.load(f.read(), yaml.SafeLoader) or {}  # noqa: S506 (since our loader is using the safe loader)
+        app_object = (
+            yaml.load(f.read(), yaml.SafeLoader) or {}
+        )  # noqa: S506 (since our loader is using the safe loader)
         # we need a full default application config first then merge the loaded config on top.
         # Why? dataclass_wizard.fromdict() will create instances from the dataclass default
         # and NOT the field definition from the container. So it is possible to specify a

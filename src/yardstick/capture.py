@@ -1,6 +1,6 @@
 import datetime
 import logging
-from typing import Any, Dict, Optional, Tuple
+from typing import Any, Dict, Optional, Tuple, Union
 
 from yardstick import artifact, store
 from yardstick.tool import get_tool, sbom_generator, vulnerability_scanner
@@ -19,9 +19,16 @@ class Timer:
 
 
 def run_scan(
-    config: artifact.ScanConfiguration, tool: vulnerability_scanner.VulnerabilityScanner = None, reinstall: bool = False, **kwargs
+    config: artifact.ScanConfiguration,
+    tool: Optional[
+        Union[vulnerability_scanner.VulnerabilityScanner, sbom_generator.SBOMGenerator]
+    ] = None,
+    reinstall: bool = False,
+    **kwargs,
 ) -> Tuple[artifact.ScanResult, str]:
-    logging.debug(f"capturing via run config image={config.image} tool={config.tool_name}@{config.tool_version}")
+    logging.debug(
+        f"capturing via run config image={config.image} tool={config.tool_name}@{config.tool_version}",
+    )
 
     tool_cls = get_tool(str(config.tool_name))
     if not tool_cls:
@@ -29,11 +36,16 @@ def run_scan(
 
     if not tool:
         path = store.tool.install_path(config=config)
-        tool = tool_cls.install(version=config.tool_version, path=path, use_cache=not reinstall, **kwargs)
+        tool = tool_cls.install(
+            version=config.tool_version,
+            path=path,
+            use_cache=not reinstall,
+            **kwargs,
+        )
 
     # some tools will have additional metadata... persist this on the config
     if hasattr(tool, "version_detail"):
-        installed_version = getattr(tool, "version_detail")
+        installed_version = tool.version_detail
         if installed_version != config.tool_version:
             config.detail["version_detail"] = installed_version
             config.tool_version = installed_version
@@ -53,10 +65,12 @@ def run_scan(
         raise RuntimeError("unknown tool type")
 
     metadata = artifact.ScanMetadata(
-        timestamp=config.timestamp, elapsed=(timer.end - timer.start).microseconds / 100000.0, image_digest=config.image_digest
+        timestamp=config.timestamp,
+        elapsed=(timer.end - timer.start).microseconds / 100000.0,
+        image_digest=config.image_digest,
     )
     return (
-        artifact.ScanResult(config=config, metadata=metadata, **keys),
+        artifact.ScanResult(config=config, metadata=metadata, **keys),  # type: ignore[arg-type]
         raw_json,
     )
 
@@ -77,8 +91,10 @@ def intake(config: artifact.ScanConfiguration, raw_results: str) -> artifact.Sca
     else:
         raise RuntimeError("unknown tool type")
 
-    metadata = artifact.ScanMetadata(timestamp=datetime.datetime.now(datetime.timezone.utc).replace(microsecond=0))
-    return artifact.ScanResult(config=config, metadata=metadata, **keys)
+    metadata = artifact.ScanMetadata(
+        timestamp=datetime.datetime.now(datetime.timezone.utc).replace(microsecond=0),
+    )
+    return artifact.ScanResult(config=config, metadata=metadata, **keys)  # type: ignore[arg-type]
 
 
 def one(
@@ -86,12 +102,18 @@ def one(
     producer_state: Optional[str] = None,
     profiles: Optional[Dict[str, Dict[str, Any]]] = None,
 ) -> artifact.ScanConfiguration:
-    logging.debug(f"capturing data image={request.image} tool={request.tool} profile={request.profile}")
+    logging.debug(
+        f"capturing data image={request.image} tool={request.tool} profile={request.profile}",
+    )
 
     if not profiles:
         profiles = {}
 
-    scan_config = artifact.ScanConfiguration.new(image=request.image, tool=request.tool, label=request.label)
+    scan_config = artifact.ScanConfiguration.new(
+        image=request.image,
+        tool=request.tool,
+        label=request.label,
+    )
 
     if producer_state:
         scan_config.tool_input = producer_state
@@ -111,9 +133,8 @@ def one(
     return scan_config
 
 
-# pylint: disable=too-many-locals
-def result_set(
-    result_set: str,  # pylint: disable=redefined-outer-name
+def result_set(  # noqa: C901, PLR0912
+    result_set: str,
     scan_requests: list[artifact.ScanRequest],
     only_producers: bool = False,
     profiles=Optional[Dict[str, Dict[str, Any]]],
@@ -133,11 +154,22 @@ def result_set(
         logging.info(f"capturing data for request {idx+1} of {total}")
         producer_data_path = None
         if scan_request.takes:
-            producer = result_set_obj.provider(image=scan_request.image, provides=scan_request.takes)
+            producer = result_set_obj.provider(
+                image=scan_request.image,
+                provides=scan_request.takes,
+            )
             if not producer:
-                raise RuntimeError(f"unable to find result state for the requested tool {scan_request}")
-            producer_scan_config = store.scan_result.find_one(by_description=producer.config.path)
-            producer_data_path, _ = store.scan_result.store_paths(producer_scan_config)
+                raise RuntimeError(
+                    f"unable to find result state for the requested tool {scan_request}",
+                )
+
+            if producer.config:
+                producer_scan_config = store.scan_result.find_one(
+                    by_description=producer.config.path,
+                )
+                producer_data_path, _ = store.scan_result.store_paths(
+                    producer_scan_config,
+                )
 
         if only_producers and not scan_request.provides:
             logging.info(f"skipping non-producer tool {scan_request.tool}")
@@ -147,19 +179,30 @@ def result_set(
         scan_config = None
 
         if existing_result_set_obj and not refresh:
-            result_state = existing_result_set_obj.get(image=scan_request.image, tool=scan_request.tool)
+            result_state = existing_result_set_obj.get(
+                image=scan_request.image,
+                tool=scan_request.tool,
+            )
             if result_state and result_state.config:
                 try:
-                    scan_config = store.scan_result.find_one(by_description=result_state.config.path)
+                    scan_config = store.scan_result.find_one(
+                        by_description=result_state.config.path,
+                    )
                 except RuntimeError:
-                    logging.warning(f"unable to find scan config for result state, will refresh: {result_state.config.path}")
+                    logging.warning(
+                        f"unable to find scan config for result state, will refresh: {result_state.config.path}",
+                    )
                     scan_config = None
 
                 if scan_config:
                     logging.info(f"using existing scan result {scan_config.ID}")
 
         if refresh or not scan_config:
-            scan_config = one(scan_request, producer_state=producer_data_path, profiles=profiles)
+            scan_config = one(
+                scan_request,
+                producer_state=producer_data_path,
+                profiles=profiles,
+            )
 
         if not scan_config:
             raise RuntimeError(f"unable to find scan configuration for {scan_request}")

@@ -7,10 +7,8 @@ from prompt_toolkit.layout.containers import HSplit
 from prompt_toolkit.widgets import Button, Dialog, Label, TextArea
 
 
-# pylint: disable=too-few-public-methods
 class TextDialog:
-    # pylint: disable=too-many-arguments
-    def __init__(
+    def __init__(  # noqa: PLR0913
         self,
         title="",
         label_text="",
@@ -50,8 +48,18 @@ class TextDialog:
                 accept_handler=accept_text,
             )
 
-        ok_button = Button(text=ok_button_text, left_symbol="[", right_symbol="]", handler=accept)
-        cancel_button = Button(text=cancel_button_text, left_symbol="[", right_symbol="]", handler=cancel)
+        ok_button = Button(
+            text=ok_button_text,
+            left_symbol="[",
+            right_symbol="]",
+            handler=accept,
+        )
+        cancel_button = Button(
+            text=cancel_button_text,
+            left_symbol="[",
+            right_symbol="]",
+            handler=cancel,
+        )
 
         layout_items = [Label(text=label_text)]
         if text_area:

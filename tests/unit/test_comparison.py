@@ -1,17 +1,23 @@
-import pytest
-
 from yardstick import artifact, comparison
 
 # TODO: include test with lineage
 
 
 def test_comparison_against_labels():
-    config = artifact.ScanConfiguration(image_repo="myimage", image_digest="123456", tool_name="grype", tool_version="main")
+    config = artifact.ScanConfiguration(
+        image_repo="myimage",
+        image_digest="123456",
+        tool_name="grype",
+        tool_version="main",
+    )
 
     package_bash_5 = artifact.Package(name="bash", version="5.0-6ubuntu1.1")
     package_coreutils_8 = artifact.Package(name="coreutils", version="8.30-3ubuntu2")
     package_libc_2 = artifact.Package(name="libc-bin", version="2.31-0ubuntu9.2")
-    package_libsystemd_245 = artifact.Package(name="libsystemd0", version="245.4-4ubuntu3.2")
+    package_libsystemd_245 = artifact.Package(
+        name="libsystemd0",
+        version="245.4-4ubuntu3.2",
+    )
     package_libsystemd_25 = artifact.Package(name="libsystemd0", version="25")
 
     expected_tp_matches = [
@@ -55,10 +61,10 @@ def test_comparison_against_labels():
         matches=matches,
     )
 
-    common_label_options = dict(
-        image=artifact.ImageSpecifier(exact=config.image),
-        source="manual",
-    )
+    common_label_options = {
+        "image": artifact.ImageSpecifier(exact=config.image),
+        "source": "manual",
+    }
 
     false_negative_label_entries = [
         artifact.LabelEntry(
@@ -117,7 +123,11 @@ def test_comparison_against_labels():
         ),
     ]
 
-    actual = comparison.AgainstLabels(result=result, label_entries=label_entries, lineage=[])
+    actual = comparison.AgainstLabels(
+        result=result,
+        label_entries=label_entries,
+        lineage=[],
+    )
 
     assert actual.summary.true_positives == len(expected_tp_matches)
     assert actual.summary.false_positives == len(expected_fp_matches)
@@ -130,7 +140,12 @@ def test_comparison_against_labels():
 
 
 def test_comparison_against_labels_indeterminate():
-    config = artifact.ScanConfiguration(image_repo="myimage", image_digest="123456", tool_name="grype", tool_version="main")
+    config = artifact.ScanConfiguration(
+        image_repo="myimage",
+        image_digest="123456",
+        tool_name="grype",
+        tool_version="main",
+    )
 
     package_bash_5 = artifact.Package(name="bash", version="5.0-6ubuntu1.1")
 
@@ -157,10 +172,10 @@ def test_comparison_against_labels_indeterminate():
         matches=matches,
     )
 
-    common_label_options = dict(
-        image=artifact.ImageSpecifier(exact=config.image),
-        source="manual",
-    )
+    common_label_options = {
+        "image": artifact.ImageSpecifier(exact=config.image),
+        "source": "manual",
+    }
 
     m2_indeterminate = [
         artifact.LabelEntry(
@@ -205,10 +220,14 @@ def test_comparison_against_labels_indeterminate():
         *m3_indeterminate,
     ]
 
-    actual = comparison.AgainstLabels(result=result, label_entries=label_entries, lineage=[])
+    actual = comparison.AgainstLabels(
+        result=result,
+        label_entries=label_entries,
+        lineage=[],
+    )
 
     assert actual.summary.indeterminate == 2
-    assert set(actual.matches_with_indeterminate_labels) == set([m2, m3])
+    assert set(actual.matches_with_indeterminate_labels) == {m2, m3}
     assert actual.summary.f1_score == 1
     assert actual.summary.f1_score_lower_confidence == 0.5
     assert actual.summary.f1_score_upper_confidence == 1

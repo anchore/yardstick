@@ -6,8 +6,6 @@ import os
 
 import git
 
-from . import github, grype_db
-
 
 def local_build_version_suffix(src_path: str) -> str:
     src_path = os.path.abspath(os.path.expanduser(src_path))
@@ -20,16 +18,22 @@ def local_build_version_suffix(src_path: str) -> str:
         raise
     git_desc = repo.git.describe("--tags", "--always", "--long", "--dirty")
     if repo.is_dirty():
-        hash_obj = hashlib.sha1()
+        # note on S324 usage: this is currently only used for deriving a unique, content-sensitive
+        # value to use for identifying local builds. This is not used for cryptographic purposes.
+        hash_obj = hashlib.sha1()  # noqa: S324
         for untracked in repo.untracked_files:
-            hash_obj.update(hash_file(os.path.join(repo.working_dir, untracked)).encode())
+            hash_obj.update(
+                hash_file(os.path.join(repo.working_dir, untracked)).encode(),
+            )
         hash_obj.update(repo.git.diff("HEAD").encode())
         diff_digest = hash_obj.hexdigest()[:8]
     return f"{git_desc}-{diff_digest}"
 
 
 def hash_file(path: str) -> str:
-    hash_obj = hashlib.sha1()
+    # note on S324 usage: this is currently only used for deriving a unique, content-sensitive
+    # value to use for identifying local builds. This is not used for cryptographic purposes.
+    hash_obj = hashlib.sha1()  # noqa: S324
     with open(path, "rb") as f:
         while True:
             data = f.read(4096)
@@ -45,9 +49,9 @@ def dig(target, *keys, **kwargs):
     """
     end_of_chain = target
     for key in keys:
-        if isinstance(end_of_chain, dict) and key in end_of_chain:
-            end_of_chain = end_of_chain[key]
-        elif isinstance(end_of_chain, (list, tuple)) and isinstance(key, int):
+        if (isinstance(end_of_chain, dict) and key in end_of_chain) or (
+            isinstance(end_of_chain, (list, tuple)) and isinstance(key, int)
+        ):
             end_of_chain = end_of_chain[key]
         else:
             if "fail" in kwargs and kwargs["fail"] is True:

@@ -18,7 +18,12 @@ class LabelMargin(Margin):
     def get_width(self, get_ui_content: Callable[[], UIContent]) -> int:
         return min(self.maxwidth, self.width * 2)
 
-    def create_margin(self, window_render_info: "WindowRenderInfo", width: int, height: int) -> StyleAndTextTuples:
+    def create_margin(
+        self,
+        window_render_info: "WindowRenderInfo",
+        width: int,
+        height: int,
+    ) -> StyleAndTextTuples:
         # Get current line number.
         current_lineno = window_render_info.ui_content.cursor_position.y
 

@@ -1,11 +1,10 @@
 import pytest
-
-from yardstick import artifact, store
+from yardstick import store
 
 
 class TestNamingImage:
     @pytest.mark.parametrize(
-        "image, expected",
+        ("image", "expected"),
         [
             ("ubuntu:20.04", "ubuntu:20.04"),
             ("anchore/anchore-engine:latest", "anchore+anchore-engine:latest"),

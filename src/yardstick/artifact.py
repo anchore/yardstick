@@ -1,4 +1,5 @@
 import collections
+import datetime
 import functools
 import getpass
 import hashlib
@@ -8,9 +9,8 @@ import re
 import subprocess
 import uuid
 from dataclasses import InitVar, asdict, dataclass, field
-from datetime import datetime
 from enum import Enum
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Union
 
 from dataclasses_json import config, dataclass_json
 
@@ -18,7 +18,11 @@ from yardstick.utils import grype_db, is_cve_vuln_id, parse_year_from_id
 
 
 def get_image_digest(image: str) -> str:
-    result = subprocess.run(["docker", "manifest", "inspect", image], stdout=subprocess.PIPE, check=False)
+    result = subprocess.run(
+        ["docker", "manifest", "inspect", image],
+        stdout=subprocess.PIPE,
+        check=False,
+    )
     if result.returncode != 0:
         raise RuntimeError(f"failed to get image digest for {image}")
     obj = json.loads(result.stdout)
@@ -54,7 +58,7 @@ class Tool:
         return f"{self.id}@{self.version}"
 
     @property
-    def id(self):
+    def id(self):  # noqa: A003
         if self.label:
             return f"{self.name}[{self.label}]"
         return self.name
@@ -95,12 +99,12 @@ class Image:
         return f"{self.repository_encoded}@{self.digest}"
 
     def is_like(self, other: str) -> bool:
-        other = Image(other)
-        if self.repository != other.repository:
+        other_obj = Image(other)
+        if self.repository != other_obj.repository:
             return False
-        if self.tag and other.tag and self.tag != other.tag:
+        if self.tag and other_obj.tag and self.tag != other_obj.tag:
             return False
-        if self.digest and other.digest and self.digest != other.digest:
+        if self.digest and other_obj.digest and self.digest != other_obj.digest:
             return False
         return True
 
@@ -115,15 +119,15 @@ class ScanConfiguration:
     tool_name: str
     tool_version: str
     image_tag: str = ""
-    tool_input: Optional[str] = None
-    timestamp: Optional[datetime] = field(
+    timestamp: Optional[datetime.datetime] = field(
         default=None,
         metadata=config(
             encoder=lambda dt: dt.isoformat(),
-            decoder=datetime.fromisoformat,
+            decoder=datetime.datetime.fromisoformat,
         ),
     )
-    detail: Dict[str, str] = field(default_factory=dict)
+    tool_input: Optional[str] = None
+    detail: Dict[str, dict] = field(default_factory=dict)
     ID: str = field(default_factory=lambda: str(uuid.uuid4()))
 
     def __post_init__(self):
@@ -174,10 +178,14 @@ tool:\t{self.tool}"""
 
     @staticmethod
     def new(
-        image: str = None, tool: str = None, path: str = None, timestamp: datetime = None, label: str = None
+        image: Optional[str] = None,
+        tool: Optional[str] = None,
+        path: Optional[str] = None,
+        timestamp: Optional[datetime.datetime] = None,
+        label: Optional[str] = None,
     ) -> "ScanConfiguration":
         if tool:
-            tool = Tool(tool, label=label)
+            tool_obj = Tool(tool, label=label)
 
         if image:
             img = Image(image)
@@ -185,28 +193,29 @@ tool:\t{self.tool}"""
                 img.digest = get_image_digest(image)
 
         if path:
-            image_and_digest, tool_and_version, timestamp = path.rsplit(path, "/", 2)
-            tool = Tool(tool_and_version)
-            timestamp = datetime.fromisoformat(timestamp)
+            image_and_digest, tool_and_version, timestamp_str = path.rsplit("/", 2)
+            tool_obj = Tool(tool_and_version)
+            timestamp = datetime.datetime.fromisoformat(timestamp_str)
             img = Image(image_and_digest)
 
         return ScanConfiguration(
             image_repo=img.repository,
             image_digest=img.digest,
             image_tag=img.tag,
-            tool_name=tool.id,
-            tool_version=tool.version,
+            tool_name=tool_obj.id,
+            tool_version=tool_obj.version,
             timestamp=timestamp,
         )
 
 
 @dataclass(frozen=True, eq=True, order=True)
 class ScanMetadata:
-    timestamp: datetime = field(
+    timestamp: Optional[datetime.datetime] = field(
+        default=None,
         metadata=config(
             encoder=lambda dt: dt.isoformat(),
-            decoder=datetime.fromisoformat,
-        )
+            decoder=datetime.datetime.fromisoformat,
+        ),
     )
     elapsed: Optional[float] = field(default=None)
     image_digest: Optional[str] = field(default=None)
@@ -223,7 +232,7 @@ class Package:
 
 @dataclass(frozen=True, eq=True, order=True)
 class Vulnerability:
-    id: str
+    id: str  # noqa: A003
     cve_id: Optional[str] = field(default=None, hash=False)
 
     def __post_init__(self):
@@ -248,18 +257,20 @@ class Vulnerability:
     def effective_year(self, by_cve=False) -> Optional[int]:
         if by_cve:
             return self._effective_cve_year()
-        year = self.id
+        candidate: Optional[Union[int, str]] = self.id
         if self.id:
-            year = parse_year_from_id(self.id)
-        if not year:
-            year = self._effective_cve_year()
-        return year
+            candidate = parse_year_from_id(self.id)
+        if not isinstance(candidate, int):
+            candidate = self._effective_cve_year()
+        if isinstance(candidate, int):
+            return candidate
+        return None
 
 
 class DTEncoder(json.JSONEncoder):
     def default(self, o):
         # if passed in object is datetime object convert it to a string
-        if isinstance(o, datetime):
+        if isinstance(o, datetime.datetime):
             return o.isoformat()
         # otherwise use the default behavior
         return json.JSONEncoder.default(self, o)
@@ -281,9 +292,15 @@ class Match:
             "configuration": None,
         }
         if self.config:
-            identifier["configuration"] = sorted(asdict(self.config).items())  # type: ignore
+            identifier["configuration"] = sorted(
+                asdict(self.config).items(),
+            )
 
-        match_id = hashlib.md5(json.dumps(identifier, sort_keys=True, cls=DTEncoder).encode()).hexdigest()
+        # note on S324 usage: we are not using these IDs for crytographic purposes, only
+        # for having simple content-sensitive IDs for use for match comparison.
+        match_id = hashlib.md5(  # noqa: S324
+            json.dumps(identifier, sort_keys=True, cls=DTEncoder).encode(),
+        ).hexdigest()
 
         object.__setattr__(self, "ID", match_id)
 
@@ -292,7 +309,7 @@ class Match:
 
     def __repr__(self) -> str:
         # note: fullentry is excluded
-        return f"Match(vulnerability={repr(self.vulnerability.id)} {repr(self.package)} id={self.ID!r})"
+        return f"Match(vulnerability={self.vulnerability.id!r} {self.package!r} id={self.ID!r})"
 
     def __lt__(self, other: Any) -> bool:
         # don't compare the full entry
@@ -305,9 +322,12 @@ class Match:
         if self.package.version != other.package.version:
             return self.package.version < other.package.version
 
-        if self.config and other.config:
-            if self.package.version != other.package.version:
-                return self.package.version < other.package.version
+        if (
+            self.config
+            and other.config
+            and self.package.version != other.package.version
+        ):
+            return self.package.version < other.package.version
         return False
 
 
@@ -334,12 +354,11 @@ class Label(Enum):
     Unclear = "??"
 
     def __init__(self, display: str):
-        # pylint: disable=no-member
         self.display = display
 
     @staticmethod
-    def encode(l: "Label"):
-        return l.display
+    def encode(label: "Label"):
+        return label.display
 
     @staticmethod
     def decode(val):
@@ -352,7 +371,16 @@ class Label(Enum):
             return Label.TruePositive
         if text in ("fp", "false", "falsepositive", "false-positive"):
             return Label.FalsePositive
-        if text in ("unclear", "uncertain", "indeterminate", "dunno", "?", "??", "?!", r"¯\_(ツ)_/¯"):
+        if text in (
+            "unclear",
+            "uncertain",
+            "indeterminate",
+            "dunno",
+            "?",
+            "??",
+            "?!",
+            r"¯\_(ツ)_/¯",
+        ):
             return Label.Unclear
         return None
 
@@ -409,20 +437,22 @@ class LabelEntry:
         ),
     )  # TP/FP/Unclear indication (required)
     vulnerability_id: str  # the CVE ID (required)
+    image: Optional[ImageSpecifier] = None  # image specifier
     note: Optional[str] = None  # a general comment field (optional)
     source: Optional[str] = None  # e.g. manually added, import, etc. (optional)
-    effective_cve: Optional[str] = None  # the CVE the vulnerability ID matches to (optional)
+    effective_cve: Optional[
+        str
+    ] = None  # the CVE the vulnerability ID matches to (optional)
     user: Optional[str] = None  # the user that added this label (optional)
-    image: Optional[ImageSpecifier] = None  # image specifier
     package: Optional[Package] = None  # package name/version
-    fullentry_fields: Optional[List[str]] = field(
-        default_factory=list
+    fullentry_fields: List[str] = field(
+        default_factory=list,
     )  # values that must be found in the full_entry field on the match object
-    timestamp: datetime = field(
-        default_factory=lambda: datetime.utcnow(),
+    timestamp: datetime.datetime = field(
+        default_factory=lambda: datetime.datetime.now(tz=datetime.timezone.utc),
         metadata=config(
             encoder=lambda dt: dt.isoformat(),
-            decoder=datetime.fromisoformat,
+            decoder=datetime.datetime.fromisoformat,
         ),
     )
     tool: Optional[str] = None  # used to indicate the tool that first saw this label
@@ -459,14 +489,14 @@ id: {self.ID}
                 self.note,
                 # note: we cannot depend on the dataclasses generated hash since fullentry_fields must be hashable
                 tuple(sorted(self.fullentry_fields)),
-            )
+            ),
         )
 
     def __eq__(self, other: Any) -> bool:
         return hash(self) == hash(other)
 
-    def matches_image(self, image: str):
-        if not self.image:
+    def matches_image(self, image: Optional[str]):
+        if not self.image or not image:
             # if no imag specifier is provided, then any image matches automatically
             return True
         return self.image.matches_image(image)
@@ -492,19 +522,21 @@ id: {self.ID}
     def effective_year(self, by_cve=False) -> Optional[int]:
         if by_cve:
             return self._effective_cve_year()
-        year = self.vulnerability_id
+        candidate: Optional[Union[int, str]] = self.vulnerability_id
         if self.vulnerability_id:
-            year = parse_year_from_id(self.vulnerability_id)
-        if not year:
-            year = self._effective_cve_year()
-        return year
+            candidate = parse_year_from_id(self.vulnerability_id)
+        if not isinstance(candidate, int):
+            candidate = self._effective_cve_year()
+        if isinstance(candidate, int):
+            return candidate
+        return None
 
 
 class LabelEntryCollection:
     def __init__(self, entries: List[LabelEntry]):
         self.entries = entries
 
-    @functools.cache  # pylint: disable=method-cache-max-size-none
+    @functools.cache  # noqa: B019
     def for_image(self, image: str) -> List[LabelEntry]:
         return [e for e in self.entries if e.matches_image(image)]
 
@@ -526,7 +558,13 @@ class ScanRequest:
     @staticmethod
     def render_tool(tool: str) -> str:
         if "@git:current-commit" in tool:
-            val = subprocess.check_output(["git", "rev-parse", "HEAD"]).decode("ascii").strip()
+            val = (
+                subprocess.check_output(
+                    ["git", "rev-parse", "HEAD"],
+                )
+                .decode("ascii")
+                .strip()
+            )
             # preserve the name and any other suffix
             tool = tool.replace("@git:current-commit", f"@{val}")
 
@@ -549,7 +587,7 @@ class ScanRequest:
 @dataclass()
 class ResultState:
     request: ScanRequest
-    config: ScanConfiguration = None
+    config: Optional[ScanConfiguration] = None
 
 
 @dataclass_json

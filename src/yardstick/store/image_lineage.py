@@ -3,7 +3,6 @@ from __future__ import annotations
 import logging
 import os
 from dataclasses import dataclass
-from typing import Dict, List
 
 from dataclasses_json import dataclass_json
 
@@ -16,7 +15,7 @@ SUFFIX = ".json"
 @dataclass_json
 @dataclass(frozen=True, eq=True, order=True)
 class ImageLineageDocument:
-    lineage: Dict[str, List[str]]
+    lineage: dict[str, list[str]]
 
 
 def store_path(suffix: str = SUFFIX, store_root: str | None = None) -> str:
@@ -26,7 +25,7 @@ def store_path(suffix: str = SUFFIX, store_root: str | None = None) -> str:
     return os.path.join(store_root, IMAGE_LINEAGE_DIR, "image-lineage" + suffix)
 
 
-def add(image: str, lineage: List[str], store_root: str | None = None):
+def add(image: str, lineage: list[str], store_root: str | None = None):
     data_path = store_path(store_root=store_root)
     logging.debug(f"storing image lineage to {data_path!r}")
 
@@ -36,14 +35,16 @@ def add(image: str, lineage: List[str], store_root: str | None = None):
     existing[image] = lineage
 
     with open(data_path, "w", encoding="utf-8") as data_file:
-        data_file.write(ImageLineageDocument(lineage=existing).to_json(indent=2))  # pylint: disable=no-member
+        data_file.write(
+            ImageLineageDocument(lineage=existing).to_json(indent=2),  # type: ignore[attr-defined]
+        )
 
 
-def get_parents(image: str, store_root: str | None = None) -> List[str]:
+def get_parents(image: str, store_root: str | None = None) -> list[str]:
     return load(store_root).get(image, [])
 
 
-def get(image: str, store_root: str | None = None) -> List[str]:
+def get(image: str, store_root: str | None = None) -> list[str]:
     result = []
     parents = get_parents(image, store_root=store_root)
     result += parents
@@ -55,13 +56,15 @@ def get(image: str, store_root: str | None = None) -> List[str]:
     return result
 
 
-def load(store_root: str | None = None) -> Dict[str, List[str]]:
+def load(store_root: str | None = None) -> dict[str, list[str]]:
     data_path = store_path(store_root=store_root)
     logging.debug(f"loading image lineage location={data_path!r}")
 
     if not os.path.exists(data_path):
         return {}
 
-    with open(data_path, "r", encoding="utf-8") as data_file:
+    with open(data_path, encoding="utf-8") as data_file:
         data_json = data_file.read()
-        return ImageLineageDocument.from_json(data_json).lineage  # pylint: disable=no-member
+        return ImageLineageDocument.from_json(  # type: ignore[attr-defined]
+            data_json,
+        ).lineage

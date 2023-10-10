@@ -49,7 +49,7 @@ class WorkerWithTaskInvalidation:
             fn = self.work.get()
             try:
                 fn()
-            except Exception:  # pylint: disable=broad-except
+            except Exception:
                 logging.exception("background worker failed to complete a task")
 
     def submit(self, fn):
@@ -65,7 +65,12 @@ class WorkerWithTaskInvalidation:
 
 
 class MatchSelectEntry:
-    def __init__(self, match: artifact.Match, display: str, labels: Optional[AnyFormattedText] = None):
+    def __init__(
+        self,
+        match: artifact.Match,
+        display: str,
+        labels: Optional[AnyFormattedText] = None,
+    ):
         self.match = match
         self.display = display
         self.formatted_labels = labels or FormattedText()
@@ -96,19 +101,26 @@ class MatchSelectEntry:
 
 
 class LabelManager:
-    def __init__(self, result: artifact.ScanResult, label_entries: List[artifact.LabelEntry], lineage: List[str]):
+    def __init__(
+        self,
+        result: artifact.ScanResult,
+        label_entries: List[artifact.LabelEntry],
+        lineage: List[str],
+    ):
         self.result = result
         self.lineage = lineage
         self.collection = MatchCollection(result)
         self.filter_text = None
         # we should filter down the set of label entries that we have to only those which match with this image. This
         # is a performance enhancement to prevent matching an ALL labels for all images on every UI action.
-        self.label_entries: List[artifact.LabelEntry] = self._keep_only_matched_label_entries(label_entries, lineage)
+        self.label_entries: List[
+            artifact.LabelEntry
+        ] = self._keep_only_matched_label_entries(label_entries, lineage)
         self.match_select_entries_invalidated = True
         self._last_match_select_entries: List[MatchSelectEntry] = []
         self.deleted_label_entries: List[artifact.LabelEntry] = []
         self.worker = WorkerWithTaskInvalidation()
-        self.comparison: comparison.AgainstLabels = None
+        self.comparison: Optional[comparison.AgainstLabels] = None
         self.history = History()
         self.labels_invalidated = False
         self._update_comparison()
@@ -117,12 +129,19 @@ class LabelManager:
         self.match_select_entries_invalidated = True
         self.filter_text = text
 
-    def _keep_only_matched_label_entries(self, label_entries, lineage) -> List[artifact.LabelEntry]:
+    def _keep_only_matched_label_entries(
+        self,
+        label_entries,
+        lineage,
+    ) -> List[artifact.LabelEntry]:
         keep_label_entries = []
         all_matches = self.collection.get_matches(filter_text=None)
         for match in all_matches:
             for label_entry in find_labels_for_match(
-                image=self.result.config.image, match=match, label_entries=label_entries, lineage=lineage
+                image=self.result.config.image,
+                match=match,
+                label_entries=label_entries,
+                lineage=lineage,
             ):
                 if label_entry not in keep_label_entries:
                     keep_label_entries.append(label_entry)
@@ -139,12 +158,18 @@ class LabelManager:
             entries: List[MatchSelectEntry] = []
 
             for match in all_matches:
+                if not match.config:
+                    continue
+
                 t = get_tool(match.config.tool_name)
-                package_type = t.parse_package_type(match.fullentry)
-                row = [match.vulnerability.id, f"{match.package.name} @ {match.package.version}"]
+                package_type = t.parse_package_type(match.fullentry)  # type: ignore[union-attr]
+                row_cells = [
+                    match.vulnerability.id,
+                    f"{match.package.name} @ {match.package.version}",
+                ]
                 if package_type and package_type != "unknown":
-                    row.append(package_type)
-                table.append(row)
+                    row_cells.append(package_type)
+                table.append(row_cells)
 
             rows = tabulate(table, tablefmt="plain").split("\n")
 
@@ -160,12 +185,19 @@ class LabelManager:
 
     def _update_comparison(self):
         try:
-            self.comparison = comparison.AgainstLabels(result=self.result, label_entries=self.label_entries, lineage=self.lineage)
+            self.comparison = comparison.AgainstLabels(
+                result=self.result,
+                label_entries=self.label_entries,
+                lineage=self.lineage,
+            )
 
             # update formatted labels
             for entry in self.match_select_entries:
-                entry.formatted_labels, entry.num_labels = format_labels(entry.match, self.comparison)
-        except:  # pylint: disable=bare-except
+                entry.formatted_labels, entry.num_labels = format_labels(
+                    entry.match,
+                    self.comparison,
+                )
+        except:  # noqa: E722
             logging.exception("could not update label pane")
 
         get_app().invalidate()
@@ -175,13 +207,24 @@ class LabelManager:
             self.labels_invalidated = False
             self.worker.submit(self._update_comparison)
 
-    def get_label_entries_by_match(self, match: artifact.Match) -> List[artifact.LabelEntry]:
+    def get_label_entries_by_match(
+        self,
+        match: artifact.Match,
+    ) -> List[artifact.LabelEntry]:
         return find_labels_for_match(
-            image=self.result.config.image, match=match, label_entries=self.label_entries, lineage=self.lineage
+            image=self.result.config.image,
+            match=match,
+            label_entries=self.label_entries,
+            lineage=self.lineage,
         )
 
-    def get_label_entry_by_id(self, label_entry_id: str) -> Optional[artifact.LabelEntry]:
-        label_entries = [l for l in self.label_entries if l.ID == label_entry_id]
+    def get_label_entry_by_id(
+        self,
+        label_entry_id: str,
+    ) -> Optional[artifact.LabelEntry]:
+        label_entries = [
+            label for label in self.label_entries if label_entry_id == label.ID
+        ]
         if len(label_entries) > 1:
             raise RuntimeError
 
@@ -191,8 +234,8 @@ class LabelManager:
         return label_entries[0]
 
     def get_label_entry_index(self, label_entry_id: str) -> Optional[int]:
-        for idx, l in enumerate(self.label_entries):
-            if l.ID == label_entry_id:
+        for idx, label in enumerate(self.label_entries):
+            if label_entry_id == label.ID:
                 return idx
         return None
 
@@ -208,7 +251,9 @@ class LabelManager:
         def redo():
             entry_idx = self.get_label_entry_index(label_entry_id)
             if entry_idx is not None:
-                self.label_entries[entry_idx] = artifact.LabelEntry.from_json(raw_json)  # pylint: disable=no-member
+                self.label_entries[entry_idx] = artifact.LabelEntry.from_json(
+                    raw_json,
+                )
 
         self.history.record(Command(undo=undo, redo=redo))
 
@@ -217,6 +262,8 @@ class LabelManager:
     @synchronized
     def edit_label_entry_note(self, label_entry_id: str, note: str = ""):
         label_entry = self.get_label_entry_by_id(label_entry_id)
+        if not label_entry:
+            raise ValueError(f"no label entry found with ID {label_entry_id}")
         old_note = label_entry.note
 
         def undo():
@@ -232,7 +279,12 @@ class LabelManager:
         self._update()
 
     @synchronized
-    def add_label_entry(self, match: artifact.Match, label: artifact.Label, note: str = ""):
+    def add_label_entry(
+        self,
+        match: artifact.Match,
+        label: artifact.Label,
+        note: str = "",
+    ):
         new_entry = artifact.LabelEntry(
             # source=MANUAL_SOURCE,
             image=artifact.ImageSpecifier(exact=self.result.config.image),
@@ -260,6 +312,8 @@ class LabelManager:
     @synchronized
     def remove_label_entry(self, label_entry_id: str):
         label_entry = self.get_label_entry_by_id(label_entry_id)
+        if not label_entry:
+            raise ValueError(f"no label entry found with ID {label_entry_id}")
         label_entry_index = self.label_entries.index(label_entry)
 
         def undo():
@@ -325,7 +379,10 @@ class LabelManager:
         self.history.reset()
 
 
-def format_labels(match: artifact.Match, comp: comparison.AgainstLabels) -> Tuple[AnyFormattedText, int]:
+def format_labels(
+    match: artifact.Match,
+    comp: comparison.AgainstLabels,
+) -> Tuple[AnyFormattedText, int]:
     labels = comp.labels_by_match[match.ID]
     colors = {
         artifact.Label.TruePositive: ("#0062ff", "#002a6e", "#ffffff"),
@@ -335,16 +392,22 @@ def format_labels(match: artifact.Match, comp: comparison.AgainstLabels) -> Tupl
 
     result = []
     applied_labels = 0
-    for l in (artifact.Label.TruePositive, artifact.Label.FalsePositive, artifact.Label.Unclear):
-        c = labels.count(l)
+    for label in (
+        artifact.Label.TruePositive,
+        artifact.Label.FalsePositive,
+        artifact.Label.Unclear,
+    ):
+        c = labels.count(label)
         if c:
             applied_labels += c
-            bg, dbg, fg = colors[l]
+            bg, dbg, fg = colors[label]
             result += [
-                # pylint: disable=no-member
-                to_formatted_text(" " + l.display + " ", style=f"bold bg:{bg} {fg}"),
+                to_formatted_text(
+                    " " + label.display + " ",
+                    style=f"bold bg:{bg} {fg}",
+                ),
                 to_formatted_text(" " + str(c) + " ", style=f"bold bg:{dbg} {fg}"),
                 to_formatted_text(" "),
             ]
 
-    return merge_formatted_text(result)(), applied_labels
+    return merge_formatted_text(result)(), applied_labels  # type: ignore[operator, misc]

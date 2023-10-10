@@ -2,7 +2,7 @@ import colorsys
 import json
 from typing import Any, Union
 
-from colr import color
+from colr import color  # type: ignore[import]
 from tabulate import tabulate
 
 from yardstick import artifact, comparison
@@ -12,7 +12,12 @@ def summarize(comp: Union[comparison.ByPreservedMatch, comparison.ByMatch]):
     print(str(comp))
 
 
-def preserved_matches(comp: comparison.ByPreservedMatch, details=True, summary=True, common=True):
+def preserved_matches(
+    comp: comparison.ByPreservedMatch,
+    details=True,
+    summary=True,
+    common=True,
+):
     if details:
         if common:
             for common_match in comp.common:
@@ -28,7 +33,7 @@ def preserved_matches(comp: comparison.ByPreservedMatch, details=True, summary=T
                         unique_match.package.name,
                         unique_match.package.version,
                         unique_match.vulnerability.id,
-                    ]
+                    ],
                 )
 
         all_rows = sorted(all_rows)
@@ -57,7 +62,7 @@ def matches(comp: comparison.ByMatch, details=True, summary=True, common=True):
                         match.package.name,
                         match.package.version,
                         match.vulnerability.id,
-                    ]
+                    ],
                 )
 
         all_rows = sorted(all_rows)
@@ -73,10 +78,16 @@ def matches(comp: comparison.ByMatch, details=True, summary=True, common=True):
 
 def get_section_rgb_tuple(index, sections):
     half_sections = int(sections / 2)
-    red_hsv_tuples = list(reversed([(0, float(x) / float(half_sections - 1), 1) for x in range(half_sections)]))
-    green_hsv_tuples = [(0.33, float(x) / float(half_sections - 1), 1) for x in range(half_sections)]
+    red_hsv_tuples = list(
+        reversed(
+            [(0, float(x) / float(half_sections - 1), 1) for x in range(half_sections)],
+        ),
+    )
+    green_hsv_tuples = [
+        (0.33, float(x) / float(half_sections - 1), 1) for x in range(half_sections)
+    ]
     spectrum = red_hsv_tuples + green_hsv_tuples
-    values = list(map(lambda x: colorsys.hsv_to_rgb(*x), spectrum))[index]
+    values = [colorsys.hsv_to_rgb(*x) for x in spectrum][index]
     return values[0] * 255, values[1] * 255, values[2] * 255
 
 
@@ -88,8 +99,20 @@ def get_section_index(value, min_value, max_value, sections, invert):
     return min(max(int(sections * value_ratio), 0), sections - 1), value_ratio
 
 
-def format_value_red_green_spectrum(value, min_value=0, max_value=1, sections=10, invert=False):
-    index, value_ratio = get_section_index(value, min_value, max_value, sections, invert)
+def format_value_red_green_spectrum(
+    value,
+    min_value=0,
+    max_value=1,
+    sections=10,
+    invert=False,
+):
+    index, value_ratio = get_section_index(
+        value,
+        min_value,
+        max_value,
+        sections,
+        invert,
+    )
     color_rgb_tuple = get_section_rgb_tuple(index, sections)
 
     formatted_value = color(f"{value:6.2f}", fore=color_rgb_tuple)
@@ -118,17 +141,25 @@ def format_percent(value: float) -> str:
     )
 
 
-# pylint: disable=too-many-statements
-def show_label_comparison_summary(stats_by_image_tool_pair: comparison.ImageToolLabelStats):
+def show_label_comparison_summary(  # noqa: C901
+    stats_by_image_tool_pair: comparison.ImageToolLabelStats,
+):
     tools = stats_by_image_tool_pair.tools
     images = stats_by_image_tool_pair.images
 
-    def summarize_by_tool(
-        title, tp, fp, fn, intedeterminate, intedeterminate_percent, f1, f1_ranges
-    ):  # pylint: disable=too-many-arguments
+    def summarize_by_tool(  # noqa: PLR0913
+        title,
+        tp,
+        fp,
+        fn,
+        intedeterminate,
+        intedeterminate_percent,
+        f1,
+        f1_ranges,
+    ):
         header = ["", "TP", "FP", "FN", "Indeterminate", "F1 Score", "F1 Score Range"]
         all_rows = []
-        for tool in sorted(list(tools)):
+        for tool in sorted(tools):
             f1r = ""
             if f1_ranges.get(tool, None) and f1.get(tool, -1) > 0:
                 f1r = f"{f1_ranges[tool][0]:0.2f}-{f1_ranges[tool][1]:0.2f}"
@@ -152,11 +183,11 @@ def show_label_comparison_summary(stats_by_image_tool_pair: comparison.ImageTool
         print(tabulate(all_rows, tablefmt="simple", headers=header))
 
     def summarize_across_images(title, description, source, context_source=None):
-        header = [""] + sorted(list(tools))
+        header = ["", *sorted(tools)]
         all_rows = []
-        for image in sorted(list(i for i in images)):  # pylint: disable=unnecessary-comprehension # we are using a copy of images
+        for image in sorted(i for i in images):
             row = [image]
-            for tool in sorted(list(tools)):
+            for tool in sorted(tools):
                 # why \0? to prevent from tabulate from stripping the whitespace
                 cell = f"\0{source[image].get(tool, ''):-5}"
                 if context_source:
@@ -208,28 +239,36 @@ Each indeterminate match for each tool-image pair is logged above.""",
     )
 
     # F1 Summary
-    header = [""] + sorted(list(tools))
+    header = ["", *sorted(tools)]
     all_rows = []
-    for image in sorted(i for i in images):  # pylint: disable=unnecessary-comprehension # we are using a copy of images
+    for image in sorted(i for i in images):
         row = [image]
-        for tool in sorted(list(tools)):
+        for tool in sorted(tools):
             f1_score = stats_by_image_tool_pair.f1_scores[image].get(tool, None)
 
             if f1_score and f1_score > 0:
-                lower, upper = stats_by_image_tool_pair.f1_score_ranges[image].get(tool, (-1, -1))
-                if lower == -1 or upper == -1:
-                    f1_score = "error!"
-                else:
-                    f1_score = f"{format_value_red_green_spectrum(f1_score)} ({lower:0.2f}-{upper:0.2f})"
-            elif f1_score < 0:
-                lower, upper = stats_by_image_tool_pair.f1_score_ranges[image].get(tool, (-1, -1))
-                if lower == -1 or upper == -1:
-                    f1_score = "error!"
-                else:
-                    f1_score = color(f"Impractical ({lower:0.2f}-{upper:0.2f})", fore="red")
+                lower, upper = stats_by_image_tool_pair.f1_score_ranges[image].get(
+                    tool,
+                    (-1, -1),
+                )
+                f1_score_str = (
+                    "error!"
+                    if lower == -1 or upper == -1
+                    else f"{format_value_red_green_spectrum(f1_score)} ({lower:0.2f}-{upper:0.2f})"
+                )
+            elif f1_score and f1_score < 0:
+                lower, upper = stats_by_image_tool_pair.f1_score_ranges[image].get(
+                    tool,
+                    (-1, -1),
+                )
+                f1_score_str = (
+                    "error!"
+                    if lower == -1 or upper == -1
+                    else color(f"Impractical ({lower:0.2f}-{upper:0.2f})", fore="red")
+                )
             else:
-                f1_score = ""
-            row.append(f1_score)
+                f1_score_str = ""
+            row.append(f1_score_str)
 
         all_rows.append(row)
 
@@ -244,7 +283,7 @@ Also, each F1 score is given a possible range based on how much label data is av
 is available, the smaller the range. Large ranges are not evaluated and the F1 score is overall deemed
 Impractical.
 
-See the TP/FP/FN counts for the tool-image sections logged above for more context."""
+See the TP/FP/FN counts for the tool-image sections logged above for more context.""",
     )
     print(tabulate(all_rows, tablefmt="simple", headers=header))
 
@@ -266,17 +305,27 @@ def label_comparison_json(
         more = {}
 
         if show_fns:
-            more["fns"] = [l.to_dict() for l in comp.false_negative_label_entries]
+            more["fns"] = [
+                label.to_dict() for label in comp.false_negative_label_entries  # type: ignore[attr-defined]
+            ]
 
         if show_indeterminates:
             more["indeterminate"] = []
             for match in comp.matches_with_indeterminate_labels:
                 more["indeterminate"].append(
                     {
-                        "match": match.to_dict(),
-                        "label_set": sorted([l.display for l in set(comp.labels_by_match.get(match.ID, []))]),
-                        "labels": [l.to_dict() for l in comp.label_entries_by_match.get(match.ID, [])],
-                    }
+                        "match": match.to_dict(),  # type: ignore[attr-defined]
+                        "label_set": sorted(
+                            [
+                                label.display
+                                for label in set(comp.labels_by_match.get(match.ID, []))
+                            ],
+                        ),
+                        "labels": [
+                            label.to_dict()  # type: ignore[attr-defined]
+                            for label in comp.label_entries_by_match.get(match.ID, [])
+                        ],
+                    },
                 )
 
         ret.append(
@@ -285,22 +334,29 @@ def label_comparison_json(
                 "tool": tool,
                 "stats": {
                     "f1_score": stats_by_image_tool_pair.f1_scores[image][tool],
-                    "f1_score_range": stats_by_image_tool_pair.f1_score_ranges[image][tool],
+                    "f1_score_range": stats_by_image_tool_pair.f1_score_ranges[image][
+                        tool
+                    ],
                     "fn": stats_by_image_tool_pair.false_negatives[image][tool],
                     "tp": stats_by_image_tool_pair.true_positives[image][tool],
                     "fp": stats_by_image_tool_pair.false_positives[image][tool],
-                    "indeterminate": stats_by_image_tool_pair.indeterminate[image][tool],
-                    "indeterminate_percent": stats_by_image_tool_pair.indeterminate_percent[image][tool],
+                    "indeterminate": stats_by_image_tool_pair.indeterminate[image][
+                        tool
+                    ],
+                    "indeterminate_percent": stats_by_image_tool_pair.indeterminate_percent[
+                        image
+                    ][
+                        tool
+                    ],
                 },
                 **more,
-            }
+            },
         )
 
     print(json.dumps(ret, indent=2))
 
 
-# pylint: disable=too-many-arguments
-def label_comparison(
+def label_comparison(  # noqa: C901, PLR0913
     results: list[artifact.ScanResult],
     comparisons_by_result_id: dict[str, comparison.AgainstLabels],
     stats_by_image_tool_pair: comparison.ImageToolLabelStats,
@@ -317,20 +373,35 @@ def label_comparison(
             print()
 
         if show_fns:
-            print("False Negative Label Entries: ", len(comp.false_negative_label_entries))
-            for l in comp.false_negative_label_entries:
-                print("   ", l.summarize())
+            print(
+                "False Negative Label Entries: ",
+                len(comp.false_negative_label_entries),
+            )
+            for label in comp.false_negative_label_entries:
+                print("   ", label.summarize())
             print()
 
         if show_indeterminates:
-            print("Indeterminate Matches: ", len(comp.matches_with_indeterminate_labels))
+            print(
+                "Indeterminate Matches: ",
+                len(comp.matches_with_indeterminate_labels),
+            )
             for match in comp.matches_with_indeterminate_labels:
-                print("   ", match, f"from {match.config.tool_name}@{match.config.tool_version}")
+                if not match.config:
+                    continue
+                print(
+                    "   ",
+                    match,
+                    f"from {match.config.tool_name}@{match.config.tool_version}",
+                )
                 match_labels = comp.label_entries_by_match.get(match.ID, [])
                 if match_labels:
-                    print("    Label Set: ", set(comp.labels_by_match.get(match.ID, [])))
-                for l in match_labels:
-                    print("      ", l.summarize(), "\n")
+                    print(
+                        "    Label Set: ",
+                        set(comp.labels_by_match.get(match.ID, [])),
+                    )
+                for label in match_labels:
+                    print("      ", label.summarize(), "\n")
                 if not match_labels:
                     print("      [no labels paired]\n")
             print()
@@ -342,15 +413,14 @@ def label_comparison(
         show_label_comparison_summary(stats_by_image_tool_pair)
 
 
-# pylint: disable=too-many-arguments,too-many-locals
 def labels_by_ecosystem_comparison(
-    results_by_image: dict[str, artifact.ScanResult],
+    results_by_image: dict[str, list[artifact.ScanResult]],
     stats: comparison.ToolLabelStatsByEcosystem,
     show_images_used: bool = True,
 ):
     if show_images_used:
         print("Images used:")
-        for image in results_by_image.keys():
+        for image in results_by_image:
             print(f"  {image}")
 
     # show table per-tool... rows are ecosystems and columns are TPs, FPs, Precision
@@ -367,12 +437,18 @@ def labels_by_ecosystem_comparison(
                 e,
                 stats.tps_by_tool_by_ecosystem[tool][e],
                 stats.fps_by_tool_by_ecosystem[tool][e],
-                format_value_red_green_spectrum(stats.precision_by_tool_by_ecosystem[tool][e]),
+                format_value_red_green_spectrum(
+                    stats.precision_by_tool_by_ecosystem[tool][e],
+                ),
             ]
             all_rows.append(row)
 
-        tps = sum([stats.tps_by_tool_by_ecosystem[tool][e] for e in stats.ecosystems])  # pylint: disable=consider-using-generator
-        fps = sum([stats.fps_by_tool_by_ecosystem[tool][e] for e in stats.ecosystems])  # pylint: disable=consider-using-generator
+        tps = sum(
+            [stats.tps_by_tool_by_ecosystem[tool][e] for e in stats.ecosystems],
+        )
+        fps = sum(
+            [stats.fps_by_tool_by_ecosystem[tool][e] for e in stats.ecosystems],
+        )
         d = tps + fps
         precision = 0.0
         if d:
@@ -383,7 +459,7 @@ def labels_by_ecosystem_comparison(
                 tps,
                 fps,
                 format_value_red_green_spectrum(precision),
-            ]
+            ],
         )
 
         print(f"\n~~~ {tool!r} Ecosystem Breakdown (across all images) ~~~")
@@ -394,5 +470,5 @@ def labels_by_ecosystem_comparison(
         """\
 Note: precision is inversely proportional to the false positive rate, so the lower the precision the
 more false positives are negatively affecting the results.
-"""
+""",
     )

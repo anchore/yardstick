@@ -5,9 +5,8 @@ import glob
 import json
 import logging
 import os
-from typing import Dict, List, Optional, Union
 
-import omitempty
+import omitempty  # type: ignore[import]
 
 from yardstick import artifact
 from yardstick.store import config as store_config
@@ -24,7 +23,7 @@ def label_store_root(store_root: str | None = None) -> str:
 
 
 def store_filename_by_entry(entry: artifact.LabelEntry) -> str:
-    if entry.image.exact:
+    if entry.image and entry.image.exact:
         return f"{naming.image.encode(entry.image.exact)}/{entry.ID}.json"
     return f"{entry.ID}.json"
 
@@ -34,8 +33,8 @@ def store_path(filename: str, store_root: str | None = None) -> str:
 
 
 def append_and_update(
-    new_and_modified_entries: List[artifact.LabelEntry],
-    delete_entries: List[artifact.LabelEntry] | None = None,
+    new_and_modified_entries: list[artifact.LabelEntry],
+    delete_entries: list[artifact.LabelEntry] | None = None,
     store_root: str | None = None,
 ) -> None:
     if delete_entries:
@@ -45,15 +44,22 @@ def append_and_update(
                 logging.debug(f"deleting label {label_entry.ID} from {filepath}")
                 os.remove(filepath)
             except FileNotFoundError:
-                logging.debug(f"skipping deleting on {label_entry.ID} from {filepath}: File not found")
-            except Exception as e:  # pylint: disable=broad-except
-                logging.error(f"failed to delete label {label_entry.ID} from {filepath}: {e}")
+                logging.debug(
+                    f"skipping deleting on {label_entry.ID} from {filepath}: File not found",
+                )
+            except Exception as e:
+                logging.error(
+                    f"failed to delete label {label_entry.ID} from {filepath}: {e}",
+                )
                 raise e
 
     save(label_entries=new_and_modified_entries, store_root=store_root)
 
 
-def delete(label_ids_to_delete: List[str], store_root: Optional[str] = None) -> List[str]:
+def delete(
+    label_ids_to_delete: list[str],
+    store_root: str | None = None,
+) -> list[str]:
     """delete_entries takes a list of ids to be deleted and returns a list of deleted files.
     FileNotFound exceptions are ignored."""
     label_store_dir = label_store_root(store_root=store_root)
@@ -65,19 +71,21 @@ def delete(label_ids_to_delete: List[str], store_root: Optional[str] = None) -> 
                 os.remove(p)
                 deleted_ids.append(label_id)
             except FileNotFoundError:
-                logging.debug(f"skipping deleting on {label_id} from {p}: File not found")
-            except Exception as e:  # pylint: disable=broad-except
+                logging.debug(
+                    f"skipping deleting on {label_id} from {p}: File not found",
+                )
+            except Exception as e:
                 logging.error(f"failed to delete label {label_id} from {p}: {e}")
                 raise e
     return deleted_ids
 
 
-def save(label_entries: List[artifact.LabelEntry], store_root: Optional[str] = None):
+def save(label_entries: list[artifact.LabelEntry], store_root: str | None = None):
     root_path = label_store_root(store_root=store_root)
     logging.debug(f"storing all labels location={root_path}")
 
     # organize labels into correct destinations
-    label_entries_by_destination: Dict[str, List[artifact.LabelEntry]] = collections.defaultdict(set)
+    label_entries_by_destination = collections.defaultdict(set)
 
     for label_entry in label_entries:
         if not label_entry:
@@ -85,7 +93,9 @@ def save(label_entries: List[artifact.LabelEntry], store_root: Optional[str] = N
             continue
 
         if not isinstance(label_entry, artifact.LabelEntry):
-            raise RuntimeError(f"only LabelEntry is supported, given {type(label_entry)}")
+            raise RuntimeError(
+                f"only LabelEntry is supported, given {type(label_entry)}",
+            )
 
         path = store_path(filename=store_filename_by_entry(entry=label_entry))
         label_entries_by_destination[path].add(label_entry)
@@ -96,40 +106,55 @@ def save(label_entries: List[artifact.LabelEntry], store_root: Optional[str] = N
         with open(path, "w", encoding="utf-8") as data_file:
             if len(destination_label_entries) == 1:
                 json.dump(
-                    omitempty(list(destination_label_entries)[0].to_dict()),  # pylint: disable=not-callable
+                    omitempty(
+                        next(iter(destination_label_entries)).to_dict(),  # type: ignore[attr-defined]
+                    ),
                     data_file,
                     sort_keys=True,
                 )
             else:
-                logging.debug(f"writing multiple labels to {path!r}: {[l.ID for l in destination_label_entries]}")
+                logging.debug(
+                    f"writing multiple labels to {path!r}: {[label_entry.ID for label_entry in destination_label_entries]}",
+                )
                 data_file.write(
-                    artifact.LabelEntry.schema().dump(  # pylint: disable=no-member
-                        sorted(list(destination_label_entries)), many=True
-                    )
+                    artifact.LabelEntry.schema().dump(  # type: ignore[attr-defined]
+                        sorted(destination_label_entries),
+                        many=True,
+                    ),
                 )
 
 
 def load_label_file(
-    filename: str, year_max_limit: Optional[int] = None, year_from_cve_only: bool = False, store_root: str | None = None
-) -> List[artifact.LabelEntry]:
+    filename: str,
+    year_max_limit: int | None = None,
+    year_from_cve_only: bool = False,
+    store_root: str | None = None,
+) -> list[artifact.LabelEntry]:
     # why note take a file path? in this way we control that all input/output data was derived from the same store,
     # and not another store.
     path = store_path(filename=filename, store_root=store_root)
 
     try:
-        with open(path, "r", encoding="utf-8") as data_file:
+        with open(path, encoding="utf-8") as data_file:
             data_json = data_file.read()
             if not data_json.strip():
                 raise FileNotFoundError
 
             # dataclass_json does not play nice with method inference here
             try:
-                label_entries = [artifact.LabelEntry.from_json(data_json)]  # pylint: disable=no-member
-            except:  # pylint: disable=bare-except
-                label_entries = artifact.LabelEntry.schema().load(data_json, many=True)  # pylint: disable=no-member
+                label_entries = [
+                    artifact.LabelEntry.from_json(data_json),  # type: ignore[attr-defined]
+                ]
+            except:  # noqa: E722
+                label_entries = artifact.LabelEntry.schema().load(  # type: ignore[attr-defined]
+                    data_json,
+                    many=True,
+                )
             if year_max_limit:
                 label_entries = filter_by_year(
-                    label_entries, year_max_limit=int(year_max_limit), year_from_cve_only=year_from_cve_only
+                    label_entries,
+                    year_max_limit=int(year_max_limit),
+                    year_from_cve_only=year_from_cve_only,
                 )
             return label_entries
 
@@ -138,21 +163,26 @@ def load_label_file(
 
 
 def load_all(
-    year_max_limit: Optional[int] = None, year_from_cve_only: bool = False, store_root: str | None = None
-) -> List[artifact.LabelEntry]:
+    year_max_limit: int | None = None,
+    year_from_cve_only: bool = False,
+    store_root: str | None = None,
+) -> list[artifact.LabelEntry]:
     root_path = label_store_root(store_root=store_root)
     logging.debug(f"loading all labels (location={root_path})")
 
-    label_entries: List[artifact.LabelEntry] = []
+    label_entries: list[artifact.LabelEntry] = []
     files = set(
         list(glob.glob(f"{root_path}/**/**/*.json"))
         + list(glob.glob(f"{root_path}/**/*.json"))
-        + list(glob.glob(f"{root_path}/*.json"))
+        + list(glob.glob(f"{root_path}/*.json")),
     )
     for file in files:
         filepath = remove_prefix(file, root_path + "/")
         loaded_label_entries = load_label_file(
-            filepath, year_max_limit=year_max_limit, year_from_cve_only=year_from_cve_only, store_root=store_root
+            filepath,
+            year_max_limit=year_max_limit,
+            year_from_cve_only=year_from_cve_only,
+            store_root=store_root,
         )
         label_entries.extend(loaded_label_entries)
 
@@ -160,18 +190,18 @@ def load_all(
 
 
 def load_for_image(
-    images: Union[str, List[str]],
-    year_max_limit: Optional[int] = None,
+    images: str | list[str],
+    year_max_limit: int | None = None,
     year_from_cve_only: bool = False,
     store_root: str | None = None,
-) -> List[artifact.LabelEntry]:
+) -> list[artifact.LabelEntry]:
     root_path = label_store_root(store_root=store_root)
     if isinstance(images, str):
         images = [images]
 
     logging.debug(f"loading labels for image (location={root_path} image={images})")
 
-    label_entries: List[artifact.LabelEntry] = []
+    label_entries: list[artifact.LabelEntry] = []
 
     # load entries that don't have specific image
     for file in glob.glob(f"{root_path}/*.json"):
@@ -190,7 +220,7 @@ def load_for_image(
     for image in images:
         for file in set(
             list(glob.glob(f"{root_path}/{naming.image.encode(image)}/**/*.json"))
-            + list(glob.glob(f"{root_path}/{naming.image.encode(image)}/*.json"))
+            + list(glob.glob(f"{root_path}/{naming.image.encode(image)}/*.json")),
         ):
             filename = remove_prefix(file, root_path + "/")
             loaded_label_entries = load_label_file(
@@ -209,13 +239,15 @@ def load_for_image(
 # filter_by_year filters out CVE vuln IDs above a given year. We attempt to normalize all vuln IDs to CVEs,
 # but will include any if normalization fails.
 def filter_by_year(
-    label_entries: list[artifact.LabelEntry], year_max_limit: int, year_from_cve_only: bool = False
+    label_entries: list[artifact.LabelEntry],
+    year_max_limit: int,
+    year_from_cve_only: bool = False,
 ) -> list[artifact.LabelEntry]:
     label_entries_copy = []
 
-    for l in label_entries:
-        year = l.effective_year(by_cve=year_from_cve_only)
+    for label_entry in label_entries:
+        year = label_entry.effective_year(by_cve=year_from_cve_only)
         if (year and year <= year_max_limit) or not year:
-            label_entries_copy.append(l)
+            label_entries_copy.append(label_entry)
 
     return label_entries_copy

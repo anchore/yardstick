@@ -1,47 +1,151 @@
 from unittest.mock import patch
 
 import pytest
-
 from yardstick import artifact as art
 from yardstick import store
 
 
 class TestFilterByYear:
-    @pytest.fixture
+    @pytest.fixture()
     def matches(self) -> list[art.Match]:
         matches: list[art.Match] = []
         pkg = art.Package("busybox", "1.34.1-r5")
         for i in range(3):
-            vuln = art.Vulnerability("CVE-200{}-1".format(i))
+            vuln = art.Vulnerability(f"CVE-200{i}-1")
             matches.append(art.Match(vulnerability=vuln, package=pkg))
 
-        matches.append(art.Match(vulnerability=art.Vulnerability("GHSA-52rh-5rpj-c3w6"), package=pkg))
-        matches.append(art.Match(vulnerability=art.Vulnerability("GHSA-52rh-5rpj-abc7", cve_id="CVE-2000-1234567"), package=pkg))
-        matches.append(art.Match(vulnerability=art.Vulnerability("ELSA-1998-0098"), package=pkg))
-        matches.append(art.Match(vulnerability=art.Vulnerability("ELSA-2023-0003"), package=pkg))
-        matches.append(art.Match(vulnerability=art.Vulnerability("ELSA-2022-0002", cve_id="CVE-2022-2222"), package=pkg))
-        matches.append(art.Match(vulnerability=art.Vulnerability("ELSA-2021-0001", cve_id="CVE-2000-1234567"), package=pkg))
-        matches.append(art.Match(vulnerability=art.Vulnerability("ELSA-1999-1234", cve_id="CVE-2021-1234567"), package=pkg))
-        matches.append(art.Match(vulnerability=art.Vulnerability("ALAS-1998-0098"), package=pkg))
-        matches.append(art.Match(vulnerability=art.Vulnerability("ALAS-2023-0003"), package=pkg))
-        matches.append(art.Match(vulnerability=art.Vulnerability("ALAS-2022-0002", cve_id="CVE-2022-2222"), package=pkg))
-        matches.append(art.Match(vulnerability=art.Vulnerability("ALAS-2021-0001", cve_id="CVE-2000-1234567"), package=pkg))
-        matches.append(art.Match(vulnerability=art.Vulnerability("ALAS-1999-1234", cve_id="CVE-2021-1234567"), package=pkg))
-        matches.append(art.Match(vulnerability=art.Vulnerability("ALASKERNEL-1998-0098"), package=pkg))
-        matches.append(art.Match(vulnerability=art.Vulnerability("ALASKERNEL-5.1-2023-0003"), package=pkg))
         matches.append(
-            art.Match(vulnerability=art.Vulnerability("ALASKERNEL-5.1-2022-0002", cve_id="CVE-2022-2222"), package=pkg)
+            art.Match(
+                vulnerability=art.Vulnerability("GHSA-52rh-5rpj-c3w6"),
+                package=pkg,
+            ),
         )
         matches.append(
-            art.Match(vulnerability=art.Vulnerability("ALASKERNEL-5.1-2021-0001", cve_id="CVE-2000-1234567"), package=pkg)
+            art.Match(
+                vulnerability=art.Vulnerability(
+                    "GHSA-52rh-5rpj-abc7",
+                    cve_id="CVE-2000-1234567",
+                ),
+                package=pkg,
+            ),
         )
         matches.append(
-            art.Match(vulnerability=art.Vulnerability("ALASKERNEL-5.1-1999-1234", cve_id="CVE-2021-1234567"), package=pkg)
+            art.Match(vulnerability=art.Vulnerability("ELSA-1998-0098"), package=pkg),
         )
-        matches.append(art.Match(vulnerability=art.Vulnerability("ALASKERNEL-1999-1234", cve_id="CVE-2021-1234567"), package=pkg))
+        matches.append(
+            art.Match(vulnerability=art.Vulnerability("ELSA-2023-0003"), package=pkg),
+        )
+        matches.append(
+            art.Match(
+                vulnerability=art.Vulnerability(
+                    "ELSA-2022-0002",
+                    cve_id="CVE-2022-2222",
+                ),
+                package=pkg,
+            ),
+        )
+        matches.append(
+            art.Match(
+                vulnerability=art.Vulnerability(
+                    "ELSA-2021-0001",
+                    cve_id="CVE-2000-1234567",
+                ),
+                package=pkg,
+            ),
+        )
+        matches.append(
+            art.Match(
+                vulnerability=art.Vulnerability(
+                    "ELSA-1999-1234",
+                    cve_id="CVE-2021-1234567",
+                ),
+                package=pkg,
+            ),
+        )
+        matches.append(
+            art.Match(vulnerability=art.Vulnerability("ALAS-1998-0098"), package=pkg),
+        )
+        matches.append(
+            art.Match(vulnerability=art.Vulnerability("ALAS-2023-0003"), package=pkg),
+        )
+        matches.append(
+            art.Match(
+                vulnerability=art.Vulnerability(
+                    "ALAS-2022-0002",
+                    cve_id="CVE-2022-2222",
+                ),
+                package=pkg,
+            ),
+        )
+        matches.append(
+            art.Match(
+                vulnerability=art.Vulnerability(
+                    "ALAS-2021-0001",
+                    cve_id="CVE-2000-1234567",
+                ),
+                package=pkg,
+            ),
+        )
+        matches.append(
+            art.Match(
+                vulnerability=art.Vulnerability(
+                    "ALAS-1999-1234",
+                    cve_id="CVE-2021-1234567",
+                ),
+                package=pkg,
+            ),
+        )
+        matches.append(
+            art.Match(
+                vulnerability=art.Vulnerability("ALASKERNEL-1998-0098"),
+                package=pkg,
+            ),
+        )
+        matches.append(
+            art.Match(
+                vulnerability=art.Vulnerability("ALASKERNEL-5.1-2023-0003"),
+                package=pkg,
+            ),
+        )
+        matches.append(
+            art.Match(
+                vulnerability=art.Vulnerability(
+                    "ALASKERNEL-5.1-2022-0002",
+                    cve_id="CVE-2022-2222",
+                ),
+                package=pkg,
+            ),
+        )
+        matches.append(
+            art.Match(
+                vulnerability=art.Vulnerability(
+                    "ALASKERNEL-5.1-2021-0001",
+                    cve_id="CVE-2000-1234567",
+                ),
+                package=pkg,
+            ),
+        )
+        matches.append(
+            art.Match(
+                vulnerability=art.Vulnerability(
+                    "ALASKERNEL-5.1-1999-1234",
+                    cve_id="CVE-2021-1234567",
+                ),
+                package=pkg,
+            ),
+        )
+        matches.append(
+            art.Match(
+                vulnerability=art.Vulnerability(
+                    "ALASKERNEL-1999-1234",
+                    cve_id="CVE-2021-1234567",
+                ),
+                package=pkg,
+            ),
+        )
         return matches
 
-    @pytest.fixture
+    @pytest.fixture()
     def results(self, matches) -> list[art.ScanResult]:
         results: list[art.ScanResults] = []
 
@@ -50,13 +154,13 @@ class TestFilterByYear:
                 image_repo="ubuntu",
                 image_digest="123456",
                 tool_name="grype",
-                tool_version="v{}.0".format(i),
+                tool_version=f"v{i}.0",
             )
             results.append(art.ScanResult(cfg, matches=matches))
         return results
 
     @pytest.mark.parametrize(
-        "expected, year_limit, year_from_cve_only",
+        ("expected", "year_limit", "year_from_cve_only"),
         [
             # below cases can only look at the CVE for year indications
             (
@@ -224,7 +328,11 @@ class TestFilterByYear:
         assert len(results) == 1
 
         with patch("yardstick.utils.grype_db.normalize_to_cve", lambda _: None):
-            filtered = store.scan_result.filter_by_year(results, year_limit, year_from_cve_only=year_from_cve_only)
+            filtered = store.scan_result.filter_by_year(
+                results,
+                year_limit,
+                year_from_cve_only=year_from_cve_only,
+            )
 
         for r in filtered:
             ids = [m.vulnerability.id for m in r.matches]

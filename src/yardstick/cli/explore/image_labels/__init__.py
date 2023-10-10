@@ -1,13 +1,12 @@
 from asyncio import Future, ensure_future
-from typing import List
+from typing import List, Optional
 
 # from pygments.styles.monokai import MonokaiStyle as PygmentsStyle
 from prompt_toolkit.application import Application
-from prompt_toolkit.filters import Condition, has_focus
+from prompt_toolkit.filters import has_focus
 from prompt_toolkit.key_binding import KeyBindings
 from prompt_toolkit.key_binding.bindings.focus import focus_next, focus_previous
 from prompt_toolkit.layout import (
-    Container,
     Dimension,
     Float,
     FloatContainer,
@@ -30,13 +29,20 @@ from yardstick.cli.explore.image_labels.text_dialog import TextDialog
 
 class Controller:
     def __init__(
-        self, result: artifact.ScanResult, label_entries: List[artifact.LabelEntry], lineage: List[str], filter_spec: str = ""
+        self,
+        result: artifact.ScanResult,
+        label_entries: List[artifact.LabelEntry],
+        lineage: List[str],
+        filter_spec: str = "",
     ):
         self.result = result
         self.lineage = lineage
         self.label_manager = LabelManager(result, label_entries, lineage)
 
-        self.label_details_pane = LabelSelectionPane(self.label_manager, dialog_executor=self.show_dialog_as_float)
+        self.label_details_pane = LabelSelectionPane(
+            self.label_manager,
+            dialog_executor=self.show_dialog_as_float,
+        )
         self.result_selection_pane = ResultSelectionPane(
             label_manager=self.label_manager,
             dialog_executor=self.show_dialog_as_float,
@@ -54,7 +60,7 @@ class Controller:
         )
 
         self.root_container = self._layout()
-        self.application: Application = None
+        self.application: Optional[Application] = None
 
     def show_dialog_as_float(self, dialog, done_callback):
         async def coroutine():
@@ -92,7 +98,7 @@ class Controller:
                                 [
                                     self.result_selection_pane,
                                     # TODO: add filter here...
-                                ]
+                                ],
                             ),
                             # Right side...
                             HSplit(
@@ -103,7 +109,7 @@ class Controller:
                                 ],
                                 width=Dimension(preferred=100),
                             ),
-                        ]
+                        ],
                     ),
                     # Statusbar...
                     VSplit(
@@ -122,14 +128,16 @@ class Controller:
                             ),
                         ],
                     ),
-                ]
+                ],
             ),
             floats=[],
         )
 
     @staticmethod
     def _styles() -> Style:
-        pygments_style = dict(style_from_pygments_cls(pygments_style_cls=PygmentsStyle).style_rules)
+        pygments_style = dict(
+            style_from_pygments_cls(pygments_style_cls=PygmentsStyle).style_rules,
+        )
 
         style_dict = {
             "select-match-box cursor-line": "nounderline bold fg:#fcca03",
@@ -204,7 +212,10 @@ class Controller:
             ("class:status", str(self.lineage)),
             ("class:status", "\n"),
             ("class:status.title", "Matches: "),
-            ("class:status.history-metric", f"{len(self.label_manager.match_select_entries)}"),
+            (
+                "class:status.history-metric",
+                f"{len(self.label_manager.match_select_entries)}",
+            ),
             ("class:status", "  "),
             ("class:status.title", "Applied Labels: "),
             ("class:status.history-metric", f"{self.label_manager.applied_labels()}"),
@@ -213,7 +224,10 @@ class Controller:
             ("class:status.history-metric", f"{self.label_manager.matches_labeled()}"),
             ("class:status", "  "),
             ("class:status.title", "Unlabeled Matches: "),
-            ("class:status.history-metric", f"{self.label_manager.matches_not_labeled()}"),
+            (
+                "class:status.history-metric",
+                f"{self.label_manager.matches_not_labeled()}",
+            ),
             ("class:status", "  "),
             ("class:status.title", "F1 Score: "),
             ("class:status.history-metric", f"{self.label_manager.f1_score()}"),
@@ -285,7 +299,10 @@ class Controller:
 
     def run(self):
         self.application: Application = Application(
-            layout=Layout(self.root_container, focused_element=self.result_selection_pane),
+            layout=Layout(
+                self.root_container,
+                focused_element=self.result_selection_pane,
+            ),
             key_bindings=self._keybindings(),
             enable_page_navigation_bindings=True,
             mouse_support=False,  # trust me, this is better
@@ -296,5 +313,10 @@ class Controller:
         return self.application.run()
 
 
-def run(result: artifact.ScanResult, label_entries: List[artifact.LabelEntry], lineage: List[str], filter_spec: str = ""):
+def run(
+    result: artifact.ScanResult,
+    label_entries: List[artifact.LabelEntry],
+    lineage: List[str],
+    filter_spec: str = "",
+):
     Controller(result, label_entries, lineage, filter_spec).run()

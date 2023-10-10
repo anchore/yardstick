@@ -18,9 +18,17 @@ from prompt_toolkit.auto_suggest import AutoSuggest, DynamicAutoSuggest
 from prompt_toolkit.buffer import Buffer, BufferAcceptHandler
 from prompt_toolkit.completion import Completer, DynamicCompleter
 from prompt_toolkit.document import Document
-from prompt_toolkit.filters import Condition, FilterOrBool, has_focus, is_done, is_true, to_filter
+from prompt_toolkit.filters import (
+    Condition,
+    FilterOrBool,
+    has_focus,
+    is_done,
+    is_true,
+    to_filter,
+)
 from prompt_toolkit.formatted_text import AnyFormattedText
 from prompt_toolkit.history import History
+from prompt_toolkit.key_binding import KeyBindingsBase
 from prompt_toolkit.key_binding.key_processor import KeyPressEvent
 from prompt_toolkit.layout.containers import Container, Window
 from prompt_toolkit.layout.controls import BufferControl, GetLinePrefixCallable
@@ -46,10 +54,9 @@ E = KeyPressEvent
 
 
 class TextArea:
-    # pylint: disable=too-many-arguments, too-many-locals
-    def __init__(
+    def __init__(  # noqa: PLR0913
         self,
-        text: str = "",
+        text: AnyFormattedText = "",
         multiline: FilterOrBool = True,
         password: FilterOrBool = False,
         lexer: Optional[Lexer] = None,
@@ -75,10 +82,10 @@ class TextArea:
         preview_search: FilterOrBool = True,
         prompt: AnyFormattedText = "",
         input_processors: Optional[List[Processor]] = None,
-        cursorline: Optional[bool] = False,
-        cursorcolumn: Optional[bool] = False,
-        key_bindings: Optional["KeyBindingsBase"] = None,
-        right_margins: List[Margin] = None,
+        cursorline: bool = False,
+        cursorcolumn: bool = False,
+        key_bindings: Optional[KeyBindingsBase] = None,
+        right_margins: Optional[List[Margin]] = None,
     ) -> None:
         if search_field is None:
             search_control = None
@@ -98,11 +105,13 @@ class TextArea:
         self.validator = validator
 
         self.buffer = Buffer(
-            document=Document(text, 0),
+            document=Document(text, 0),  # type: ignore[arg-type]
             multiline=multiline,
             read_only=Condition(lambda: is_true(self.read_only)),
             completer=DynamicCompleter(lambda: self.completer),
-            complete_while_typing=Condition(lambda: is_true(self.complete_while_typing)),
+            complete_while_typing=Condition(
+                lambda: is_true(self.complete_while_typing),
+            ),
             validator=DynamicValidator(lambda: self.validator),
             auto_suggest=DynamicAutoSuggest(lambda: self.auto_suggest),
             accept_handler=accept_handler,
@@ -114,12 +123,16 @@ class TextArea:
             lexer=DynamicLexer(lambda: self.lexer),
             input_processors=[
                 ConditionalProcessor(
-                    AppendAutoSuggestion(), has_focus(self.buffer) & ~is_done  # pylint: disable=invalid-unary-operand-type
+                    AppendAutoSuggestion(),
+                    has_focus(self.buffer) & ~is_done,
                 ),
-                ConditionalProcessor(processor=PasswordProcessor(), filter=to_filter(password)),
+                ConditionalProcessor(
+                    processor=PasswordProcessor(),
+                    filter=to_filter(password),
+                ),
                 BeforeInput(prompt, style="class:text-area.prompt"),
-            ]
-            + input_processors,
+                *input_processors,
+            ],
             search_buffer_control=search_control,
             preview_search=preview_search,
             focusable=focusable,
@@ -128,18 +141,14 @@ class TextArea:
         )
 
         if multiline:
-            if scrollbar:
-                _right_margins = [ScrollbarMargin(display_arrows=False)]
-            else:
-                _right_margins = []
+            _right_margins: list[Margin] = (
+                [ScrollbarMargin(display_arrows=False)] if scrollbar else []
+            )
 
             if right_margins:
                 _right_margins = right_margins + _right_margins
 
-            if line_numbers:
-                left_margins = [NumberedMargin()]
-            else:
-                left_margins = []
+            left_margins = [NumberedMargin()] if line_numbers else []
         else:
             height = D.exact(1)
             left_margins = []

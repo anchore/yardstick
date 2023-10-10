@@ -8,7 +8,6 @@ import logging
 import os
 import shutil
 from collections import defaultdict
-from typing import List, Optional, Tuple
 
 from yardstick import artifact
 from yardstick.store import config as store_config
@@ -24,15 +23,14 @@ def _store_root(store_root: str | None = None):
 
 
 def clear(store_root: str | None = None):
-    try:
-        shutil.rmtree(_store_root(store_root=store_root))
-    except FileNotFoundError:
-        pass
+    shutil.rmtree(_store_root(store_root=store_root), ignore_errors=True)
 
 
 def store_paths(
-    config: artifact.ScanConfiguration, suffix: str = naming.SUFFIX, store_root: str | None = None
-) -> Tuple[str, str]:
+    config: artifact.ScanConfiguration,
+    suffix: str = naming.SUFFIX,
+    store_root: str | None = None,
+) -> tuple[str, str]:
     # repo@digest/tool@version/timestamp/data.json
     # repo@digest/tool@version/timestamp/metadata.json
 
@@ -44,7 +42,10 @@ def store_paths(
         config.timestamp_rfc3339,
     )
 
-    return os.path.join(result_dir, "data" + suffix), os.path.join(result_dir, "metadata" + suffix)
+    return os.path.join(result_dir, "data" + suffix), os.path.join(
+        result_dir,
+        "metadata" + suffix,
+    )
 
 
 # note: we intentionally split up the data and metadata such that matches are recomputed with the latest code changes
@@ -61,7 +62,7 @@ def save(raw: str, results: artifact.ScanResult, store_root: str | None = None):
     with open(data_path, "w", encoding="utf-8") as data_file:
         data_file.write(raw)
 
-    results_dict = results.to_dict()
+    results_dict = results.to_dict()  # type: ignore[attr-defined]
     if "matches" in results_dict:
         del results_dict["matches"]
     if "packages" in results_dict:
@@ -71,14 +72,13 @@ def save(raw: str, results: artifact.ScanResult, store_root: str | None = None):
         metadata_file.write(json.dumps(results_dict, cls=artifact.DTEncoder))
 
 
-# pylint: disable=too-many-locals
 def find(
     by_image: str = "",
     by_tool: str = "",
     by_time: str = "",
     by_description: str = "",
-    store_root: Optional[str] = None,
-) -> List[artifact.ScanConfiguration]:
+    store_root: str | None = None,
+) -> list[artifact.ScanConfiguration]:
     json_path = tool.results_path(store_root=store_root)
 
     image_spec = "*"
@@ -92,30 +92,26 @@ def find(
         image_spec = f"{img.repository_encoded}@{img.digest}"
 
     if by_tool:
-        if "@" in by_tool:
-            tool_spec = by_tool
-        else:
-            tool_spec = f"{by_tool}@*"
+        tool_spec = by_tool if "@" in by_tool else f"{by_tool}@*"
 
     if by_time and by_time != "latest":
         time_spec = by_time
 
     is_id = "/" not in by_description and by_description
 
-    if by_description:
-        if by_description.count("/") >= 2:
-            tool_name_side, tool_version_side = by_description.rsplit("@", 1)
-            tool_name_side_fields = tool_name_side.rsplit("/", 1)
-            tool_name = tool_name_side_fields[-1]
-            repos = tool_name_side_fields[0]
-            image_spec = repos.replace("/", "+")
-            tool_version_side_fields = tool_version_side.rsplit("/", 1)
-            tool_version = tool_version_side_fields[0]
-            tool_spec = f"{tool_name}@{tool_version}"
-            time_spec = tool_version_side_fields[-1]
+    if by_description and by_description.count("/") >= 2:
+        tool_name_side, tool_version_side = by_description.rsplit("@", 1)
+        tool_name_side_fields = tool_name_side.rsplit("/", 1)
+        tool_name = tool_name_side_fields[-1]
+        repos = tool_name_side_fields[0]
+        image_spec = repos.replace("/", "+")
+        tool_version_side_fields = tool_version_side.rsplit("/", 1)
+        tool_version = tool_version_side_fields[0]
+        tool_spec = f"{tool_name}@{tool_version}"
+        time_spec = tool_version_side_fields[-1]
 
-            # to account for lables with [], which should be escaped
-            tool_spec = glob.escape(tool_spec)
+        # to account for lables with [], which should be escaped
+        tool_spec = glob.escape(tool_spec)
 
     search_tuple = f"{image_spec}/{tool_spec.replace('/', '_')}/{time_spec}"
 
@@ -127,17 +123,23 @@ def find(
 
     for metadata_file in glob.glob(glob_str):
         image_tool_dir = os.path.dirname(os.path.dirname(metadata_file))
-        with open(metadata_file, "r", encoding="utf-8") as fd:
+        with open(metadata_file, encoding="utf-8") as fd:
             metadata_dict = json.load(fd)
-            cfg = artifact.ScanConfiguration.from_dict(metadata_dict["config"])  # pylint: disable=no-member
+            cfg = artifact.ScanConfiguration.from_dict(  # type: ignore[attr-defined]
+                metadata_dict["config"],
+            )
 
-            if is_id and cfg.ID != by_description:
+            if is_id and by_description != cfg.ID:
                 continue
 
             results[image_tool_dir].append(cfg)
 
     for image_tool_dir, configs in results.items():
-        results[image_tool_dir] = sorted(configs, key=lambda c: c.timestamp, reverse=True)
+        results[image_tool_dir] = sorted(
+            configs,
+            key=lambda c: c.timestamp,
+            reverse=True,
+        )
         if by_time == "latest":
             results[image_tool_dir] = [results[image_tool_dir][0]]
 
@@ -158,7 +160,7 @@ def find_one(*args, **kwargs) -> artifact.ScanConfiguration:
 
 def load_by_descriptions(
     descriptions: list[str],
-    year_max_limit: Optional[int] = None,
+    year_max_limit: int | None = None,
     year_from_cve_only: bool = False,
     skip_sbom_results: bool = False,
     store_root: str | None = None,
@@ -166,7 +168,12 @@ def load_by_descriptions(
     results = []
     for description in descriptions:
         config = find_one(by_description=description, store_root=store_root)
-        result = load(config=config, year_max_limit=year_max_limit, year_from_cve_only=year_from_cve_only, store_root=store_root)
+        result = load(
+            config=config,
+            year_max_limit=year_max_limit,
+            year_from_cve_only=year_from_cve_only,
+            store_root=store_root,
+        )
         if skip_sbom_results and result.packages is not None:
             # note: we look at a NONE value, not just an empty list
             logging.debug(f"skipping SBOM result from {description}")
@@ -177,12 +184,17 @@ def load_by_descriptions(
 
 def load_all(
     configs: list[artifact.ScanConfiguration],
-    year_max_limit: Optional[int] = None,
+    year_max_limit: int | None = None,
     year_from_cve_only: bool = False,
     store_root: str | None = None,
 ) -> list[artifact.ScanResult]:
     return [
-        load(config, year_max_limit=year_max_limit, year_from_cve_only=year_from_cve_only, store_root=store_root)
+        load(
+            config,
+            year_max_limit=year_max_limit,
+            year_from_cve_only=year_from_cve_only,
+            store_root=store_root,
+        )
         for config in configs
     ]
 
@@ -190,17 +202,17 @@ def load_all(
 # note: we read the raw data and metadata and recompute the matches
 def load(
     config: artifact.ScanConfiguration,
-    year_max_limit: Optional[int] = None,
+    year_max_limit: int | None = None,
     year_from_cve_only: bool = False,
     store_root: str | None = None,
 ) -> artifact.ScanResult:
     data_path, metadata_path = store_paths(config, store_root=store_root)
     logging.debug(f"loading result config={config!r} location={data_path!r}")
 
-    with open(data_path, "r", encoding="utf-8") as data_file:
+    with open(data_path, encoding="utf-8") as data_file:
         data_json = data_file.read()
 
-    with open(metadata_path, "r", encoding="utf-8") as metadata_file:
+    with open(metadata_path, encoding="utf-8") as metadata_file:
         metadata_dict = json.load(metadata_file)
 
     tool_name_and_label = metadata_dict["config"]["tool_name"]
@@ -219,18 +231,21 @@ def load(
 
     results = {**metadata_dict, **keys}
 
-    # pylint: disable=no-member
-    result_obj: artifact.ScanResult = artifact.ScanResult.from_dict(results)
+    result_obj: artifact.ScanResult = artifact.ScanResult.from_dict(results)  # type: ignore[attr-defined]
 
     # TODO: allow for searching for more results until there is a matching digest
     if config.image_digest and result_obj.config.image_digest != config.image_digest:
         raise RuntimeError(
-            f"scan config has a specific image digest={config.image_digest} that differs from the fetched digest={result_obj.config.image_digest}"
+            f"scan config has a specific image digest={config.image_digest} that differs from the fetched digest={result_obj.config.image_digest}",
         )
 
     if year_max_limit:
-        results = filter_by_year([result_obj], year_max_limit=int(year_max_limit), year_from_cve_only=year_from_cve_only)
-        result_obj = results[0]
+        results_list = filter_by_year(
+            [result_obj],
+            year_max_limit=int(year_max_limit),
+            year_from_cve_only=year_from_cve_only,
+        )
+        result_obj = results_list[0]
 
     return result_obj
 
@@ -240,19 +255,23 @@ def list_all_metadata_json(store_root: str | None = None):
     return glob.glob(f"{json_path}/*/*/*/metadata.json")
 
 
-def list_all_configs(store_root: str | None = None) -> List[artifact.ScanConfiguration]:
+def list_all_configs(store_root: str | None = None) -> list[artifact.ScanConfiguration]:
     results = []
     for metadata_file in list_all_metadata_json(store_root=store_root):
-        with open(metadata_file, "r", encoding="utf-8") as metadata_file:
+        with open(metadata_file, encoding="utf-8") as metadata_file:
             metadata_dict = json.load(metadata_file)
-            results.append(artifact.ScanConfiguration.from_dict(metadata_dict["config"]))  # pylint: disable=no-member
+            results.append(
+                artifact.ScanConfiguration.from_dict(metadata_dict["config"]),  # type: ignore[attr-defined]
+            )
     return sorted(results)
 
 
 # filter_by_year filters out CVE vuln IDs above a given year. We attempt to normalize all vuln IDs to CVEs,
 # but will include any if normalization fails.
 def filter_by_year(
-    results: list[artifact.ScanResult], year_max_limit: int, year_from_cve_only: bool = False
+    results: list[artifact.ScanResult],
+    year_max_limit: int,
+    year_from_cve_only: bool = False,
 ) -> list[artifact.ScanResult]:
     results_copy = copy.deepcopy(results)
 
@@ -266,6 +285,6 @@ def filter_by_year(
             year = m.vulnerability.effective_year(by_cve=year_from_cve_only)
 
             if not year or year <= year_max_limit:
-                results_copy[i].matches.append(m)
+                results_copy[i].matches.append(m)  # type: ignore[union-attr]
 
     return results_copy

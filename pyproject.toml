@@ -39,6 +39,17 @@ isort = "^5.12.0"
 pylint = "^3.0.1"
 autoflake = "^2.2"
 tox = "^4.11.3"
+ruff = "^0.0.291"
+pytest-unordered = "^0.5.2"
+pytest-sugar = "^0.9.7"
+pytest-clarity = "^1.0.1"
+pytest-cov = "^4.1.0"
+pytest-picked = "^0.5.0"
+pytest-xdist = "^3.3.1"
+types-requests = "^2.31.0.6"
+types-tabulate = "^0.9.0.3"
+types-pyyaml = "^6.0.12.12"
+types-pygments = "^2.16.0.0"
 
 [build-system]
 requires = ["poetry-core>=1.3.0", "poetry-dynamic-versioning"]
@@ -47,56 +58,71 @@ build-backend = "poetry_dynamic_versioning.backend"
 [tool.poetry-dynamic-versioning]
 enable = true
 
-[tool.isort]
-# all settings suggested by black: https://black.readthedocs.io/en/stable/compatible_configs.html
-multi_line_output = 3
-include_trailing_comma = true
-force_grid_wrap = 0
-use_parentheses = true
-ensure_newline_before_comments = true
-line_length = 100
-
-[tool.pylint.messages_control]
-disable = [
-        # pylint wants deferred formatting for log messages (to use less CPU if that log level is disabled). We prefer the legibility of f-strings: f"a is {a}"
-        "logging-format-interpolation",
-        "logging-fstring-interpolation",
-        "logging-not-lazy",
-
-        # haven't gotten around to doc strings yet
-        "missing-function-docstring",
-        "missing-module-docstring",
-        "missing-class-docstring",
-
-        # this is a bit strict for a few cases
-        "invalid-name",
-        "duplicate-code",
-
-        # having TODO's and FIXME's are OK in a codebase
-        "fixme",
-
-        # dataclasses shouldn't be restricted on the number of instance attributes
-        "R0902",
-
-        # this seems to make wrong guesses
-        "unnecessary-lambda",
-
-        # "too few public methods" does not take into account UI element bindings in an event update driven fashion
-        "R0903",
-    ]
-
-[tool.pylint.format]
-# allow for a wide-birth
-max-line-length = "150"
-
-# TODO: add tox support https://github.com/tox-dev/tox/issues/814 & https://tox.readthedocs.io/en/latest/example/basic.html#pyproject-toml-tox-legacy-ini
-
-# TODO: port this section to "tool.mypy" when supported
-[mypy]
+[tool.mypy]
 check_untyped_defs = 0
 ignore_missing_imports = 1
 ignore_errors = 0
 strict_optional = 0
-warn_unused_ignores = 1
+warn_unused_ignores = 0
 warn_redundant_casts = 1
 warn_unused_configs = 1
+
+[tool.pytest.ini_options]
+cache_dir = ".cache/pytest"
+
+[tool.ruff]
+cache-dir = ".cache/ruff"
+# allow for a wide-birth relative to what black will correct to
+line-length = 150
+select = [
+  "A",   # flake8-builtins
+  # "ANN", # flake8-annotations   # this is great, but let mypy handle this so it can honor type:ignore comments without noqa comments too
+  "ARG", # flake8-unused-arguments
+  "B",   # flake8-bugbear
+  "C",   # mccabe
+  "C4",  # flake8-comprehensions
+  "COM", # flake8-commas
+  "DTZ", # flake8-datetimez
+  "E",   # pycodestyle, errors
+  # "EM",  # flake8-errmsg     # seems to aggressive relative to the current codebase
+  # "ERA", # flake8-eradicate  # not all code in comments should be removed
+  "EXE", # flake8-executable
+  "F",   # pyflakes
+  "G",   # flake8-logging-format
+  "I",   # isort
+  "ICN", # flake8-import-conventions
+  "INP", # flake8-no-pep420
+  "ISC", # flake8-implicit-str-concat
+  "PGH", # pygrep-hooks
+  "PIE", # flake8-pie
+  "PL",  # pylint     (this can be broken down into more checks if needed)
+  "PT",  # flake8-pytest-style
+  # "PTH", # flake8-use-pathlib  # the codebase is not ready for this yet, but would be nice to add
+  "Q",   # flake8-quotes
+  "RET", # flake8-return
+  "RSE", # flake8-raise
+  "RUF", # ruff specific rules
+  "S",   # flake8-bandit
+  "SIM", # flake8-simplify
+  "SLF", # flakes8-self
+  "T10", # flake8-debugger
+  "TCH", # flake8-type-checking
+  "TID", # flake8-tidy-imports
+  # "TRY", # tryceratops   # seems to aggressive relative to the current codebase
+  "UP",  # pyupgrade
+  "W",   # pycodestyle, warnings
+  "YTT", # flake8-2020
+]
+
+ignore = [
+  "ARG001", # unused args are ok, as they communicate intent in interfaces, even if not used in impls.
+  "ARG002", # unused args are ok, as they communicate intent in interfaces, even if not used in impls.
+  "G004", # it's ok to use formatted strings for logging
+  "PGH004", # no blanket "noqa" usage, can be improved over time, but not now
+  "PLR2004", # a little too agressive, not allowing any magic numbers
+  "PLW2901", # "Outer for loop variable X overwritten by inner assignment target", not useful in most cases
+  "RUF100", # no blanket "noqa" usage, can be improved over time, but not now
+  "UP038", # Use `X | Y` in `isinstance` call instead of `(X, Y)` -- not compatible with python 3.9 (even with __future__ import)
+  "S603", # subprocess calls are common and necessary in this codebase
+  "S607", # we cannot rely on exact paths to all tools invoked for all users so must rely on PATH resolution
+]

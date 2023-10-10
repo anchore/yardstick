@@ -1,7 +1,10 @@
 import pytest
-
 from yardstick import artifact
-from yardstick.label import _contains_as_value, find_labels_for_match, merge_label_entries
+from yardstick.label import (
+    _contains_as_value,
+    find_labels_for_match,
+    merge_label_entries,
+)
 
 
 class TestContainsAsValue:
@@ -16,7 +19,7 @@ class TestContainsAsValue:
         }
 
     @pytest.mark.parametrize(
-        "value,expected_path",
+        ("value", "expected_path"),
         [
             ("data", True),
             (5, True),
@@ -36,7 +39,7 @@ class TestContainsAsValue:
         return [{"treatment_plan": [[4, 5, 4], [4, "data", 4], [5, 5, 5]]}]
 
     @pytest.mark.parametrize(
-        "value,expected_path",
+        ("value", "expected_path"),
         [
             ("data", True),
             (5, True),
@@ -141,7 +144,7 @@ class TestFindLabelsForMatch:
         ]
 
     @pytest.mark.parametrize(
-        "image,match,expected_label_ids",
+        ("image", "match", "expected_label_ids"),
         [
             # case: match on all
             (
@@ -191,7 +194,13 @@ class TestFindLabelsForMatch:
             ),
         ],
     )
-    def test_find_labels_for_match(self, label_entries, image, match, expected_label_ids):
+    def test_find_labels_for_match(
+        self,
+        label_entries,
+        image,
+        match,
+        expected_label_ids,
+    ):
         ids = [m.ID for m in find_labels_for_match(image, match, label_entries)]
         assert expected_label_ids == ids
 
@@ -202,6 +211,7 @@ class TestMergeLabelEntries:
         return [
             artifact.LabelEntry(
                 label=artifact.Label.FalsePositive,
+                image="dontcare",
                 vulnerability_id="CVE-2020-0001",
                 source="vat-import",
                 user="somebody",
@@ -220,6 +230,7 @@ class TestMergeLabelEntries:
             artifact.LabelEntry(
                 label=artifact.Label.FalsePositive,
                 vulnerability_id="CVE-2020-0001",
+                image="dontcare",
                 package=artifact.Package(name="package", version="1.0"),
                 source="manual",
                 user="somebody",
@@ -228,19 +239,20 @@ class TestMergeLabelEntries:
         ]
 
     @pytest.mark.parametrize(
-        "new_label_entries,deleted_label_ids,expected_label_ids",
+        ("new_label_entries", "deleted_label_ids", "expected_label_ids"),
         [
             # case: add a new label
             (
                 [
                     artifact.LabelEntry(
                         label=artifact.Label.FalsePositive,
+                        image="dontcare",
                         vulnerability_id="CVE-2020-0001",
                         package=artifact.Package(name="package", version="1.0"),
                         source="manual",
                         user="somebody",
                         ID="4",
-                    )
+                    ),
                 ],
                 [],
                 ["1", "2", "3", "4"],
@@ -257,11 +269,12 @@ class TestMergeLabelEntries:
                     artifact.LabelEntry(
                         label=artifact.Label.FalsePositive,
                         vulnerability_id="CVE-1995-DIFFERENT",
+                        image="dontcare",
                         package=artifact.Package(name="WOOT", version="42.0"),
                         source="AUTOMATIC",
                         user="ANYBODY",
                         ID="3",
-                    )
+                    ),
                 ],
                 [],
                 ["1", "2", "3"],
@@ -272,6 +285,7 @@ class TestMergeLabelEntries:
                     # modification of 3...
                     artifact.LabelEntry(
                         label=artifact.Label.FalsePositive,
+                        image="dontcare",
                         vulnerability_id="CVE-1995-DIFFERENT",
                         package=artifact.Package(name="WOOT", version="42.0"),
                         source="AUTOMATIC",
@@ -282,6 +296,7 @@ class TestMergeLabelEntries:
                     artifact.LabelEntry(
                         label=artifact.Label.FalsePositive,
                         vulnerability_id="CVE-2020-0001",
+                        image="dontcare",
                         package=artifact.Package(name="package", version="1.0"),
                         source="manual",
                         user="somebody",
@@ -293,8 +308,18 @@ class TestMergeLabelEntries:
             ),
         ],
     )
-    def test_merge_label_entries(self, existing_label_entries, new_label_entries, deleted_label_ids, expected_label_ids):
-        merged_entries = merge_label_entries(existing_label_entries, new_label_entries, deleted_label_ids)
+    def test_merge_label_entries(
+        self,
+        existing_label_entries,
+        new_label_entries,
+        deleted_label_ids,
+        expected_label_ids,
+    ):
+        merged_entries = merge_label_entries(
+            existing_label_entries,
+            new_label_entries,
+            deleted_label_ids,
+        )
 
         # technically the second assertion includes this, but this is easier to see when debugging
         ids = [m.ID for m in merged_entries]

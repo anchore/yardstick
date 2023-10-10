@@ -1,6 +1,4 @@
-# pylint: disable=redefined-outer-name, unused-argument
 import pytest
-
 from yardstick.cli.explore.image_labels.history import Command, History
 
 

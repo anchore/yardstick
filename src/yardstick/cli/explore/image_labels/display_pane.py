@@ -2,18 +2,23 @@ from typing import Union
 
 from prompt_toolkit.formatted_text import split_lines, to_formatted_text
 from prompt_toolkit.key_binding import KeyBindings
-from prompt_toolkit.layout import Container, Dimension, FormattedTextControl, HSplit, Window
+from prompt_toolkit.layout import (
+    Container,
+    Dimension,
+    FormattedTextControl,
+    HSplit,
+    Window,
+)
 from prompt_toolkit.layout.containers import ConditionalContainer
 from prompt_toolkit.layout.margins import ScrollbarMargin
 from prompt_toolkit.layout.screen import Point
 
 
-# pylint: disable=too-few-public-methods
 class DisplayPane:
     def __init__(
         self,
         get_formatted_text,
-        filter=None,  # pylint: disable=redefined-builtin
+        filter=None,  # noqa: A002
         title="",
         height=None,
     ) -> None:
@@ -67,13 +72,11 @@ class DisplayPane:
         kb = KeyBindings()
 
         @kb.add("up")
-        # pylint: disable=unused-argument
         def _go_up(event) -> None:
             if self.cursor.y > 0:
                 self.cursor = Point(self.cursor.x, self.cursor.y - 1)
 
         @kb.add("down")
-        # pylint: disable=unused-argument
         def _go_down(event) -> None:
             self.cursor = Point(self.cursor.x, self.cursor.y + 1)
 
