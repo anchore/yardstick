@@ -570,7 +570,10 @@ class ScanRequest:
 
         if "@env:" in tool:
             name, val = tool.split("@env:")
-            val, metadata = val.split("+", 1)
+            if "+" in val:
+                val, metadata = val.split("+", 1)
+            else:
+                metadata = None
             # preserve the name and any other suffix
             tool = f"{name}@{os.environ[val]}"
             if metadata:
