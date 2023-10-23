@@ -88,11 +88,16 @@ result-sets:
       images: *images
       tools:
         - name: syft                      # go ahead and capture an SBOM each time to help analysis later
-          version: v0.54.0                
+          version: v0.54.0
+          produces: SBOM
+
         - name: grype                     # from the latest published github release
           version: latest
+          takes: SBOM
+
         - name: grype:pr                  # from a local PR checkout install (feed via an environment variable)
           version: env:CURRENT_GRYPE_COMMIT
+          takes: SBOM
 ```
 
 ## CLI Commands
