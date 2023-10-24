@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import datetime
 import logging
+import subprocess
 import sys
 from dataclasses import dataclass
 
@@ -59,12 +60,16 @@ def capture_results(  # noqa: PLR0913
         if not result_set_config:
             raise RuntimeError(f"no result set found for {result_set}")
 
-        capture.result_set(
-            result_set,
-            result_set_config.scan_requests(),
-            only_producers=only_producers,
-            profiles=cfg.profiles.data,
-        )
+        try:
+            capture.result_set(
+                result_set,
+                result_set_config.scan_requests(),
+                only_producers=only_producers,
+                profiles=cfg.profiles.data,
+            )
+        except subprocess.CalledProcessError as e:
+            logging.error(f"unable to capture result set: {e.output.decode()}")
+            raise e
     else:
         scan_result = capture.one(
             artifact.ScanRequest(image=image, tool=tool, profile=profile),
