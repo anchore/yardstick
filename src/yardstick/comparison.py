@@ -122,7 +122,9 @@ class AgainstLabels:
             # capture any matches that are in an indeterminate state...
             # note: it is important NOT to use a set here, as multiple instances of the same label will throw
             # the F1 score (e.g. [TP, TP ,TP] != [TP], only the latter is acceptable).
-            if len(label_set) != 1 or Label.Unclear in labels_for_match:
+            # note: we're not considering unclear label to count as an indeterminate match
+            # we want a definite f1 score in the quality gate without being overwhelmed by "disputed" unclear label
+            if len(label_set) != 1:
                 self.matches_with_indeterminate_labels.append(match)
                 # capture TP & FP only beyond this point...
                 continue
