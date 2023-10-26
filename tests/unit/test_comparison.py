@@ -195,7 +195,7 @@ def test_comparison_against_labels_indeterminate():
     m3_indeterminate = [
         artifact.LabelEntry(
             label=artifact.Label.Unclear,
-            vulnerability_id="CVE-2021-2222",
+            vulnerability_id="CVE-2020-2222",
             package=package_bash_5,
             **common_label_options,
         ),
@@ -226,8 +226,8 @@ def test_comparison_against_labels_indeterminate():
         lineage=[],
     )
 
-    assert actual.summary.indeterminate == 2
-    assert set(actual.matches_with_indeterminate_labels) == {m2, m3}
+    assert actual.summary.indeterminate == 1
+    assert set(actual.matches_with_indeterminate_labels) == {m2}
     assert actual.summary.f1_score == 1
-    assert actual.summary.f1_score_lower_confidence == 0.5
+    assert actual.summary.f1_score_lower_confidence == 0.6666666666666666
     assert actual.summary.f1_score_upper_confidence == 1
