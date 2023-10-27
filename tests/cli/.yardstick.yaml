@@ -16,5 +16,5 @@ result-sets:
           version: v0.27.0
 
         - name: grype
-          version: v0.50.2
+          version: v0.72.0+import-db=db.tar.gz
           takes: SBOM

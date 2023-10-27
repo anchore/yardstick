@@ -1,5 +1,8 @@
 ACTIVATE_VENV = . venv/bin/activate &&
 
+TEST_DB_URL = https://toolbox-data.anchore.io/grype/databases/vulnerability-db_v5_2023-10-25T01:27:28Z_fd5a911f9285633c57e3.tar.gz
+TEST_DB = db.tar.gz
+
 # formatting variables
 BOLD := $(shell tput -T linux bold)
 PURPLE := $(shell tput -T linux setaf 5)
@@ -10,8 +13,11 @@ RESET := $(shell tput -T linux sgr0)
 TITLE := $(BOLD)$(PURPLE)
 SUCCESS := $(BOLD)$(GREEN)
 
-test: venv ## Run CLI tests
+test: venv $(TEST_DB) ## Run CLI tests
 	$(ACTIVATE_VENV) ./run.sh
+
+$(TEST_DB):
+	curl -o $(TEST_DB) -SsL $(TEST_DB_URL)
 
 venv: venv/touchfile ## Create a python virtual environment
 
