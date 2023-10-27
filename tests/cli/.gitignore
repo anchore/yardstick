@@ -1,2 +1,3 @@
 .yardstick/tools
 .yardstick/result
+*.tar.gz
