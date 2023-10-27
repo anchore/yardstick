@@ -367,7 +367,7 @@ class Grype(VulnerabilityScanner):
 
         # patch the config with the db information found
         config.detail["db"] = utils.dig(obj, "descriptor", "db", default={})
-        db_location = config.detail["db"].get("location", None) # type: ignore[attr-defined]
+        db_location = config.detail["db"].get("location", None)  # type: ignore[attr-defined]
         if db_location:
             # we should always interpret results with the same DB if the DB is still there (e.g. to support
             # GHSA to CVE mapping for the latest results) if the DB is not there, we try to fall back to
