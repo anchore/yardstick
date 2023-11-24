@@ -1226,13 +1226,13 @@ files = [
 
 [[package]]
 name = "types-pygments"
-version = "2.16.0.1"
+version = "2.17.0.0"
 description = "Typing stubs for Pygments"
 optional = false
 python-versions = ">=3.7"
 files = [
-    {file = "types-Pygments-2.16.0.1.tar.gz", hash = "sha256:26af0cc70fcc7b605d9af7c6c8dcbb5320bc4288e3dd1a3d590c8927e08299b6"},
-    {file = "types_Pygments-2.16.0.1-py3-none-any.whl", hash = "sha256:33bc6574d4291e139ac2cc3627f6433aaa9c268e9543b5e1c42b5aa3060ba8d5"},
+    {file = "types-Pygments-2.17.0.0.tar.gz", hash = "sha256:4241c5f1b7448e559cd820143a564cf10de626a95ab10e2daa463449d16864e7"},
+    {file = "types_Pygments-2.17.0.0-py3-none-any.whl", hash = "sha256:83c33c89037f433fd5315b1abf80f5cb8b589b2d0549444d7f63824c628142c7"},
 ]
 
 [package.dependencies]
@@ -1378,4 +1378,4 @@ testing = ["big-O", "flake8 (<5)", "jaraco.functools", "jaraco.itertools", "more
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.9"
-content-hash = "ec389c2852139bf94b95b40bce9ad3ee5d67aab639525d26792b7ec2c7736711"
+content-hash = "9a1a11e3567c08937995d35b88a4e66598edfab54da740e93a9194e6f0c81575"
