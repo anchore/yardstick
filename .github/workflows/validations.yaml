@@ -26,7 +26,7 @@ jobs:
           python-version: ${{ env.PYTHON_VERSION }}
 
       - name: Install poetry
-        uses: abatilo/actions-poetry@437d4fa27baf74d89b789ba2d8cae97dd2365feb #v2.3.0
+        uses: abatilo/actions-poetry@c31426b23a8080795905ec73c9e458a2447cb2f2 #v2.3.0
         with:
           poetry-version: ${{ env.POETRY_VERSION }}
 
