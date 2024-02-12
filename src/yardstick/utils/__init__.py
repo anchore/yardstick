@@ -101,11 +101,15 @@ def parse_year_from_id(vuln_id: str) -> int | None:
 
     first_component = components[0].lower()
 
-    if len(components) == 4 and first_component == "alaskernel":
-        return try_convert_year(components[2])
-
     if len(components) == 3 and first_component in {"cve", "alas", "elsa"}:
         return try_convert_year(components[1])
+
+    # there are cases in the amazon data that are considered "extras" and the vulnerability ID is augmented
+    # in a way that portrays the application scope. For instance, ALASRUBY3.0-2023-003 or ALASSELINUX-NG-2023-001.
+    # fore more information on the "extras" feature for amazon linux, see: https://aws.amazon.com/amazon-linux-2/faqs/#Amazon_Linux_Extras
+    if first_component.startswith("alas") and len(components) >= 3:
+        # note that we need to reference the compoents from the end since the ID may contain a dynamic number of hyphens.
+        return try_convert_year(components[-2])
 
     return None
 

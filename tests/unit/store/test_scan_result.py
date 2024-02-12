@@ -188,6 +188,7 @@ class TestFilterByYear:
                     # "ELSA-1999-1234", # note: cve 2021
                     # "ALAS-1999-1234", # note: cve 2021
                     # "ALASKERNEL-5.1-1999-1234", # note: cve 2021
+                    # "ALASKERNEL-1999-1234", # note: cve 2021
                 ],
                 2002,
                 True,
@@ -217,6 +218,7 @@ class TestFilterByYear:
                     # "ELSA-1999-1234", # note: cve 2021
                     # "ALAS-1999-1234", # note: cve 2021
                     # "ALASKERNEL-5.1-1999-1234", # note: cve 2021
+                    # "ALASKERNEL-1999-1234", # note: cve 2021
                 ],
                 2000,
                 True,
@@ -241,6 +243,7 @@ class TestFilterByYear:
                     # "ELSA-1999-1234",  # note: cve 2021
                     # "ALAS-1999-1234",  # note: cve 2021
                     # "ALASKERNEL-5.1-1999-1234", # note: cve 2021
+                    # "ALASKERNEL-1999-1234", # note: cve 2021
                 ],
                 1999,
                 True,
@@ -258,10 +261,10 @@ class TestFilterByYear:
                     "ELSA-1999-1234",  # note: cve 2021
                     "ALAS-1999-1234",  # note: cve 2021
                     "ALASKERNEL-5.1-1999-1234",  # note: cve 2021
+                    "ALASKERNEL-1999-1234",  # note: cve 2021
                     "ELSA-1998-0098",  # note: no cve
                     "ALAS-1998-0098",  # note: no cve
-                    # Invalid ID, but since we don't know how to get the year it's included
-                    "ALASKERNEL-1998-0098",  # note: no cve
+                    "ALASKERNEL-1998-0098",  # note: cve 2021
                     # ID above year limit
                     # "ELSA-2021-0001",  # note: cve 2000
                     # "ALAS-2021-0001",  # note: cve 2000
@@ -283,6 +286,7 @@ class TestFilterByYear:
                     "ELSA-1999-1234",  # note: cve 2021
                     "ALAS-1999-1234",  # note: cve 2021
                     "ALASKERNEL-5.1-1999-1234",  # note: cve 2021
+                    "ALASKERNEL-1999-1234",  # note: cve 2021
                     "ELSA-1998-0098",  # note: no cve
                     "ALAS-1998-0098",  # note: no cve
                     # Invalid ID, but since we don't know how to get the year it's included
@@ -309,7 +313,7 @@ class TestFilterByYear:
                     "ELSA-1999-1234",  # note: cve 2021
                     "ALAS-1999-1234",  # note: cve 2021
                     "ALASKERNEL-5.1-1999-1234",  # note: cve 2021
-                    # Invalid ID, but since we don't know how to get the year it's included
+                    "ALASKERNEL-1999-1234",  # note: cve 2021
                     "ALASKERNEL-1998-0098",  # note: no cve
                     # ID above year limit
                     # "CVE-2000-1",
