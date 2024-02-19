@@ -31,7 +31,7 @@ PyYAML = ">= 6.0.0, < 7.0"  # note: required for enterprise
 
 [tool.poetry.group.dev.dependencies]
 pytest-mock = "^3.12.0"
-pytest = "^8.0.0"
+pytest = "^8.0.1"
 black = "^23.12.1"
 pre-commit = "^3.6.1"
 mypy = "^1.8"
