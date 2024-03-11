@@ -49,7 +49,7 @@ pytest-xdist = "^3.5.0"
 types-requests = "^2.31.0.20240218"
 types-tabulate = "^0.9.0.20240106"
 types-pyyaml = "^6.0.12.12"
-types-pygments = "^2.17.0.20240106"
+types-pygments = "^2.17.0.20240310"
 
 [build-system]
 requires = ["poetry-core>=1.3.0", "poetry-dynamic-versioning"]
