@@ -30,7 +30,7 @@ dataclass-wizard = "^0.22.3"
 PyYAML = ">= 6.0.0, < 7.0"  # note: required for enterprise
 
 [tool.poetry.group.dev.dependencies]
-pytest-mock = "^3.12.0"
+pytest-mock = "^3.14.0"
 pytest = "^8.1.1"
 black = "^23.12.1"
 pre-commit = "^3.7.0"
