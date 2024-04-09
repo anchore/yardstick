@@ -12,6 +12,7 @@ container object.
     guarantees are made yet). The public API in
     `prompt_toolkit.shortcuts.dialogs` on the other hand is considered stable.
 """
+
 from typing import List, Optional
 
 from prompt_toolkit.auto_suggest import AutoSuggest, DynamicAutoSuggest
