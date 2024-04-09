@@ -440,9 +440,9 @@ class LabelEntry:
     image: Optional[ImageSpecifier] = None  # image specifier
     note: Optional[str] = None  # a general comment field (optional)
     source: Optional[str] = None  # e.g. manually added, import, etc. (optional)
-    effective_cve: Optional[
-        str
-    ] = None  # the CVE the vulnerability ID matches to (optional)
+    effective_cve: Optional[str] = (
+        None  # the CVE the vulnerability ID matches to (optional)
+    )
     user: Optional[str] = None  # the user that added this label (optional)
     package: Optional[Package] = None  # package name/version
     fullentry_fields: List[str] = field(
