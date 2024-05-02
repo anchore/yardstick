@@ -127,7 +127,7 @@ class ScanConfiguration:
         ),
     )
     tool_input: Optional[str] = None
-    detail: Dict[str, dict] = field(default_factory=dict)
+    detail: Union[str, dict] = field(default_factory=dict)
     ID: str = field(default_factory=lambda: str(uuid.uuid4()))
 
     def __post_init__(self):
