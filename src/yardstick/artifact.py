@@ -1,4 +1,5 @@
 from __future__ import annotations
+
 import collections
 import datetime
 import functools
@@ -11,7 +12,7 @@ import subprocess
 import uuid
 from dataclasses import InitVar, asdict, dataclass, field
 from enum import Enum
-from typing import Any, Dict, List, Optional, Union
+from typing import Any
 
 from dataclasses_json import config, dataclass_json
 
@@ -42,9 +43,9 @@ def get_image_digest(image: str) -> str:
 @dataclass(frozen=True, eq=True)
 class Tool:
     tool: str
-    name: str = field(init=False)
+    name: str | None = field(init=False)
     version: str = field(init=False)
-    label: Optional[str] = None
+    label: str = None
 
     def __post_init__(self):
         name, version = self.tool.split("@", 1)
@@ -120,14 +121,14 @@ class ScanConfiguration:
     tool_name: str
     tool_version: str
     image_tag: str = ""
-    timestamp: Optional[datetime.datetime] = field(
+    timestamp: datetime.datetime | None = field(
         default=None,
         metadata=config(
             encoder=lambda dt: dt.isoformat(),
             decoder=datetime.datetime.fromisoformat,
         ),
     )
-    tool_input: Optional[str] = None
+    tool_input: str | None = None
     detail: dict[str, dict | str] = field(default_factory=dict)
     ID: str = field(default_factory=lambda: str(uuid.uuid4()))
 
@@ -179,12 +180,12 @@ tool:\t{self.tool}"""
 
     @staticmethod
     def new(
-        image: Optional[str] = None,
-        tool: Optional[str] = None,
-        path: Optional[str] = None,
-        timestamp: Optional[datetime.datetime] = None,
-        label: Optional[str] = None,
-    ) -> "ScanConfiguration":
+        image: str | None = None,
+        tool: str | None = None,
+        path: str | None = None,
+        timestamp: datetime.datetime | None = None,
+        label: str | None = None,
+    ) -> ScanConfiguration:
         if tool:
             tool_obj = Tool(tool, label=label)
 
@@ -211,15 +212,15 @@ tool:\t{self.tool}"""
 
 @dataclass(frozen=True, eq=True, order=True)
 class ScanMetadata:
-    timestamp: Optional[datetime.datetime] = field(
+    timestamp: datetime.datetime | None = field(
         default=None,
         metadata=config(
             encoder=lambda dt: dt.isoformat(),
             decoder=datetime.datetime.fromisoformat,
         ),
     )
-    elapsed: Optional[float] = field(default=None)
-    image_digest: Optional[str] = field(default=None)
+    elapsed: float | None = field(default=None)
+    image_digest: str | None = field(default=None)
 
 
 @dataclass(frozen=True, eq=True, order=True)
@@ -234,7 +235,7 @@ class Package:
 @dataclass(frozen=True, eq=True, order=True)
 class Vulnerability:
     id: str  # noqa: A003
-    cve_id: Optional[str] = field(default=None, hash=False)
+    cve_id: str | None = field(default=None, hash=False)
 
     def __post_init__(self):
         if is_cve_vuln_id(self.id) and not self.cve_id:
@@ -246,7 +247,7 @@ class Vulnerability:
             return cve
         return None
 
-    def _effective_cve_year(self) -> Optional[int]:
+    def _effective_cve_year(self) -> int | None:
         cve = self.cve_id
         if not cve:
             # this is rather expensive, so try this last
@@ -255,10 +256,10 @@ class Vulnerability:
             return None
         return parse_year_from_id(cve)
 
-    def effective_year(self, by_cve=False) -> Optional[int]:
+    def effective_year(self, by_cve=False) -> int | None:
         if by_cve:
             return self._effective_cve_year()
-        candidate: Optional[Union[int, str]] = self.id
+        candidate: int | str | None = self.id
         if self.id:
             candidate = parse_year_from_id(self.id)
         if not isinstance(candidate, int):
@@ -283,8 +284,8 @@ class DTEncoder(json.JSONEncoder):
 class Match:
     vulnerability: Vulnerability
     package: Package
-    fullentry: Optional[Dict[str, Any]] = field(default=None, hash=False)
-    config: Optional[ScanConfiguration] = field(default=None, hash=False)
+    fullentry: dict[str, Any] | None = field(default=None, hash=False)
+    config: ScanConfiguration | None = field(default=None, hash=False)
     ID: str = field(init=False, hash=False)
 
     def __post_init__(self):
@@ -336,9 +337,9 @@ class Match:
 @dataclass(frozen=False, eq=True, order=True)
 class ScanResult:
     config: ScanConfiguration
-    matches: Optional[List[Match]] = field(default=None)
-    packages: Optional[List[Package]] = field(default=None)
-    metadata: Optional[ScanMetadata] = field(default=None)
+    matches: list[Match] | None = field(default=None)
+    packages: list[Package] | None = field(default=None)
+    metadata: ScanMetadata | None = field(default=None)
 
     @property
     def ID(self):
@@ -358,7 +359,7 @@ class Label(Enum):
         self.display = display
 
     @staticmethod
-    def encode(label: "Label"):
+    def encode(label: Label):
         return label.display
 
     @staticmethod
@@ -366,7 +367,7 @@ class Label(Enum):
         return Label.from_str(val)
 
     @staticmethod
-    def from_str(text: str) -> Optional["Label"]:
+    def from_str(text: str) -> Label | None:
         text = text.lower()
         if text in ("tp", "true", "truepositive", "true-positive"):
             return Label.TruePositive
@@ -389,10 +390,10 @@ class Label(Enum):
 @dataclass_json
 @dataclass(frozen=True, eq=True, order=True)
 class ImageSpecifier:
-    exact: Optional[str] = None
-    regex: Optional[str] = None
-    prefix: Optional[str] = None
-    suffix: Optional[str] = None
+    exact: str | None = None
+    regex: str | None = None
+    prefix: str | None = None
+    suffix: str | None = None
 
     def matches_image(self, image: str):
         if not self.exact and not self.regex and not self.prefix and not self.suffix:
@@ -438,15 +439,15 @@ class LabelEntry:
         ),
     )  # TP/FP/Unclear indication (required)
     vulnerability_id: str  # the CVE ID (required)
-    image: Optional[ImageSpecifier] = None  # image specifier
-    note: Optional[str] = None  # a general comment field (optional)
-    source: Optional[str] = None  # e.g. manually added, import, etc. (optional)
-    effective_cve: Optional[str] = (
+    image: ImageSpecifier | None = None  # image specifier
+    note: str | None = None  # a general comment field (optional)
+    source: str | None = None  # e.g. manually added, import, etc. (optional)
+    effective_cve: str | None = (
         None  # the CVE the vulnerability ID matches to (optional)
     )
-    user: Optional[str] = None  # the user that added this label (optional)
-    package: Optional[Package] = None  # package name/version
-    fullentry_fields: List[str] = field(
+    user: str | None = None  # the user that added this label (optional)
+    package: Package | None = None  # package name/version
+    fullentry_fields: list[str] = field(
         default_factory=list,
     )  # values that must be found in the full_entry field on the match object
     timestamp: datetime.datetime = field(
@@ -456,7 +457,7 @@ class LabelEntry:
             decoder=datetime.datetime.fromisoformat,
         ),
     )
-    tool: Optional[str] = None  # used to indicate the tool that first saw this label
+    tool: str | None = None  # used to indicate the tool that first saw this label
     lookup_effective_cve: InitVar[bool] = False
 
     ID: str = field(default_factory=lambda: str(uuid.uuid4()))
@@ -496,7 +497,7 @@ id: {self.ID}
     def __eq__(self, other: Any) -> bool:
         return hash(self) == hash(other)
 
-    def matches_image(self, image: Optional[str]):
+    def matches_image(self, image: str | None):
         if not self.image or not image:
             # if no imag specifier is provided, then any image matches automatically
             return True
@@ -511,7 +512,7 @@ id: {self.ID}
             return cve
         return None
 
-    def _effective_cve_year(self) -> Optional[int]:
+    def _effective_cve_year(self) -> int | None:
         cve = self.effective_cve
         if not cve:
             # this is rather expensive, so try this last
@@ -520,10 +521,10 @@ id: {self.ID}
             return None
         return parse_year_from_id(cve)
 
-    def effective_year(self, by_cve=False) -> Optional[int]:
+    def effective_year(self, by_cve=False) -> int | None:
         if by_cve:
             return self._effective_cve_year()
-        candidate: Optional[Union[int, str]] = self.vulnerability_id
+        candidate: int | str | None = self.vulnerability_id
         if self.vulnerability_id:
             candidate = parse_year_from_id(self.vulnerability_id)
         if not isinstance(candidate, int):
@@ -534,11 +535,11 @@ id: {self.ID}
 
 
 class LabelEntryCollection:
-    def __init__(self, entries: List[LabelEntry]):
+    def __init__(self, entries: list[LabelEntry]):
         self.entries = entries
 
     @functools.cache  # noqa: B019
-    def for_image(self, image: str) -> List[LabelEntry]:
+    def for_image(self, image: str) -> list[LabelEntry]:
         return [e for e in self.entries if e.matches_image(image)]
 
 
@@ -546,10 +547,10 @@ class LabelEntryCollection:
 class ScanRequest:
     image: str
     tool: str
-    label: Optional[str] = None
-    profile: Optional[str] = None
-    provides: Optional[str] = None
-    takes: Optional[str] = None
+    label: str | None = None
+    profile: str | None = None
+    provides: str | None = None
+    takes: str | None = None
     refresh: bool = True
 
     @staticmethod
@@ -591,7 +592,7 @@ class ScanRequest:
 @dataclass()
 class ResultState:
     request: ScanRequest
-    config: Optional[ScanConfiguration] = None
+    config: ScanConfiguration | None = None
 
 
 @dataclass_json
@@ -600,14 +601,14 @@ class ResultSet:
     name: str
     state: list[ResultState] = field(default_factory=list)
 
-    def get(self, tool: str, image: str) -> Optional[ResultState]:
+    def get(self, tool: str, image: str) -> ResultState | None:
         img = Image(image)
         for state in self.state:
             if state.request.tool == tool and img.is_like(state.request.image):
                 return state
         return None
 
-    def provider(self, image: str, provides: str) -> Optional[ResultState]:
+    def provider(self, image: str, provides: str) -> ResultState | None:
         img = Image(image)
         for state in self.state:
             if img.is_like(state.request.image) and state.request.provides == provides:
@@ -618,7 +619,7 @@ class ResultSet:
         self.state.append(ResultState(request=request, config=scan_config))
 
     @property
-    def descriptions(self) -> List[str]:
+    def descriptions(self) -> list[str]:
         descriptions = []
         for result_state in self.state:
             if result_state.config:
@@ -626,7 +627,7 @@ class ResultSet:
         return descriptions
 
     @property
-    def ids(self) -> List[str]:
+    def ids(self) -> list[str]:
         ids = []
         for result_state in self.state:
             if result_state.config:
@@ -634,7 +635,7 @@ class ResultSet:
         return ids
 
     @property
-    def result_state_by_image(self) -> Dict[str, List[ResultState]]:
+    def result_state_by_image(self) -> dict[str, list[ResultState]]:
         descriptions = collections.defaultdict(list)
         for result_state in self.state:
             if result_state.config:
