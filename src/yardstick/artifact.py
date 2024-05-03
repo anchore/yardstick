@@ -109,16 +109,6 @@ class Image:
         return True
 
 
-@dataclass_json
-@dataclass
-class ScanDetail:
-    built: str
-    schemaVersion: int
-    location: str
-    checksum: str
-    error: str
-
-
 # note: this dataclass cannot be modified as it is used in Match.id and responsible for accessing previously stored results.
 # note: we cannot freeze this class since the tool installation may add additional metadata
 @dataclass_json
@@ -137,7 +127,7 @@ class ScanConfiguration:
         ),
     )
     tool_input: Optional[str] = None
-    detail: Dict[str, ScanDetail] = field(default_factory=dict)
+    detail: dict[str, dict | str] = field(default_factory=dict)
     ID: str = field(default_factory=lambda: str(uuid.uuid4()))
 
     def __post_init__(self):
