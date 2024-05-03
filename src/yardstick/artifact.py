@@ -183,7 +183,7 @@ tool:\t{self.tool}"""
         path: str | None = None,
         timestamp: datetime.datetime | None = None,
         label: str | None = None,
-    ) -> ScanConfiguration:
+    ):
         if tool:
             tool_obj = Tool(tool, label=label)
 
@@ -357,7 +357,7 @@ class Label(Enum):
         self.display = display
 
     @staticmethod
-    def encode(label: Label):
+    def encode(label):
         return label.display
 
     @staticmethod
@@ -365,7 +365,7 @@ class Label(Enum):
         return Label.from_str(val)
 
     @staticmethod
-    def from_str(text: str) -> Label | None:
+    def from_str(text: str):
         text = text.lower()
         if text in ("tp", "true", "truepositive", "true-positive"):
             return Label.TruePositive

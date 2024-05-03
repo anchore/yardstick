@@ -46,7 +46,6 @@ def load(name: str, store_root: str | None = None) -> artifact.ResultSet:
 
     with open(data_path, encoding="utf-8") as data_file:
         data_json = data_file.read()
-    print(data_json)
     return artifact.ResultSet.from_json(data_json)  # type: ignore[attr-defined]
 
 
