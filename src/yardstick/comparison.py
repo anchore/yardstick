@@ -96,6 +96,8 @@ class AgainstLabels:
         if result.matches is None:
             raise ValueError("no matches found in result")
 
+        matched_true_positive_label_entries = set()
+
         for match in result.matches:
             # capture matches_by_label & labels_by_match ...
             label_entries = find_labels_for_match(
@@ -105,6 +107,10 @@ class AgainstLabels:
                 lineage=lineage,
                 fuzzy_package_match=self.fuzzy_package_match,
             )
+
+            for label_entry in label_entries:
+                if label_entry.label == Label.TruePositive:
+                    matched_true_positive_label_entries.add(label_entry)
 
             # remove any labels that have been paried with a result match
             self.false_negative_label_entries -= set(label_entries)
@@ -134,10 +140,52 @@ class AgainstLabels:
             elif Label.FalsePositive in label_set:
                 self.false_positive_matches.append(match)
 
+        # let's do one more pass regarding FNs. Since this is calculated based on the label entries we have,
+        # and there may be multiple ways to represent the same vuln (ELSA-* and CVE-*), we need to ensure that
+        # we remove any FNs that are actually TPs, but represented differently. This involves some guess work.
+        self.false_negative_label_entries = prune_represented_fns(
+            self.false_negative_label_entries, matched_true_positive_label_entries
+        )
+
         self.summary = LabelComparisonSummary(result=result, comparison=self)
 
     def __str__(self):
         return str(self.summary)
+
+
+def prune_represented_fns(
+    false_negative_label_entries: set[LabelEntry],
+    matched_true_positive_label_entries: set[LabelEntry],
+) -> set[LabelEntry]:
+    # for every FN, if there is a TP that is a subset of the FN, remove the FN
+
+    remove_fns = set()
+    evidence = set()
+    for tp in matched_true_positive_label_entries:
+        for fn in false_negative_label_entries:
+            if tp.package != fn.package:
+                continue
+            if has_overlapping_vulnerability_id(tp, fn):
+                remove_fns.add(fn)
+                evidence.add((tp, fn))
+
+    return false_negative_label_entries - remove_fns
+
+
+def has_overlapping_vulnerability_id(tp: LabelEntry, fn: LabelEntry) -> bool:
+
+    left_ids = {tp.vulnerability_id, tp.effective_cve}
+    right_ids = {fn.vulnerability_id, fn.effective_cve}
+
+    if "" in left_ids:
+        left_ids.remove("")
+
+    if "" in right_ids:
+        right_ids.remove("")
+
+    result = bool(left_ids & right_ids)
+
+    return result
 
 
 def _f1_score(tp, fp, fn):

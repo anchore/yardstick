@@ -27,7 +27,7 @@ def find_labels_for_match(  # noqa: PLR0913, PLR0912, C901
     matched_label_entries: List[LabelEntry] = []
     for label_entry in label_entries:
         # this field must be matched to continue
-        if label_entry.vulnerability_id != match.vulnerability.id:
+        if not has_overlapping_vulnerability_id(label_entry, match):
             continue
 
         # this field must be matched to continue
@@ -78,6 +78,19 @@ def find_labels_for_match(  # noqa: PLR0913, PLR0912, C901
             # we should match on a minimum number of fields, otherwise a blank entry with a vuln ID will match, which is wrong
             matched_label_entries.append(label_entry)
     return matched_label_entries
+
+
+def has_overlapping_vulnerability_id(label_entry: LabelEntry, match: Match) -> bool:
+    left_ids = {label_entry.vulnerability_id, label_entry.effective_cve}
+    right_ids = {match.vulnerability.id, match.vulnerability.cve_id}
+
+    if "" in left_ids:
+        left_ids.remove("")
+
+    if "" in right_ids:
+        right_ids.remove("")
+
+    return bool(left_ids & right_ids)
 
 
 def _contains_as_value(o, target):

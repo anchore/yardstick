@@ -73,6 +73,14 @@ def test_comparison_against_labels():
             package=package_libc_2,
             **common_label_options,
         ),
+        # do not have matches and already are covered with effective CVE... but the package mismatches
+        artifact.LabelEntry(
+            label=artifact.Label.TruePositive,
+            vulnerability_id="ELSA-2020-123567",
+            effective_cve="CVE-2019-18276",
+            package=package_libsystemd_25,
+            **common_label_options,
+        ),
     ]
 
     label_entries = [
@@ -121,6 +129,14 @@ def test_comparison_against_labels():
             package=package_libsystemd_25,
             **common_label_options,
         ),
+        # do not have matches and already are covered with effective CVE
+        artifact.LabelEntry(
+            label=artifact.Label.TruePositive,
+            vulnerability_id="ELSA-2020-123567",
+            effective_cve="CVE-2019-18276",
+            package=package_bash_5,
+            **common_label_options,
+        ),
     ]
 
     actual = comparison.AgainstLabels(
@@ -132,7 +148,7 @@ def test_comparison_against_labels():
     assert actual.summary.true_positives == len(expected_tp_matches)
     assert actual.summary.false_positives == len(expected_fp_matches)
     assert actual.summary.false_negatives == len(false_negative_label_entries)
-    assert actual.summary.f1_score == 0.5
+    assert actual.summary.f1_score == 0.4444444444444444
 
     assert set(actual.true_positive_matches) == set(expected_tp_matches)
     assert set(actual.false_positive_matches) == set(expected_fp_matches)
