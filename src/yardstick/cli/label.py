@@ -226,6 +226,7 @@ def explore_labels(
     label_entries = store.labels.load_for_image(
         [scan_config.image, *lineage],
         year_max_limit=year_max_limit,
+        year_from_cve_only=derive_year_from_cve_only,
     )
 
     filter_spec = ""
