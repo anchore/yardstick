@@ -10,6 +10,7 @@ import subprocess
 import sys
 import tarfile
 import tempfile
+import zstandard as zstd
 from dataclasses import dataclass
 from typing import Any, Dict, List, Optional
 
@@ -257,24 +258,7 @@ class Grype(VulnerabilityScanner):
 
             # extract the metadata.json file from the db tar.gz archive (db_import_path)
             # and use it to determine the checksum of the DB
-            with tarfile.open(db_import_path, "r:gz") as tar:
-                metadata_path = None
-                for member in tar.getmembers():
-                    if member.name.endswith("metadata.json"):
-                        metadata_path = member.name
-                        break
-
-                if not metadata_path:
-                    raise ValueError(
-                        f"could not find metadata.json in {db_import_path!r}",
-                    )
-
-                extractor = tar.extractfile(metadata_path)
-                if extractor:
-                    with extractor as metadata_file:
-                        metadata = json.load(metadata_file)
-
-                    db_identity = metadata["checksum"]
+            db_identity = extract_metadata(db_import_path)
 
         logging.debug(
             f"parsed import-db={db_import_path!r} from version={original_version!r} new version={version!r}",
@@ -433,3 +417,42 @@ class Grype(VulnerabilityScanner):
                 default=utils.dig(full_entry, "package_type", default="unknown"),
             ),
         )
+
+
+def extract_metadata(db_import_path):
+    if db_import_path.endswith(".tar.gz"):
+        with tarfile.open(db_import_path, "r:gz") as tar:
+            return extract_metadata_from_tar(tar)
+    elif db_import_path.endswith(".tar.zst") or db_import_path.endswith(".tar.zstd"):
+        dctx = zstd.ZstdDecompressor()
+
+        with tempfile.TemporaryFile(suffix=".tar") as ofh:
+            with open(db_import_path, "rb") as ifh:
+                dctx.copy_stream(ifh, ofh)
+            ofh.seek(0)
+            with tarfile.open(fileobj=ofh) as z:
+                return extract_metadata_from_tar(z)
+    else:
+        raise ValueError(f"Unsupported archive format: {db_import_path}")
+
+
+def extract_metadata_from_tar(tar):
+    metadata_path = None
+    for member in tar.getmembers():
+        if member.name.endswith("metadata.json"):
+            metadata_path = member.name
+            break
+
+    if not metadata_path:
+        raise ValueError(
+            "could not find metadata.json in the archive",
+        )
+
+    extractor = tar.extractfile(metadata_path)
+    if extractor:
+        with extractor as metadata_file:
+            metadata_content = metadata_file.read()
+            print(metadata_content)
+            metadata = json.loads(metadata_content)
+
+        return metadata["checksum"]
