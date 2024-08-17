@@ -329,7 +329,7 @@ class Grype(VulnerabilityScanner):
                 tool_obj.run("db", "import", db_import_path)
         elif update_db:
             logging.debug("updating db from OSS")
-            tool_obj.run("db", "update")
+            tool_obj.run("db", "update", "-vv")
 
         return tool_obj
 
