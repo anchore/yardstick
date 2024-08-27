@@ -35,6 +35,7 @@ class Tool:
     takes: str | None = None
     profile: str | None = None
     refresh: bool = True
+    validation_role: str | None = None
 
     @property
     def short(self):
@@ -114,12 +115,20 @@ class ScanMatrix:
 
         return host, path, repository, tag, digest
 
+@dataclass()
+class Validation:
+    name: str = "default"
+    max_f1_decrease: float = 0.0
+    max_unlabeled_match_percent: int = 0
+    max_new_false_negatives: int = 0
 
 @dataclass()
 class ResultSet:
     description: str = ""
     declared: list[artifact.ScanRequest] = field(default_factory=list)
     matrix: ScanMatrix = field(default_factory=ScanMatrix)
+    max_year: int | None = None
+    validations: list[Validation] = field(default_factory=list)
 
     def images(self) -> list[str]:
         return self.matrix.images + [req.image for req in self.declared]
@@ -150,6 +159,13 @@ class Application:
     result_sets: dict[str, ResultSet] = field(default_factory=dict)
     default_max_year: int | None = None
     derive_year_from_cve_only: bool = False
+
+    def max_year_for_result_set(self, result_set: str) -> int | None:
+        rs = self.result_sets.get(result_set, None)
+        if rs and rs.max_year:
+            return rs.max_year
+
+        return self.default_max_year
 
 
 def clean_dict_keys(d):

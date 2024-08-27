@@ -8,7 +8,7 @@ import importlib_metadata
 import yaml
 
 from yardstick import store
-from yardstick.cli import config, label, result
+from yardstick.cli import config, label, result, validate
 
 
 @click.option("--verbose", "-v", default=False, help="show logs", is_flag=True)
@@ -126,5 +126,6 @@ def version(_: config.Application):
     print(f"{d.name} {d.version} ({d.locate_file(d.name).parent})")
 
 
+cli.add_command(validate.validate)
 cli.add_command(result.group)
 cli.add_command(label.group)
