@@ -4,7 +4,7 @@ import logging
 from typing import Any
 
 import click
-import pkg_resources
+import importlib_metadata
 import yaml
 
 from yardstick import store
@@ -120,10 +120,10 @@ def show_config(cfg: config.Application):
 @cli.command(name="version", help="show the installed version of yardstick")
 @click.pass_obj
 def version(_: config.Application):
-    d = pkg_resources.get_distribution("yardstick")
+    d = importlib_metadata.distribution("yardstick")
     if not d:
         raise RuntimeError("yardstick install information could not be found")
-    print(repr(d))
+    print(f"{d.name} {d.version} ({d.locate_file(d.name).parent})")
 
 
 cli.add_command(result.group)
