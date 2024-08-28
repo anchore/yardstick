@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 import logging
 import os
 import re
@@ -16,6 +15,7 @@ from yardstick.cli import display, config
 
 
 # see the .yardstick.yaml configuration for details
+# TODO: remove this; package specific
 default_result_set = "pr_vs_latest_via_sbom"
 yardstick.utils.grype_db.raise_on_failure(False)
 
@@ -40,7 +40,14 @@ class Gate:
         # - fail when current F1 score drops below last release F1 score (or F1 score is indeterminate)
         # - fail when indeterminate % > 10%
         # - fail when there is a rise in FNs
-        latest_release_tool, current_tool = guess_tool_orientation(label_comparison_stats.tools)
+        if self.reference_tool_string is None or self.candidate_tool_string is None:
+            latest_release_tool, current_tool = guess_tool_orientation(label_comparison_stats.tools)
+        elif self.candidate_tool_string == label_comparison_stats.tools[1]:
+            latest_release_tool, current_tool = label_comparison_stats.tools[0], label_comparison_stats.tools[1]
+        elif self.candidate_tool_string == label_comparison_stats.tools[0]:
+            latest_release_tool, current_tool = label_comparison_stats.tools[1], label_comparison_stats.tools[0]
+        else:
+            raise ValueError(f"reference tool specified, but not found: {self.reference_tool_string} is not one of {' '.join(label_comparison_stats.tools)}")
 
         latest_release_comparisons_by_image = {comp.config.image: comp for comp in label_comparisons if comp.config.tool == latest_release_tool }
         current_comparisons_by_image = {comp.config.image: comp for comp in label_comparisons if comp.config.tool == current_tool }
@@ -162,6 +169,7 @@ def validate_image(cfg: config.Application, result_set: str, descriptions: list[
     result_set_config = cfg.result_sets[result_set]
     validation = result_set_config.validations[0] # TODO: support N, don't hard code index
     max_year = cfg.max_year_for_result_set(result_set)
+    reference_tool, candidate_tool = result_set_config.tool_comparisons()
 
     print(f"{bcolors.HEADER}Running relative comparison...", bcolors.RESET)
     relative_comparison = yardstick.compare_results(descriptions=descriptions, year_max_limit=max_year)
@@ -262,6 +270,8 @@ def validate_image(cfg: config.Application, result_set: str, descriptions: list[
                 max_f1_regression=validation.max_f1_decrease,
                 max_unlabeled_percent=validation.max_unlabeled_match_percent,
                 max_new_false_negatives=validation.max_new_false_negatives,
+                reference_tool_string=reference_tool,
+                candidate_tool_string=candidate_tool,
                 )
 
 

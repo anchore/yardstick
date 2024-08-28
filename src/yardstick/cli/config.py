@@ -130,6 +130,17 @@ class ResultSet:
     max_year: int | None = None
     validations: list[Validation] = field(default_factory=list)
 
+
+    def tool_comparisons(self) -> tuple[str, str]:
+        reference, candidate = "", ""
+        for t in self.matrix.tools:
+            if t.validation_role == "candidate":
+                candidate = f"{t.name}@{t.version}"
+            if t.validation_role == "reference":
+                reference = f"{t.name}@{t.version}"
+
+        return reference, candidate
+
     def images(self) -> list[str]:
         return self.matrix.images + [req.image for req in self.declared]
 
