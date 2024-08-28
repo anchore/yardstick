@@ -115,12 +115,14 @@ class ScanMatrix:
 
         return host, path, repository, tag, digest
 
+
 @dataclass()
 class Validation:
     name: str = "default"
     max_f1_decrease: float = 0.0
     max_unlabeled_match_percent: int = 0
     max_new_false_negatives: int = 0
+
 
 @dataclass()
 class ResultSet:
@@ -129,7 +131,6 @@ class ResultSet:
     matrix: ScanMatrix = field(default_factory=ScanMatrix)
     max_year: int | None = None
     validations: list[Validation] = field(default_factory=list)
-
 
     def tool_comparisons(self) -> tuple[str, str]:
         reference, candidate = "", ""

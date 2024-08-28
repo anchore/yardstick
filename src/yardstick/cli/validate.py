@@ -1,7 +1,4 @@
-import logging
-import os
 import re
-import subprocess
 import sys
 from typing import Optional
 
@@ -10,7 +7,7 @@ from tabulate import tabulate
 from dataclasses import dataclass, InitVar, field
 
 import yardstick
-from yardstick import store, comparison, artifact, arrange
+from yardstick import store, comparison, artifact
 from yardstick.cli import display, config
 
 
@@ -18,6 +15,7 @@ from yardstick.cli import display, config
 # TODO: remove this; package specific
 default_result_set = "pr_vs_latest_via_sbom"
 yardstick.utils.grype_db.raise_on_failure(False)
+
 
 @dataclass
 class Gate:
@@ -31,7 +29,11 @@ class Gate:
     reference_tool_string: str | None = None
     candidate_tool_string: str | None = None
 
-    def __post_init__(self, label_comparisons: Optional[list[comparison.AgainstLabels]], label_comparison_stats: Optional[comparison.ImageToolLabelStats]):
+    def __post_init__(
+        self,
+        label_comparisons: Optional[list[comparison.AgainstLabels]],
+        label_comparison_stats: Optional[comparison.ImageToolLabelStats],
+    ):
         if not label_comparisons and not label_comparison_stats:
             return
 
@@ -41,35 +43,64 @@ class Gate:
         # - fail when indeterminate % > 10%
         # - fail when there is a rise in FNs
         if self.reference_tool_string is None or self.candidate_tool_string is None:
-            latest_release_tool, current_tool = guess_tool_orientation(label_comparison_stats.tools)
+            latest_release_tool, current_tool = guess_tool_orientation(
+                label_comparison_stats.tools
+            )
         elif self.candidate_tool_string == label_comparison_stats.tools[1]:
-            latest_release_tool, current_tool = label_comparison_stats.tools[0], label_comparison_stats.tools[1]
+            latest_release_tool, current_tool = (
+                label_comparison_stats.tools[0],
+                label_comparison_stats.tools[1],
+            )
         elif self.candidate_tool_string == label_comparison_stats.tools[0]:
-            latest_release_tool, current_tool = label_comparison_stats.tools[1], label_comparison_stats.tools[0]
+            latest_release_tool, current_tool = (
+                label_comparison_stats.tools[1],
+                label_comparison_stats.tools[0],
+            )
         else:
-            raise ValueError(f"reference tool specified, but not found: {self.reference_tool_string} is not one of {' '.join(label_comparison_stats.tools)}")
+            raise ValueError(
+                f"reference tool specified, but not found: {self.reference_tool_string} is not one of {' '.join(label_comparison_stats.tools)}"
+            )
 
-        latest_release_comparisons_by_image = {comp.config.image: comp for comp in label_comparisons if comp.config.tool == latest_release_tool }
-        current_comparisons_by_image = {comp.config.image: comp for comp in label_comparisons if comp.config.tool == current_tool }
+        latest_release_comparisons_by_image = {
+            comp.config.image: comp
+            for comp in label_comparisons
+            if comp.config.tool == latest_release_tool
+        }
+        current_comparisons_by_image = {
+            comp.config.image: comp
+            for comp in label_comparisons
+            if comp.config.tool == current_tool
+        }
 
         for image, comp in current_comparisons_by_image.items():
-            latest_f1_score = latest_release_comparisons_by_image[image].summary.f1_score
+            latest_f1_score = latest_release_comparisons_by_image[
+                image
+            ].summary.f1_score
             current_f1_score = comp.summary.f1_score
             if current_f1_score < latest_f1_score - self.max_f1_regression:
-                reasons.append(f"current F1 score is lower than the latest release F1 score: {bcolors.BOLD+bcolors.UNDERLINE}current={current_f1_score:0.2f} latest={latest_f1_score:0.2f}{bcolors.RESET} image={image}")
+                reasons.append(
+                    f"current F1 score is lower than the latest release F1 score: {bcolors.BOLD+bcolors.UNDERLINE}current={current_f1_score:0.2f} latest={latest_f1_score:0.2f}{bcolors.RESET} image={image}"
+                )
 
             if comp.summary.indeterminate_percent > self.max_unlabeled_percent:
-                reasons.append(f"current indeterminate matches % is greater than {self.max_unlabeled_percent}%: {bcolors.BOLD+bcolors.UNDERLINE}current={comp.summary.indeterminate_percent:0.2f}%{bcolors.RESET} image={image}")
+                reasons.append(
+                    f"current indeterminate matches % is greater than {self.max_unlabeled_percent}%: {bcolors.BOLD+bcolors.UNDERLINE}current={comp.summary.indeterminate_percent:0.2f}%{bcolors.RESET} image={image}"
+                )
 
-            latest_fns = latest_release_comparisons_by_image[image].summary.false_negatives
+            latest_fns = latest_release_comparisons_by_image[
+                image
+            ].summary.false_negatives
             current_fns = comp.summary.false_negatives
             if current_fns > latest_fns + self.max_new_false_negatives:
-                reasons.append(f"current false negatives is greater than the latest release false negatives: {bcolors.BOLD+bcolors.UNDERLINE}current={current_fns} latest={latest_fns}{bcolors.RESET} image={image}")
+                reasons.append(
+                    f"current false negatives is greater than the latest release false negatives: {bcolors.BOLD+bcolors.UNDERLINE}current={current_fns} latest={latest_fns}{bcolors.RESET} image={image}"
+                )
 
         self.reasons = reasons
 
     def passed(self):
         return len(self.reasons) == 0
+
 
 def guess_tool_orientation(tools: list[str]):
     """
@@ -98,17 +129,17 @@ def guess_tool_orientation(tools: list[str]):
     return tool_a, tool_b
 
 
-
 class bcolors:
-    HEADER = '\033[95m'
-    OKBLUE = '\033[94m'
-    OKCYAN = '\033[96m'
-    OKGREEN = '\033[92m'
-    WARNING = '\033[93m'
-    FAIL = '\033[91m'
-    BOLD = '\033[1m'
-    UNDERLINE = '\033[4m'
-    RESET = '\033[0m'
+    HEADER = "\033[95m"
+    OKBLUE = "\033[94m"
+    OKCYAN = "\033[96m"
+    OKGREEN = "\033[92m"
+    WARNING = "\033[93m"
+    FAIL = "\033[91m"
+    BOLD = "\033[1m"
+    UNDERLINE = "\033[4m"
+    RESET = "\033[0m"
+
 
 if not sys.stdout.isatty():
     bcolors.HEADER = ""
@@ -121,18 +152,30 @@ if not sys.stdout.isatty():
     bcolors.UNDERLINE = ""
     bcolors.RESET = ""
 
+
 def show_results_used(results: list[artifact.ScanResult]):
-    print(f"   Results used:")
+    print("   Results used:")
     for idx, result in enumerate(results):
         branch = "├──"
         if idx == len(results) - 1:
             branch = "└──"
-        print(f"    {branch} {result.ID} : {result.config.tool} against {result.config.image}")
+        print(
+            f"    {branch} {result.ID} : {result.config.tool} against {result.config.image}"
+        )
     print()
 
 
-def validate_result_set(cfg: config.Application, result_set: str, images: list[str], always_run_label_comparison: bool, verbosity: int, label_entries: Optional[list[artifact.LabelEntry]] = None):
-    print(f"{bcolors.HEADER}{bcolors.BOLD}Validating with {result_set!r}", bcolors.RESET)
+def validate_result_set(
+    cfg: config.Application,
+    result_set: str,
+    images: list[str],
+    always_run_label_comparison: bool,
+    verbosity: int,
+    label_entries: Optional[list[artifact.LabelEntry]] = None,
+):
+    print(
+        f"{bcolors.HEADER}{bcolors.BOLD}Validating with {result_set!r}", bcolors.RESET
+    )
     result_set_obj = store.result_set.load(name=result_set)
 
     ret = []
@@ -146,7 +189,14 @@ def validate_result_set(cfg: config.Application, result_set: str, images: list[s
             print("   ", f"with {state.request.tool}")
         print()
 
-        gate = validate_image(cfg, result_set, [s.config.path for s in result_states], always_run_label_comparison=always_run_label_comparison, verbosity=verbosity, label_entries=label_entries)
+        gate = validate_image(
+            cfg,
+            result_set,
+            [s.config.path for s in result_states],
+            always_run_label_comparison=always_run_label_comparison,
+            verbosity=verbosity,
+            label_entries=label_entries,
+        )
         ret.append(gate)
 
         failure = not gate.passed()
@@ -157,38 +207,63 @@ def validate_result_set(cfg: config.Application, result_set: str, images: list[s
 
         print()
         size = 120
-        print("▁"*size)
-        print("░"*size)
-        print("▔"*size)
+        print("▁" * size)
+        print("░" * size)
+        print("▔" * size)
     return ret
 
-def validate_image(cfg: config.Application, result_set: str, descriptions: list[str], always_run_label_comparison: bool, verbosity: int, label_entries: Optional[list[artifact.LabelEntry]] = None):
+
+def validate_image(
+    cfg: config.Application,
+    result_set: str,
+    descriptions: list[str],
+    always_run_label_comparison: bool,
+    verbosity: int,
+    label_entries: Optional[list[artifact.LabelEntry]] = None,
+):
     # do a relative comparison
     # - show comparison summary (no gating action)
     # - list out all individual match differences
     result_set_config = cfg.result_sets[result_set]
-    validation = result_set_config.validations[0] # TODO: support N, don't hard code index
+    validation = result_set_config.validations[
+        0
+    ]  # TODO: support N, don't hard code index
     max_year = cfg.max_year_for_result_set(result_set)
     reference_tool, candidate_tool = result_set_config.tool_comparisons()
 
     print(f"{bcolors.HEADER}Running relative comparison...", bcolors.RESET)
-    relative_comparison = yardstick.compare_results(descriptions=descriptions, year_max_limit=max_year)
+    relative_comparison = yardstick.compare_results(
+        descriptions=descriptions, year_max_limit=max_year
+    )
     show_results_used(relative_comparison.results)
 
     # show the relative comparison results
     if verbosity > 0:
         details = verbosity > 1
-        display.preserved_matches(relative_comparison, details=details, summary=True, common=False)
+        display.preserved_matches(
+            relative_comparison, details=details, summary=True, common=False
+        )
         print()
 
     # bail if there are no differences found
-    if not always_run_label_comparison and not sum([len(relative_comparison.unique[result.ID]) for result in relative_comparison.results]):
+    if not always_run_label_comparison and not sum(
+        [
+            len(relative_comparison.unique[result.ID])
+            for result in relative_comparison.results
+        ]
+    ):
         print("no differences found between tool results")
         return Gate(None, None)
 
     # do a label comparison
     print(f"{bcolors.HEADER}Running comparison against labels...", bcolors.RESET)
-    results, label_entries, comparisons_by_result_id, stats_by_image_tool_pair = yardstick.compare_results_against_labels(descriptions=descriptions, year_max_limit=max_year, label_entries=label_entries)
+    results, label_entries, comparisons_by_result_id, stats_by_image_tool_pair = (
+        yardstick.compare_results_against_labels(
+            descriptions=descriptions,
+            year_max_limit=max_year,
+            label_entries=label_entries,
+        )
+    )
     show_results_used(results)
 
     if verbosity > 0:
@@ -201,7 +276,9 @@ def validate_image(cfg: config.Application, result_set: str, descriptions: list[
             show_summaries=True,
         )
 
-    latest_release_tool, current_tool = guess_tool_orientation([r.config.tool for r in results])
+    latest_release_tool, current_tool = guess_tool_orientation(
+        [r.config.tool for r in results]
+    )
 
     # show the relative comparison unique differences paired up with label conclusions (TP/FP/FN/TN/Unknown)
     all_rows: list[list[Any]] = []
@@ -215,7 +292,6 @@ def validate_image(cfg: config.Application, result_set: str, descriptions: list[
                 label = ", ".join([l.name for l in labels])
             else:
                 label = labels[0].name
-
 
             color = ""
             commentary = ""
@@ -251,38 +327,79 @@ def validate_image(cfg: config.Application, result_set: str, descriptions: list[
             )
 
     def escape_ansi(line):
-        ansi_escape = re.compile(r'(?:\x1B[@-_]|[\x80-\x9F])[0-?]*[ -/]*[@-~]')
-        return ansi_escape.sub('', line)
+        ansi_escape = re.compile(r"(?:\x1B[@-_]|[\x80-\x9F])[0-?]*[ -/]*[@-~]")
+        return ansi_escape.sub("", line)
 
     # sort but don't consider ansi escape codes
-    all_rows = sorted(all_rows, key=lambda x: escape_ansi(str(x[0]+x[1]+x[2]+x[3])))
+    all_rows = sorted(
+        all_rows, key=lambda x: escape_ansi(str(x[0] + x[1] + x[2] + x[3]))
+    )
     if len(all_rows) == 0:
         print("No differences found between tooling (with labels)")
     else:
         print("Match differences between tooling (with labels):")
         indent = "   "
-        print(indent + tabulate([["TOOL PARTITION", "PACKAGE", "VULNERABILITY", "LABEL", "COMMENTARY"]]+all_rows, tablefmt="plain").replace("\n", "\n" + indent) + "\n")
-
+        print(
+            indent
+            + tabulate(
+                [["TOOL PARTITION", "PACKAGE", "VULNERABILITY", "LABEL", "COMMENTARY"]]
+                + all_rows,
+                tablefmt="plain",
+            ).replace("\n", "\n" + indent)
+            + "\n"
+        )
 
     # populate the quality gate with data that can evaluate pass/fail conditions
-    return Gate(label_comparisons=comparisons_by_result_id.values(),
-                label_comparison_stats=stats_by_image_tool_pair,
-                max_f1_regression=validation.max_f1_decrease,
-                max_unlabeled_percent=validation.max_unlabeled_match_percent,
-                max_new_false_negatives=validation.max_new_false_negatives,
-                reference_tool_string=reference_tool,
-                candidate_tool_string=candidate_tool,
-                )
+    return Gate(
+        label_comparisons=comparisons_by_result_id.values(),
+        label_comparison_stats=stats_by_image_tool_pair,
+        max_f1_regression=validation.max_f1_decrease,
+        max_unlabeled_percent=validation.max_unlabeled_match_percent,
+        max_new_false_negatives=validation.max_new_false_negatives,
+        reference_tool_string=reference_tool,
+        candidate_tool_string=candidate_tool,
+    )
 
 
 @click.command()
 @click.pass_obj
-@click.option("--image", "-i", "images", multiple=True, help="filter down to one or more images to validate with (don't use the full result set)")
-@click.option("--label-comparison", "-l", "always_run_label_comparison", is_flag=True, help="run label comparison irregardless of relative comparison results")
-@click.option("--breakdown-by-ecosystem", "-e", is_flag=True, help="show label comparison results broken down by ecosystem")
-@click.option("--verbose", "-v", "verbosity", count=True, help="show details of all comparisons")
-@click.option("--result-set", "-r", default=default_result_set, help="the result set to use for the quality gate")
-def validate(cfg: config.Application, images: list[str], always_run_label_comparison: bool, breakdown_by_ecosystem: bool, verbosity: int, result_set: str):
+@click.option(
+    "--image",
+    "-i",
+    "images",
+    multiple=True,
+    help="filter down to one or more images to validate with (don't use the full result set)",
+)
+@click.option(
+    "--label-comparison",
+    "-l",
+    "always_run_label_comparison",
+    is_flag=True,
+    help="run label comparison irregardless of relative comparison results",
+)
+@click.option(
+    "--breakdown-by-ecosystem",
+    "-e",
+    is_flag=True,
+    help="show label comparison results broken down by ecosystem",
+)
+@click.option(
+    "--verbose", "-v", "verbosity", count=True, help="show details of all comparisons"
+)
+@click.option(
+    "--result-set",
+    "-r",
+    default=default_result_set,
+    help="the result set to use for the quality gate",
+)
+def validate(
+    cfg: config.Application,
+    images: list[str],
+    always_run_label_comparison: bool,
+    breakdown_by_ecosystem: bool,
+    verbosity: int,
+    result_set: str,
+):
     setup_logging(verbosity)
 
     # let's not load any more labels than we need to, base this off of the images we're validating
@@ -294,18 +411,40 @@ def validate(cfg: config.Application, images: list[str], always_run_label_compar
         images = sorted(list(images))
 
     print("Loading label entries...", end=" ")
-    label_entries = store.labels.load_for_image(images, year_max_limit=cfg.max_year_for_result_set(result_set))
+    label_entries = store.labels.load_for_image(
+        images, year_max_limit=cfg.max_year_for_result_set(result_set)
+    )
     print(f"done! {len(label_entries)} entries loaded")
 
-    result_sets = [result_set] # today only one result set is supported, but more can be added
+    result_sets = [
+        result_set
+    ]  # today only one result set is supported, but more can be added
     gates = []
     for result_set in result_sets:
-        gates.extend(validate_result_set(cfg, result_set, images=images, always_run_label_comparison=always_run_label_comparison, verbosity=verbosity, label_entries=label_entries))
+        gates.extend(
+            validate_result_set(
+                cfg,
+                result_set,
+                images=images,
+                always_run_label_comparison=always_run_label_comparison,
+                verbosity=verbosity,
+                label_entries=label_entries,
+            )
+        )
         print()
 
         if breakdown_by_ecosystem:
-            print(f"{bcolors.HEADER}Breaking down label comparison by ecosystem performance...", bcolors.RESET)
-            results_by_image, label_entries, stats = yardstick.compare_results_against_labels_by_ecosystem(result_set=result_set, year_max_limit=cfg.max_year_for_result_set(result_set), label_entries=label_entries)
+            print(
+                f"{bcolors.HEADER}Breaking down label comparison by ecosystem performance...",
+                bcolors.RESET,
+            )
+            results_by_image, label_entries, stats = (
+                yardstick.compare_results_against_labels_by_ecosystem(
+                    result_set=result_set,
+                    year_max_limit=cfg.max_year_for_result_set(result_set),
+                    label_entries=label_entries,
+                )
+            )
             display.labels_by_ecosystem_comparison(
                 results_by_image,
                 stats,
