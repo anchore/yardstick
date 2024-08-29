@@ -59,22 +59,14 @@ class Delta:
     @property
     def commentary(self) -> str:
         commentary = ""
-        if not self.added:
-            # the tool which found the unique result is the latest release tool...
-            if self.label == artifact.Label.TruePositive.name:
-                # drats! we missed a case (this is a new FN)
-                commentary = "(this is a new FN 😱)"
-            elif artifact.Label.FalsePositive.name in self.label.name:
-                # we got rid of a FP! ["hip!", "hip!"]
-                commentary = "(got rid of a former FP 🙌)"
-        else:
-            # the tool which found the unique result is the current tool...
-            if self.label == artifact.Label.TruePositive.name:
-                # highest of fives! we found a new TP that the previous tool release missed!
-                commentary = "(this is a new TP 🙌)"
-            elif artifact.Label.FalsePositive.name in self.label.name:
-                # welp, our changes resulted in a new FP... not great, maybe not terrible?
-                commentary = "(this is a new FP 😱)"
+        if self.is_improved and self.label == artifact.Label.TruePositive.name:
+            commentary = "(this is a new TP 🙌)"
+        elif self.is_improved and self.label == artifact.Label.FalsePositive.name:
+            commentary = "(got rid of a former FP 🙌)"
+        elif not self.is_improved and self.label == artifact.Label.FalsePositive.name:
+            commentary = "(this is a new FP 😱)"
+        elif not self.is_improved and self.label == artifact.Label.TruePositive.name:
+            commentary = "(this is a new FN 😱)"
 
         return commentary
 
@@ -236,7 +228,7 @@ def validate_result_set(
     always_run_label_comparison: bool,
     verbosity: int,
     label_entries: Optional[list[artifact.LabelEntry]] = None,
-):
+) -> list[Gate]:
     print(
         f"{bcolors.HEADER}{bcolors.BOLD}Validating with {result_set!r}", bcolors.RESET
     )
@@ -255,7 +247,6 @@ def validate_result_set(
 
         gate = validate_image(
             gate_config=gate_config,
-            result_set=result_set,
             descriptions=[s.config.path for s in result_states],
             always_run_label_comparison=always_run_label_comparison,
             verbosity=verbosity,
@@ -278,8 +269,8 @@ def validate_result_set(
 
 
 def validate_image(
+    # result_set_obj: artifact.ResultSet,
     gate_config: GateConfig,
-    result_set: str,
     descriptions: list[str],
     always_run_label_comparison: bool,
     verbosity: int,
@@ -343,12 +334,22 @@ def validate_image(
         )
 
     # TODO: should be specified in config
-    latest_release_tool, current_tool = guess_tool_orientation(
-        [r.config.tool for r in results]
-    )
+    reference_tool, candidate_tool = None, None
+    for r in results:
+        if r.config.tool_label == reference_tool_label:
+            reference_tool = r.config.tool
+        if r.config.tool_label == candidate_tool_label:
+            candidate_tool = r.config.tool
+
+    if reference_tool is None or candidate_tool is None:
+        # TODO: log.warn that results should be re-captured with labels
+        reference_tool, candidate_tool = guess_tool_orientation(
+            [r.config.tool for r in results]
+        )
 
     # show the relative comparison unique differences paired up with label conclusions (TP/FP/FN/TN/Unknown)
     all_rows: list[list[Any]] = []
+    deltas = []
 
     for result in relative_comparison.results:
         label_comparison = comparisons_by_result_id[result.ID]
@@ -363,8 +364,16 @@ def validate_image(
 
             color = ""
             commentary = ""
+            delta = Delta(
+                tool=result.config.tool,
+                package_name=unique_match.package,
+                vulnerability_id=unique_match.ID,
+                added=result.config.tool != reference_tool,
+                # added=result.config.tool_label == candidate_tool_label,
+                label=label,
+            )
             # result.config.tool_label ...
-            if result.config.tool == latest_release_tool:
+            if result.config.tool == reference_tool:
                 # the tool which found the unique result is the latest release tool...
                 if label == artifact.Label.TruePositive.name:
                     # drats! we missed a case (this is a new FN)
@@ -385,6 +394,7 @@ def validate_image(
                     color = bcolors.FAIL
                     commentary = "(this is a new FP 😱)"
 
+            deltas.append(delta)
             all_rows.append(
                 [
                     f"{color}{result.config.tool} ONLY{bcolors.RESET}",
@@ -423,4 +433,7 @@ def validate_image(
         label_comparisons=comparisons_by_result_id.values(),
         label_comparison_stats=stats_by_image_tool_pair,
         config=gate_config,
+        deltas=deltas,
+        reference_tool_string=reference_tool,
+        candidate_tool_string=candidate_tool,
     )

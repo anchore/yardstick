@@ -171,9 +171,18 @@ class Application:
     derive_year_from_cve_only: bool = False
 
     def max_year_for_result_set(self, result_set: str) -> int | None:
+        """return the max year needed by any validation on the result set, or default_max_year"""
         rs = self.result_sets.get(result_set, None)
-        if rs and rs.max_year:
-            return rs.max_year
+        years = []
+        if rs is not None:
+            for gate in rs.validations:
+                if gate.max_year is not None:
+                    years.append(gate.max_year)
+                elif self.default_max_year is not None:
+                    years.append(self.default_max_year)
+
+        if years:
+            return max(years)
 
         return self.default_max_year
 
