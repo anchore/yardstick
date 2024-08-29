@@ -136,6 +136,8 @@ def validate(
     for result_set in result_sets:
         rs_config = cfg.result_sets[result_set]
         for gate_config in rs_config.validations:
+            if gate_config.max_year is None:
+                gate_config.max_year = cfg.default_max_year
             new_gates = val.validate_result_set(
                 gate_config,
                 result_set,

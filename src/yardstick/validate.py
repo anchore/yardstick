@@ -295,7 +295,6 @@ def validate_image(
     always_run_label_comparison: bool,
     verbosity: int,
     label_entries: Optional[list[artifact.LabelEntry]] = None,
-    max_year: Optional[int] = None,  ## I think alex added this
     reference_tool_label: str = "reference",
     candidate_tool_label: str = "candidate",
 ):
@@ -310,7 +309,7 @@ def validate_image(
 
     # print(f"{bcolors.HEADER}Running relative comparison...", bcolors.RESET)
     relative_comparison = yardstick.compare_results(
-        descriptions=descriptions, year_max_limit=max_year
+        descriptions=descriptions, year_max_limit=gate_config.max_year
     )
     # show_results_used(relative_comparison.results)
 
@@ -341,7 +340,7 @@ def validate_image(
     results, label_entries, comparisons_by_result_id, stats_by_image_tool_pair = (
         yardstick.compare_results_against_labels(
             descriptions=descriptions,
-            year_max_limit=max_year,
+            year_max_limit=gate_config.max_year,
             label_entries=label_entries,
         )
     )
