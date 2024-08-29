@@ -9,7 +9,7 @@ from dataclasses import dataclass, InitVar, field
 import yardstick
 from yardstick import store, comparison, artifact, validate as val
 from yardstick.cli import display, config
-
+from yardstick.validate import Gate, GateInputDescription
 
 # see the .yardstick.yaml configuration for details
 # TODO: remove this; package specific
@@ -22,90 +22,6 @@ class GateConfig:
     max_f1_decrease: float = 0.0
     max_unlabeled_match_percent: int = 0
     max_new_false_negatives: int = 0
-
-@dataclass
-class Gate:
-    label_comparisons: InitVar[Optional[list[comparison.AgainstLabels]]]
-    label_comparison_stats: InitVar[Optional[comparison.ImageToolLabelStats]]
-
-    reasons: list[str] = field(default_factory=list)
-    max_f1_regression: float = 0.0
-    max_new_false_negatives: int = 0
-    max_unlabeled_percent: int = 0
-    reference_tool_string: str | None = None
-    candidate_tool_string: str | None = None
-
-    def __post_init__(
-        self,
-        label_comparisons: Optional[list[comparison.AgainstLabels]],
-        label_comparison_stats: Optional[comparison.ImageToolLabelStats],
-    ):
-        if not label_comparisons and not label_comparison_stats:
-            return
-
-        reasons = []
-
-        # - fail when current F1 score drops below last release F1 score (or F1 score is indeterminate)
-        # - fail when indeterminate % > 10%
-        # - fail when there is a rise in FNs
-        if self.reference_tool_string is None or self.candidate_tool_string is None:
-            latest_release_tool, current_tool = guess_tool_orientation(
-                label_comparison_stats.tools
-            )
-        elif self.candidate_tool_string == label_comparison_stats.tools[1]:
-            latest_release_tool, current_tool = (
-                label_comparison_stats.tools[0],
-                label_comparison_stats.tools[1],
-            )
-        elif self.candidate_tool_string == label_comparison_stats.tools[0]:
-            latest_release_tool, current_tool = (
-                label_comparison_stats.tools[1],
-                label_comparison_stats.tools[0],
-            )
-        else:
-            raise ValueError(
-                f"reference tool specified, but not found: {self.reference_tool_string} is not one of {' '.join(label_comparison_stats.tools)}"
-            )
-
-        latest_release_comparisons_by_image = {
-            comp.config.image: comp
-            for comp in label_comparisons
-            if comp.config.tool == latest_release_tool
-        }
-        current_comparisons_by_image = {
-            comp.config.image: comp
-            for comp in label_comparisons
-            if comp.config.tool == current_tool
-        }
-
-        for image, comp in current_comparisons_by_image.items():
-            latest_f1_score = latest_release_comparisons_by_image[
-                image
-            ].summary.f1_score
-            current_f1_score = comp.summary.f1_score
-            if current_f1_score < latest_f1_score - self.max_f1_regression:
-                reasons.append(
-                    f"current F1 score is lower than the latest release F1 score: {bcolors.BOLD+bcolors.UNDERLINE}current={current_f1_score:0.2f} latest={latest_f1_score:0.2f}{bcolors.RESET} image={image}"
-                )
-
-            if comp.summary.indeterminate_percent > self.max_unlabeled_percent:
-                reasons.append(
-                    f"current indeterminate matches % is greater than {self.max_unlabeled_percent}%: {bcolors.BOLD+bcolors.UNDERLINE}current={comp.summary.indeterminate_percent:0.2f}%{bcolors.RESET} image={image}"
-                )
-
-            latest_fns = latest_release_comparisons_by_image[
-                image
-            ].summary.false_negatives
-            current_fns = comp.summary.false_negatives
-            if current_fns > latest_fns + self.max_new_false_negatives:
-                reasons.append(
-                    f"current false negatives is greater than the latest release false negatives: {bcolors.BOLD+bcolors.UNDERLINE}current={current_fns} latest={latest_fns}{bcolors.RESET} image={image}"
-                )
-
-        self.reasons = reasons
-
-    def passed(self):
-        return len(self.reasons) == 0
 
 
 def guess_tool_orientation(tools: list[str]):
@@ -172,12 +88,12 @@ def show_results_used(results: list[artifact.ScanResult]):
 
 
 def validate_result_set(
-    cfg: config.Application,
-    result_set: str,
-    images: list[str],
-    always_run_label_comparison: bool,
-    verbosity: int,
-    label_entries: Optional[list[artifact.LabelEntry]] = None,
+        cfg: config.Application,
+        result_set: str,
+        images: list[str],
+        always_run_label_comparison: bool,
+        verbosity: int,
+        label_entries: Optional[list[artifact.LabelEntry]] = None,
 ):
     print(
         f"{bcolors.HEADER}{bcolors.BOLD}Validating with {result_set!r}", bcolors.RESET
@@ -219,154 +135,6 @@ def validate_result_set(
     return ret
 
 
-def validate_image(
-    cfg: config.Application,
-    result_set: str,
-    descriptions: list[str],
-    always_run_label_comparison: bool,
-    verbosity: int,
-    label_entries: Optional[list[artifact.LabelEntry]] = None,
-):
-    # do a relative comparison
-    # - show comparison summary (no gating action)
-    # - list out all individual match differences
-    result_set_config = cfg.result_sets[result_set]
-    validation = result_set_config.validations[
-        0
-    ]  # TODO: support N, don't hard code index
-    max_year = cfg.max_year_for_result_set(result_set)
-    reference_tool, candidate_tool = result_set_config.tool_comparisons()
-
-    print(f"{bcolors.HEADER}Running relative comparison...", bcolors.RESET)
-    relative_comparison = yardstick.compare_results(
-        descriptions=descriptions, year_max_limit=max_year
-    )
-    show_results_used(relative_comparison.results)
-
-    # show the relative comparison results
-    if verbosity > 0:
-        details = verbosity > 1
-        display.preserved_matches(
-            relative_comparison, details=details, summary=True, common=False
-        )
-        print()
-
-    # bail if there are no differences found
-    if not always_run_label_comparison and not sum(
-        [
-            len(relative_comparison.unique[result.ID])
-            for result in relative_comparison.results
-        ]
-    ):
-        print("no differences found between tool results")
-        return Gate(None, None)
-
-    # do a label comparison
-    print(f"{bcolors.HEADER}Running comparison against labels...", bcolors.RESET)
-    results, label_entries, comparisons_by_result_id, stats_by_image_tool_pair = (
-        yardstick.compare_results_against_labels(
-            descriptions=descriptions,
-            year_max_limit=max_year,
-            label_entries=label_entries,
-        )
-    )
-    show_results_used(results)
-
-    if verbosity > 0:
-        show_fns = verbosity > 1
-        display.label_comparison(
-            results,
-            comparisons_by_result_id,
-            stats_by_image_tool_pair,
-            show_fns=show_fns,
-            show_summaries=True,
-        )
-
-    latest_release_tool, current_tool = guess_tool_orientation(
-        [r.config.tool for r in results]
-    )
-
-    # show the relative comparison unique differences paired up with label conclusions (TP/FP/FN/TN/Unknown)
-    all_rows: list[list[Any]] = []
-    for result in relative_comparison.results:
-        label_comparison = comparisons_by_result_id[result.ID]
-        for unique_match in relative_comparison.unique[result.ID]:
-            labels = label_comparison.labels_by_match[unique_match.ID]
-            if not labels:
-                label = "(unknown)"
-            elif len(set(labels)) > 1:
-                label = ", ".join([l.name for l in labels])
-            else:
-                label = labels[0].name
-
-            color = ""
-            commentary = ""
-            if result.config.tool == latest_release_tool:
-                # the tool which found the unique result is the latest release tool...
-                if label == artifact.Label.TruePositive.name:
-                    # drats! we missed a case (this is a new FN)
-                    color = bcolors.FAIL
-                    commentary = "(this is a new FN 😱)"
-                elif artifact.Label.FalsePositive.name in label:
-                    # we got rid of a FP! ["hip!", "hip!"]
-                    color = bcolors.OKBLUE
-                    commentary = "(got rid of a former FP 🙌)"
-            else:
-                # the tool which found the unique result is the current tool...
-                if label == artifact.Label.TruePositive.name:
-                    # highest of fives! we found a new TP that the previous tool release missed!
-                    color = bcolors.OKBLUE
-                    commentary = "(this is a new TP 🙌)"
-                elif artifact.Label.FalsePositive.name in label:
-                    # welp, our changes resulted in a new FP... not great, maybe not terrible?
-                    color = bcolors.FAIL
-                    commentary = "(this is a new FP 😱)"
-
-            all_rows.append(
-                [
-                    f"{color}{result.config.tool} ONLY{bcolors.RESET}",
-                    f"{color}{unique_match.package.name}@{unique_match.package.version}{bcolors.RESET}",
-                    f"{color}{unique_match.vulnerability.id}{bcolors.RESET}",
-                    f"{color}{label}{bcolors.RESET}",
-                    f"{commentary}",
-                ]
-            )
-
-    def escape_ansi(line):
-        ansi_escape = re.compile(r"(?:\x1B[@-_]|[\x80-\x9F])[0-?]*[ -/]*[@-~]")
-        return ansi_escape.sub("", line)
-
-    # sort but don't consider ansi escape codes
-    all_rows = sorted(
-        all_rows, key=lambda x: escape_ansi(str(x[0] + x[1] + x[2] + x[3]))
-    )
-    if len(all_rows) == 0:
-        print("No differences found between tooling (with labels)")
-    else:
-        print("Match differences between tooling (with labels):")
-        indent = "   "
-        print(
-            indent
-            + tabulate(
-                [["TOOL PARTITION", "PACKAGE", "VULNERABILITY", "LABEL", "COMMENTARY"]]
-                + all_rows,
-                tablefmt="plain",
-            ).replace("\n", "\n" + indent)
-            + "\n"
-        )
-
-    # populate the quality gate with data that can evaluate pass/fail conditions
-    return Gate(
-        label_comparisons=comparisons_by_result_id.values(),
-        label_comparison_stats=stats_by_image_tool_pair,
-        max_f1_regression=validation.max_f1_regression,
-        max_unlabeled_percent=validation.max_unlabeled_percent,
-        max_new_false_negatives=validation.max_new_false_negatives,
-        reference_tool_string=reference_tool,
-        candidate_tool_string=candidate_tool,
-    )
-
-
 @click.command()
 @click.pass_obj
 @click.option(
@@ -399,12 +167,12 @@ def validate_image(
     help="the result set to use for the quality gate",
 )
 def validate(
-    cfg: config.Application,
-    images: list[str],
-    always_run_label_comparison: bool,
-    breakdown_by_ecosystem: bool,
-    verbosity: int,
-    result_set: str,
+        cfg: config.Application,
+        images: list[str],
+        always_run_label_comparison: bool,
+        breakdown_by_ecosystem: bool,
+        verbosity: int,
+        result_set: str,
 ):
     setup_logging(verbosity)
 
@@ -429,16 +197,19 @@ def validate(
     for result_set in result_sets:
         rs_config = cfg.result_sets[result_set]
         for gate_config in rs_config.validations:
-            gates.extend(
-                val.validate_result_set(
-                    gate_config,
-                    result_set,
-                    images=images,
-                    always_run_label_comparison=always_run_label_comparison,
-                    verbosity=verbosity,
-                    label_entries=label_entries,
-                )
+            new_gates = val.validate_result_set(
+                gate_config,
+                result_set,
+                images=images,
+                always_run_label_comparison=always_run_label_comparison,
+                verbosity=verbosity,
+                label_entries=label_entries,
             )
+            for gate in new_gates:
+                show_results_used(gate.result_descriptions)
+                show_delta_commentary(gate)
+
+            gates.extend(new_gates)
         print()
 
         if breakdown_by_ecosystem:
@@ -512,3 +283,60 @@ def setup_logging(verbosity: int):
             },
         }
     )
+
+
+def show_delta_commentary(gate: Gate):
+    if not gate.deltas:
+        print("No differences found between tooling (with labels)")
+
+    header_row = ["TOOL PARTITION", "PACKAGE", "VULNERABILITY", "LABEL", "COMMENTARY"]
+
+    all_rows = []
+    for delta in gate.deltas:
+        color = ""
+        if delta.is_improved:
+            color = bcolors.OKBLUE
+        elif delta.is_improved is not None and not delta.is_improved:
+            color = bcolors.FAIL
+        all_rows.append([
+            f"{color}{delta.tool} ONLY{bcolors.RESET}",
+            f"{color}{delta.package_name}@{delta.package_version}{bcolors.RESET}",
+            f"{color}{delta.vulnerability_id}{bcolors.RESET}",
+            f"{color}{delta.label}{bcolors.RESET}",
+            f"{delta.commentary}",
+        ])
+
+    def escape_ansi(line):
+        ansi_escape = re.compile(r"(?:\x1B[@-_]|[\x80-\x9F])[0-?]*[ -/]*[@-~]")
+        return ansi_escape.sub("", line)
+
+    # sort but don't consider ansi escape codes
+    all_rows = sorted(
+        all_rows, key=lambda x: escape_ansi(str(x[0] + x[1] + x[2] + x[3]))
+    )
+    print("Match differences between tooling (with labels):")
+    indent = "   "
+    print(
+        indent
+        + tabulate(
+            [["TOOL PARTITION", "PACKAGE", "VULNERABILITY", "LABEL", "COMMENTARY"]]
+            + all_rows,
+            tablefmt="plain",
+            ).replace("\n", "\n" + indent)
+        + "\n"
+    )
+
+
+def show_results_used(results: list[GateInputDescription]):
+    print("   Results used:")
+    for idx, description in enumerate(results):
+        branch = "├──"
+        if idx == len(results) - 1:
+            branch = "└──"
+        label = " "
+        if len(description.tool_label) > 0:
+            label = f" ({description.tool_label}) "
+        print(
+            f"    {branch} {description.result_id} : {description.tool}{label} against {description.image}"
+        )
+    print()

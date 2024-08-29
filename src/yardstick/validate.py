@@ -24,13 +24,22 @@ class GateConfig:
     max_unlabeled_percent: int = 0
     max_year: int | None = None
 
+
+@dataclass
+class GateInputDescription:
+    result_id: str
+    tool: str
+    tool_label: str
+    image: str
+
 @dataclass
 class Delta:
     tool: str
     package_name: str
+    package_version: str
     vulnerability_id: str
     added: bool
-    label: artifact.Label | None = None
+    label: str | None = None
 
     @property
     def is_improved(self) -> bool | None:
@@ -42,7 +51,7 @@ class Delta:
             if self.label == artifact.Label.TruePositive.name:
                 # drats! we missed a case (this is a new FN)
                 return False
-            elif artifact.Label.FalsePositive.name in self.label.name:
+            elif artifact.Label.FalsePositive.name in self.label:
                 # we got rid of a FP! ["hip!", "hip!"]
                 return True
         else:
@@ -50,7 +59,7 @@ class Delta:
             if self.label == artifact.Label.TruePositive.name:
                 # highest of fives! we found a new TP that the previous tool release missed!
                 return True
-            elif artifact.Label.FalsePositive.name in self.label.name:
+            elif artifact.Label.FalsePositive.name in self.label:
                 # welp, our changes resulted in a new FP... not great, maybe not terrible?
                 return False
 
@@ -77,6 +86,7 @@ class Gate:
 
     config: GateConfig
 
+    result_descriptions: list[GateInputDescription] = field(default_factory=list)
     reasons: list[str] = field(default_factory=list)
     deltas: list[Delta] = field(default_factory=list)
 
@@ -156,7 +166,6 @@ class Gate:
     def passed(self):
         return len(self.reasons) == 0
 
-
 def guess_tool_orientation(tools: list[str]):
     """
     Given a pair of tools, guess which is latest version, and which is the one
@@ -218,6 +227,15 @@ def show_results_used(results: list[artifact.ScanResult]):
             f"    {branch} {result.ID} : {result.config.tool} against {result.config.image}"
         )
     print()
+
+
+def results_used(results: list[artifact.ScanResult]) -> list[GateInputDescription]:
+    return [GateInputDescription(
+        result_id=result.ID,
+        tool=result.config.tool,
+        tool_label=result.config.tool_label,
+        image=result.config.image,
+    ) for result in results]
 
 
 def validate_result_set(
@@ -310,7 +328,7 @@ def validate_image(
         ]
     ):
         # print("no differences found between tool results")
-        return Gate(None, None)
+        return Gate(None, None, result_descriptions=results_used(relative_comparison.results))
 
     # do a label comparison
     # print(f"{bcolors.HEADER}Running comparison against labels...", bcolors.RESET)
@@ -362,77 +380,23 @@ def validate_image(
             else:
                 label = labels[0].name
 
-            color = ""
-            commentary = ""
             delta = Delta(
                 tool=result.config.tool,
-                package_name=unique_match.package,
-                vulnerability_id=unique_match.ID,
+                package_name=unique_match.package.name,
+                package_version=unique_match.package.version,
+                vulnerability_id=unique_match.vulnerability.id,
                 added=result.config.tool != reference_tool,
                 # added=result.config.tool_label == candidate_tool_label,
                 label=label,
             )
-            # result.config.tool_label ...
-            if result.config.tool == reference_tool:
-                # the tool which found the unique result is the latest release tool...
-                if label == artifact.Label.TruePositive.name:
-                    # drats! we missed a case (this is a new FN)
-                    color = bcolors.FAIL
-                    commentary = "(this is a new FN 😱)"
-                elif artifact.Label.FalsePositive.name in label:
-                    # we got rid of a FP! ["hip!", "hip!"]
-                    color = bcolors.OKBLUE
-                    commentary = "(got rid of a former FP 🙌)"
-            else:
-                # the tool which found the unique result is the current tool...
-                if label == artifact.Label.TruePositive.name:
-                    # highest of fives! we found a new TP that the previous tool release missed!
-                    color = bcolors.OKBLUE
-                    commentary = "(this is a new TP 🙌)"
-                elif artifact.Label.FalsePositive.name in label:
-                    # welp, our changes resulted in a new FP... not great, maybe not terrible?
-                    color = bcolors.FAIL
-                    commentary = "(this is a new FP 😱)"
-
             deltas.append(delta)
-            all_rows.append(
-                [
-                    f"{color}{result.config.tool} ONLY{bcolors.RESET}",
-                    f"{color}{unique_match.package.name}@{unique_match.package.version}{bcolors.RESET}",
-                    f"{color}{unique_match.vulnerability.id}{bcolors.RESET}",
-                    f"{color}{label}{bcolors.RESET}",
-                    f"{commentary}",
-                ]
-            )
-
-    def escape_ansi(line):
-        ansi_escape = re.compile(r"(?:\x1B[@-_]|[\x80-\x9F])[0-?]*[ -/]*[@-~]")
-        return ansi_escape.sub("", line)
-
-    # sort but don't consider ansi escape codes
-    all_rows = sorted(
-        all_rows, key=lambda x: escape_ansi(str(x[0] + x[1] + x[2] + x[3]))
-    )
-    if len(all_rows) == 0:
-        print("No differences found between tooling (with labels)")
-    else:
-        print("Match differences between tooling (with labels):")
-        indent = "   "
-        print(
-            indent
-            + tabulate(
-                [["TOOL PARTITION", "PACKAGE", "VULNERABILITY", "LABEL", "COMMENTARY"]]
-                + all_rows,
-                tablefmt="plain",
-            ).replace("\n", "\n" + indent)
-            + "\n"
-        )
 
     # populate the quality gate with data that can evaluate pass/fail conditions
     return Gate(
         label_comparisons=comparisons_by_result_id.values(),
         label_comparison_stats=stats_by_image_tool_pair,
         config=gate_config,
+        result_descriptions=results_used(results),
         deltas=deltas,
         reference_tool_string=reference_tool,
         candidate_tool_string=candidate_tool,
