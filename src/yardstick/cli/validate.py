@@ -1,13 +1,12 @@
 import re
 import sys
-from typing import Optional
 
 import click
 from tabulate import tabulate
-from dataclasses import dataclass, InitVar, field
+from dataclasses import dataclass
 
 import yardstick
-from yardstick import store, comparison, artifact, validate as val
+from yardstick import store, validate as val
 from yardstick.cli import display, config
 from yardstick.validate import Gate, GateInputDescription
 
@@ -75,66 +74,6 @@ if not sys.stdout.isatty():
     bcolors.RESET = ""
 
 
-def show_results_used(results: list[artifact.ScanResult]):
-    print("   Results used:")
-    for idx, result in enumerate(results):
-        branch = "├──"
-        if idx == len(results) - 1:
-            branch = "└──"
-        print(
-            f"    {branch} {result.ID} : {result.config.tool} against {result.config.image}"
-        )
-    print()
-
-
-def validate_result_set(
-        cfg: config.Application,
-        result_set: str,
-        images: list[str],
-        always_run_label_comparison: bool,
-        verbosity: int,
-        label_entries: Optional[list[artifact.LabelEntry]] = None,
-):
-    print(
-        f"{bcolors.HEADER}{bcolors.BOLD}Validating with {result_set!r}", bcolors.RESET
-    )
-    result_set_obj = store.result_set.load(name=result_set)
-
-    ret = []
-    for image, result_states in result_set_obj.result_state_by_image.items():
-        if images and image not in images:
-            print("Skipping image:", image)
-            continue
-        print()
-        print("Testing image:", image)
-        for state in result_states:
-            print("   ", f"with {state.request.tool}")
-        print()
-
-        gate = validate_image(
-            cfg,
-            result_set,
-            [s.config.path for s in result_states],
-            always_run_label_comparison=always_run_label_comparison,
-            verbosity=verbosity,
-            label_entries=label_entries,
-        )
-        ret.append(gate)
-
-        failure = not gate.passed()
-        if failure:
-            print(f"{bcolors.FAIL}{bcolors.BOLD}Failed quality gate{bcolors.RESET}")
-        for reason in gate.reasons:
-            print(f"   - {reason}")
-
-        print()
-        size = 120
-        print("▁" * size)
-        print("░" * size)
-        print("▔" * size)
-    return ret
-
-
 @click.command()
 @click.pass_obj
 @click.option(
@@ -167,22 +106,22 @@ def validate_result_set(
     help="the result set to use for the quality gate",
 )
 def validate(
-        cfg: config.Application,
-        images: list[str],
-        always_run_label_comparison: bool,
-        breakdown_by_ecosystem: bool,
-        verbosity: int,
-        result_set: str,
+    cfg: config.Application,
+    images: list[str],
+    always_run_label_comparison: bool,
+    breakdown_by_ecosystem: bool,
+    verbosity: int,
+    result_set: str,
 ):
     setup_logging(verbosity)
 
     # let's not load any more labels than we need to, base this off of the images we're validating
     if not images:
-        images = set()
+        unique_images = set()
         result_set_obj = store.result_set.load(name=result_set)
         for state in result_set_obj.state:
-            images.add(state.config.image)
-        images = sorted(list(images))
+            unique_images.add(state.config.image)
+        images = sorted(list(unique_images))
 
     print("Loading label entries...", end=" ")
     label_entries = store.labels.load_for_image(
@@ -298,13 +237,15 @@ def show_delta_commentary(gate: Gate):
             color = bcolors.OKBLUE
         elif delta.is_improved is not None and not delta.is_improved:
             color = bcolors.FAIL
-        all_rows.append([
-            f"{color}{delta.tool} ONLY{bcolors.RESET}",
-            f"{color}{delta.package_name}@{delta.package_version}{bcolors.RESET}",
-            f"{color}{delta.vulnerability_id}{bcolors.RESET}",
-            f"{color}{delta.label}{bcolors.RESET}",
-            f"{delta.commentary}",
-        ])
+        all_rows.append(
+            [
+                f"{color}{delta.tool} ONLY{bcolors.RESET}",
+                f"{color}{delta.package_name}@{delta.package_version}{bcolors.RESET}",
+                f"{color}{delta.vulnerability_id}{bcolors.RESET}",
+                f"{color}{delta.label}{bcolors.RESET}",
+                f"{delta.commentary}",
+            ]
+        )
 
     def escape_ansi(line):
         ansi_escape = re.compile(r"(?:\x1B[@-_]|[\x80-\x9F])[0-?]*[ -/]*[@-~]")
@@ -319,10 +260,9 @@ def show_delta_commentary(gate: Gate):
     print(
         indent
         + tabulate(
-            [["TOOL PARTITION", "PACKAGE", "VULNERABILITY", "LABEL", "COMMENTARY"]]
-            + all_rows,
+            [header_row] + all_rows,
             tablefmt="plain",
-            ).replace("\n", "\n" + indent)
+        ).replace("\n", "\n" + indent)
         + "\n"
     )
 

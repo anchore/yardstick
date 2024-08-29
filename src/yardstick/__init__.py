@@ -1,5 +1,4 @@
 import logging
-from dataclasses import dataclass, field
 from typing import Callable, Optional
 
 from . import arrange, artifact, capture, cli, comparison, label, store, tool, utils

@@ -9,7 +9,7 @@ import re
 import yaml
 from dataclass_wizard import asdict, fromdict  # type: ignore[import]
 
-from yardstick import artifact, cli, validate
+from yardstick import artifact, validate
 from yardstick.store import config as store_config
 
 DEFAULT_CONFIGS = (
@@ -119,7 +119,6 @@ class ScanMatrix:
 @dataclass()
 class Validation(validate.GateConfig):
     name: str = "default"
-
 
 
 @dataclass()

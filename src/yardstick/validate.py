@@ -1,9 +1,6 @@
-import re
 import sys
-from typing import Optional, Any
+from typing import Optional, Sequence
 
-import click
-from tabulate import tabulate
 from dataclasses import dataclass, InitVar, field
 
 import yardstick
@@ -31,6 +28,7 @@ class GateInputDescription:
     tool: str
     tool_label: str
     image: str
+
 
 @dataclass
 class Delta:
@@ -79,6 +77,7 @@ class Delta:
 
         return commentary
 
+
 @dataclass
 class Gate:
     label_comparisons: InitVar[Optional[list[comparison.AgainstLabels]]]
@@ -92,7 +91,6 @@ class Gate:
 
     reference_tool_string: str | None = None
     candidate_tool_string: str | None = None
-
 
     def __post_init__(
         self,
@@ -166,6 +164,7 @@ class Gate:
     def passed(self):
         return len(self.reasons) == 0
 
+
 def guess_tool_orientation(tools: list[str]):
     """
     Given a pair of tools, guess which is latest version, and which is the one
@@ -229,13 +228,16 @@ def show_results_used(results: list[artifact.ScanResult]):
     print()
 
 
-def results_used(results: list[artifact.ScanResult]) -> list[GateInputDescription]:
-    return [GateInputDescription(
-        result_id=result.ID,
-        tool=result.config.tool,
-        tool_label=result.config.tool_label,
-        image=result.config.image,
-    ) for result in results]
+def results_used(results: Sequence[artifact.ScanResult]) -> list[GateInputDescription]:
+    return [
+        GateInputDescription(
+            result_id=result.ID,
+            tool=result.config.tool,
+            tool_label=result.config.tool_label,
+            image=result.config.image,
+        )
+        for result in results
+    ]
 
 
 def validate_result_set(
@@ -293,7 +295,7 @@ def validate_image(
     always_run_label_comparison: bool,
     verbosity: int,
     label_entries: Optional[list[artifact.LabelEntry]] = None,
-    max_year: Optional[int] = None, ## I think alex added this
+    max_year: Optional[int] = None,  ## I think alex added this
     reference_tool_label: str = "reference",
     candidate_tool_label: str = "candidate",
 ):
@@ -327,8 +329,12 @@ def validate_image(
             for result in relative_comparison.results
         ]
     ):
-        # print("no differences found between tool results")
-        return Gate(None, None, result_descriptions=results_used(relative_comparison.results))
+        return Gate(
+            None,
+            None,
+            config=gate_config,
+            result_descriptions=list(results_used(relative_comparison.results)),
+        )
 
     # do a label comparison
     # print(f"{bcolors.HEADER}Running comparison against labels...", bcolors.RESET)
@@ -365,8 +371,7 @@ def validate_image(
             [r.config.tool for r in results]
         )
 
-    # show the relative comparison unique differences paired up with label conclusions (TP/FP/FN/TN/Unknown)
-    all_rows: list[list[Any]] = []
+    # keep a list of differences between tools to summarize
     deltas = []
 
     for result in relative_comparison.results:
@@ -376,7 +381,7 @@ def validate_image(
             if not labels:
                 label = "(unknown)"
             elif len(set(labels)) > 1:
-                label = ", ".join([l.name for l in labels])
+                label = ", ".join([la.name for la in labels])
             else:
                 label = labels[0].name
 
@@ -393,10 +398,10 @@ def validate_image(
 
     # populate the quality gate with data that can evaluate pass/fail conditions
     return Gate(
-        label_comparisons=comparisons_by_result_id.values(),
+        label_comparisons=list(comparisons_by_result_id.values()),
         label_comparison_stats=stats_by_image_tool_pair,
         config=gate_config,
-        result_descriptions=results_used(results),
+        result_descriptions=list(results_used(results)),
         deltas=deltas,
         reference_tool_string=reference_tool,
         candidate_tool_string=candidate_tool,
