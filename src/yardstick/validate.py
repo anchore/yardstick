@@ -20,6 +20,8 @@ class GateConfig:
     max_new_false_negatives: int = 0
     max_unlabeled_percent: int = 0
     max_year: int | None = None
+    reference_tool_label: str = "reference"
+    candidate_tool_label: str = "candidate"
 
 
 @dataclass
@@ -161,7 +163,7 @@ class Gate:
 
         self.reasons = reasons
 
-    def passed(self):
+    def passed(self) -> bool:
         return len(self.reasons) == 0
 
 
@@ -241,7 +243,6 @@ def results_used(results: Sequence[artifact.ScanResult]) -> list[GateInputDescri
 
 
 def validate_result_set(
-    # cfg: config.Application, # TODO: bad!
     gate_config: GateConfig,
     result_set: str,
     images: list[str],
@@ -289,14 +290,11 @@ def validate_result_set(
 
 
 def validate_image(
-    # result_set_obj: artifact.ResultSet,
     gate_config: GateConfig,
     descriptions: list[str],
     always_run_label_comparison: bool,
     verbosity: int,
     label_entries: Optional[list[artifact.LabelEntry]] = None,
-    reference_tool_label: str = "reference",
-    candidate_tool_label: str = "candidate",
 ):
     # do a relative comparison
     # - show comparison summary (no gating action)
@@ -359,9 +357,9 @@ def validate_image(
     # TODO: should be specified in config
     reference_tool, candidate_tool = None, None
     for r in results:
-        if r.config.tool_label == reference_tool_label:
+        if r.config.tool_label == gate_config.reference_tool_label:
             reference_tool = r.config.tool
-        if r.config.tool_label == candidate_tool_label:
+        if r.config.tool_label == gate_config.candidate_tool_label:
             candidate_tool = r.config.tool
 
     if reference_tool is None or candidate_tool is None:

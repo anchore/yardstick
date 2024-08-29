@@ -102,8 +102,17 @@ if not sys.stdout.isatty():
 @click.option(
     "--result-set",
     "-r",
-    default=default_result_set,
+    "result_sets",
+    multiple=True,
+    default=[default_result_set],
     help="the result set to use for the quality gate",
+)
+@click.option(
+    "--all",
+    "all_result_sets",
+    is_flag=True,
+    default=False,
+    help="validate all known result sets",
 )
 def validate(
     cfg: config.Application,
@@ -111,27 +120,28 @@ def validate(
     always_run_label_comparison: bool,
     breakdown_by_ecosystem: bool,
     verbosity: int,
-    result_set: str,
+    result_sets: list[str],
+    all_result_sets: bool,
 ):
     setup_logging(verbosity)
+    if all:
+        result_sets = [r for r in cfg.result_sets.keys()]
 
     # let's not load any more labels than we need to, base this off of the images we're validating
     if not images:
         unique_images = set()
-        result_set_obj = store.result_set.load(name=result_set)
-        for state in result_set_obj.state:
-            unique_images.add(state.config.image)
+        for r in result_sets:
+            result_set_obj = store.result_set.load(name=r)
+            for state in result_set_obj.state:
+                unique_images.add(state.config.image)
         images = sorted(list(unique_images))
 
     print("Loading label entries...", end=" ")
     label_entries = store.labels.load_for_image(
-        images, year_max_limit=cfg.max_year_for_result_set(result_set)
+        images, year_max_limit=cfg.max_year_for_any_result_set(result_sets)
     )
     print(f"done! {len(label_entries)} entries loaded")
 
-    result_sets = [
-        result_set
-    ]  # today only one result set is supported, but more can be added
     gates = []
     for result_set in result_sets:
         rs_config = cfg.result_sets[result_set]
