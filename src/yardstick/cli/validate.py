@@ -227,6 +227,7 @@ def setup_logging(verbosity: int):
 def show_delta_commentary(gate: Gate):
     if not gate.deltas:
         print("No differences found between tooling (with labels)")
+        return
 
     header_row = ["TOOL PARTITION", "PACKAGE", "VULNERABILITY", "LABEL", "COMMENTARY"]
 
@@ -274,7 +275,7 @@ def show_results_used(results: list[GateInputDescription]):
         if idx == len(results) - 1:
             branch = "└──"
         label = " "
-        if len(description.tool_label) > 0:
+        if description.tool_label and len(description.tool_label) > 0:
             label = f" ({description.tool_label}) "
         print(
             f"    {branch} {description.result_id} : {description.tool}{label} against {description.image}"
