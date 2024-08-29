@@ -1,14 +1,14 @@
 import re
 import sys
-from typing import Optional
+from typing import Optional, Any
 
 import click
 from tabulate import tabulate
 from dataclasses import dataclass, InitVar, field
 
 import yardstick
-from yardstick import store, comparison, artifact, validate as val
-from yardstick.cli import display, config
+from yardstick import store, comparison, artifact
+from yardstick.cli import display
 
 
 # see the .yardstick.yaml configuration for details
@@ -19,21 +19,78 @@ yardstick.utils.grype_db.raise_on_failure(False)
 
 @dataclass
 class GateConfig:
-    max_f1_decrease: float = 0.0
-    max_unlabeled_match_percent: int = 0
+    max_f1_regression: float = 0.0
     max_new_false_negatives: int = 0
+    max_unlabeled_percent: int = 0
+    max_year: int | None = None
+
+@dataclass
+class Delta:
+    tool: str
+    package_name: str
+    vulnerability_id: str
+    added: bool
+    label: artifact.Label | None = None
+
+    @property
+    def is_improved(self) -> bool | None:
+        if not self.label:
+            return None
+
+        if not self.added:
+            # the tool which found the unique result is the latest release tool...
+            if self.label == artifact.Label.TruePositive.name:
+                # drats! we missed a case (this is a new FN)
+                return False
+            elif artifact.Label.FalsePositive.name in self.label.name:
+                # we got rid of a FP! ["hip!", "hip!"]
+                return True
+        else:
+            # the tool which found the unique result is the current tool...
+            if self.label == artifact.Label.TruePositive.name:
+                # highest of fives! we found a new TP that the previous tool release missed!
+                return True
+            elif artifact.Label.FalsePositive.name in self.label.name:
+                # welp, our changes resulted in a new FP... not great, maybe not terrible?
+                return False
+
+        return None
+
+    @property
+    def commentary(self) -> str:
+        commentary = ""
+        if not self.added:
+            # the tool which found the unique result is the latest release tool...
+            if self.label == artifact.Label.TruePositive.name:
+                # drats! we missed a case (this is a new FN)
+                commentary = "(this is a new FN 😱)"
+            elif artifact.Label.FalsePositive.name in self.label.name:
+                # we got rid of a FP! ["hip!", "hip!"]
+                commentary = "(got rid of a former FP 🙌)"
+        else:
+            # the tool which found the unique result is the current tool...
+            if self.label == artifact.Label.TruePositive.name:
+                # highest of fives! we found a new TP that the previous tool release missed!
+                commentary = "(this is a new TP 🙌)"
+            elif artifact.Label.FalsePositive.name in self.label.name:
+                # welp, our changes resulted in a new FP... not great, maybe not terrible?
+                commentary = "(this is a new FP 😱)"
+
+        return commentary
 
 @dataclass
 class Gate:
     label_comparisons: InitVar[Optional[list[comparison.AgainstLabels]]]
     label_comparison_stats: InitVar[Optional[comparison.ImageToolLabelStats]]
 
+    config: GateConfig
+
     reasons: list[str] = field(default_factory=list)
-    max_f1_regression: float = 0.0
-    max_new_false_negatives: int = 0
-    max_unlabeled_percent: int = 0
+    deltas: list[Delta] = field(default_factory=list)
+
     reference_tool_string: str | None = None
     candidate_tool_string: str | None = None
+
 
     def __post_init__(
         self,
@@ -83,21 +140,21 @@ class Gate:
                 image
             ].summary.f1_score
             current_f1_score = comp.summary.f1_score
-            if current_f1_score < latest_f1_score - self.max_f1_regression:
+            if current_f1_score < latest_f1_score - self.config.max_f1_regression:
                 reasons.append(
                     f"current F1 score is lower than the latest release F1 score: {bcolors.BOLD+bcolors.UNDERLINE}current={current_f1_score:0.2f} latest={latest_f1_score:0.2f}{bcolors.RESET} image={image}"
                 )
 
-            if comp.summary.indeterminate_percent > self.max_unlabeled_percent:
+            if comp.summary.indeterminate_percent > self.config.max_unlabeled_percent:
                 reasons.append(
-                    f"current indeterminate matches % is greater than {self.max_unlabeled_percent}%: {bcolors.BOLD+bcolors.UNDERLINE}current={comp.summary.indeterminate_percent:0.2f}%{bcolors.RESET} image={image}"
+                    f"current indeterminate matches % is greater than {self.config.max_unlabeled_percent}%: {bcolors.BOLD+bcolors.UNDERLINE}current={comp.summary.indeterminate_percent:0.2f}%{bcolors.RESET} image={image}"
                 )
 
             latest_fns = latest_release_comparisons_by_image[
                 image
             ].summary.false_negatives
             current_fns = comp.summary.false_negatives
-            if current_fns > latest_fns + self.max_new_false_negatives:
+            if current_fns > latest_fns + self.config.max_new_false_negatives:
                 reasons.append(
                     f"current false negatives is greater than the latest release false negatives: {bcolors.BOLD+bcolors.UNDERLINE}current={current_fns} latest={latest_fns}{bcolors.RESET} image={image}"
                 )
@@ -172,7 +229,8 @@ def show_results_used(results: list[artifact.ScanResult]):
 
 
 def validate_result_set(
-    cfg: config.Application,
+    # cfg: config.Application, # TODO: bad!
+    gate_config: GateConfig,
     result_set: str,
     images: list[str],
     always_run_label_comparison: bool,
@@ -187,61 +245,63 @@ def validate_result_set(
     ret = []
     for image, result_states in result_set_obj.result_state_by_image.items():
         if images and image not in images:
-            print("Skipping image:", image)
+            # print("Skipping image:", image)
             continue
-        print()
-        print("Testing image:", image)
-        for state in result_states:
-            print("   ", f"with {state.request.tool}")
-        print()
+        # print()
+        # print("Testing image:", image)
+        # for state in result_states:
+        #     print("   ", f"with {state.request.tool}")
+        # print()
 
         gate = validate_image(
-            cfg,
-            result_set,
-            [s.config.path for s in result_states],
+            gate_config=gate_config,
+            result_set=result_set,
+            descriptions=[s.config.path for s in result_states],
             always_run_label_comparison=always_run_label_comparison,
             verbosity=verbosity,
             label_entries=label_entries,
         )
         ret.append(gate)
 
-        failure = not gate.passed()
-        if failure:
-            print(f"{bcolors.FAIL}{bcolors.BOLD}Failed quality gate{bcolors.RESET}")
-        for reason in gate.reasons:
-            print(f"   - {reason}")
+        # failure = not gate.passed()
+        # if failure:
+        #     print(f"{bcolors.FAIL}{bcolors.BOLD}Failed quality gate{bcolors.RESET}")
+        # for reason in gate.reasons:
+        #     print(f"   - {reason}")
 
-        print()
-        size = 120
-        print("▁" * size)
-        print("░" * size)
-        print("▔" * size)
+        # print()
+        # size = 120
+        # print("▁" * size)
+        # print("░" * size)
+        # print("▔" * size)
     return ret
 
 
 def validate_image(
-    cfg: config.Application,
+    gate_config: GateConfig,
     result_set: str,
     descriptions: list[str],
     always_run_label_comparison: bool,
     verbosity: int,
     label_entries: Optional[list[artifact.LabelEntry]] = None,
+    max_year: Optional[int] = None, ## I think alex added this
+    reference_tool_label: str = "reference",
+    candidate_tool_label: str = "candidate",
 ):
     # do a relative comparison
     # - show comparison summary (no gating action)
     # - list out all individual match differences
-    result_set_config = cfg.result_sets[result_set]
-    validation = result_set_config.validations[
-        0
-    ]  # TODO: support N, don't hard code index
-    max_year = cfg.max_year_for_result_set(result_set)
-    reference_tool, candidate_tool = result_set_config.tool_comparisons()
+    # result_set_config = cfg.result_sets[result_set]
+    # validation = result_set_config.validations[
+    #     0
+    # ]  # TODO: support N, don't hard code index
+    # reference_tool, candidate_tool = result_set_config.tool_comparisons()
 
-    print(f"{bcolors.HEADER}Running relative comparison...", bcolors.RESET)
+    # print(f"{bcolors.HEADER}Running relative comparison...", bcolors.RESET)
     relative_comparison = yardstick.compare_results(
         descriptions=descriptions, year_max_limit=max_year
     )
-    show_results_used(relative_comparison.results)
+    # show_results_used(relative_comparison.results)
 
     # show the relative comparison results
     if verbosity > 0:
@@ -249,7 +309,7 @@ def validate_image(
         display.preserved_matches(
             relative_comparison, details=details, summary=True, common=False
         )
-        print()
+        # print()
 
     # bail if there are no differences found
     if not always_run_label_comparison and not sum(
@@ -258,11 +318,11 @@ def validate_image(
             for result in relative_comparison.results
         ]
     ):
-        print("no differences found between tool results")
+        # print("no differences found between tool results")
         return Gate(None, None)
 
     # do a label comparison
-    print(f"{bcolors.HEADER}Running comparison against labels...", bcolors.RESET)
+    # print(f"{bcolors.HEADER}Running comparison against labels...", bcolors.RESET)
     results, label_entries, comparisons_by_result_id, stats_by_image_tool_pair = (
         yardstick.compare_results_against_labels(
             descriptions=descriptions,
@@ -270,7 +330,7 @@ def validate_image(
             label_entries=label_entries,
         )
     )
-    show_results_used(results)
+    # show_results_used(results)
 
     if verbosity > 0:
         show_fns = verbosity > 1
@@ -282,12 +342,14 @@ def validate_image(
             show_summaries=True,
         )
 
+    # TODO: should be specified in config
     latest_release_tool, current_tool = guess_tool_orientation(
         [r.config.tool for r in results]
     )
 
     # show the relative comparison unique differences paired up with label conclusions (TP/FP/FN/TN/Unknown)
     all_rows: list[list[Any]] = []
+
     for result in relative_comparison.results:
         label_comparison = comparisons_by_result_id[result.ID]
         for unique_match in relative_comparison.unique[result.ID]:
@@ -301,6 +363,7 @@ def validate_image(
 
             color = ""
             commentary = ""
+            # result.config.tool_label ...
             if result.config.tool == latest_release_tool:
                 # the tool which found the unique result is the latest release tool...
                 if label == artifact.Label.TruePositive.name:
@@ -359,156 +422,5 @@ def validate_image(
     return Gate(
         label_comparisons=comparisons_by_result_id.values(),
         label_comparison_stats=stats_by_image_tool_pair,
-        max_f1_regression=validation.max_f1_regression,
-        max_unlabeled_percent=validation.max_unlabeled_percent,
-        max_new_false_negatives=validation.max_new_false_negatives,
-        reference_tool_string=reference_tool,
-        candidate_tool_string=candidate_tool,
-    )
-
-
-@click.command()
-@click.pass_obj
-@click.option(
-    "--image",
-    "-i",
-    "images",
-    multiple=True,
-    help="filter down to one or more images to validate with (don't use the full result set)",
-)
-@click.option(
-    "--label-comparison",
-    "-l",
-    "always_run_label_comparison",
-    is_flag=True,
-    help="run label comparison irregardless of relative comparison results",
-)
-@click.option(
-    "--breakdown-by-ecosystem",
-    "-e",
-    is_flag=True,
-    help="show label comparison results broken down by ecosystem",
-)
-@click.option(
-    "--verbose", "-v", "verbosity", count=True, help="show details of all comparisons"
-)
-@click.option(
-    "--result-set",
-    "-r",
-    default=default_result_set,
-    help="the result set to use for the quality gate",
-)
-def validate(
-    cfg: config.Application,
-    images: list[str],
-    always_run_label_comparison: bool,
-    breakdown_by_ecosystem: bool,
-    verbosity: int,
-    result_set: str,
-):
-    setup_logging(verbosity)
-
-    # let's not load any more labels than we need to, base this off of the images we're validating
-    if not images:
-        images = set()
-        result_set_obj = store.result_set.load(name=result_set)
-        for state in result_set_obj.state:
-            images.add(state.config.image)
-        images = sorted(list(images))
-
-    print("Loading label entries...", end=" ")
-    label_entries = store.labels.load_for_image(
-        images, year_max_limit=cfg.max_year_for_result_set(result_set)
-    )
-    print(f"done! {len(label_entries)} entries loaded")
-
-    result_sets = [
-        result_set
-    ]  # today only one result set is supported, but more can be added
-    gates = []
-    for result_set in result_sets:
-        rs_config = cfg.result_sets[result_set]
-        for gate_config in rs_config.validations:
-            gates.extend(
-                val.validate_result_set(
-                    gate_config,
-                    result_set,
-                    images=images,
-                    always_run_label_comparison=always_run_label_comparison,
-                    verbosity=verbosity,
-                    label_entries=label_entries,
-                )
-            )
-        print()
-
-        if breakdown_by_ecosystem:
-            print(
-                f"{bcolors.HEADER}Breaking down label comparison by ecosystem performance...",
-                bcolors.RESET,
-            )
-            results_by_image, label_entries, stats = (
-                yardstick.compare_results_against_labels_by_ecosystem(
-                    result_set=result_set,
-                    year_max_limit=cfg.max_year_for_result_set(result_set),
-                    label_entries=label_entries,
-                )
-            )
-            display.labels_by_ecosystem_comparison(
-                results_by_image,
-                stats,
-                show_images_used=False,
-            )
-            print()
-
-    failure = not all([gate.passed() for gate in gates])
-    if failure:
-        print("Reasons for quality gate failure:")
-    for gate in gates:
-        for reason in gate.reasons:
-            print(f"   - {reason}")
-
-    if failure:
-        print()
-        print(f"{bcolors.FAIL}{bcolors.BOLD}Quality gate FAILED{bcolors.RESET}")
-        sys.exit(1)
-    else:
-        print(f"{bcolors.OKGREEN}{bcolors.BOLD}Quality gate passed!{bcolors.RESET}")
-
-
-def setup_logging(verbosity: int):
-    # pylint: disable=redefined-outer-name, import-outside-toplevel
-    import logging.config
-
-    if verbosity in [0, 1, 2]:
-        log_level = "WARN"
-    elif verbosity == 3:
-        log_level = "INFO"
-    else:
-        log_level = "DEBUG"
-
-    logging.config.dictConfig(
-        {
-            "version": 1,
-            "formatters": {
-                "standard": {
-                    # [%(module)s.%(funcName)s]
-                    "format": "%(asctime)s [%(levelname)s] %(message)s",
-                    "datefmt": "",
-                },
-            },
-            "handlers": {
-                "default": {
-                    "level": log_level,
-                    "formatter": "standard",
-                    "class": "logging.StreamHandler",
-                    "stream": "ext://sys.stderr",
-                },
-            },
-            "loggers": {
-                "": {  # root logger
-                    "handlers": ["default"],
-                    "level": log_level,
-                },
-            },
-        }
+        config=gate_config,
     )

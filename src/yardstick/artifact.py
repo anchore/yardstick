@@ -118,6 +118,7 @@ class ScanConfiguration:
     image_digest: str
     tool_name: str
     tool_version: str
+    tool_label: str | None = None
     image_tag: str = ""
     timestamp: datetime.datetime | None = field(
         default=None,
@@ -205,6 +206,7 @@ tool:\t{self.tool}"""
             tool_name=tool_obj.id,
             tool_version=tool_obj.version,
             timestamp=timestamp,
+            tool_label=label,
         )
 
 
