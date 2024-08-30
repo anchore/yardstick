@@ -4,7 +4,7 @@ from typing import Optional, Sequence
 from dataclasses import dataclass, InitVar, field
 
 import yardstick
-from yardstick import store, comparison, artifact
+from yardstick import store, comparison, artifact, utils
 from yardstick.cli import display
 
 
@@ -22,6 +22,7 @@ class GateConfig:
     max_year: int | None = None
     reference_tool_label: str = "reference"
     candidate_tool_label: str = "candidate"
+    allowed_namespaces: list[str] = field(default_factory=list)
 
 
 @dataclass
@@ -289,6 +290,16 @@ def validate_result_set(
     return ret
 
 
+def matches_filter_by_namespaces(
+    matches: list[artifact.Match], namespaces
+) -> list[artifact.Match]:
+    ret = []
+    for match in matches:
+        if utils.dig(match.fullentry, "vulnerability", "namespace") in namespaces:
+            ret.append(match)
+    return ret
+
+
 def validate_image(
     gate_config: GateConfig,
     descriptions: list[str],
@@ -305,9 +316,18 @@ def validate_image(
     # ]  # TODO: support N, don't hard code index
     # reference_tool, candidate_tool = result_set_config.tool_comparisons()
 
+    def matches_filter(matches):
+        return matches_filter_by_namespaces(matches, gate_config.allowed_namespaces)
+
+    m_filter = matches_filter
+    if not gate_config.allowed_namespaces:
+        m_filter = None
+
     # print(f"{bcolors.HEADER}Running relative comparison...", bcolors.RESET)
     relative_comparison = yardstick.compare_results(
-        descriptions=descriptions, year_max_limit=gate_config.max_year
+        descriptions=descriptions,
+        year_max_limit=gate_config.max_year,
+        matches_filter=m_filter,
     )
     # show_results_used(relative_comparison.results)
 
@@ -370,7 +390,6 @@ def validate_image(
 
     # keep a list of differences between tools to summarize
     deltas = []
-
     for result in relative_comparison.results:
         label_comparison = comparisons_by_result_id[result.ID]
         for unique_match in relative_comparison.unique[result.ID]:
