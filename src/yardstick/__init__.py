@@ -1,7 +1,18 @@
 import logging
 from typing import Callable, Optional
 
-from . import arrange, artifact, capture, cli, comparison, label, store, tool, validate, utils
+from . import (
+    arrange,
+    artifact,
+    capture,
+    cli,
+    comparison,
+    label,
+    store,
+    tool,
+    validate,
+    utils,
+)
 
 __all__ = [
     "arrange",

@@ -124,7 +124,13 @@ def validate(
     all_result_sets: bool,
 ):
     setup_logging(verbosity)
-    if all:
+    if (
+        all_result_sets and result_sets and len(result_sets) > 1
+    ):  # default result set will be present anyway
+        raise ValueError(
+            f"cannot pass --all and -r / --result-set: {all_result_sets} {result_sets}"
+        )
+    if all_result_sets:
         result_sets = [r for r in cfg.result_sets.keys()]
 
     # let's not load any more labels than we need to, base this off of the images we're validating

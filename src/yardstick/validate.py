@@ -1,12 +1,11 @@
 import sys
-from typing import Optional, Sequence
+from typing import Optional, Sequence, Callable
 
 from dataclasses import dataclass, InitVar, field
 
 import yardstick
 from yardstick import store, comparison, artifact, utils
 from yardstick.cli import display
-
 
 # see the .yardstick.yaml configuration for details
 # TODO: remove this; package specific
@@ -145,12 +144,12 @@ class Gate:
             current_f1_score = comp.summary.f1_score
             if current_f1_score < latest_f1_score - self.config.max_f1_regression:
                 reasons.append(
-                    f"current F1 score is lower than the latest release F1 score: {bcolors.BOLD+bcolors.UNDERLINE}current={current_f1_score:0.2f} latest={latest_f1_score:0.2f}{bcolors.RESET} image={image}"
+                    f"current F1 score is lower than the latest release F1 score: {bcolors.BOLD + bcolors.UNDERLINE}current={current_f1_score:0.2f} latest={latest_f1_score:0.2f}{bcolors.RESET} image={image}"
                 )
 
             if comp.summary.indeterminate_percent > self.config.max_unlabeled_percent:
                 reasons.append(
-                    f"current indeterminate matches % is greater than {self.config.max_unlabeled_percent}%: {bcolors.BOLD+bcolors.UNDERLINE}current={comp.summary.indeterminate_percent:0.2f}%{bcolors.RESET} image={image}"
+                    f"current indeterminate matches % is greater than {self.config.max_unlabeled_percent}%: {bcolors.BOLD + bcolors.UNDERLINE}current={comp.summary.indeterminate_percent:0.2f}%{bcolors.RESET} image={image}"
                 )
 
             latest_fns = latest_release_comparisons_by_image[
@@ -159,7 +158,7 @@ class Gate:
             current_fns = comp.summary.false_negatives
             if current_fns > latest_fns + self.config.max_new_false_negatives:
                 reasons.append(
-                    f"current false negatives is greater than the latest release false negatives: {bcolors.BOLD+bcolors.UNDERLINE}current={current_fns} latest={latest_fns}{bcolors.RESET} image={image}"
+                    f"current false negatives is greater than the latest release false negatives: {bcolors.BOLD + bcolors.UNDERLINE}current={current_fns} latest={latest_fns}{bcolors.RESET} image={image}"
                 )
 
         self.reasons = reasons
@@ -256,6 +255,12 @@ def validate_result_set(
     )
     result_set_obj = store.result_set.load(name=result_set)
 
+    if gate_config.allowed_namespaces:
+        validator = NamespaceValidator(gate_config)
+        m_filter = validator.filter_by_namespace
+    else:
+        m_filter = None
+
     ret = []
     for image, result_states in result_set_obj.result_state_by_image.items():
         if images and image not in images:
@@ -273,6 +278,7 @@ def validate_result_set(
             always_run_label_comparison=always_run_label_comparison,
             verbosity=verbosity,
             label_entries=label_entries,
+            match_filter=m_filter,
         )
         ret.append(gate)
 
@@ -287,11 +293,20 @@ def validate_result_set(
         # print("▁" * size)
         # print("░" * size)
         # print("▔" * size)
+    if gate_config.allowed_namespaces:
+        missing, extra = validator.missing_and_extra()
+        reasons = []
+        if missing:
+            reasons.append(f"missing expected namespaces: {', '.join(missing)}")
+        if extra:
+            reasons.append(f"extra expected namespaces: {', '.join(extra)}")
+        if reasons:
+            ret.append(Gate(None, None, config=gate_config, reasons=reasons))
     return ret
 
 
 def matches_filter_by_namespaces(
-    matches: list[artifact.Match], namespaces
+    matches: list[artifact.Match], namespaces: set[str]
 ) -> list[artifact.Match]:
     ret = []
     for match in matches:
@@ -300,12 +315,41 @@ def matches_filter_by_namespaces(
     return ret
 
 
+def namespace_from_match(match: artifact.Match) -> str:
+    return utils.dig(match.fullentry, "vulnerability", "namespace")
+
+
+class NamespaceValidator:
+    def __init__(self, gate_config: GateConfig):
+        self.namespaces = set(gate_config.allowed_namespaces)
+        self.seen_namespaces: set[str] = set()
+
+    def namespace_from_match(self, match: artifact.Match) -> str:
+        return utils.dig(match.fullentry, "vulnerability", "namespace")
+
+    def filter_by_namespace(
+        self, matches: list[artifact.Match]
+    ) -> list[artifact.Match]:
+        result = []
+        for match in matches:
+            self.seen_namespaces.add(namespace_from_match(match))
+            if namespace_from_match(match) in self.namespaces:
+                result.append(match)
+        return result
+
+    def missing_and_extra(self) -> tuple[set[str], set[str]]:
+        missing = self.namespaces - self.seen_namespaces
+        extra = self.seen_namespaces - self.seen_namespaces
+        return missing, extra
+
+
 def validate_image(
     gate_config: GateConfig,
     descriptions: list[str],
     always_run_label_comparison: bool,
     verbosity: int,
     label_entries: Optional[list[artifact.LabelEntry]] = None,
+    match_filter: Callable[[list[artifact.Match]], list[artifact.Match]] | None = None,
 ):
     # do a relative comparison
     # - show comparison summary (no gating action)
@@ -316,20 +360,11 @@ def validate_image(
     # ]  # TODO: support N, don't hard code index
     # reference_tool, candidate_tool = result_set_config.tool_comparisons()
 
-    def matches_filter(matches):
-        return matches_filter_by_namespaces(matches, gate_config.allowed_namespaces)
-
-    m_filter = matches_filter
-    if not gate_config.allowed_namespaces:
-        m_filter = None
-
-    # print(f"{bcolors.HEADER}Running relative comparison...", bcolors.RESET)
     relative_comparison = yardstick.compare_results(
         descriptions=descriptions,
         year_max_limit=gate_config.max_year,
-        matches_filter=m_filter,
+        matches_filter=match_filter,
     )
-    # show_results_used(relative_comparison.results)
 
     # show the relative comparison results
     if verbosity > 0:
