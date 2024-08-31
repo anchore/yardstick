@@ -1,7 +1,7 @@
 import logging
 from typing import Callable, Optional
 
-from . import arrange, artifact, capture, cli, comparison, label, store, tool, utils
+from . import arrange, artifact, capture, cli, comparison, label, store, tool, validate, utils
 
 __all__ = [
     "arrange",
@@ -12,6 +12,7 @@ __all__ = [
     "label",
     "store",
     "tool",
+    "validate",
     "utils",
 ]
 
