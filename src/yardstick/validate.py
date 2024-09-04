@@ -1,3 +1,4 @@
+import logging
 import sys
 from typing import Optional, Sequence, Callable
 
@@ -10,7 +11,6 @@ from yardstick.cli import display
 # see the .yardstick.yaml configuration for details
 # TODO: remove this; package specific
 default_result_set = "pr_vs_latest_via_sbom"
-yardstick.utils.grype_db.raise_on_failure(False)
 
 
 @dataclass
@@ -170,7 +170,8 @@ class Gate:
 def guess_tool_orientation(tools: list[str]):
     """
     Given a pair of tools, guess which is latest version, and which is the one
-    being compared to the latest version.
+    being compared to the latest version. This should only be used as a fallback.
+    Instead, specify reference tool label and candidate tool label in validations.
     Returns (latest_tool, current_tool)
     """
     if len(tools) != 2:
@@ -218,18 +219,6 @@ if not sys.stdout.isatty():
     bcolors.RESET = ""
 
 
-def show_results_used(results: list[artifact.ScanResult]):
-    print("   Results used:")
-    for idx, result in enumerate(results):
-        branch = "├──"
-        if idx == len(results) - 1:
-            branch = "└──"
-        print(
-            f"    {branch} {result.ID} : {result.config.tool} against {result.config.image}"
-        )
-    print()
-
-
 def results_used(results: Sequence[artifact.ScanResult]) -> list[GateInputDescription]:
     return [
         GateInputDescription(
@@ -250,8 +239,8 @@ def validate_result_set(
     verbosity: int,
     label_entries: Optional[list[artifact.LabelEntry]] = None,
 ) -> list[Gate]:
-    print(
-        f"{bcolors.HEADER}{bcolors.BOLD}Validating with {result_set!r}", bcolors.RESET
+    logging.info(
+        f"{bcolors.HEADER}{bcolors.BOLD}Validating with {result_set!r}{bcolors.RESET}"
     )
     result_set_obj = store.result_set.load(name=result_set)
 
@@ -264,13 +253,11 @@ def validate_result_set(
     ret = []
     for image, result_states in result_set_obj.result_state_by_image.items():
         if images and image not in images:
-            # print("Skipping image:", image)
+            logging.info(f"Skipping image {image!r} because --images is passed but does not include it")
             continue
-        # print()
-        # print("Testing image:", image)
-        # for state in result_states:
-        #     print("   ", f"with {state.request.tool}")
-        # print()
+        tools = ", ".join([s.request.tool for s in result_states])
+        logging.info(f"Testing image: {image!r} with {tools!r}")
+
 
         gate = validate_image(
             gate_config=gate_config,
@@ -282,17 +269,6 @@ def validate_result_set(
         )
         ret.append(gate)
 
-        # failure = not gate.passed()
-        # if failure:
-        #     print(f"{bcolors.FAIL}{bcolors.BOLD}Failed quality gate{bcolors.RESET}")
-        # for reason in gate.reasons:
-        #     print(f"   - {reason}")
-
-        # print()
-        # size = 120
-        # print("▁" * size)
-        # print("░" * size)
-        # print("▔" * size)
     if gate_config.allowed_namespaces:
         missing, extra = validator.missing_and_extra()
         reasons = []
@@ -350,16 +326,7 @@ def validate_image(
     verbosity: int,
     label_entries: Optional[list[artifact.LabelEntry]] = None,
     match_filter: Callable[[list[artifact.Match]], list[artifact.Match]] | None = None,
-):
-    # do a relative comparison
-    # - show comparison summary (no gating action)
-    # - list out all individual match differences
-    # result_set_config = cfg.result_sets[result_set]
-    # validation = result_set_config.validations[
-    #     0
-    # ]  # TODO: support N, don't hard code index
-    # reference_tool, candidate_tool = result_set_config.tool_comparisons()
-
+) -> Gate:
     relative_comparison = yardstick.compare_results(
         descriptions=descriptions,
         year_max_limit=gate_config.max_year,
@@ -372,7 +339,6 @@ def validate_image(
         display.preserved_matches(
             relative_comparison, details=details, summary=True, common=False
         )
-        # print()
 
     # bail if there are no differences found
     if not always_run_label_comparison and not sum(
@@ -389,7 +355,7 @@ def validate_image(
         )
 
     # do a label comparison
-    # print(f"{bcolors.HEADER}Running comparison against labels...", bcolors.RESET)
+    logging.info(f"{bcolors.HEADER}Running comparison against labels...{bcolors.RESET}")
     results, label_entries, comparisons_by_result_id, stats_by_image_tool_pair = (
         yardstick.compare_results_against_labels(
             descriptions=descriptions,
@@ -397,7 +363,6 @@ def validate_image(
             label_entries=label_entries,
         )
     )
-    # show_results_used(results)
 
     if verbosity > 0:
         show_fns = verbosity > 1
@@ -422,6 +387,8 @@ def validate_image(
         reference_tool, candidate_tool = guess_tool_orientation(
             [r.config.tool for r in results]
         )
+        logging.warning(f"guessed tool orientation reference:{reference_tool} candidate:{candidate_tool}")
+        logging.warning("to avoid guessing, specify reference_tool_label and candidate_tool_label in validation config")
 
     # keep a list of differences between tools to summarize
     deltas = []

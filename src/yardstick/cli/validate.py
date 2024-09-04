@@ -1,3 +1,4 @@
+import logging
 import re
 import sys
 
@@ -5,14 +6,14 @@ import click
 from tabulate import tabulate
 
 import yardstick
-from yardstick import store, validate as val
-from yardstick.cli import display, config
+from yardstick import store
+from yardstick import validate as val
+from yardstick.cli import config, display
 from yardstick.validate import Gate, GateInputDescription
 
 # see the .yardstick.yaml configuration for details
 # TODO: remove this; package specific
 default_result_set = "pr_vs_latest_via_sbom"
-yardstick.utils.grype_db.raise_on_failure(False)
 
 
 class bcolors:
@@ -88,7 +89,7 @@ def validate(
     result_sets: list[str],
     all_result_sets: bool,
 ):
-    setup_logging(verbosity)
+    setup_logging(verbosity + 3)
     if (
         all_result_sets and result_sets and len(result_sets) > 1
     ):  # default result set will be present anyway
@@ -104,14 +105,15 @@ def validate(
         for r in result_sets:
             result_set_obj = store.result_set.load(name=r)
             for state in result_set_obj.state:
-                unique_images.add(state.config.image)
+                if state and state.config and state.config.image:
+                    unique_images.add(state.config.image)
         images = sorted(list(unique_images))
 
-    print("Loading label entries...", end=" ")
+    click.echo("Loading label entries...", nl=False)
     label_entries = store.labels.load_for_image(
         images, year_max_limit=cfg.max_year_for_any_result_set(result_sets)
     )
-    print(f"done! {len(label_entries)} entries loaded")
+    click.echo(f"done! {len(label_entries)} entries loaded")
 
     gates = []
     for result_set in result_sets:
@@ -132,12 +134,11 @@ def validate(
                 show_delta_commentary(gate)
 
             gates.extend(new_gates)
-        print()
+        click.echo()
 
         if breakdown_by_ecosystem:
-            print(
-                f"{bcolors.HEADER}Breaking down label comparison by ecosystem performance...",
-                bcolors.RESET,
+            click.echo(
+                f"{bcolors.HEADER}Breaking down label comparison by ecosystem performance...{bcolors.RESET}",
             )
             results_by_image, label_entries, stats = (
                 yardstick.compare_results_against_labels_by_ecosystem(
@@ -151,21 +152,23 @@ def validate(
                 stats,
                 show_images_used=False,
             )
-            print()
+            click.echo()
 
     failure = not all([gate.passed() for gate in gates])
     if failure:
-        print("Reasons for quality gate failure:")
+        click.echo("Reasons for quality gate failure:")
     for gate in gates:
         for reason in gate.reasons:
-            print(f"   - {reason}")
+            click.echo(f"   - {reason}")
 
     if failure:
-        print()
-        print(f"{bcolors.FAIL}{bcolors.BOLD}Quality gate FAILED{bcolors.RESET}")
+        click.echo()
+        click.echo(f"{bcolors.FAIL}{bcolors.BOLD}Quality gate FAILED{bcolors.RESET}")
         sys.exit(1)
     else:
-        print(f"{bcolors.OKGREEN}{bcolors.BOLD}Quality gate passed!{bcolors.RESET}")
+        click.echo(
+            f"{bcolors.OKGREEN}{bcolors.BOLD}Quality gate passed!{bcolors.RESET}"
+        )
 
 
 def setup_logging(verbosity: int):
@@ -252,7 +255,7 @@ def show_delta_commentary(gate: Gate):
 
 
 def show_results_used(results: list[GateInputDescription]):
-    print("   Results used:")
+    click.echo(f"   Results used for image {results[0].image}:")
     for idx, description in enumerate(results):
         branch = "├──"
         if idx == len(results) - 1:
@@ -260,7 +263,7 @@ def show_results_used(results: list[GateInputDescription]):
         label = " "
         if description.tool_label and len(description.tool_label) > 0:
             label = f" ({description.tool_label}) "
-        print(
+        click.echo(
             f"    {branch} {description.result_id} : {description.tool}{label} against {description.image}"
         )
-    print()
+    click.echo()
