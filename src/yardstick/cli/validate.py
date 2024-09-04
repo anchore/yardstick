@@ -3,7 +3,6 @@ import sys
 
 import click
 from tabulate import tabulate
-from dataclasses import dataclass
 
 import yardstick
 from yardstick import store, validate as val
@@ -14,40 +13,6 @@ from yardstick.validate import Gate, GateInputDescription
 # TODO: remove this; package specific
 default_result_set = "pr_vs_latest_via_sbom"
 yardstick.utils.grype_db.raise_on_failure(False)
-
-
-@dataclass
-class GateConfig:
-    max_f1_decrease: float = 0.0
-    max_unlabeled_match_percent: int = 0
-    max_new_false_negatives: int = 0
-
-
-def guess_tool_orientation(tools: list[str]):
-    """
-    Given a pair of tools, guess which is latest version, and which is the one
-    being compared to the latest version.
-    Returns (latest_tool, current_tool)
-    """
-    if len(tools) != 2:
-        raise RuntimeError("expected 2 tools, got %s" % tools)
-    tool_a, tool_b = sorted(tools)
-    if tool_a == tool_b:
-        raise ValueError("latest release tool and current tool are the same")
-    if tool_a.endswith("latest"):
-        return tool_a, tool_b
-    elif tool_b.endswith("latest"):
-        return tool_b, tool_a
-
-    if "@path:" in tool_a and "@path:" not in tool_b:
-        # tool_a is a local build, so compare it against tool_b
-        return tool_b, tool_a
-
-    if "@path:" in tool_b and "@path:" not in tool_a:
-        # tool_b is a local build, so compare it against tool_a
-        return tool_a, tool_b
-
-    return tool_a, tool_b
 
 
 class bcolors:
