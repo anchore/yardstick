@@ -1,3 +1,4 @@
+import enum
 import logging
 import sys
 from typing import Optional, Sequence, Callable
@@ -8,10 +9,6 @@ import yardstick
 from yardstick import store, comparison, artifact, utils
 from yardstick.cli import display
 
-# see the .yardstick.yaml configuration for details
-# TODO: remove this; package specific
-default_result_set = "pr_vs_latest_via_sbom"
-
 
 @dataclass
 class GateConfig:
@@ -21,15 +18,31 @@ class GateConfig:
     max_year: int | None = None
     reference_tool_label: str = "reference"
     candidate_tool_label: str = "candidate"
+    # only consider matches from these namespaces when judging results
     allowed_namespaces: list[str] = field(default_factory=list)
+    # fail this gate unless all of these namespaces are present
+    required_namespaces: list[str] = field(default_factory=list)
+
+
+@dataclass
+class GateInputResultConfig:
+    id: str
+    tool: str
+    tool_label: str
 
 
 @dataclass
 class GateInputDescription:
-    result_id: str
-    tool: str
-    tool_label: str
     image: str
+    configs: list[GateInputResultConfig] = field(default_factory=list)
+
+
+class DeltaType(enum.Enum):
+    Unknown = "Unknown"
+    FixedFalseNegative = "FixedFalseNegative"
+    FixedFalsePositive = "FixedFalsePositive"
+    NewFalseNegative = "NewFalseNegative"
+    NewFalsePositive = "NewFalsePositive"
 
 
 @dataclass
@@ -43,63 +56,71 @@ class Delta:
 
     @property
     def is_improved(self) -> bool | None:
-        if not self.label:
-            return None
-
-        if not self.added:
-            # the tool which found the unique result is the latest release tool...
-            if self.label == artifact.Label.TruePositive.name:
-                # drats! we missed a case (this is a new FN)
-                return False
-            elif artifact.Label.FalsePositive.name in self.label:
-                # we got rid of a FP! ["hip!", "hip!"]
-                return True
-        else:
-            # the tool which found the unique result is the current tool...
-            if self.label == artifact.Label.TruePositive.name:
-                # highest of fives! we found a new TP that the previous tool release missed!
-                return True
-            elif artifact.Label.FalsePositive.name in self.label:
-                # welp, our changes resulted in a new FP... not great, maybe not terrible?
-                return False
-
+        if self.outcome in {DeltaType.FixedFalseNegative, DeltaType.FixedFalsePositive}:
+            return True
+        if self.outcome in {DeltaType.NewFalseNegative, DeltaType.NewFalsePositive}:
+            return False
         return None
 
     @property
     def commentary(self) -> str:
         commentary = ""
-        if self.is_improved and self.label == artifact.Label.TruePositive.name:
+        # if self.is_improved and self.label == artifact.Label.TruePositive.name:
+        if self.outcome == DeltaType.FixedFalseNegative:
             commentary = "(this is a new TP 🙌)"
-        elif self.is_improved and self.label == artifact.Label.FalsePositive.name:
+        elif self.outcome == DeltaType.FixedFalsePositive:
             commentary = "(got rid of a former FP 🙌)"
-        elif not self.is_improved and self.label == artifact.Label.FalsePositive.name:
+        elif self.outcome == DeltaType.NewFalsePositive:
             commentary = "(this is a new FP 😱)"
-        elif not self.is_improved and self.label == artifact.Label.TruePositive.name:
+        elif self.outcome == DeltaType.NewFalseNegative:
             commentary = "(this is a new FN 😱)"
 
         return commentary
+
+    @property
+    def outcome(self) -> DeltaType:
+        # TODO: this would be better handled post init and set I think
+        if not self.label:
+            return DeltaType.Unknown
+
+        if not self.added:
+            # the tool which found the unique result is the reference tool...
+            if self.label == artifact.Label.TruePositive.name:
+                # drats! we missed a case (this is a new FN)
+                return DeltaType.NewFalseNegative
+            elif artifact.Label.FalsePositive.name in self.label:
+                # we got rid of a FP! ["hip!", "hip!"]
+                return DeltaType.FixedFalsePositive
+        else:
+            # the tool which found the unique result is the current tool...
+            if self.label == artifact.Label.TruePositive.name:
+                # highest of fives! we found a new TP that the previous tool release missed!
+                return DeltaType.FixedFalseNegative
+            elif artifact.Label.FalsePositive.name in self.label:
+                # welp, our changes resulted in a new FP... not great, maybe not terrible?
+                return DeltaType.NewFalsePositive
+
+        return DeltaType.Unknown
 
 
 @dataclass
 class Gate:
     label_comparisons: InitVar[Optional[list[comparison.AgainstLabels]]]
-    label_comparison_stats: InitVar[Optional[comparison.ImageToolLabelStats]]
+    # label_comparison_stats: InitVar[Optional[comparison.ImageToolLabelStats]]
 
     config: GateConfig
 
-    result_descriptions: list[GateInputDescription] = field(default_factory=list)
+    reference_tool_string: str
+    candidate_tool_string: str
+    input_description: GateInputDescription
     reasons: list[str] = field(default_factory=list)
     deltas: list[Delta] = field(default_factory=list)
-
-    reference_tool_string: str | None = None
-    candidate_tool_string: str | None = None
 
     def __post_init__(
         self,
         label_comparisons: Optional[list[comparison.AgainstLabels]],
-        label_comparison_stats: Optional[comparison.ImageToolLabelStats],
     ):
-        if not label_comparisons and not label_comparison_stats:
+        if not label_comparisons:
             return
 
         reasons = []
@@ -108,63 +129,54 @@ class Gate:
         # - fail when indeterminate % > 10%
         # - fail when there is a rise in FNs
         if self.reference_tool_string is None or self.candidate_tool_string is None:
-            latest_release_tool, current_tool = guess_tool_orientation(
-                label_comparison_stats.tools
-            )
-        elif self.candidate_tool_string == label_comparison_stats.tools[1]:
-            latest_release_tool, current_tool = (
-                label_comparison_stats.tools[0],
-                label_comparison_stats.tools[1],
-            )
-        elif self.candidate_tool_string == label_comparison_stats.tools[0]:
-            latest_release_tool, current_tool = (
-                label_comparison_stats.tools[1],
-                label_comparison_stats.tools[0],
-            )
-        else:
-            raise ValueError(
-                f"reference tool specified, but not found: {self.reference_tool_string} is not one of {' '.join(label_comparison_stats.tools)}"
-            )
+            raise ValueError("must specify reference tool and candidate tool")
 
-        latest_release_comparisons_by_image = {
+        reference_comparisons_by_images = {
             comp.config.image: comp
             for comp in label_comparisons
-            if comp.config.tool == latest_release_tool
+            if comp.config.tool == self.reference_tool_string
         }
-        current_comparisons_by_image = {
+        candidate_comparisons_by_images = {
             comp.config.image: comp
             for comp in label_comparisons
-            if comp.config.tool == current_tool
+            if comp.config.tool == self.candidate_tool_string
         }
 
-        for image, comp in current_comparisons_by_image.items():
-            latest_f1_score = latest_release_comparisons_by_image[
-                image
-            ].summary.f1_score
+        for image, comp in candidate_comparisons_by_images.items():
+            reference_f1_score = reference_comparisons_by_images[image].summary.f1_score
             current_f1_score = comp.summary.f1_score
-            if current_f1_score < latest_f1_score - self.config.max_f1_regression:
+            if current_f1_score < reference_f1_score - self.config.max_f1_regression:
                 reasons.append(
-                    f"current F1 score is lower than the latest release F1 score: {bcolors.BOLD + bcolors.UNDERLINE}current={current_f1_score:0.2f} latest={latest_f1_score:0.2f}{bcolors.RESET} image={image}"
+                    f"current F1 score is lower than the latest release F1 score: {bcolors.BOLD + bcolors.UNDERLINE}candidate_score={current_f1_score:0.2f} reference_score={reference_f1_score:0.2f}{bcolors.RESET} image={image}"
                 )
 
             if comp.summary.indeterminate_percent > self.config.max_unlabeled_percent:
                 reasons.append(
-                    f"current indeterminate matches % is greater than {self.config.max_unlabeled_percent}%: {bcolors.BOLD + bcolors.UNDERLINE}current={comp.summary.indeterminate_percent:0.2f}%{bcolors.RESET} image={image}"
+                    f"current indeterminate matches % is greater than {self.config.max_unlabeled_percent}%: {bcolors.BOLD + bcolors.UNDERLINE}candidate={comp.summary.indeterminate_percent:0.2f}%{bcolors.RESET} image={image}"
                 )
 
-            latest_fns = latest_release_comparisons_by_image[
-                image
-            ].summary.false_negatives
+            latest_fns = reference_comparisons_by_images[image].summary.false_negatives
             current_fns = comp.summary.false_negatives
             if current_fns > latest_fns + self.config.max_new_false_negatives:
                 reasons.append(
-                    f"current false negatives is greater than the latest release false negatives: {bcolors.BOLD + bcolors.UNDERLINE}current={current_fns} latest={latest_fns}{bcolors.RESET} image={image}"
+                    f"current false negatives is greater than the latest release false negatives: {bcolors.BOLD + bcolors.UNDERLINE}candidate={current_fns} reference={latest_fns}{bcolors.RESET} image={image}"
                 )
 
         self.reasons = reasons
 
     def passed(self) -> bool:
         return len(self.reasons) == 0
+
+    @classmethod
+    def from_reasons(cls, reasons: list[str], input_description: GateInputDescription):
+        return cls(
+            label_comparisons=[],
+            config=GateConfig(),
+            reference_tool_string="",
+            candidate_tool_string="",
+            reasons=reasons,
+            input_description=input_description,
+        )
 
 
 def guess_tool_orientation(tools: list[str]):
@@ -219,16 +231,20 @@ if not sys.stdout.isatty():
     bcolors.RESET = ""
 
 
-def results_used(results: Sequence[artifact.ScanResult]) -> list[GateInputDescription]:
-    return [
-        GateInputDescription(
-            result_id=result.ID,
-            tool=result.config.tool,
-            tool_label=result.config.tool_label,
-            image=result.config.image,
-        )
-        for result in results
-    ]
+def results_used(
+    image: str, results: Sequence[artifact.ScanResult]
+) -> GateInputDescription:
+    return GateInputDescription(
+        image=image,
+        configs=[
+            GateInputResultConfig(
+                id=result.ID,
+                tool=result.config.tool,
+                tool_label=result.config.tool_label,
+            )
+            for result in results
+        ],
+    )
 
 
 def validate_result_set(
@@ -245,23 +261,27 @@ def validate_result_set(
     result_set_obj = store.result_set.load(name=result_set)
 
     if gate_config.allowed_namespaces:
-        validator = NamespaceValidator(gate_config)
-        m_filter = validator.filter_by_namespace
+        m_filter = namespace_filter(gate_config.allowed_namespaces)
+        logging.info(
+            f"only considering matches from allowed namespaces: {' '.join(gate_config.allowed_namespaces)}"
+        )
     else:
         m_filter = None
 
     ret = []
     for image, result_states in result_set_obj.result_state_by_image.items():
         if images and image not in images:
-            logging.info(f"Skipping image {image!r} because --images is passed but does not include it")
+            logging.info(
+                f"Skipping image {image!r} because --images is passed but does not include it"
+            )
             continue
         tools = ", ".join([s.request.tool for s in result_states])
         logging.info(f"Testing image: {image!r} with {tools!r}")
 
-
         gate = validate_image(
+            image=image,
             gate_config=gate_config,
-            descriptions=[s.config.path for s in result_states],
+            descriptions=[s.config.path for s in result_states if s.config is not None],
             always_run_label_comparison=always_run_label_comparison,
             verbosity=verbosity,
             label_entries=label_entries,
@@ -269,57 +289,26 @@ def validate_result_set(
         )
         ret.append(gate)
 
-    if gate_config.allowed_namespaces:
-        missing, extra = validator.missing_and_extra()
-        reasons = []
-        if missing:
-            reasons.append(f"missing expected namespaces: {', '.join(missing)}")
-        if extra:
-            reasons.append(f"extra expected namespaces: {', '.join(extra)}")
-        if reasons:
-            ret.append(Gate(None, None, config=gate_config, reasons=reasons))
     return ret
 
 
-def matches_filter_by_namespaces(
-    matches: list[artifact.Match], namespaces: set[str]
-) -> list[artifact.Match]:
-    ret = []
-    for match in matches:
-        if utils.dig(match.fullentry, "vulnerability", "namespace") in namespaces:
-            ret.append(match)
-    return ret
+def namespace_filter(
+    namespaces: list[str],
+) -> Callable[[list[artifact.Match]], list[artifact.Match]]:
+    include = set(namespaces)
 
-
-def namespace_from_match(match: artifact.Match) -> str:
-    return utils.dig(match.fullentry, "vulnerability", "namespace")
-
-
-class NamespaceValidator:
-    def __init__(self, gate_config: GateConfig):
-        self.namespaces = set(gate_config.allowed_namespaces)
-        self.seen_namespaces: set[str] = set()
-
-    def namespace_from_match(self, match: artifact.Match) -> str:
-        return utils.dig(match.fullentry, "vulnerability", "namespace")
-
-    def filter_by_namespace(
-        self, matches: list[artifact.Match]
-    ) -> list[artifact.Match]:
+    def filter(matches: list[artifact.Match]) -> list[artifact.Match]:
         result = []
-        for match in matches:
-            self.seen_namespaces.add(namespace_from_match(match))
-            if namespace_from_match(match) in self.namespaces:
-                result.append(match)
+        for mmatch in matches:
+            if utils.dig(mmatch.fullentry, "vulnerability", "namespace") in include:
+                result.append(mmatch)
         return result
 
-    def missing_and_extra(self) -> tuple[set[str], set[str]]:
-        missing = self.namespaces - self.seen_namespaces
-        extra = self.seen_namespaces - self.seen_namespaces
-        return missing, extra
+    return filter
 
 
 def validate_image(
+    image: str,
     gate_config: GateConfig,
     descriptions: list[str],
     always_run_label_comparison: bool,
@@ -349,9 +338,10 @@ def validate_image(
     ):
         return Gate(
             None,
-            None,
+            reference_tool_string="",
+            candidate_tool_string="",
             config=gate_config,
-            result_descriptions=list(results_used(relative_comparison.results)),
+            input_description=results_used(image, relative_comparison.results),
         )
 
     # do a label comparison
@@ -361,6 +351,7 @@ def validate_image(
             descriptions=descriptions,
             year_max_limit=gate_config.max_year,
             label_entries=label_entries,
+            matches_filter=match_filter,
         )
     )
 
@@ -374,7 +365,6 @@ def validate_image(
             show_summaries=True,
         )
 
-    # TODO: should be specified in config
     reference_tool, candidate_tool = None, None
     for r in results:
         if r.config.tool_label == gate_config.reference_tool_label:
@@ -383,12 +373,15 @@ def validate_image(
             candidate_tool = r.config.tool
 
     if reference_tool is None or candidate_tool is None:
-        # TODO: log.warn that results should be re-captured with labels
         reference_tool, candidate_tool = guess_tool_orientation(
             [r.config.tool for r in results]
         )
-        logging.warning(f"guessed tool orientation reference:{reference_tool} candidate:{candidate_tool}")
-        logging.warning("to avoid guessing, specify reference_tool_label and candidate_tool_label in validation config")
+        logging.warning(
+            f"guessed tool orientation reference:{reference_tool} candidate:{candidate_tool}"
+        )
+        logging.warning(
+            "to avoid guessing, specify reference_tool_label and candidate_tool_label in validation config and re-capture result set"
+        )
 
     # keep a list of differences between tools to summarize
     deltas = []
@@ -415,12 +408,14 @@ def validate_image(
             deltas.append(delta)
 
     # populate the quality gate with data that can evaluate pass/fail conditions
+    # TODO: we should pass in deltas and have the gate validate things?
+    # or what do we need from the summary stats? Maybe deltas and summary stats?
     return Gate(
         label_comparisons=list(comparisons_by_result_id.values()),
-        label_comparison_stats=stats_by_image_tool_pair,
+        # label_comparison_stats=stats_by_image_tool_pair,
         config=gate_config,
-        result_descriptions=list(results_used(results)),
-        deltas=deltas,
         reference_tool_string=reference_tool,
         candidate_tool_string=candidate_tool,
+        input_description=results_used(image, relative_comparison.results),
+        deltas=deltas,
     )

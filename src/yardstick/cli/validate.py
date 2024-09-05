@@ -1,4 +1,3 @@
-import logging
 import re
 import sys
 
@@ -10,10 +9,6 @@ from yardstick import store
 from yardstick import validate as val
 from yardstick.cli import config, display
 from yardstick.validate import Gate, GateInputDescription
-
-# see the .yardstick.yaml configuration for details
-# TODO: remove this; package specific
-default_result_set = "pr_vs_latest_via_sbom"
 
 
 class bcolors:
@@ -70,7 +65,7 @@ if not sys.stdout.isatty():
     "-r",
     "result_sets",
     multiple=True,
-    default=[default_result_set],
+    default=[],
     help="the result set to use for the quality gate",
 )
 @click.option(
@@ -89,15 +84,22 @@ def validate(
     result_sets: list[str],
     all_result_sets: bool,
 ):
+    # TODO: don't artificially inflate logging; figure out what to print
     setup_logging(verbosity + 3)
     if (
-        all_result_sets and result_sets and len(result_sets) > 1
+        all_result_sets and result_sets and len(result_sets) > 0
     ):  # default result set will be present anyway
         raise ValueError(
             f"cannot pass --all and -r / --result-set: {all_result_sets} {result_sets}"
         )
+
     if all_result_sets:
         result_sets = [r for r in cfg.result_sets.keys()]
+
+    if not result_sets:
+        raise ValueError(
+            "must pass --result-set / -r at least once or --all to validate all result sets"
+        )
 
     # let's not load any more labels than we need to, base this off of the images we're validating
     if not images:
@@ -130,7 +132,7 @@ def validate(
                 label_entries=label_entries,
             )
             for gate in new_gates:
-                show_results_used(gate.result_descriptions)
+                show_results_used(gate.input_description)
                 show_delta_commentary(gate)
 
             gates.extend(new_gates)
@@ -212,7 +214,7 @@ def setup_logging(verbosity: int):
 
 def show_delta_commentary(gate: Gate):
     if not gate.deltas:
-        print("No differences found between tooling (with labels)")
+        click.echo("No differences found between tooling (with labels)")
         return
 
     header_row = ["TOOL PARTITION", "PACKAGE", "VULNERABILITY", "LABEL", "COMMENTARY"]
@@ -242,9 +244,9 @@ def show_delta_commentary(gate: Gate):
     all_rows = sorted(
         all_rows, key=lambda x: escape_ansi(str(x[0] + x[1] + x[2] + x[3]))
     )
-    print("Match differences between tooling (with labels):")
+    click.echo("Match differences between tooling (with labels):")
     indent = "   "
-    print(
+    click.echo(
         indent
         + tabulate(
             [header_row] + all_rows,
@@ -254,16 +256,18 @@ def show_delta_commentary(gate: Gate):
     )
 
 
-def show_results_used(results: list[GateInputDescription]):
-    click.echo(f"   Results used for image {results[0].image}:")
-    for idx, description in enumerate(results):
+def show_results_used(input_description: GateInputDescription):
+    if not input_description:
+        return
+    click.echo(f"   Results used for image {input_description.image}:")
+    for idx, description in enumerate(input_description.configs):
         branch = "├──"
-        if idx == len(results) - 1:
+        if idx == len(input_description.configs) - 1:
             branch = "└──"
         label = " "
         if description.tool_label and len(description.tool_label) > 0:
             label = f" ({description.tool_label}) "
         click.echo(
-            f"    {branch} {description.result_id} : {description.tool}{label} against {description.image}"
+            f"    {branch} {description.id} : {description.tool}{label} against {input_description.image}"
         )
     click.echo()
