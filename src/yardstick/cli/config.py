@@ -5,6 +5,7 @@ from dataclasses import dataclass, field
 from typing import Any, Sequence
 
 import mergedeep  # type: ignore[import]
+import re
 import yaml
 from dataclass_wizard import asdict, fromdict  # type: ignore[import]
 
@@ -45,6 +46,8 @@ class ScanMatrix:
     images: list[str] = field(default_factory=list)
     tools: list[Tool] = field(default_factory=list)
 
+    DIGEST_REGEX = re.compile(r"(?P<digest>sha256:[a-fA-F0-9]{64})")
+
     def __post_init__(self):
         for idx, tool in enumerate(self.tools):
             (
@@ -63,6 +66,57 @@ class ScanMatrix:
             else:
                 images += [image]
         self.images = images
+        invalid = [
+            image for image in images if not ScanMatrix.is_valid_oci_reference(image)
+        ]
+        if invalid:
+            raise ValueError(
+                f"all images must be complete OCI references, but {' '.join(invalid)} are not"
+            )
+
+    @staticmethod
+    def is_valid_oci_reference(image: str) -> bool:
+        parsed, result = ScanMatrix.parse_oci_reference(image)
+        if not parsed or not result:
+            return False
+        host, path, repository, tag, digest = result
+        return all([host, path, repository, tag, digest])
+
+    @staticmethod
+    def parse_oci_reference(
+        image: str,
+    ) -> tuple[bool, tuple[str, str, str, str, str] | None]:
+        host, path, repository, tag, digest = "", "", "", "", ""
+        # Step 1: Split on the `@` to get the digest and the part before it
+        if "@" in image:
+            pre_digest, digest = image.rsplit("@", 1)
+            if not ScanMatrix.DIGEST_REGEX.match(digest):
+                return False, None
+        else:
+            return False, None
+
+        # Split on the last `:` to get the tag and the part before it
+        # use rsplit to avoid splitting on hostname:port
+        if ":" in pre_digest:
+            pre_tag, tag = pre_digest.rsplit(":", 1)
+        else:
+            return False, None
+
+        # Split on the last `/` to get the repository and the host/path
+        if "/" in pre_tag:
+            host_and_path, repository = pre_tag.rsplit("/", 1)
+        else:
+            return False, None
+
+        # Split the host and path part, path is between first / and end of path
+        parts = host_and_path.split("/")
+        if len(parts) < 1:
+            raise ValueError("Invalid OCI reference: missing repository")
+
+        host = parts[0]
+        path = "/".join(parts[1:]) if len(parts) > 1 else ""
+
+        return True, (host, path, repository, tag, digest)
 
 
 @dataclass()

@@ -1,3 +1,5 @@
+import pytest
+
 from yardstick.cli import config
 
 
@@ -69,3 +71,57 @@ test_profile:
             },
         },
     )
+
+
+@pytest.mark.parametrize(
+    "name, image, expected_valid",
+    [
+        # valid: everything present
+        (
+            "valid",
+            "registry.example.com/repo/image:latest@sha256:1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef",
+            True,
+        ),
+        (
+            "valid: vulhub",
+            "docker.io/vulhub/cve-2017-1000353:latest@sha256:da2a59314b9ccfb428a313a7f163adcef77a74a393b8ebadeca8223b8cea9797",
+            True,
+        ),
+        # valid: localhost with port as repo host
+        (
+            "valid: localhost with port as repo host",
+            "localhost:5555/repo/image:latest@sha256:1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef",
+            True,
+        ),
+        (
+            "invalid: missing host",
+            "repo/image:latest@sha256:1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef",
+            False,
+        ),
+        (
+            "invalid: missing tag",
+            "registry.example.com/repo/image@sha256:1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef",
+            False,
+        ),
+        ("invalid: missing digest", "registry.example.com/repo/image:latest", False),
+        ("invalid: missing everything", "repo/image", False),
+        ("invalid: empty string", "", False),
+        (
+            "invalid: missing repo",
+            "registry.example.com/:latest@sha256:1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef",
+            False,
+        ),
+        ("invalid: missing repo and tag", "registry.example.com/", False),
+        ("invalid:missing digest", "registry.example.com/repo/image:stable", False),
+        (
+            "invalid: digest does not look like sha256",
+            "registry.example.com/repo/image:latest@sha256:invaliddigest",
+            False,
+        ),
+    ],
+)
+def test_is_valid_oci_reference(name, image, expected_valid):
+    result = config.ScanMatrix.is_valid_oci_reference(image)
+    assert (
+        result == expected_valid
+    ), f"Test case {name}: Expected {expected_valid} but got {result} for image '{image}'"
