@@ -22,6 +22,7 @@ class GateConfig:
     allowed_namespaces: list[str] = field(default_factory=list)
     # fail this gate unless all of these namespaces are present
     required_namespaces: list[str] = field(default_factory=list)
+    fail_on_empty_match_set: bool = True
 
 
 @dataclass
@@ -328,6 +329,18 @@ def validate_image(
         display.preserved_matches(
             relative_comparison, details=details, summary=True, common=False
         )
+
+    if gate_config.fail_on_empty_match_set:
+        if not sum(
+            len(res.matches) if res.matches else 0
+            for res in relative_comparison.results
+        ):
+            return Gate.from_reasons(
+                reasons=[
+                    "gate configured to fail on empty matches, and no matches found",
+                ],
+                input_description=results_used(image, relative_comparison.results),
+            )
 
     # bail if there are no differences found
     if not always_run_label_comparison and not sum(
