@@ -87,6 +87,11 @@ test_profile:
             "docker.io/vulhub/cve-2017-1000353:latest@sha256:da2a59314b9ccfb428a313a7f163adcef77a74a393b8ebadeca8223b8cea9797",
             True,
         ),
+        (
+            "valid: alpine",
+            "docker.io/alpine:3.2@sha256:ddac200f3ebc9902fb8cfcd599f41feb2151f1118929da21bcef57dc276975f9",
+            True,
+        ),
         # valid: localhost with port as repo host
         (
             "valid: localhost with port as repo host",

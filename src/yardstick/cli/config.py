@@ -79,8 +79,8 @@ class ScanMatrix:
         parsed, result = ScanMatrix.parse_oci_reference(image)
         if not parsed or not result:
             return False
-        host, path, repository, tag, digest = result
-        return all([host, path, repository, tag, digest])
+        host, _, repository, tag, digest = result
+        return all([host, repository, tag, digest])
 
     @staticmethod
     def parse_oci_reference(
@@ -111,10 +111,13 @@ class ScanMatrix:
         # Split the host and path part, path is between first / and end of path
         parts = host_and_path.split("/")
         if len(parts) < 1:
-            raise ValueError("Invalid OCI reference: missing repository")
+            return False, None
 
         host = parts[0]
         path = "/".join(parts[1:]) if len(parts) > 1 else ""
+        if not path:
+            if "." not in host and "localhost" not in host:
+                return False, None
 
         return True, (host, path, repository, tag, digest)
 
