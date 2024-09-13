@@ -76,50 +76,43 @@ class ScanMatrix:
 
     @staticmethod
     def is_valid_oci_reference(image: str) -> bool:
-        parsed, result = ScanMatrix.parse_oci_reference(image)
-        if not parsed or not result:
-            return False
-        host, _, repository, tag, digest = result
-        return all([host, repository, tag, digest])
+        host, _, repository, _, digest = ScanMatrix.parse_oci_reference(image)
+        return (
+            all([host, repository, digest])
+            and bool(ScanMatrix.DIGEST_REGEX.match(digest or ""))
+            and ("." in host or "localhost" in host)
+        )
 
     @staticmethod
-    def parse_oci_reference(
-        image: str,
-    ) -> tuple[bool, tuple[str, str, str, str, str] | None]:
-        host, path, repository, tag, digest = "", "", "", "", ""
-        # Step 1: Split on the `@` to get the digest and the part before it
+    def parse_oci_reference(image: str) -> tuple[str, str, str, str, str]:
+        host = ""
+        path = ""
+        host_and_path = ""
+        repository = ""
+        tag = ""
+        digest = ""
+
         if "@" in image:
             pre_digest, digest = image.rsplit("@", 1)
-            if not ScanMatrix.DIGEST_REGEX.match(digest):
-                return False, None
         else:
-            return False, None
+            pre_digest = image
 
-        # Split on the last `:` to get the tag and the part before it
-        # use rsplit to avoid splitting on hostname:port
         if ":" in pre_digest:
             pre_tag, tag = pre_digest.rsplit(":", 1)
         else:
-            return False, None
+            pre_tag = pre_digest
 
-        # Split on the last `/` to get the repository and the host/path
         if "/" in pre_tag:
             host_and_path, repository = pre_tag.rsplit("/", 1)
         else:
-            return False, None
+            repository = pre_tag
 
-        # Split the host and path part, path is between first / and end of path
-        parts = host_and_path.split("/")
-        if len(parts) < 1:
-            return False, None
+        if host_and_path:
+            parts = host_and_path.split("/")
+            host = parts[0]
+            path = "/".join(parts[1:]) if len(parts) > 1 else ""
 
-        host = parts[0]
-        path = "/".join(parts[1:]) if len(parts) > 1 else ""
-        if not path:
-            if "." not in host and "localhost" not in host:
-                return False, None
-
-        return True, (host, path, repository, tag, digest)
+        return host, path, repository, tag, digest
 
 
 @dataclass()
