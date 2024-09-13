@@ -378,16 +378,13 @@ def validate_image(
             show_summaries=True,
         )
 
-    reference_tool, candidate_tool = None, None
-    for r in results:
-        if r.config.tool_label == gate_config.reference_tool_label:
-            reference_tool = r.config.tool
-        if r.config.tool_label == gate_config.candidate_tool_label:
-            candidate_tool = r.config.tool
+    if len(results) != 2:
+        raise RuntimeError(f"expected 2 results but found {len(results)}")
 
-    if reference_tool is None or candidate_tool is None:
+    reference_tool, candidate_tool = None, None
+    if not gate_config.candidate_tool_label:
         reference_tool, candidate_tool = guess_tool_orientation(
-            [r.config.tool for r in results]
+            [r.config.tool for r in results],
         )
         logging.warning(
             f"guessed tool orientation reference:{reference_tool} candidate:{candidate_tool}"
@@ -395,6 +392,12 @@ def validate_image(
         logging.warning(
             "to avoid guessing, specify reference_tool_label and candidate_tool_label in validation config and re-capture result set"
         )
+    if results[0].config.tool_label == gate_config.candidate_tool_label:
+        candidate_tool = results[0].config.tool
+        reference_tool = results[1].config.tool
+    elif results[1].config.tool_label == gate_config.candidate_tool_label:
+        candidate_tool = results[1].config.tool
+        reference_tool = results[0].config.tool
 
     # keep a list of differences between tools to summarize
     deltas = []
