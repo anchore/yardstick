@@ -117,10 +117,15 @@ test_profile:
             False,
         ),
         ("invalid: missing repo and tag", "registry.example.com/", False),
-        ("invalid:missing digest", "registry.example.com/repo/image:stable", False),
+        ("invalid: missing digest", "registry.example.com/repo/image:stable", False),
         (
             "invalid: digest does not look like sha256",
             "registry.example.com/repo/image:latest@sha256:invaliddigest",
+            False,
+        ),
+        (
+            "invalid: bad sha256 (too short)",
+            "docker.io/alpine:3.2@sha256:ddac200f3ebc9902fb8cfcd599f41feb2151f1118929da21bcef57dc27697",
             False,
         ),
     ],
