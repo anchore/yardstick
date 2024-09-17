@@ -1,3 +1,5 @@
+import pytest
+
 from yardstick.cli import config
 
 
@@ -69,3 +71,129 @@ test_profile:
             },
         },
     )
+
+
+@pytest.mark.parametrize(
+    "name, image, expected_valid",
+    [
+        # valid: everything present
+        (
+            "valid",
+            "registry.example.com/repo/image:latest@sha256:1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef",
+            True,
+        ),
+        (
+            "valid: vulhub",
+            "docker.io/vulhub/cve-2017-1000353:latest@sha256:da2a59314b9ccfb428a313a7f163adcef77a74a393b8ebadeca8223b8cea9797",
+            True,
+        ),
+        (
+            "valid: alpine",
+            "docker.io/alpine:3.2@sha256:ddac200f3ebc9902fb8cfcd599f41feb2151f1118929da21bcef57dc276975f9",
+            True,
+        ),
+        # valid: localhost with port as repo host
+        (
+            "valid: localhost with port as repo host",
+            "localhost:5555/repo/image:latest@sha256:1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef",
+            True,
+        ),
+        (
+            "valid: missing tag is allowed but discouraged",
+            "registry.access.redhat.com/ubi8@sha256:68fecea0d255ee253acbf0c860eaebb7017ef5ef007c25bee9eeffd29ce85b29",
+            True,
+        ),
+        (
+            "invalid: missing host",
+            "repo/image:latest@sha256:1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef",
+            False,
+        ),
+        ("invalid: missing digest", "registry.example.com/repo/image:latest", False),
+        ("invalid: missing everything", "repo/image", False),
+        ("invalid: empty string", "", False),
+        (
+            "invalid: missing repo",
+            "registry.example.com/:latest@sha256:1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef",
+            False,
+        ),
+        ("invalid: missing repo and tag", "registry.example.com/", False),
+        ("invalid: missing digest", "registry.example.com/repo/image:stable", False),
+        (
+            "invalid: digest does not look like sha256",
+            "registry.example.com/repo/image:latest@sha256:invaliddigest",
+            False,
+        ),
+        (
+            "invalid: bad sha256 (too short)",
+            "docker.io/alpine:3.2@sha256:ddac200f3ebc9902fb8cfcd599f41feb2151f1118929da21bcef57dc27697",
+            False,
+        ),
+    ],
+)
+def test_is_valid_oci_reference(name, image, expected_valid):
+    result = config.ScanMatrix.is_valid_oci_reference(image)
+    assert (
+        result == expected_valid
+    ), f"Test case {name}: Expected {expected_valid} but got {result} for image '{image}'"
+
+
+@pytest.mark.parametrize(
+    "image, expected_output",
+    [
+        (
+            "docker.io/anchore/test_images:some-tag@sha256:1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef",
+            (
+                "docker.io",
+                "anchore",
+                "test_images",
+                "some-tag",
+                "sha256:1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef",
+            ),
+        ),
+        # Localhost reference with path, repository, tag, and digest
+        (
+            "localhost/anchore/test_images:some-tag@sha256:1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef",
+            (
+                "localhost",
+                "anchore",
+                "test_images",
+                "some-tag",
+                "sha256:1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef",
+            ),
+        ),
+        # Localhost with port, path, repository, tag, and digest
+        (
+            "localhost:5000/anchore/test_images:some-tag@sha256:1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef",
+            (
+                "localhost:5000",
+                "anchore",
+                "test_images",
+                "some-tag",
+                "sha256:1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef",
+            ),
+        ),
+        # Missing digest
+        (
+            "docker.io/anchore/test_images:some-tag",
+            ("docker.io", "anchore", "test_images", "some-tag", ""),
+        ),
+        # Missing tag
+        (
+            "docker.io/anchore/test_images@sha256:1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef",
+            (
+                "docker.io",
+                "anchore",
+                "test_images",
+                "",
+                "sha256:1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef",
+            ),
+        ),
+        # Only repository
+        ("test_images", ("", "", "test_images", "", "")),
+    ],
+)
+def test_parse_oci_reference(image, expected_output):
+    result = config.ScanMatrix.parse_oci_reference(image)
+    assert (
+        result == expected_output
+    ), f"Expected {expected_output} but got {result} for image '{image}'"

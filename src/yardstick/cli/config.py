@@ -5,6 +5,7 @@ from dataclasses import dataclass, field
 from typing import Any, Sequence
 
 import mergedeep  # type: ignore[import]
+import re
 import yaml
 from dataclass_wizard import asdict, fromdict  # type: ignore[import]
 
@@ -45,6 +46,8 @@ class ScanMatrix:
     images: list[str] = field(default_factory=list)
     tools: list[Tool] = field(default_factory=list)
 
+    DIGEST_REGEX = re.compile(r"(?P<digest>sha256:[a-fA-F0-9]{64})")
+
     def __post_init__(self):
         for idx, tool in enumerate(self.tools):
             (
@@ -63,6 +66,53 @@ class ScanMatrix:
             else:
                 images += [image]
         self.images = images
+        invalid = [
+            image for image in images if not ScanMatrix.is_valid_oci_reference(image)
+        ]
+        if invalid:
+            raise ValueError(
+                f"all images must be complete OCI references, but {' '.join(invalid)} are not"
+            )
+
+    @staticmethod
+    def is_valid_oci_reference(image: str) -> bool:
+        host, _, repository, _, digest = ScanMatrix.parse_oci_reference(image)
+        return (
+            all([host, repository, digest])
+            and bool(ScanMatrix.DIGEST_REGEX.match(digest or ""))
+            and ("." in host or "localhost" in host)
+        )
+
+    @staticmethod
+    def parse_oci_reference(image: str) -> tuple[str, str, str, str, str]:
+        host = ""
+        path = ""
+        host_and_path = ""
+        repository = ""
+        tag = ""
+        digest = ""
+
+        if "@" in image:
+            pre_digest, digest = image.rsplit("@", 1)
+        else:
+            pre_digest = image
+
+        if ":" in pre_digest:
+            pre_tag, tag = pre_digest.rsplit(":", 1)
+        else:
+            pre_tag = pre_digest
+
+        if "/" in pre_tag:
+            host_and_path, repository = pre_tag.rsplit("/", 1)
+        else:
+            repository = pre_tag
+
+        if host_and_path:
+            parts = host_and_path.split("/")
+            host = parts[0]
+            path = "/".join(parts[1:]) if len(parts) > 1 else ""
+
+        return host, path, repository, tag, digest
 
 
 @dataclass()
