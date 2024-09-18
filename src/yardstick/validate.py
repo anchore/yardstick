@@ -384,29 +384,10 @@ def validate_image(
         candidate_tool = results[1].config.tool
         reference_tool = results[0].config.tool
 
-    # keep a list of differences between tools to summarize
-    deltas = []
-    for result in relative_comparison.results:
-        label_comparison = comparisons_by_result_id[result.ID]
-        for unique_match in relative_comparison.unique[result.ID]:
-            labels = label_comparison.labels_by_match[unique_match.ID]
-            if not labels:
-                label = "(unknown)"
-            elif len(set(labels)) > 1:
-                label = ", ".join([la.name for la in labels])
-            else:
-                label = labels[0].name
-
-            delta = Delta(
-                tool=result.config.tool,
-                package_name=unique_match.package.name,
-                package_version=unique_match.package.version,
-                vulnerability_id=unique_match.vulnerability.id,
-                added=result.config.tool != reference_tool,
-                # added=result.config.tool_label == candidate_tool_label,
-                label=label,
-            )
-            deltas.append(delta)
+    # keep a list of differences between tools to summarize in UI
+    # not that this is different from the statistical comparison;
+    # deltas basically a UI/logging concern; the stats are a pass/fail concern.
+    deltas = compute_deltas(comparisons_by_result_id, reference_tool, relative_comparison)
 
     reference_comparisons_by_images = {
         comp.config.image: comp
@@ -427,3 +408,28 @@ def validate_image(
         input_description=results_used(image, relative_comparison.results),
         deltas=deltas,
     )
+
+
+def compute_deltas(comparisons_by_result_id, reference_tool, relative_comparison):
+    deltas = []
+    for result in relative_comparison.results:
+        label_comparison = comparisons_by_result_id[result.ID]
+        for unique_match in relative_comparison.unique[result.ID]:
+            labels = label_comparison.labels_by_match[unique_match.ID]
+            if not labels:
+                label = "(unknown)"
+            elif len(set(labels)) > 1:
+                label = ", ".join([la.name for la in labels])
+            else:
+                label = labels[0].name
+
+            delta = Delta(
+                tool=result.config.tool,
+                package_name=unique_match.package.name,
+                package_version=unique_match.package.version,
+                vulnerability_id=unique_match.vulnerability.id,
+                added=result.config.tool != reference_tool,
+                label=label,
+            )
+            deltas.append(delta)
+    return deltas
