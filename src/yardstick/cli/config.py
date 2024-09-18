@@ -35,7 +35,6 @@ class Tool:
     takes: str | None = None
     profile: str | None = None
     refresh: bool = True
-    validation_role: str | None = None
 
     @property
     def short(self):
@@ -126,7 +125,6 @@ class ResultSet:
     description: str = ""
     declared: list[artifact.ScanRequest] = field(default_factory=list)
     matrix: ScanMatrix = field(default_factory=ScanMatrix)
-    max_year: int | None = None
     validations: list[Validation] = field(default_factory=list)
 
     def images(self) -> list[str]:
