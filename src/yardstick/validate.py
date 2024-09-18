@@ -154,13 +154,23 @@ class Gate:
         return len(self.reasons) == 0
 
     @classmethod
-    def from_reasons(cls, reasons: list[str], input_description: GateInputDescription):
+    def failing(cls, reasons: list[str], input_description: GateInputDescription):
+        """failing bypasses Gate's normal validation calculating and returns a
+        gate that is failing for the reasons given."""
         return cls(
-            label_comparisons=[],
+            reference_comparison=None, candidate_comparison=None,
             config=GateConfig(),
-            reference_tool_string="",
-            candidate_tool_string="",
             reasons=reasons,
+            input_description=input_description,
+        )
+
+    @classmethod
+    def passing(cls, input_description: GateInputDescription):
+        """passing bypasses a Gate's normal validation and returns a gate that is passing."""
+        return cls(
+            reference_comparison=None, candidate_comparison=None,
+            config=GateConfig(),
+            reasons=[],  # a gate with no reason to fail is considered passing
             input_description=input_description,
         )
 
@@ -285,9 +295,9 @@ def namespace_filter(
 
     def filter(matches: list[artifact.Match]) -> list[artifact.Match]:
         result = []
-        for mmatch in matches:
-            if utils.dig(mmatch.fullentry, "vulnerability", "namespace") in include:
-                result.append(mmatch)
+        for match in matches:
+            if utils.dig(match.fullentry, "vulnerability", "namespace") in include:
+                result.append(match)
         return result
 
     return filter
@@ -302,6 +312,46 @@ def validate_image(
     label_entries: Optional[list[artifact.LabelEntry]] = None,
     match_filter: Callable[[list[artifact.Match]], list[artifact.Match]] | None = None,
 ) -> Gate:
+    """
+    Compare the results of two different vulnerability scanner configurations with each other,
+    and if necessary with label information. Returns a pass-fail Gate based on
+    the comparison, which fails if the candidate tool results are worse than the reference
+    tool results, as specified by the `gate_config`.
+
+    Parameters
+    ----------
+    image : str
+        The identifier or name of the image being analyzed.
+    gate_config : GateConfig
+        The configuration object that specifies comparison thresholds, tool labels,
+        and allowed/required namespaces.
+    descriptions : list[str]
+        A list of descriptions or metadata associated with the image results for the comparison.
+    always_run_label_comparison : bool
+        If True, run comparison against labels even if no differences are found between the
+        two tools.
+    verbosity : int
+        Level of verbosity for displaying comparison details. A higher value means more detailed output.
+    label_entries : Optional[list[artifact.LabelEntry]], optional
+        To save time, pass label entries. If present, will be used instead of loading from disk.
+    match_filter : Callable[[list[artifact.Match]], list[artifact.Match]] | None, optional
+        An optional filter function to refine the set of matches used in the comparison, by default None.
+        Useful for filtering by namespace, for example.
+
+    Returns
+    -------
+    Gate
+        A `Gate` object that represents the pass/fail status based on the comparison. If the candidate
+        tool results are worse than the reference tool according to the `gate_config`, the gate will fail.
+        Otherwise, the gate will pass.
+
+    Raises
+    ------
+    RuntimeError
+        If an unexpected number of results (other than 2) are found during the label comparison.
+    """
+    # Load the relative comparison between the reference and candidate tool runs, without label info.
+    # This optimizes performance by allowing early exit if there are no matches or identical results.
     relative_comparison = yardstick.compare_results(
         descriptions=descriptions,
         year_max_limit=gate_config.max_year,
@@ -315,35 +365,34 @@ def validate_image(
             relative_comparison, details=details, summary=True, common=False
         )
 
-    # if no matches, and configured to require matches, fail early
     if gate_config.fail_on_empty_match_set:
         if not sum(
             len(res.matches) if res.matches else 0
             for res in relative_comparison.results
         ):
-            return Gate.from_reasons(
+            return Gate.failing(
                 reasons=[
                     "gate configured to fail on empty matches, and no matches found",
                 ],
                 input_description=results_used(image, relative_comparison.results),
             )
 
-    # if no differences, and not configured to always compare to labels
-    # anyway, pass early
     if not always_run_label_comparison and not sum(
         [
             len(relative_comparison.unique[result.ID])
             for result in relative_comparison.results
         ]
     ):
-        return Gate(
-            reference_comparison=None, candidate_comparison=None,
-            config=gate_config,
+        return Gate.passing(
             input_description=results_used(image, relative_comparison.results),
         )
 
-    # do a label comparison
     logging.info(f"{bcolors.HEADER}Running comparison against labels...{bcolors.RESET}")
+    # Compare against labels. Because the reference tool configuration and the
+    # candidate tool configuration both found matches, and did not find the same
+    # set of matches, we need to compare to known-correct label data and do
+    # a little stats to determine whether candidate tool is better or the same
+    # as reference tool.
     results, label_entries, comparisons_by_result_id, stats_by_image_tool_pair = (
         yardstick.compare_results_against_labels(
             descriptions=descriptions,
@@ -364,25 +413,9 @@ def validate_image(
         )
 
     if len(results) != 2:
-        raise RuntimeError(f"expected 2 results but found {len(results)}")
+        raise RuntimeError(f"validate_image compares results of exactly 2 runs, but found{len(results)}")
 
-    reference_tool, candidate_tool = None, None
-    if not gate_config.candidate_tool_label:
-        reference_tool, candidate_tool = guess_tool_orientation(
-            [r.config.tool for r in results],
-        )
-        logging.warning(
-            f"guessed tool orientation reference:{reference_tool} candidate:{candidate_tool}"
-        )
-        logging.warning(
-            "to avoid guessing, specify reference_tool_label and candidate_tool_label in validation config and re-capture result set"
-        )
-    if results[0].config.tool_label == gate_config.candidate_tool_label:
-        candidate_tool = results[0].config.tool
-        reference_tool = results[1].config.tool
-    elif results[1].config.tool_label == gate_config.candidate_tool_label:
-        candidate_tool = results[1].config.tool
-        reference_tool = results[0].config.tool
+    candidate_tool, reference_tool = tool_designations(gate_config.candidate_tool_label, [r.config for r in results])
 
     # keep a list of differences between tools to summarize in UI
     # not that this is different from the statistical comparison;
@@ -408,6 +441,27 @@ def validate_image(
         input_description=results_used(image, relative_comparison.results),
         deltas=deltas,
     )
+
+
+def tool_designations(candidate_tool_label: str, scan_configs: list[artifact.ScanConfiguration]) -> tuple[str, str]:
+    reference_tool, candidate_tool = None, None
+    if not candidate_tool_label:
+        reference_tool, candidate_tool = guess_tool_orientation(
+            [config.tool for config in scan_configs],
+        )
+        logging.warning(
+            f"guessed tool orientation reference:{reference_tool} candidate:{candidate_tool}"
+        )
+        logging.warning(
+            "to avoid guessing, specify reference_tool_label and candidate_tool_label in validation config and re-capture result set"
+        )
+    if scan_configs[0].tool_label == candidate_tool_label:
+        candidate_tool = scan_configs[0].tool
+        reference_tool = scan_configs[1].tool
+    elif scan_configs[1].tool_label == candidate_tool_label:
+        candidate_tool = scan_configs[1].tool
+        reference_tool = scan_configs[0].tool
+    return candidate_tool, reference_tool
 
 
 def compute_deltas(comparisons_by_result_id, reference_tool, relative_comparison):
