@@ -1,179 +1,11 @@
-import enum
 import logging
 import sys
-from typing import Optional, Sequence, Callable
-
-from dataclasses import dataclass, InitVar, field
+from typing import Sequence, Optional, Callable
 
 import yardstick
-from yardstick import store, comparison, artifact, utils
-from yardstick.cli import display
-
-
-@dataclass
-class GateConfig:
-    max_f1_regression: float = 0.0
-    max_new_false_negatives: int = 0
-    max_unlabeled_percent: int = 0
-    max_year: int | None = None
-    reference_tool_label: str = "reference"
-    candidate_tool_label: str = "candidate"
-    # only consider matches from these namespaces when judging results
-    allowed_namespaces: list[str] = field(default_factory=list)
-    # fail this gate unless all of these namespaces are present
-    required_namespaces: list[str] = field(default_factory=list)
-    fail_on_empty_match_set: bool = True
-
-
-@dataclass
-class GateInputResultConfig:
-    id: str
-    tool: str
-    tool_label: str
-
-
-@dataclass
-class GateInputDescription:
-    image: str
-    configs: list[GateInputResultConfig] = field(default_factory=list)
-
-
-class DeltaType(enum.Enum):
-    Unknown = "Unknown"
-    FixedFalseNegative = "FixedFalseNegative"
-    FixedFalsePositive = "FixedFalsePositive"
-    NewFalseNegative = "NewFalseNegative"
-    NewFalsePositive = "NewFalsePositive"
-
-
-@dataclass
-class Delta:
-    tool: str
-    package_name: str
-    package_version: str
-    vulnerability_id: str
-    added: bool
-    label: str | None = None
-
-    @property
-    def is_improved(self) -> bool | None:
-        if self.outcome in {DeltaType.FixedFalseNegative, DeltaType.FixedFalsePositive}:
-            return True
-        if self.outcome in {DeltaType.NewFalseNegative, DeltaType.NewFalsePositive}:
-            return False
-        return None
-
-    @property
-    def commentary(self) -> str:
-        commentary = ""
-        # if self.is_improved and self.label == artifact.Label.TruePositive.name:
-        if self.outcome == DeltaType.FixedFalseNegative:
-            commentary = "(this is a new TP 🙌)"
-        elif self.outcome == DeltaType.FixedFalsePositive:
-            commentary = "(got rid of a former FP 🙌)"
-        elif self.outcome == DeltaType.NewFalsePositive:
-            commentary = "(this is a new FP 😱)"
-        elif self.outcome == DeltaType.NewFalseNegative:
-            commentary = "(this is a new FN 😱)"
-
-        return commentary
-
-    @property
-    def outcome(self) -> DeltaType:
-        # TODO: this would be better handled post init and set I think
-        if not self.label:
-            return DeltaType.Unknown
-
-        if not self.added:
-            # the tool which found the unique result is the reference tool...
-            if self.label == artifact.Label.TruePositive.name:
-                # drats! we missed a case (this is a new FN)
-                return DeltaType.NewFalseNegative
-            elif artifact.Label.FalsePositive.name in self.label:
-                # we got rid of a FP! ["hip!", "hip!"]
-                return DeltaType.FixedFalsePositive
-        else:
-            # the tool which found the unique result is the current tool...
-            if self.label == artifact.Label.TruePositive.name:
-                # highest of fives! we found a new TP that the previous tool release missed!
-                return DeltaType.FixedFalseNegative
-            elif artifact.Label.FalsePositive.name in self.label:
-                # welp, our changes resulted in a new FP... not great, maybe not terrible?
-                return DeltaType.NewFalsePositive
-
-        return DeltaType.Unknown
-
-
-@dataclass
-class Gate:
-    reference_comparison: InitVar[Optional[comparison.LabelComparisonSummary]]
-    candidate_comparison: InitVar[Optional[comparison.LabelComparisonSummary]]
-
-    config: GateConfig
-
-    input_description: GateInputDescription
-    reasons: list[str] = field(default_factory=list)
-    deltas: list[Delta] = field(default_factory=list)
-
-    def __post_init__(
-        self,
-        reference_comparison: Optional[comparison.LabelComparisonSummary],
-        candidate_comparison: Optional[comparison.LabelComparisonSummary],
-    ):
-        if not reference_comparison or not candidate_comparison:
-            return
-
-        reasons = []
-
-        reference_f1_score = reference_comparison.f1_score
-        current_f1_score = candidate_comparison.f1_score
-        if current_f1_score < reference_f1_score - self.config.max_f1_regression:
-            reasons.append(
-                f"current F1 score is lower than the latest release F1 score: {bcolors.BOLD + bcolors.UNDERLINE}candidate_score={current_f1_score:0.2f} reference_score={reference_f1_score:0.2f}{bcolors.RESET} image={self.input_description.image}"
-            )
-
-        if (
-            candidate_comparison.indeterminate_percent
-            > self.config.max_unlabeled_percent
-        ):
-            reasons.append(
-                f"current indeterminate matches % is greater than {self.config.max_unlabeled_percent}%: {bcolors.BOLD + bcolors.UNDERLINE}candidate={candidate_comparison.indeterminate_percent:0.2f}%{bcolors.RESET} image={self.input_description.image}"
-            )
-
-        reference_fns = reference_comparison.false_negatives
-        candidate_fns = candidate_comparison.false_negatives
-        if candidate_fns > reference_fns + self.config.max_new_false_negatives:
-            reasons.append(
-                f"current false negatives is greater than the latest release false negatives: {bcolors.BOLD + bcolors.UNDERLINE}candidate={candidate_fns} reference={reference_fns}{bcolors.RESET} image={self.input_description.image}"
-            )
-
-        self.reasons = reasons
-
-    def passed(self) -> bool:
-        return len(self.reasons) == 0
-
-    @classmethod
-    def failing(cls, reasons: list[str], input_description: GateInputDescription):
-        """failing bypasses Gate's normal validation calculating and returns a
-        gate that is failing for the reasons given."""
-        return cls(
-            reference_comparison=None,
-            candidate_comparison=None,
-            config=GateConfig(),
-            reasons=reasons,
-            input_description=input_description,
-        )
-
-    @classmethod
-    def passing(cls, input_description: GateInputDescription):
-        """passing bypasses a Gate's normal validation and returns a gate that is passing."""
-        return cls(
-            reference_comparison=None,
-            candidate_comparison=None,
-            config=GateConfig(),
-            reasons=[],  # a gate with no reason to fail is considered passing
-            input_description=input_description,
-        )
+from yardstick import artifact, store, utils
+from yardstick.validate.delta import Delta
+from yardstick.validate.gate import GateInputDescription, GateInputResultConfig, GateConfig, Gate
 
 
 def guess_tool_orientation(tools: list[str]):
@@ -229,7 +61,7 @@ if not sys.stdout.isatty():
 
 
 def results_used(
-    image: str, results: Sequence[artifact.ScanResult]
+        image: str, results: Sequence[artifact.ScanResult]
 ) -> GateInputDescription:
     return GateInputDescription(
         image=image,
@@ -245,12 +77,12 @@ def results_used(
 
 
 def validate_result_set(
-    gate_config: GateConfig,
-    result_set: str,
-    images: list[str],
-    always_run_label_comparison: bool,
-    verbosity: int,
-    label_entries: Optional[list[artifact.LabelEntry]] = None,
+        gate_config: GateConfig,
+        result_set: str,
+        images: list[str],
+        always_run_label_comparison: bool,
+        verbosity: int,
+        label_entries: Optional[list[artifact.LabelEntry]] = None,
 ) -> list[Gate]:
     logging.info(
         f"{bcolors.HEADER}{bcolors.BOLD}Validating with {result_set!r}{bcolors.RESET}"
@@ -290,7 +122,7 @@ def validate_result_set(
 
 
 def namespace_filter(
-    namespaces: list[str],
+        namespaces: list[str],
 ) -> Callable[[list[artifact.Match]], list[artifact.Match]]:
     include = set(namespaces)
 
@@ -304,14 +136,17 @@ def namespace_filter(
     return filter
 
 
+# TODO: passing image and descriptions is weird; why both?
+
+
 def validate_image(
-    image: str,
-    gate_config: GateConfig,
-    descriptions: list[str],
-    always_run_label_comparison: bool,
-    verbosity: int,
-    label_entries: Optional[list[artifact.LabelEntry]] = None,
-    match_filter: Callable[[list[artifact.Match]], list[artifact.Match]] | None = None,
+        image: str,
+        gate_config: GateConfig,
+        descriptions: list[str],
+        always_run_label_comparison: bool,
+        verbosity: int,
+        label_entries: Optional[list[artifact.LabelEntry]] = None,
+        match_filter: Callable[[list[artifact.Match]], list[artifact.Match]] | None = None,
 ) -> Gate:
     """
     Compare the results of two different vulnerability scanner configurations with each other,
@@ -362,14 +197,14 @@ def validate_image(
     # show the relative comparison results
     if verbosity > 0:
         details = verbosity > 1
-        display.preserved_matches(
-            relative_comparison, details=details, summary=True, common=False
-        )
+        # display.preserved_matches(
+        #     relative_comparison, details=details, summary=True, common=False
+        # )
 
     if gate_config.fail_on_empty_match_set:
         if not sum(
-            len(res.matches) if res.matches else 0
-            for res in relative_comparison.results
+                len(res.matches) if res.matches else 0
+                for res in relative_comparison.results
         ):
             return Gate.failing(
                 reasons=[
@@ -379,10 +214,10 @@ def validate_image(
             )
 
     if not always_run_label_comparison and not sum(
-        [
-            len(relative_comparison.unique[result.ID])
-            for result in relative_comparison.results
-        ]
+            [
+                len(relative_comparison.unique[result.ID])
+                for result in relative_comparison.results
+            ]
     ):
         return Gate.passing(
             input_description=results_used(image, relative_comparison.results),
@@ -405,13 +240,13 @@ def validate_image(
 
     if verbosity > 0:
         show_fns = verbosity > 1
-        display.label_comparison(
-            results,
-            comparisons_by_result_id,
-            stats_by_image_tool_pair,
-            show_fns=show_fns,
-            show_summaries=True,
-        )
+        # display.label_comparison(
+        #     results,
+        #     comparisons_by_result_id,
+        #     stats_by_image_tool_pair,
+        #     show_fns=show_fns,
+        #     show_summaries=True,
+        # )
 
     if len(results) != 2:
         raise RuntimeError(
@@ -451,7 +286,7 @@ def validate_image(
 
 
 def tool_designations(
-    candidate_tool_label: str, scan_configs: list[artifact.ScanConfiguration]
+        candidate_tool_label: str, scan_configs: list[artifact.ScanConfiguration]
 ) -> tuple[str, str]:
     reference_tool, candidate_tool = None, None
     if not candidate_tool_label:
