@@ -106,62 +106,47 @@ class Delta:
 
 @dataclass
 class Gate:
-    label_comparisons: InitVar[Optional[list[comparison.AgainstLabels]]]
+    # label_comparisons: InitVar[Optional[list[comparison.AgainstLabels]]]
+    reference_comparison: InitVar[Optional[comparison.AgainstLabels]]
+    candidate_comparison: InitVar[Optional[comparison.AgainstLabels]]
     # label_comparison_stats: InitVar[Optional[comparison.ImageToolLabelStats]]
 
     config: GateConfig
 
-    reference_tool_string: str
-    candidate_tool_string: str
     input_description: GateInputDescription
     reasons: list[str] = field(default_factory=list)
     deltas: list[Delta] = field(default_factory=list)
 
     def __post_init__(
         self,
-        label_comparisons: Optional[list[comparison.AgainstLabels]],
+        # label_comparisons: Optional[list[comparison.AgainstLabels]],
+        reference_comparison: Optional[comparison.AgainstLabels],
+        candidate_comparison: Optional[comparison.AgainstLabels],
     ):
-        if not label_comparisons:
+        if not reference_comparison or not candidate_comparison:
             return
 
         reasons = []
 
-        # - fail when current F1 score drops below last release F1 score (or F1 score is indeterminate)
-        # - fail when indeterminate % > 10%
-        # - fail when there is a rise in FNs
-        if self.reference_tool_string is None or self.candidate_tool_string is None:
-            raise ValueError("must specify reference tool and candidate tool")
+        reference_f1_score = reference_comparison.summary.f1_score
+        current_f1_score = candidate_comparison.summary.f1_score
+        if current_f1_score < reference_f1_score - self.config.max_f1_regression:
+            reasons.append(
+                f"current F1 score is lower than the latest release F1 score: {bcolors.BOLD + bcolors.UNDERLINE}candidate_score={current_f1_score:0.2f} reference_score={reference_f1_score:0.2f}{bcolors.RESET} image={image}"
+            )
 
-        reference_comparisons_by_images = {
-            comp.config.image: comp
-            for comp in label_comparisons
-            if comp.config.tool == self.reference_tool_string
-        }
-        candidate_comparisons_by_images = {
-            comp.config.image: comp
-            for comp in label_comparisons
-            if comp.config.tool == self.candidate_tool_string
-        }
+        if candidate_comparison.summary.indeterminate_percent > self.config.max_unlabeled_percent:
+            reasons.append(
+                f"current indeterminate matches % is greater than {self.config.max_unlabeled_percent}%: {bcolors.BOLD + bcolors.UNDERLINE}candidate={comp.summary.indeterminate_percent:0.2f}%{bcolors.RESET} image={image}"
+            )
 
-        for image, comp in candidate_comparisons_by_images.items():
-            reference_f1_score = reference_comparisons_by_images[image].summary.f1_score
-            current_f1_score = comp.summary.f1_score
-            if current_f1_score < reference_f1_score - self.config.max_f1_regression:
-                reasons.append(
-                    f"current F1 score is lower than the latest release F1 score: {bcolors.BOLD + bcolors.UNDERLINE}candidate_score={current_f1_score:0.2f} reference_score={reference_f1_score:0.2f}{bcolors.RESET} image={image}"
-                )
 
-            if comp.summary.indeterminate_percent > self.config.max_unlabeled_percent:
-                reasons.append(
-                    f"current indeterminate matches % is greater than {self.config.max_unlabeled_percent}%: {bcolors.BOLD + bcolors.UNDERLINE}candidate={comp.summary.indeterminate_percent:0.2f}%{bcolors.RESET} image={image}"
-                )
-
-            latest_fns = reference_comparisons_by_images[image].summary.false_negatives
-            current_fns = comp.summary.false_negatives
-            if current_fns > latest_fns + self.config.max_new_false_negatives:
-                reasons.append(
-                    f"current false negatives is greater than the latest release false negatives: {bcolors.BOLD + bcolors.UNDERLINE}candidate={current_fns} reference={latest_fns}{bcolors.RESET} image={image}"
-                )
+        reference_fns = reference_comparison.summary.false_negatives
+        candidate_fns = candidate_comparison.summary.false_negatives
+        if candidate_fns > reference_fns + self.config.max_new_false_negatives:
+            reasons.append(
+                f"current false negatives is greater than the latest release false negatives: {bcolors.BOLD + bcolors.UNDERLINE}candidate={candidate_fns} reference={reference_fns}{bcolors.RESET} image={image}"
+            )
 
         self.reasons = reasons
 
@@ -330,6 +315,7 @@ def validate_image(
             relative_comparison, details=details, summary=True, common=False
         )
 
+    # if no matches, and configured to require matches, fail early
     if gate_config.fail_on_empty_match_set:
         if not sum(
             len(res.matches) if res.matches else 0
@@ -342,7 +328,8 @@ def validate_image(
                 input_description=results_used(image, relative_comparison.results),
             )
 
-    # bail if there are no differences found
+    # if no differences, and not configured to always compare to labels
+    # anyway, pass early
     if not always_run_label_comparison and not sum(
         [
             len(relative_comparison.unique[result.ID])
@@ -350,9 +337,7 @@ def validate_image(
         ]
     ):
         return Gate(
-            None,
-            reference_tool_string="",
-            candidate_tool_string="",
+            reference_comparison=None, candidate_comparison=None,
             config=gate_config,
             input_description=results_used(image, relative_comparison.results),
         )
@@ -423,15 +408,22 @@ def validate_image(
             )
             deltas.append(delta)
 
-    # populate the quality gate with data that can evaluate pass/fail conditions
-    # TODO: we should pass in deltas and have the gate validate things?
-    # or what do we need from the summary stats? Maybe deltas and summary stats?
+    reference_comparisons_by_images = {
+        comp.config.image: comp
+        for comp in comparisons_by_result_id.values()
+        if comp.config.tool == reference_tool
+    }
+    reference_comparison = reference_comparisons_by_images[image]
+    candidate_comparisons_by_images = {
+        comp.config.image: comp
+        for comp in comparisons_by_result_id.values()
+        if comp.config.tool == candidate_tool
+    }
+    candidate_comparison = candidate_comparisons_by_images[image]
     return Gate(
-        label_comparisons=list(comparisons_by_result_id.values()),
-        # label_comparison_stats=stats_by_image_tool_pair,
+        reference_comparison=reference_comparison,
+        candidate_comparison=candidate_comparison,
         config=gate_config,
-        reference_tool_string=reference_tool,
-        candidate_tool_string=candidate_tool,
         input_description=results_used(image, relative_comparison.results),
         deltas=deltas,
     )
