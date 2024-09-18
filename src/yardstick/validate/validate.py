@@ -5,7 +5,12 @@ from typing import Sequence, Optional, Callable
 import yardstick
 from yardstick import artifact, store, utils
 from yardstick.validate.delta import Delta
-from yardstick.validate.gate import GateInputDescription, GateInputResultConfig, GateConfig, Gate
+from yardstick.validate.gate import (
+    GateInputDescription,
+    GateInputResultConfig,
+    GateConfig,
+    Gate,
+)
 
 
 def guess_tool_orientation(tools: list[str]):
@@ -61,7 +66,7 @@ if not sys.stdout.isatty():
 
 
 def results_used(
-        image: str, results: Sequence[artifact.ScanResult]
+    image: str, results: Sequence[artifact.ScanResult]
 ) -> GateInputDescription:
     return GateInputDescription(
         image=image,
@@ -77,12 +82,12 @@ def results_used(
 
 
 def validate_result_set(
-        gate_config: GateConfig,
-        result_set: str,
-        images: list[str],
-        always_run_label_comparison: bool,
-        verbosity: int,
-        label_entries: Optional[list[artifact.LabelEntry]] = None,
+    gate_config: GateConfig,
+    result_set: str,
+    images: list[str],
+    always_run_label_comparison: bool,
+    verbosity: int,
+    label_entries: Optional[list[artifact.LabelEntry]] = None,
 ) -> list[Gate]:
     logging.info(
         f"{bcolors.HEADER}{bcolors.BOLD}Validating with {result_set!r}{bcolors.RESET}"
@@ -122,7 +127,7 @@ def validate_result_set(
 
 
 def namespace_filter(
-        namespaces: list[str],
+    namespaces: list[str],
 ) -> Callable[[list[artifact.Match]], list[artifact.Match]]:
     include = set(namespaces)
 
@@ -140,13 +145,13 @@ def namespace_filter(
 
 
 def validate_image(
-        image: str,
-        gate_config: GateConfig,
-        descriptions: list[str],
-        always_run_label_comparison: bool,
-        verbosity: int,
-        label_entries: Optional[list[artifact.LabelEntry]] = None,
-        match_filter: Callable[[list[artifact.Match]], list[artifact.Match]] | None = None,
+    image: str,
+    gate_config: GateConfig,
+    descriptions: list[str],
+    always_run_label_comparison: bool,
+    verbosity: int,
+    label_entries: Optional[list[artifact.LabelEntry]] = None,
+    match_filter: Callable[[list[artifact.Match]], list[artifact.Match]] | None = None,
 ) -> Gate:
     """
     Compare the results of two different vulnerability scanner configurations with each other,
@@ -196,15 +201,16 @@ def validate_image(
 
     # show the relative comparison results
     if verbosity > 0:
-        details = verbosity > 1
+        pass  # TODO: re add display
+        # details = verbosity > 1
         # display.preserved_matches(
         #     relative_comparison, details=details, summary=True, common=False
         # )
 
     if gate_config.fail_on_empty_match_set:
         if not sum(
-                len(res.matches) if res.matches else 0
-                for res in relative_comparison.results
+            len(res.matches) if res.matches else 0
+            for res in relative_comparison.results
         ):
             return Gate.failing(
                 reasons=[
@@ -214,10 +220,10 @@ def validate_image(
             )
 
     if not always_run_label_comparison and not sum(
-            [
-                len(relative_comparison.unique[result.ID])
-                for result in relative_comparison.results
-            ]
+        [
+            len(relative_comparison.unique[result.ID])
+            for result in relative_comparison.results
+        ]
     ):
         return Gate.passing(
             input_description=results_used(image, relative_comparison.results),
@@ -239,7 +245,8 @@ def validate_image(
     )
 
     if verbosity > 0:
-        show_fns = verbosity > 1
+        pass  # TODO: re enable this display
+        # show_fns = verbosity > 1
         # display.label_comparison(
         #     results,
         #     comparisons_by_result_id,
@@ -286,7 +293,7 @@ def validate_image(
 
 
 def tool_designations(
-        candidate_tool_label: str, scan_configs: list[artifact.ScanConfiguration]
+    candidate_tool_label: str, scan_configs: list[artifact.ScanConfiguration]
 ) -> tuple[str, str]:
     reference_tool, candidate_tool = None, None
     if not candidate_tool_label:

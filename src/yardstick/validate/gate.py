@@ -1,5 +1,5 @@
 from dataclasses import dataclass, field, InitVar
-from typing import Optional, Union
+from typing import Optional
 
 from yardstick import comparison
 from yardstick.validate.delta import Delta
@@ -32,6 +32,7 @@ class GateInputDescription:
     image: str
     configs: list[GateInputResultConfig] = field(default_factory=list)
 
+
 @dataclass
 class Gate:
     reference_comparison: InitVar[Optional[comparison.LabelComparisonSummary]]
@@ -44,9 +45,9 @@ class Gate:
     deltas: list[Delta] = field(default_factory=list)
 
     def __post_init__(
-            self,
-            reference_comparison: Optional[comparison.LabelComparisonSummary],
-            candidate_comparison: Optional[comparison.LabelComparisonSummary],
+        self,
+        reference_comparison: Optional[comparison.LabelComparisonSummary],
+        candidate_comparison: Optional[comparison.LabelComparisonSummary],
     ):
         if not reference_comparison or not candidate_comparison:
             return
@@ -61,8 +62,8 @@ class Gate:
             )
 
         if (
-                candidate_comparison.indeterminate_percent
-                > self.config.max_unlabeled_percent
+            candidate_comparison.indeterminate_percent
+            > self.config.max_unlabeled_percent
         ):
             reasons.append(
                 f"current indeterminate matches % is greater than {self.config.max_unlabeled_percent}%: candidate={candidate_comparison.indeterminate_percent:0.2f}% image={self.input_description.image}"
