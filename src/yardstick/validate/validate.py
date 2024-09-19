@@ -90,9 +90,6 @@ def validate_result_set(
     verbosity: int,
     label_entries: Optional[list[artifact.LabelEntry]] = None,
 ) -> list[Gate]:
-    logging.info(
-        f"{bcolors.HEADER}{bcolors.BOLD}Validating with {result_set!r}{bcolors.RESET}"
-    )
     result_set_obj = store.result_set.load(name=result_set)
 
     if gate_config.allowed_namespaces:
@@ -309,5 +306,3 @@ def tool_designations(
         candidate_tool = scan_configs[1].tool
         reference_tool = scan_configs[0].tool
     return candidate_tool, reference_tool
-
-

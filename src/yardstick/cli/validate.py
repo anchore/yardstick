@@ -123,6 +123,10 @@ def validate(
         for gate_config in rs_config.validations:
             if gate_config.max_year is None:
                 gate_config.max_year = cfg.default_max_year
+
+            click.echo(
+                f"{bcolors.HEADER}{bcolors.BOLD}Validating with {result_set!r}{bcolors.RESET}"
+            )
             new_gates = val.validate_result_set(
                 gate_config,
                 result_set,

@@ -2,18 +2,6 @@
 from unittest.mock import patch, MagicMock
 
 import pytest
-from mypy.modulefinder import unique
-
-from yardstick import comparison
-from yardstick.artifact import (
-    LabelEntry,
-    Label,
-    Package,
-    Match,
-    Vulnerability,
-    ScanConfiguration,
-    ScanResult,
-)
 from yardstick.validate import validate_image, GateConfig
 
 
