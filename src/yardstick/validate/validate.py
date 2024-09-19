@@ -4,7 +4,8 @@ from typing import Sequence, Optional, Callable
 
 import yardstick
 from yardstick import artifact, store, utils
-from yardstick.validate.delta import Delta
+from yardstick.cli import display
+from yardstick.validate.delta import compute_deltas
 from yardstick.validate.gate import (
     GateInputDescription,
     GateInputResultConfig,
@@ -131,17 +132,14 @@ def namespace_filter(
 ) -> Callable[[list[artifact.Match]], list[artifact.Match]]:
     include = set(namespaces)
 
-    def filter(matches: list[artifact.Match]) -> list[artifact.Match]:
+    def match_filter(matches: list[artifact.Match]) -> list[artifact.Match]:
         result = []
         for match in matches:
             if utils.dig(match.fullentry, "vulnerability", "namespace") in include:
                 result.append(match)
         return result
 
-    return filter
-
-
-# TODO: passing image and descriptions is weird; why both?
+    return match_filter
 
 
 def validate_image(
@@ -201,11 +199,10 @@ def validate_image(
 
     # show the relative comparison results
     if verbosity > 0:
-        pass  # TODO: re add display
-        # details = verbosity > 1
-        # display.preserved_matches(
-        #     relative_comparison, details=details, summary=True, common=False
-        # )
+        details = verbosity > 1
+        display.preserved_matches(
+            relative_comparison, details=details, summary=True, common=False
+        )
 
     if gate_config.fail_on_empty_match_set:
         if not sum(
@@ -229,7 +226,7 @@ def validate_image(
             input_description=results_used(image, relative_comparison.results),
         )
 
-    logging.info(f"{bcolors.HEADER}Running comparison against labels...{bcolors.RESET}")
+    logging.info("Running comparison against labels...")
     # Compare against labels. Because the reference tool configuration and the
     # candidate tool configuration both found matches, and did not find the same
     # set of matches, we need to compare to known-correct label data and do
@@ -245,15 +242,14 @@ def validate_image(
     )
 
     if verbosity > 0:
-        pass  # TODO: re enable this display
-        # show_fns = verbosity > 1
-        # display.label_comparison(
-        #     results,
-        #     comparisons_by_result_id,
-        #     stats_by_image_tool_pair,
-        #     show_fns=show_fns,
-        #     show_summaries=True,
-        # )
+        show_fns = verbosity > 1
+        display.label_comparison(
+            results,
+            comparisons_by_result_id,
+            stats_by_image_tool_pair,
+            show_fns=show_fns,
+            show_summaries=True,
+        )
 
     if len(results) != 2:
         raise RuntimeError(
@@ -315,26 +311,3 @@ def tool_designations(
     return candidate_tool, reference_tool
 
 
-def compute_deltas(comparisons_by_result_id, reference_tool, relative_comparison):
-    deltas = []
-    for result in relative_comparison.results:
-        label_comparison = comparisons_by_result_id[result.ID]
-        for unique_match in relative_comparison.unique[result.ID]:
-            labels = label_comparison.labels_by_match[unique_match.ID]
-            if not labels:
-                label = "(unknown)"
-            elif len(set(labels)) > 1:
-                label = ", ".join([la.name for la in labels])
-            else:
-                label = labels[0].name
-
-            delta = Delta(
-                tool=result.config.tool,
-                package_name=unique_match.package.name,
-                package_version=unique_match.package.version,
-                vulnerability_id=unique_match.vulnerability.id,
-                added=result.config.tool != reference_tool,
-                label=label,
-            )
-            deltas.append(delta)
-    return deltas
