@@ -250,7 +250,7 @@ def validate_image(
 
     if len(results) != 2:
         raise RuntimeError(
-            f"validate_image compares results of exactly 2 runs, but found{len(results)}"
+            f"validate_image compares results of exactly 2 runs, but found {len(results)}"
         )
 
     candidate_tool, reference_tool = tool_designations(
