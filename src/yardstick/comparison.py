@@ -813,7 +813,6 @@ def of_results_against_label(
         comparisons_by_result_id[result.ID] = comp
         comparisons.append(comp)
 
-    # { image : {tool@version : F1 score or "I" if impractical }  }
     stats_by_image_tool_pair = ImageToolLabelStats.new(comparisons)
 
     return comparisons_by_result_id, stats_by_image_tool_pair

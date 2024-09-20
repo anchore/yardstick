@@ -9,7 +9,7 @@ import re
 import yaml
 from dataclass_wizard import asdict, fromdict  # type: ignore[import]
 
-from yardstick import artifact
+from yardstick import artifact, validate
 from yardstick.store import config as store_config
 
 DEFAULT_CONFIGS = (
@@ -116,10 +116,16 @@ class ScanMatrix:
 
 
 @dataclass()
+class Validation(validate.GateConfig):
+    name: str = "default"
+
+
+@dataclass()
 class ResultSet:
     description: str = ""
     declared: list[artifact.ScanRequest] = field(default_factory=list)
     matrix: ScanMatrix = field(default_factory=ScanMatrix)
+    validations: list[Validation] = field(default_factory=list)
 
     def images(self) -> list[str]:
         return self.matrix.images + [req.image for req in self.declared]
@@ -150,6 +156,34 @@ class Application:
     result_sets: dict[str, ResultSet] = field(default_factory=dict)
     default_max_year: int | None = None
     derive_year_from_cve_only: bool = False
+
+    def max_year_for_any_result_set(self, result_sets: list[str]) -> int | None:
+        years = []
+        for result_set in result_sets:
+            m = self.max_year_for_result_set(result_set)
+            if m is not None:
+                years.append(m)
+
+        if not years:
+            return None
+
+        return max(years)
+
+    def max_year_for_result_set(self, result_set: str) -> int | None:
+        """return the max year needed by any validation on the result set, or default_max_year"""
+        rs = self.result_sets.get(result_set, None)
+        years = []
+        if rs is not None:
+            for gate in rs.validations:
+                if gate.max_year is not None:
+                    years.append(gate.max_year)
+                elif self.default_max_year is not None:
+                    years.append(self.default_max_year)
+
+        if years:
+            return max(years)
+
+        return self.default_max_year
 
 
 def clean_dict_keys(d):
