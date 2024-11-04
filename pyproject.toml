@@ -26,7 +26,7 @@ Colr = "^0.9.1"
 omitempty = "^0.1.1"
 importlib-metadata = ">=7.0.1,<9.0.0"
 mergedeep = "^1.3.4"
-dataclass-wizard = "^0.23.0"
+dataclass-wizard = "^0.25.0"
 PyYAML = ">= 6.0.0, < 7.0"  # note: required for enterprise
 
 [tool.poetry.group.dev.dependencies]
