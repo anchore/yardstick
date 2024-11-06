@@ -333,13 +333,13 @@ toml = ["tomli"]
 
 [[package]]
 name = "dataclass-wizard"
-version = "0.25.0"
+version = "0.26.0"
 description = "Marshal dataclasses to/from JSON. Use field properties with initial values. Construct a dataclass schema with JSON input."
 optional = false
 python-versions = "*"
 files = [
-    {file = "dataclass-wizard-0.25.0.tar.gz", hash = "sha256:0524932a93e7b7667421d701c951df10226c93ae69b2481f82cff7a399946584"},
-    {file = "dataclass_wizard-0.25.0-py2.py3-none-any.whl", hash = "sha256:179fcbc047a0acd006a49967ed304d28fdcc7503eacd6adbd8f167cc24c6af6c"},
+    {file = "dataclass-wizard-0.26.0.tar.gz", hash = "sha256:227fa229332a2fcbfc1dca4dc5e090b01f313939f78b078a6f1fd3b5687a98a7"},
+    {file = "dataclass_wizard-0.26.0-py2.py3-none-any.whl", hash = "sha256:5e5821b6010f3c19309c889f6b46e6f50b9c4514a46a5bac42f90c8bbf09345f"},
 ]
 
 [package.extras]
@@ -1365,4 +1365,4 @@ test = ["big-O", "importlib-resources", "jaraco.functools", "jaraco.itertools", 
 [metadata]
 lock-version = "2.0"
 python-versions = ">=3.11,<=3.13"
-content-hash = "82dc0ad9bb5de563abe4bd1b287b6a17386c44dec78cf331248101b5eb851646"
+content-hash = "a30ad874e5fdbf31830e0842ae05f166af2b4ee3fdbf1499118d3b1deaf91e0e"
