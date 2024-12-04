@@ -2,6 +2,7 @@ import atexit
 import functools
 import json
 import logging
+import io
 import os
 import re
 import shlex
@@ -14,6 +15,8 @@ from dataclasses import dataclass
 from typing import Any, Dict, List, Optional
 
 import git
+import xxhash
+import zstandard as zstd
 
 from yardstick import artifact, utils
 from yardstick.tool.vulnerability_scanner import VulnerabilityScanner
@@ -254,27 +257,7 @@ class Grype(VulnerabilityScanner):
             db_import_path = fields[1]
             version = fields[0]
             update_db = False
-
-            # extract the metadata.json file from the db tar.gz archive (db_import_path)
-            # and use it to determine the checksum of the DB
-            with tarfile.open(db_import_path, "r:gz") as tar:
-                metadata_path = None
-                for member in tar.getmembers():
-                    if member.name.endswith("metadata.json"):
-                        metadata_path = member.name
-                        break
-
-                if not metadata_path:
-                    raise ValueError(
-                        f"could not find metadata.json in {db_import_path!r}",
-                    )
-
-                extractor = tar.extractfile(metadata_path)
-                if extractor:
-                    with extractor as metadata_file:
-                        metadata = json.load(metadata_file)
-
-                    db_identity = metadata["checksum"]
+            db_identity = get_import_checksum(db_import_path)
 
         logging.debug(
             f"parsed import-db={db_import_path!r} from version={original_version!r} new version={version!r}",
@@ -433,3 +416,65 @@ class Grype(VulnerabilityScanner):
                 default=utils.dig(full_entry, "package_type", default="unknown"),
             ),
         )
+
+
+def get_import_checksum(db_import_path: str) -> str:
+    if db_import_path.endswith(".tar.gz"):
+        return handle_legacy_archive(db_import_path)
+    if db_import_path.endswith(".tar.zstd") or db_import_path.endswith(".tar.zst"):
+        return handle_zstd_archive(db_import_path)
+    raise ValueError(f"unsupported db import path: {db_import_path!r}")
+
+
+# handle_legacy_archive deals with getting the checksum of the DB from the metadata.json file within the DB archive
+def handle_legacy_archive(archive_path: str) -> str:
+    with tarfile.open(archive_path, "r:gz") as tar:
+        metadata_path = None
+        for member in tar.getmembers():
+            if member.name.endswith("metadata.json"):
+                metadata_path = member.name
+                break
+
+        if not metadata_path:
+            raise ValueError(
+                f"could not find metadata.json in {archive_path!r}",
+            )
+
+        extractor = tar.extractfile(metadata_path)
+        if extractor:
+            with extractor as metadata_file:
+                metadata = json.load(metadata_file)
+
+        return metadata["checksum"]
+
+
+# handle_zstd_archive calculates the checksum of the DB from the vulnerability.db file within the DB archive
+def handle_zstd_archive(archive_path: str) -> str:
+    with open(archive_path, "rb") as compressed_file:
+        dctx = zstd.ZstdDecompressor()
+        with dctx.stream_reader(compressed_file) as decompressed_stream:
+            buffer = io.BytesIO(decompressed_stream.read())
+
+        with tarfile.open(fileobj=buffer, mode="r:") as tar:
+            # locate vulnerability.db
+            db_member = None
+            for member in tar.getmembers():
+                if member.name == "vulnerability.db":
+                    db_member = member
+                    break
+
+            if not db_member:
+                raise ValueError(f"could not find vulnerability.db in {archive_path!r}")
+
+            # stream the vulnerability.db file to the hasher
+            hasher = xxhash.xxh64()
+            with tar.extractfile(db_member) as db_file:
+                if not db_file:
+                    raise ValueError(
+                        f"could not extract vulnerability.db from {archive_path!r}"
+                    )
+
+                while chunk := db_file.read(8192):
+                    hasher.update(chunk)
+
+            return hasher.hexdigest()
