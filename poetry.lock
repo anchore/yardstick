@@ -412,17 +412,18 @@ toml = ["tomli"]
 
 [[package]]
 name = "dataclass-wizard"
-version = "0.30.1"
+version = "0.32.1"
 description = "Effortlessly marshal dataclasses to/from JSON. Leverage field properties with default values. Generate dataclass schemas from JSON input."
 optional = false
 python-versions = "*"
 files = [
-    {file = "dataclass-wizard-0.30.1.tar.gz", hash = "sha256:f382daab1c9aca258fe47fed089a495b69da736bde2dc7ff61c5440de2233f38"},
-    {file = "dataclass_wizard-0.30.1-py2.py3-none-any.whl", hash = "sha256:bf4af012d4fc04511efcc2be52024589faec150795bec5517b56d4ab131e2d1d"},
+    {file = "dataclass-wizard-0.32.1.tar.gz", hash = "sha256:31d44224ff8acb28abb1bbf11afa5fa73d7eeec8cb2e8f9aed374135c154b617"},
+    {file = "dataclass_wizard-0.32.1-py2.py3-none-any.whl", hash = "sha256:ce2c3bbfe48b197162ffeffd74c2d4ae4ca834acf4017b001a906a07109c943b"},
 ]
 
 [package.extras]
-dev = ["Sphinx (==7.4.7)", "Sphinx (==8.1.3)", "bump2version (==1.0.1)", "coverage (>=6.2)", "dataclass-factory (==2.16)", "dataclass-wizard[toml]", "dataclasses-json (==0.6.7)", "flake8 (>=3)", "jsons (==1.6.3)", "pip (>=21.3.1)", "pytest (==8.3.3)", "pytest-cov (==6.0.0)", "pytest-mock (>=3.6.1)", "pytimeparse (==1.1.8)", "sphinx-issues (==5.0.0)", "tomli (>=2,<3)", "tomli (>=2,<3)", "tomli-w (>=1,<2)", "tox (==4.23.2)", "twine (==5.1.1)", "watchdog[watchmedo] (==6.0.0)", "wheel (==0.45.1)"]
+dev = ["Sphinx (==7.4.7)", "Sphinx (==8.1.3)", "bump2version (==1.0.1)", "coverage (>=6.2)", "dacite (==1.8.1)", "dataclass-factory (==2.16)", "dataclass-wizard[toml]", "dataclasses-json (==0.6.7)", "flake8 (>=3)", "jsons (==1.6.3)", "mashumaro (==3.15)", "pip (>=21.3.1)", "pydantic (==2.10.2)", "pytest (==8.3.4)", "pytest-cov (==6.0.0)", "pytest-mock (>=3.6.1)", "python-dotenv (>=1,<2)", "pytimeparse (==1.1.8)", "sphinx-autodoc-typehints (==2.5.0)", "sphinx-copybutton (==0.5.2)", "sphinx-issues (==5.0.0)", "tomli (>=2,<3)", "tomli (>=2,<3)", "tomli-w (>=1,<2)", "tox (==4.23.2)", "twine (==6.0.1)", "watchdog[watchmedo] (==6.0.0)", "wheel (==0.45.1)"]
+dotenv = ["python-dotenv (>=1,<2)"]
 timedelta = ["pytimeparse (>=1.1.7)"]
 toml = ["tomli (>=2,<3)", "tomli (>=2,<3)", "tomli-w (>=1,<2)"]
 yaml = ["PyYAML (>=6,<7)"]
@@ -1700,4 +1701,4 @@ cffi = ["cffi (>=1.11)"]
 [metadata]
 lock-version = "2.0"
 python-versions = ">=3.11,<=3.13"
-content-hash = "50ec2e6c8a9955898d5b698bed27a01eff53f1a62c8e7a156416fae8fda1ddc6"
+content-hash = "fe3ed56218d91600af85118897b940f0bf0e00249a15dd05345d2ff38ffb14bf"
