@@ -412,17 +412,20 @@ toml = ["tomli"]
 
 [[package]]
 name = "dataclass-wizard"
-version = "0.32.1"
-description = "Effortlessly marshal dataclasses to/from JSON. Leverage field properties with default values. Generate dataclass schemas from JSON input."
+version = "0.33.0"
+description = "Lightning-fast JSON wizardry for Python dataclasses — effortless serialization with no external tools required!"
 optional = false
 python-versions = "*"
 files = [
-    {file = "dataclass-wizard-0.32.1.tar.gz", hash = "sha256:31d44224ff8acb28abb1bbf11afa5fa73d7eeec8cb2e8f9aed374135c154b617"},
-    {file = "dataclass_wizard-0.32.1-py2.py3-none-any.whl", hash = "sha256:ce2c3bbfe48b197162ffeffd74c2d4ae4ca834acf4017b001a906a07109c943b"},
+    {file = "dataclass-wizard-0.33.0.tar.gz", hash = "sha256:10edbac626c390ed1f3be4f972303bc2c25c162fd453d55adfe22b05b263ee6d"},
+    {file = "dataclass_wizard-0.33.0-py2.py3-none-any.whl", hash = "sha256:d257d65a707f6ea76140ad5442189ffe6fc68e1d678dc6b3fa25754e3106160d"},
 ]
 
+[package.dependencies]
+typing-extensions = {version = ">=4.9.0", markers = "python_version <= \"3.12\""}
+
 [package.extras]
-dev = ["Sphinx (==7.4.7)", "Sphinx (==8.1.3)", "bump2version (==1.0.1)", "coverage (>=6.2)", "dacite (==1.8.1)", "dataclass-factory (==2.16)", "dataclass-wizard[toml]", "dataclasses-json (==0.6.7)", "flake8 (>=3)", "jsons (==1.6.3)", "mashumaro (==3.15)", "pip (>=21.3.1)", "pydantic (==2.10.2)", "pytest (==8.3.4)", "pytest-cov (==6.0.0)", "pytest-mock (>=3.6.1)", "python-dotenv (>=1,<2)", "pytimeparse (==1.1.8)", "sphinx-autodoc-typehints (==2.5.0)", "sphinx-copybutton (==0.5.2)", "sphinx-issues (==5.0.0)", "tomli (>=2,<3)", "tomli (>=2,<3)", "tomli-w (>=1,<2)", "tox (==4.23.2)", "twine (==6.0.1)", "watchdog[watchmedo] (==6.0.0)", "wheel (==0.45.1)"]
+dev = ["Sphinx (==7.4.7)", "Sphinx (==8.1.3)", "bump2version (==1.0.1)", "coverage (>=6.2)", "dacite (==1.8.1)", "dataclass-factory (==2.16)", "dataclass-wizard[toml]", "dataclasses-json (==0.6.7)", "flake8 (>=3)", "jsons (==1.6.3)", "mashumaro (==3.15)", "matplotlib", "pip (>=21.3.1)", "pydantic (==2.10.3)", "pytest (==8.3.4)", "pytest-benchmark[histogram]", "pytest-cov (==6.0.0)", "pytest-mock (>=3.6.1)", "python-dotenv (>=1,<2)", "pytimeparse (==1.1.8)", "sphinx-autodoc-typehints (==2.5.0)", "sphinx-copybutton (==0.5.2)", "sphinx-issues (==5.0.0)", "tomli (>=2,<3)", "tomli (>=2,<3)", "tomli-w (>=1,<2)", "tox (==4.23.2)", "twine (==6.0.1)", "typing-extensions (>=4.9.0)", "watchdog[watchmedo] (==6.0.0)", "wheel (==0.45.1)"]
 dotenv = ["python-dotenv (>=1,<2)"]
 timedelta = ["pytimeparse (>=1.1.7)"]
 toml = ["tomli (>=2,<3)", "tomli (>=2,<3)", "tomli-w (>=1,<2)"]
@@ -1701,4 +1704,4 @@ cffi = ["cffi (>=1.11)"]
 [metadata]
 lock-version = "2.0"
 python-versions = ">=3.11,<=3.13"
-content-hash = "67903ca086ff5e1e4e6b98bb5dfb09643a5dd36d5f096d11d9ff8df99582e317"
+content-hash = "77470fd598a2164332b2278022fc2c70bb13fae0b8b031cb8b200023963b2be3"
