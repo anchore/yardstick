@@ -412,13 +412,13 @@ toml = ["tomli"]
 
 [[package]]
 name = "dataclass-wizard"
-version = "0.33.0"
-description = "Lightning-fast JSON wizardry for Python dataclasses — effortless serialization with no external tools required!"
+version = "0.34.0"
+description = "Lightning-fast JSON wizardry for Python dataclasses — effortless serialization right out of the box!"
 optional = false
 python-versions = "*"
 files = [
-    {file = "dataclass-wizard-0.33.0.tar.gz", hash = "sha256:10edbac626c390ed1f3be4f972303bc2c25c162fd453d55adfe22b05b263ee6d"},
-    {file = "dataclass_wizard-0.33.0-py2.py3-none-any.whl", hash = "sha256:d257d65a707f6ea76140ad5442189ffe6fc68e1d678dc6b3fa25754e3106160d"},
+    {file = "dataclass-wizard-0.34.0.tar.gz", hash = "sha256:f917db2220e395806a852f7c57e9011dd783b7fe3eee763bb56ae2d48968ab03"},
+    {file = "dataclass_wizard-0.34.0-py2.py3-none-any.whl", hash = "sha256:9c184edd3526c3523fec2de5b6d6cdfcdc97ed7b2c5ba8bc574284b793704f01"},
 ]
 
 [package.dependencies]
@@ -1710,4 +1710,4 @@ cffi = ["cffi (>=1.11)"]
 [metadata]
 lock-version = "2.0"
 python-versions = ">=3.11,<=3.13"
-content-hash = "082f5128804cd65d306df0c8eef05bf65410657d247a9aa98d3ee97cb087ed88"
+content-hash = "a31342719187bcf96f5e69457692a4c59367facd58fa26fafe553d97d853d3df"
