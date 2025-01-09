@@ -21,13 +21,13 @@ jobs:
         uses: ./.github/actions/bootstrap
 
       - name: Run static analysis
-        run: poetry run make static-analysis
+        run: make static-analysis
 
       - name: Run unit tests
-        run: poetry run make unit
+        run: make unit
 
       - name: Build test
-        run: poetry run make build
+        run: make build
 
       - name: Run CLI tests
         run: make cli
