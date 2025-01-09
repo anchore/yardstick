@@ -4,6 +4,7 @@ TEMP_DIR = ./.tmp
 
 CHRONICLE = $(TEMP_DIR)/chronicle
 GLOW = $(TEMP_DIR)/glow
+PUBLISH_CMD = poetry publish --build -n
 
 
 # Tool versions #################################
@@ -122,6 +123,19 @@ changelog:
 release:
 	@.github/scripts/trigger-release.sh
 
+
+.PHONY: ci-check
+ci-check:
+	@.github/scripts/ci-check.sh
+
+.PHONY: ci-publish-testpypi
+ci-publish-testpypi: clean-dist check-build-deps
+	poetry config repositories.testpypi https://test.pypi.org/legacy/
+	$(PUBLISH_CMD) -r testpypi
+
+.PHONY: ci-publish-pypi
+ci-publish-pypi: ci-check clean-dist check-build-deps
+	$(PUBLISH_CMD)
 
 ## Cleanup #################################
 

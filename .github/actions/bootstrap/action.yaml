@@ -1,0 +1,92 @@
+name: "Bootstrap"
+description: "Bootstrap all tools and dependencies"
+inputs:
+  go-version:
+    description: "Go version to install"
+    required: true
+    default: "1.22.x"
+  python-version:
+    description: "Python version to install"
+    required: true
+    # note: the caller really drives this in a matrix strategy run for unit tests.
+    # this default value is used for the rest of the workflow.
+    default: "3.11"
+  poetry-version:
+    description: "Poetry version to install"
+    required: true
+    default: "1.8.3"
+  use-poetry-cache:
+    description: "Restore poetry cache"
+    required: true
+    default: "true"
+  tools:
+    description: "Bootstrap tooling"
+    required: true
+    default: "true"
+  cache-key-prefix:
+    description: "Prefix all cache keys with this value"
+    required: true
+    default: "9c833ef7"
+  bootstrap-apt-packages:
+    description: "Space delimited list of tools to install via apt"
+    default: ""
+
+runs:
+  using: "composite"
+  steps:
+
+    - uses: actions/setup-python@v4
+      with:
+        python-version: ${{ inputs.python-version }}
+
+    - name: Install poetry
+      shell: bash
+      run: |
+        python -m pip install poetry==${{ inputs.poetry-version }}
+        poetry self add "poetry-dynamic-versioning[plugin]"
+
+    - name: Cache Poetry virtualenv
+      uses: actions/cache@v3
+      if: inputs.use-poetry-cache == 'true'
+      id: cache
+      with:
+        path: ~/.virtualenvs
+        key: ${{ inputs.cache-key-prefix }}-python-${{ inputs.python-version }}-poetry-${{ inputs.poetry-version }}-${{ hashFiles('poetry.lock') }}
+        restore-keys: |
+          ${{ inputs.cache-key-prefix }}-python-${{ inputs.python-version }}-poetry-${{ inputs.poetry-version }}
+
+    - name: Setup Poetry config
+      shell: bash
+      run: |
+        poetry config virtualenvs.in-project false
+        poetry config virtualenvs.path ~/.virtualenvs
+
+    - name: Restore tool cache
+      id: tool-cache
+      if: inputs.tools == 'true'
+      uses: actions/cache@v3
+      with:
+        path: ${{ github.workspace }}/.tmp
+        key: ${{ inputs.cache-key-prefix }}-${{ runner.os }}-tool-${{ hashFiles('Makefile') }}
+
+    - name: (cache-miss) Bootstrap tools
+      if: steps.tool-cache.outputs.cache-hit != 'true' && inputs.tools == 'true'
+      shell: bash
+      run: make bootstrap
+
+    - name: Install apt packages
+      if: inputs.bootstrap-apt-packages != ''
+      shell: bash
+      run: |
+        DEBIAN_FRONTEND=noninteractive sudo apt update && sudo -E apt install -y ${{ inputs.bootstrap-apt-packages }}
+
+    - name: Install dependencies and package
+      shell: bash
+      run: poetry install
+
+    - name: Restore tox cache
+      id: cache-tox
+      uses: actions/cache@v3
+      with:
+        path: .tox
+        key: ${{ inputs.cache-key-prefix }}-${{ runner.os }}-${{ inputs.python-version }}-${{ hashFiles('pyproject.toml') }}-${{ hashFiles('tox.ini') }}

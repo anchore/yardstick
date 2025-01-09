@@ -42,32 +42,20 @@ jobs:
           echo "Validations Status: ${{ steps.validations.conclusion }}"
           false
 
-
-  release:
-    needs: [quality-gate]
-    runs-on: ubuntu-20.04
-    environment: release
+  tag:
+    needs:
+      - quality-gate
+    runs-on: ubuntu-22.04
     permissions:
       contents: write
       packages: write
       issues: read
       pull-requests: read
     steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 #v4.2.2
         with:
           # in order to properly resolve the version from git
           fetch-depth: 0
-
-      - name: Restore tool cache
-        id: tool-cache
-        uses: actions/cache@1bd1e32a3bdc45362d1e726936510720a7c30a57 # v4.2.0
-        with:
-          path: ${{ github.workspace }}/.tmp
-          key: ${{ runner.os }}-tool-${{ hashFiles('Makefile') }}
-
-      - name: (cache-miss) Bootstrap tools
-        if: steps.tool-cache.outputs.cache-hit != 'true'
-        run: make bootstrap
 
       - name: Tag release
         run: |
@@ -77,6 +65,44 @@ jobs:
           git push origin --tags
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  release-pypi:
+    needs:
+      - tag
+    runs-on: ubuntu-22.04
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 #v4.2.2
+        with:
+          # in order to properly resolve the version from git
+          fetch-depth: 0
+
+      - name: Bootstrap environment
+        uses: ./.github/actions/bootstrap
+
+      - name: Publish to PyPI
+        run: make ci-publish-pypi
+        env:
+          POETRY_PYPI_TOKEN_PYPI: ${{ secrets.YARDSTICK_PYPI_TOKEN }}
+
+  release-github:
+    needs:
+      - tag
+    runs-on: ubuntu-22.04
+    permissions:
+      contents: write
+      packages: write
+      issues: read
+      pull-requests: read
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 #v4.2.2
+        with:
+          # in order to properly resolve the version from git
+          fetch-depth: 0
+
+      - name: Bootstrap environment
+        uses: ./.github/actions/bootstrap
 
       - name: Create github release
         run: |
