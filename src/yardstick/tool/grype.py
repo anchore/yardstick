@@ -305,11 +305,8 @@ class Grype(VulnerabilityScanner):
 
         # always update the DB, raise exception on failure
         if db_import_path:
-            if os.path.exists(tool_obj.db_root):
-                logging.info(f"using existing (custom) db from {tool_obj.db_root!r}")
-            else:
-                logging.info(f"importing given (custom) db from {db_import_path!r}")
-                tool_obj.run("db", "import", db_import_path)
+            logging.info(f"importing given (custom) db from {db_import_path!r}")
+            tool_obj.run("db", "import", db_import_path)
         elif update_db:
             logging.debug("updating db from OSS")
             tool_obj.run("db", "update", "-vv")
