@@ -2,6 +2,8 @@ CHANGELOG.md
 VERSION
 .tmp/
 .tool-versions
+.mise.toml
+.tool
 
 .idea/
 .vscode/

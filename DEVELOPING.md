@@ -3,39 +3,32 @@
 ## Getting Started
 
 This project requires:
-- python (>= 3.7)
-- pip (>= 22.2)
-- poetry (>= 1.2): see [installation instructions](https://python-poetry.org/docs/#installation)
+- python (>= 3.11)
+- uv (>= 0.5): see [installation instructions](https://docs.astral.sh/uv/getting-started/installation/)
 
-Once you have python and poetry installed, get the project bootstrapped:
+Once you have python and uv installed, get the project bootstrapped:
 
 ```bash
 # get basic project tooling
-make bootstrap
-
-# get a persistent virtual environment to work within
-poetry shell
+make tools
 
 # install project dependencies
-poetry install
+uv sync
 ```
 
 [Pre-commit](https://pre-commit.com/) is used to help enforce static analysis checks with git hooks:
 
 ```bash
-poetry run pre-commit install --hook-type pre-push
+uv run pre-commit install --hook-type pre-push
 ```
-
-To jump into a poetry-managed virtualenv run `poetry shell`, this will prevent the need for `poetry run...` prefix for each command.
 
 ## Developing
 
 If you want to use a locally-editable copy of yardstick while you develop:
 
 ```bash
-poetry shell
-pip uninstall yardstick  #... if you already have yardstick installed in this virtual env
-pip install -e .
+uv pip uninstall yardstick  #... if you already have yardstick installed in this virtual env
+uv pip install -e .
 ```
 
 To run all static-analysis and tests:

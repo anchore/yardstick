@@ -53,9 +53,9 @@ def test_validate_fail_on_empty_matches(
     assert (
         "gate configured to fail on empty matches, and no matches found" in gate.reasons
     )
-    assert mock_compare_results.called_once_with(
+    mock_compare_results.assert_called_once_with(
         descriptions=["some-str", "another-str"],
-        year_max_limit=2021,
+        year_max_limit=None,
         matches_filter=None,
     )
 
@@ -73,9 +73,9 @@ def test_validate_dont_fail_on_empty_matches(
         verbosity=0,
     )
     assert gate.passed()
-    assert mock_compare_results.called_once_with(
+    mock_compare_results.assert_called_once_with(
         descriptions=["some-str", "another-str"],
-        year_max_limit=2021,
+        year_max_limit=None,
         matches_filter=None,
     )
 
@@ -93,9 +93,9 @@ def test_validate_pass_early_identical_match_sets(
         verbosity=0,
     )
     assert gate.passed()
-    assert mock_compare_results.called_once_with(
+    mock_compare_results.assert_called_once_with(
         descriptions=["some-str", "another-str"],
-        year_max_limit=2021,
+        year_max_limit=None,
         matches_filter=None,
     )
 

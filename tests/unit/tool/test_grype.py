@@ -47,12 +47,18 @@ def test_grype_no_profile():
 
 
 def test_install_from_path():
-    with mock.patch("subprocess.check_call") as check_call, mock.patch(
-        "git.Repo",
-    ) as repo, mock.patch("os.path.exists") as exists, mock.patch(
-        "os.makedirs",
-    ), mock.patch(
-        "os.chmod",
+    with (
+        mock.patch("subprocess.check_call") as check_call,
+        mock.patch(
+            "git.Repo",
+        ) as repo,
+        mock.patch("os.path.exists") as exists,
+        mock.patch(
+            "os.makedirs",
+        ),
+        mock.patch(
+            "os.chmod",
+        ),
     ):
         check_call.return_value = bytes("test-output", "utf-8")
         exists.return_value = True
