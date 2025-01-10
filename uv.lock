@@ -159,12 +159,6 @@ wheels = [
 ]
 
 [[package]]
-name = "colr"
-version = "0.9.1"
-source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/43/a9/75bcc155e0bf57062e77974a5aea724123de3becd69fca6f8572127c09a2/Colr-0.9.1.tar.gz", hash = "sha256:8c15437eeb2ec8821c6df24b62946dfc6b79f69a1d84c1a6c131945a5ff4623c", size = 116430 }
-
-[[package]]
 name = "coverage"
 version = "7.6.10"
 source = { registry = "https://pypi.org/simple" }
@@ -1077,11 +1071,10 @@ wheels = [
 
 [[package]]
 name = "yardstick"
-version = "0.11.1"
+version = "0.12.0"
 source = { editable = "." }
 dependencies = [
     { name = "click" },
-    { name = "colr" },
     { name = "dataclass-wizard" },
     { name = "dataclasses-json" },
     { name = "gitpython" },
@@ -1125,7 +1118,6 @@ dev = [
 [package.metadata]
 requires-dist = [
     { name = "click", specifier = ">=8,<9" },
-    { name = "colr", specifier = ">=0.9.1,<1.0.0" },
     { name = "dataclass-wizard", specifier = ">=0.30.1,<1.0.0" },
     { name = "dataclasses-json", specifier = ">=0.6.7,<1.0.0" },
     { name = "gitpython", specifier = ">=3.1.43,<4.0.0" },

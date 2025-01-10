@@ -2,7 +2,6 @@ import colorsys
 import json
 from typing import Any, Union
 
-from colr import color  # type: ignore[import]
 from tabulate import tabulate
 
 from yardstick import artifact, comparison
@@ -75,6 +74,14 @@ def matches(comp: comparison.ByMatch, details=True, summary=True, common=True):
 #############################################################################################################
 # For label comparisons
 
+def red(text: str) -> str:
+    return f"\033[91m{text}\033[0m"
+
+def rgb_ansi(r, g, b):
+    return f"\033[38;2;{r};{g};{b}m"
+
+def reset_ansi():
+    return "\033[0m"
 
 def get_section_rgb_tuple(index, sections):
     half_sections = int(sections / 2)
@@ -115,7 +122,7 @@ def format_value_red_green_spectrum(
     )
     color_rgb_tuple = get_section_rgb_tuple(index, sections)
 
-    formatted_value = color(f"{value:6.2f}", fore=color_rgb_tuple)
+    formatted_value =  f"{rgb_ansi(*color_rgb_tuple)}{value:6.2f}{reset_ansi()}"
 
     if value_ratio > 0.9:
         # bold
@@ -264,7 +271,7 @@ Each indeterminate match for each tool-image pair is logged above.""",
                 f1_score_str = (
                     "error!"
                     if lower == -1 or upper == -1
-                    else color(f"Impractical ({lower:0.2f}-{upper:0.2f})", fore="red")
+                    else red(f"Impractical ({lower:0.2f}-{upper:0.2f})")
                 )
             else:
                 f1_score_str = ""
