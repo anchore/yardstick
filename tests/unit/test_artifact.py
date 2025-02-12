@@ -164,14 +164,8 @@ def test_scan_configuration():
     assert s.image == "docker.io/place/ubuntu@sha256:123"
     assert s.image_encoded == "docker.io+place+ubuntu@sha256:123"
     assert s.image_repo_encoded == "docker.io+place+ubuntu"
-    assert (
-        s.path
-        == "docker.io/place/ubuntu@sha256:123/grype@main/2022-09-06T16:07:01.138937+00:00"
-    )
-    assert (
-        s.encoded_path
-        == "docker.io+place+ubuntu@sha256:123/grype@main/2022-09-06T16:07:01.138937+00:00"
-    )
+    assert s.path == "docker.io/place/ubuntu@sha256:123/grype@main/2022-09-06T16:07:01.138937+00:00"
+    assert s.encoded_path == "docker.io+place+ubuntu@sha256:123/grype@main/2022-09-06T16:07:01.138937+00:00"
 
 
 def test_dt_encoder():

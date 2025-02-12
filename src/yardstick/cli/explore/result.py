@@ -43,13 +43,9 @@ class MatchCollection:
         if not self.result.matches:
             raise ValueError("no matches provided")
 
-        self.match_display_text_by_id = {
-            m.ID: display_match(m) for m in self.result.matches
-        }
+        self.match_display_text_by_id = {m.ID: display_match(m) for m in self.result.matches}
         self.match_by_id = {m.ID: m for m in self.result.matches}
-        self.match_id_by_display_text = {
-            v: k for k, v in self.match_display_text_by_id.items()
-        }
+        self.match_id_by_display_text = {v: k for k, v in self.match_display_text_by_id.items()}
 
     def has_display_text(self, text):
         return text in self.match_display_text_by_id.values()
@@ -139,9 +135,7 @@ class Executor(Completer):
                 "<b>match</b> <i>vuln</i>=str <i>package</i>=str <i>id</i>=str",
             ),
         }
-        self.command_descriptions: Dict[str, Optional[str]] = {
-            cmd: fn.__doc__ for cmd, fn in self.commands.items()
-        }
+        self.command_descriptions: Dict[str, Optional[str]] = {cmd: fn.__doc__ for cmd, fn in self.commands.items()}
 
     def get_completions(self, document: Document, complete_event: CompleteEvent):
         text = document.text.lower()
@@ -179,10 +173,7 @@ class Executor(Completer):
         if text:
             text = text.lstrip("list").strip()
 
-        matches = [
-            f"{num+1!s:3} | " + display_match(match)
-            for num, match in enumerate(sorted(self.matches.get_matches(text)))
-        ]
+        matches = [f"{num + 1!s:3} | " + display_match(match) for num, match in enumerate(sorted(self.matches.get_matches(text)))]
         print_formatted_text("\n".join(matches))
 
     def help(self, _: Optional[str] = None):  # noqa: A003

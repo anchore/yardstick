@@ -323,9 +323,7 @@ class Grype(VulnerabilityScanner):
     def env(self, override=None):
         env = os.environ.copy()
         env["GRYPE_CHECK_FOR_APP_UPDATE"] = "false"
-        env["GRYPE_DB_VALIDATE_AGE"] = (
-            "false"  # if we are using a local DB, we don't want to validate it (but we should be consistent all the time)
-        )
+        env["GRYPE_DB_VALIDATE_AGE"] = "false"  # if we are using a local DB, we don't want to validate it (but we should be consistent all the time)
         env["GRYPE_DB_AUTO_UPDATE"] = "false"
         env["GRYPE_DB_CACHE_DIR"] = self.db_root
         if self._env:
@@ -470,9 +468,7 @@ def handle_zstd_archive(archive_path: str) -> str:
             hasher = xxhash.xxh64()
             with tar.extractfile(db_member) as db_file:
                 if not db_file:
-                    raise ValueError(
-                        f"could not extract vulnerability.db from {archive_path!r}"
-                    )
+                    raise ValueError(f"could not extract vulnerability.db from {archive_path!r}")
 
                 while chunk := db_file.read(8192):
                     hasher.update(chunk)

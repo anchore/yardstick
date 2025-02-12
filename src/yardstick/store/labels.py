@@ -172,9 +172,7 @@ def load_all(
 
     label_entries: list[artifact.LabelEntry] = []
     files = set(
-        list(glob.glob(f"{root_path}/**/**/*.json"))
-        + list(glob.glob(f"{root_path}/**/*.json"))
-        + list(glob.glob(f"{root_path}/*.json")),
+        list(glob.glob(f"{root_path}/**/**/*.json")) + list(glob.glob(f"{root_path}/**/*.json")) + list(glob.glob(f"{root_path}/*.json")),
     )
     for file in files:
         filepath = remove_prefix(file, root_path + "/")

@@ -54,6 +54,9 @@ lint:  ## Show linting issues (ruff)
 lint-fix:  ## Fix linting issues (ruff)
 	$(ENV) ruff check src --fix
 
+format: ## Format code (ruff format)
+	$(ENV) ruff format src tests
+
 .PHONY: check-types
 check-types:  ## Run type checks (mypy)
 	$(ENV) mypy --config-file ./pyproject.toml src/yardstick

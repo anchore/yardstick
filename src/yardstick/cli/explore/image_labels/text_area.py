@@ -142,9 +142,7 @@ class TextArea:
         )
 
         if multiline:
-            _right_margins: list[Margin] = (
-                [ScrollbarMargin(display_arrows=False)] if scrollbar else []
-            )
+            _right_margins: list[Margin] = [ScrollbarMargin(display_arrows=False)] if scrollbar else []
 
             if right_margins:
                 _right_margins = right_margins + _right_margins

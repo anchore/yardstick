@@ -120,9 +120,7 @@ def merge_label_entries(
     new_and_modified_entries = new_and_modified_entries[:]
 
     # keep list indexes by label entry IDs
-    new_and_modified_id_idx = {
-        le.ID: idx for idx, le in enumerate(new_and_modified_entries)
-    }
+    new_and_modified_id_idx = {le.ID: idx for idx, le in enumerate(new_and_modified_entries)}
 
     # step 1: take potentially mutated entries and overwrite the original entries
     for original_idx, _ in enumerate(original_entries):
@@ -142,9 +140,7 @@ def merge_label_entries(
 
     # step 4: remove all ids which are explicitly deleted
     if deleted_ids:
-        original_entries = [
-            entry for entry in original_entries if entry.ID not in deleted_ids
-        ]
+        original_entries = [entry for entry in original_entries if entry.ID not in deleted_ids]
 
     # add the new elements to the final result
     return original_entries + new_entries

@@ -66,9 +66,7 @@ if not sys.stdout.isatty():
     bcolors.RESET = ""
 
 
-def results_used(
-    image: str, results: Sequence[artifact.ScanResult]
-) -> GateInputDescription:
+def results_used(image: str, results: Sequence[artifact.ScanResult]) -> GateInputDescription:
     return GateInputDescription(
         image=image,
         configs=[
@@ -94,18 +92,14 @@ def validate_result_set(
 
     if gate_config.allowed_namespaces:
         m_filter = namespace_filter(gate_config.allowed_namespaces)
-        logging.info(
-            f"only considering matches from allowed namespaces: {' '.join(gate_config.allowed_namespaces)}"
-        )
+        logging.info(f"only considering matches from allowed namespaces: {' '.join(gate_config.allowed_namespaces)}")
     else:
         m_filter = None
 
     ret = []
     for image, result_states in result_set_obj.result_state_by_image.items():
         if images and image not in images:
-            logging.info(
-                f"Skipping image {image!r} because --images is passed but does not include it"
-            )
+            logging.info(f"Skipping image {image!r} because --images is passed but does not include it")
             continue
         tools = ", ".join([s.request.tool for s in result_states])
         logging.info(f"Testing image: {image!r} with {tools!r}")
@@ -197,15 +191,10 @@ def validate_image(
     # show the relative comparison results
     if verbosity > 0:
         details = verbosity > 1
-        display.preserved_matches(
-            relative_comparison, details=details, summary=True, common=False
-        )
+        display.preserved_matches(relative_comparison, details=details, summary=True, common=False)
 
     if gate_config.fail_on_empty_match_set:
-        if not sum(
-            len(res.matches) if res.matches else 0
-            for res in relative_comparison.results
-        ):
+        if not sum(len(res.matches) if res.matches else 0 for res in relative_comparison.results):
             return Gate.failing(
                 reasons=[
                     "gate configured to fail on empty matches, and no matches found",
@@ -213,12 +202,7 @@ def validate_image(
                 input_description=results_used(image, relative_comparison.results),
             )
 
-    if not always_run_label_comparison and not sum(
-        [
-            len(relative_comparison.unique[result.ID])
-            for result in relative_comparison.results
-        ]
-    ):
+    if not always_run_label_comparison and not sum([len(relative_comparison.unique[result.ID]) for result in relative_comparison.results]):
         return Gate.passing(
             input_description=results_used(image, relative_comparison.results),
         )
@@ -229,13 +213,11 @@ def validate_image(
     # set of matches, we need to compare to known-correct label data and do
     # a little stats to determine whether candidate tool is better or the same
     # as reference tool.
-    results, label_entries, comparisons_by_result_id, stats_by_image_tool_pair = (
-        yardstick.compare_results_against_labels(
-            descriptions=descriptions,
-            year_max_limit=gate_config.max_year,
-            label_entries=label_entries,
-            matches_filter=match_filter,
-        )
+    results, label_entries, comparisons_by_result_id, stats_by_image_tool_pair = yardstick.compare_results_against_labels(
+        descriptions=descriptions,
+        year_max_limit=gate_config.max_year,
+        label_entries=label_entries,
+        matches_filter=match_filter,
     )
 
     if verbosity > 0:
@@ -249,32 +231,18 @@ def validate_image(
         )
 
     if len(results) != 2:
-        raise RuntimeError(
-            f"validate_image compares results of exactly 2 runs, but found {len(results)}"
-        )
+        raise RuntimeError(f"validate_image compares results of exactly 2 runs, but found {len(results)}")
 
-    candidate_tool, reference_tool = tool_designations(
-        gate_config.candidate_tool_label, [r.config for r in results]
-    )
+    candidate_tool, reference_tool = tool_designations(gate_config.candidate_tool_label, [r.config for r in results])
 
     # keep a list of differences between tools to summarize in UI
     # not that this is different from the statistical comparison;
     # deltas basically a UI/logging concern; the stats are a pass/fail concern.
-    deltas = compute_deltas(
-        comparisons_by_result_id, reference_tool, relative_comparison
-    )
+    deltas = compute_deltas(comparisons_by_result_id, reference_tool, relative_comparison)
 
-    reference_comparisons_by_images = {
-        comp.config.image: comp
-        for comp in comparisons_by_result_id.values()
-        if comp.config.tool == reference_tool
-    }
+    reference_comparisons_by_images = {comp.config.image: comp for comp in comparisons_by_result_id.values() if comp.config.tool == reference_tool}
     reference_comparison = reference_comparisons_by_images[image]
-    candidate_comparisons_by_images = {
-        comp.config.image: comp
-        for comp in comparisons_by_result_id.values()
-        if comp.config.tool == candidate_tool
-    }
+    candidate_comparisons_by_images = {comp.config.image: comp for comp in comparisons_by_result_id.values() if comp.config.tool == candidate_tool}
     candidate_comparison = candidate_comparisons_by_images[image]
     return Gate(
         reference_comparison=reference_comparison.summary,
@@ -285,20 +253,14 @@ def validate_image(
     )
 
 
-def tool_designations(
-    candidate_tool_label: str, scan_configs: list[artifact.ScanConfiguration]
-) -> tuple[str, str]:
+def tool_designations(candidate_tool_label: str, scan_configs: list[artifact.ScanConfiguration]) -> tuple[str, str]:
     reference_tool, candidate_tool = None, None
     if not candidate_tool_label:
         reference_tool, candidate_tool = guess_tool_orientation(
             [config.tool for config in scan_configs],
         )
-        logging.warning(
-            f"guessed tool orientation reference:{reference_tool} candidate:{candidate_tool}"
-        )
-        logging.warning(
-            "to avoid guessing, specify reference_tool_label and candidate_tool_label in validation config and re-capture result set"
-        )
+        logging.warning(f"guessed tool orientation reference:{reference_tool} candidate:{candidate_tool}")
+        logging.warning("to avoid guessing, specify reference_tool_label and candidate_tool_label in validation config and re-capture result set")
     if scan_configs[0].tool_label == candidate_tool_label:
         candidate_tool = scan_configs[0].tool
         reference_tool = scan_configs[1].tool

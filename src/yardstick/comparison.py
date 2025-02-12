@@ -86,8 +86,7 @@ class AgainstLabels:
         self.false_negative_label_entries = {
             label
             for label in self.label_entries
-            if label_entry_matches_image_lineage(label, result.config.image, lineage)
-            and label.label == Label.TruePositive
+            if label_entry_matches_image_lineage(label, result.config.image, lineage) and label.label == Label.TruePositive
         }
         self.true_positive_matches = []
         self.false_positive_matches = []
@@ -116,9 +115,7 @@ class AgainstLabels:
             self.false_negative_label_entries -= set(label_entries)
 
             self.label_entries_by_match[match.ID] = label_entries
-            self.labels_by_match[match.ID] = [
-                label_entry.label for label_entry in label_entries
-            ]
+            self.labels_by_match[match.ID] = [label_entry.label for label_entry in label_entries]
             labels_for_match = self.labels_by_match[match.ID]
             label_set = set(labels_for_match)
 
@@ -143,9 +140,7 @@ class AgainstLabels:
         # let's do one more pass regarding FNs. Since this is calculated based on the label entries we have,
         # and there may be multiple ways to represent the same vuln (ELSA-* and CVE-*), we need to ensure that
         # we remove any FNs that are actually TPs, but represented differently. This involves some guess work.
-        self.false_negative_label_entries = prune_represented_fns(
-            self.false_negative_label_entries, matched_true_positive_label_entries
-        )
+        self.false_negative_label_entries = prune_represented_fns(self.false_negative_label_entries, matched_true_positive_label_entries)
 
         self.summary = LabelComparisonSummary(result=result, comparison=self)
 
@@ -173,7 +168,6 @@ def prune_represented_fns(
 
 
 def has_overlapping_vulnerability_id(tp: LabelEntry, fn: LabelEntry) -> bool:
-
     left_ids = {tp.vulnerability_id, tp.effective_cve}
     right_ids = {fn.vulnerability_id, fn.effective_cve}
 
@@ -222,9 +216,7 @@ class LabelComparisonSummary:
 
         self.total = len(result.matches)
         self.indeterminate = len(comparison.matches_with_indeterminate_labels)
-        self.indeterminate_percent = (
-            utils.safe_div(self.indeterminate, self.total) * 100
-        )
+        self.indeterminate_percent = utils.safe_div(self.indeterminate, self.total) * 100
         self.true_positives = len(comparison.true_positive_matches)
         self.false_positives = len(comparison.false_positive_matches)
         self.false_negatives = len(comparison.false_negative_label_entries)
@@ -245,9 +237,7 @@ class LabelComparisonSummary:
             self.false_negatives,
         )
 
-        self.f1_score_is_practicable = (
-            self.f1_score_upper_confidence - self.f1_score_lower_confidence
-        ) <= 0.1  # is less than 10% variance
+        self.f1_score_is_practicable = (self.f1_score_upper_confidence - self.f1_score_lower_confidence) <= 0.1  # is less than 10% variance
 
     def __str__(self):
         lines = []
@@ -274,8 +264,7 @@ class LabelComparisonSummary:
         ]
 
         lines.append(
-            indent
-            + tabulate(results_table, tablefmt="plain").replace("\n", "\n" + indent),
+            indent + tabulate(results_table, tablefmt="plain").replace("\n", "\n" + indent),
         )
 
         lines.append(f"F1 score        : {self.f1_score:0.2f}       {usable}")
@@ -321,11 +310,7 @@ class ByPreservedMatch:
         # what set of matches are unique to each result?
         self.unique = {}
         for result in self.results:
-            other_sets = [
-                matches
-                for res_id, matches in self.match_set.items()
-                if res_id != result.ID
-            ]
+            other_sets = [matches for res_id, matches in self.match_set.items() if res_id != result.ID]
             self.unique[result.ID] = self.match_set[result.ID].difference(*other_sets)
 
         # what set of matches were discovered across all results? Keep track of each result that matches
@@ -394,11 +379,7 @@ class ByMatch:
         # what set of matches are unique to each result?
         self.unique = {}
         for result in self.results:
-            other_sets = [
-                matches
-                for res_id, matches in self.match_set.items()
-                if res_id != result.ID
-            ]
+            other_sets = [matches for res_id, matches in self.match_set.items() if res_id != result.ID]
             self.unique[result.ID] = self.match_set[result.ID].difference(*other_sets)
 
         self.summary = RelativeComparisonSummary(comparison=self, results=self.results)
@@ -428,9 +409,7 @@ class ByVulnerability:
         self.vulnerability_set_by_result_id = {}
         self.vulnerabilities = {}
         for result in self.results:
-            self.vulnerabilities[result.ID] = [
-                m.vulnerability.id for m in result.matches
-            ]
+            self.vulnerabilities[result.ID] = [m.vulnerability.id for m in result.matches]
             self.vulnerability_set_by_result_id[result.ID] = set(
                 self.vulnerabilities[result.ID],
             )
@@ -441,14 +420,8 @@ class ByVulnerability:
         # what set of vulnerabilities are unique to each result?
         self.unique = {}
         for result in self.results:
-            other_sets = [
-                vulnerabilities
-                for res_id, vulnerabilities in self.vulnerability_set_by_result_id.items()
-                if res_id != result.ID
-            ]
-            self.unique[result.ID] = self.vulnerability_set_by_result_id[
-                result.ID
-            ].difference(*other_sets)
+            other_sets = [vulnerabilities for res_id, vulnerabilities in self.vulnerability_set_by_result_id.items() if res_id != result.ID]
+            self.unique[result.ID] = self.vulnerability_set_by_result_id[result.ID].difference(*other_sets)
 
 
 # ByPackage looks solely at at matches package info for comparison. This alone isn't an accurate comparison,
@@ -481,14 +454,8 @@ class ByPackage:
         # what set of packages are unique to each result?
         self.unique = {}
         for result in self.results:
-            other_sets = [
-                packages
-                for res_id, packages in self.package_set_by_result_id.items()
-                if res_id != result.ID
-            ]
-            self.unique[result.ID] = self.package_set_by_result_id[
-                result.ID
-            ].difference(*other_sets)
+            other_sets = [packages for res_id, packages in self.package_set_by_result_id.items() if res_id != result.ID]
+            self.unique[result.ID] = self.package_set_by_result_id[result.ID].difference(*other_sets)
 
 
 @dataclass_json
@@ -540,13 +507,10 @@ class ComponentSummary:
         # why? because the common count is a set, so we cannot use non-set counts for the two data groups.
         jaccard_similarity = utils.safe_div(
             self.deduplicated_common_count,
-            sum(self.deduplicated_total_count.values())
-            - self.deduplicated_common_count,
+            sum(self.deduplicated_total_count.values()) - self.deduplicated_common_count,
         )
         # now we can easily compute the dice similarity...
-        self.dice_similarity_coefficient = (2 * jaccard_similarity) / (
-            jaccard_similarity + 1
-        )
+        self.dice_similarity_coefficient = (2 * jaccard_similarity) / (jaccard_similarity + 1)
 
 
 @dataclass_json
@@ -619,9 +583,7 @@ class RelativeComparisonSummary:
             )
 
         lines.append(
-            indent
-            + tabulate(results_table, tablefmt="plain").replace("\n", "\n" + indent)
-            + "\n",
+            indent + tabulate(results_table, tablefmt="plain").replace("\n", "\n" + indent) + "\n",
         )
 
         lines.append("Comparison Results (deduplicated): ")
@@ -654,9 +616,7 @@ class RelativeComparisonSummary:
             )
 
         lines.append(
-            indent
-            + tabulate(table, tablefmt="plain").replace("\n", "\n" + indent)
-            + "\n",
+            indent + tabulate(table, tablefmt="plain").replace("\n", "\n" + indent) + "\n",
         )
 
         lines.append(
@@ -753,10 +713,7 @@ class ImageToolLabelStats:
             else:
                 f1_scores[image][tool] = -1
 
-            if (
-                comp.summary.f1_score_lower_confidence != 0
-                and comp.summary.f1_score_upper_confidence != 0
-            ):
+            if comp.summary.f1_score_lower_confidence != 0 and comp.summary.f1_score_upper_confidence != 0:
                 f1_score_ranges[image][tool] = (
                     comp.summary.f1_score_lower_confidence,
                     comp.summary.f1_score_upper_confidence,
@@ -766,9 +723,7 @@ class ImageToolLabelStats:
             true_positives[image][tool] = comp.summary.true_positives
             false_positives[image][tool] = comp.summary.false_positives
             indeterminate[image][tool] = comp.summary.indeterminate
-            indeterminate_percent[image][tool] = (
-                utils.safe_div(comp.summary.indeterminate, comp.summary.total) * 100.0
-            )
+            indeterminate_percent[image][tool] = utils.safe_div(comp.summary.indeterminate, comp.summary.total) * 100.0
 
         return ImageToolLabelStats(
             configs=configs,
@@ -886,8 +841,7 @@ class ToolLabelStatsByEcosystem:
             for e in ecosystems:
                 stats.precision_by_tool_by_ecosystem[tool][e] = utils.safe_div(
                     stats.tps_by_tool_by_ecosystem[tool][e],
-                    stats.tps_by_tool_by_ecosystem[tool][e]
-                    + stats.fps_by_tool_by_ecosystem[tool][e],
+                    stats.tps_by_tool_by_ecosystem[tool][e] + stats.fps_by_tool_by_ecosystem[tool][e],
                 )
 
         return stats

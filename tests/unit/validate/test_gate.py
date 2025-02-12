@@ -39,9 +39,7 @@ def mock_label_comparison():
             ),
             MagicMock(f1_score=0.9, false_negatives=5, indeterminate_percent=2.0),
             MagicMock(f1_score=0.85, false_negatives=7, indeterminate_percent=2.0),
-            [
-                "current false negatives is greater than the latest release false negatives"
-            ],
+            ["current false negatives is greater than the latest release false negatives"],
         ),
         # Case 3: Candidate has too high indeterminate percent -> gate fails
         (

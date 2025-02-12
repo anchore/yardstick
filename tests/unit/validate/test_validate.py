@@ -38,9 +38,7 @@ def compare_results_identical_matches():
 
 
 @patch("yardstick.compare_results")
-def test_validate_fail_on_empty_matches(
-    mock_compare_results, compare_results_no_matches
-):
+def test_validate_fail_on_empty_matches(mock_compare_results, compare_results_no_matches):
     mock_compare_results.return_value = compare_results_no_matches
     gate = validate_image(
         "some image",
@@ -50,9 +48,7 @@ def test_validate_fail_on_empty_matches(
         verbosity=0,
     )
     assert not gate.passed()
-    assert (
-        "gate configured to fail on empty matches, and no matches found" in gate.reasons
-    )
+    assert "gate configured to fail on empty matches, and no matches found" in gate.reasons
     mock_compare_results.assert_called_once_with(
         descriptions=["some-str", "another-str"],
         year_max_limit=None,
@@ -61,9 +57,7 @@ def test_validate_fail_on_empty_matches(
 
 
 @patch("yardstick.compare_results")
-def test_validate_dont_fail_on_empty_matches(
-    mock_compare_results, compare_results_no_matches
-):
+def test_validate_dont_fail_on_empty_matches(mock_compare_results, compare_results_no_matches):
     mock_compare_results.return_value = compare_results_no_matches
     gate = validate_image(
         "some image",
@@ -81,9 +75,7 @@ def test_validate_dont_fail_on_empty_matches(
 
 
 @patch("yardstick.compare_results")
-def test_validate_pass_early_identical_match_sets(
-    mock_compare_results, compare_results_identical_matches
-):
+def test_validate_pass_early_identical_match_sets(mock_compare_results, compare_results_identical_matches):
     mock_compare_results.return_value = compare_results_identical_matches
     gate = validate_image(
         "some image",

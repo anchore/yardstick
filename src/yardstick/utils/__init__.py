@@ -49,9 +49,7 @@ def dig(target, *keys, **kwargs):
     """
     end_of_chain = target
     for key in keys:
-        if (isinstance(end_of_chain, dict) and key in end_of_chain) or (
-            isinstance(end_of_chain, (list, tuple)) and isinstance(key, int)
-        ):
+        if (isinstance(end_of_chain, dict) and key in end_of_chain) or (isinstance(end_of_chain, (list, tuple)) and isinstance(key, int)):
             end_of_chain = end_of_chain[key]
         else:
             if "fail" in kwargs and kwargs["fail"] is True:

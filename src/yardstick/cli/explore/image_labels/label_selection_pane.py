@@ -91,11 +91,7 @@ class LabelSelectionPane:
                 result.append([("[SetCursorPosition]", "")])
 
             note = entry.note
-            formatted_note = (
-                to_formatted_text("[no note provided]", style="italic")
-                if not note
-                else to_formatted_text(note)
-            )
+            formatted_note = to_formatted_text("[no note provided]", style="italic") if not note else to_formatted_text(note)
 
             label_style = ""
             if entry.label == artifact.Label.TruePositive:
@@ -106,7 +102,7 @@ class LabelSelectionPane:
                 label_style = "#888888"
 
             result += [
-                to_formatted_text(f"{i+1}. "),
+                to_formatted_text(f"{i + 1}. "),
                 to_formatted_text(entry.label.display, label_style),
                 to_formatted_text(f" [{entry.ID}]"),
                 to_formatted_text(f" {entry.vulnerability_id}"),

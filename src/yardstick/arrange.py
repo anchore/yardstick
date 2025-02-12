@@ -7,9 +7,7 @@ from yardstick import artifact
 def packages_by_vulnerability(
     matches: List[artifact.Match],
 ) -> Dict[artifact.Vulnerability, Set[artifact.Package]]:
-    result: Dict[artifact.Vulnerability, Set[artifact.Package]] = {
-        m.vulnerability: set() for m in matches
-    }
+    result: Dict[artifact.Vulnerability, Set[artifact.Package]] = {m.vulnerability: set() for m in matches}
     for match in matches:
         result[match.vulnerability].add(match.package)
     return result
