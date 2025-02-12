@@ -1071,7 +1071,7 @@ wheels = [
 
 [[package]]
 name = "yardstick"
-version = "0.12.1"
+version = "0.12.1.post2+2fb68de"
 source = { editable = "." }
 dependencies = [
     { name = "click" },
