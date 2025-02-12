@@ -12,15 +12,15 @@ from yardstick.validate import Gate, GateInputDescription
 
 
 class bcolors:
-    HEADER = "\033[95m"
-    OKBLUE = "\033[94m"
-    OKCYAN = "\033[96m"
-    OKGREEN = "\033[92m"
-    WARNING = "\033[93m"
-    FAIL = "\033[91m"
-    BOLD = "\033[1m"
-    UNDERLINE = "\033[4m"
-    RESET = "\033[0m"
+    HEADER: str = "\033[95m"
+    OKBLUE: str = "\033[94m"
+    OKCYAN: str = "\033[96m"
+    OKGREEN: str = "\033[92m"
+    WARNING: str = "\033[93m"
+    FAIL: str = "\033[91m"
+    BOLD: str = "\033[1m"
+    UNDERLINE: str = "\033[4m"
+    RESET: str = "\033[0m"
 
 
 if not sys.stdout.isatty():
@@ -57,9 +57,7 @@ if not sys.stdout.isatty():
     is_flag=True,
     help="show label comparison results broken down by ecosystem",
 )
-@click.option(
-    "--verbose", "-v", "verbosity", count=True, help="show details of all comparisons"
-)
+@click.option("--verbose", "-v", "verbosity", count=True, help="show details of all comparisons")
 @click.option(
     "--result-set",
     "-r",
@@ -86,20 +84,14 @@ def validate(
 ):
     # TODO: don't artificially inflate logging; figure out what to print
     setup_logging(verbosity + 3)
-    if (
-        all_result_sets and result_sets and len(result_sets) > 0
-    ):  # default result set will be present anyway
-        raise ValueError(
-            f"cannot pass --all and -r / --result-set: {all_result_sets} {result_sets}"
-        )
+    if all_result_sets and result_sets and len(result_sets) > 0:  # default result set will be present anyway
+        raise ValueError(f"cannot pass --all and -r / --result-set: {all_result_sets} {result_sets}")
 
     if all_result_sets:
         result_sets = [r for r in cfg.result_sets.keys()]
 
     if not result_sets:
-        raise ValueError(
-            "must pass --result-set / -r at least once or --all to validate all result sets"
-        )
+        raise ValueError("must pass --result-set / -r at least once or --all to validate all result sets")
 
     # let's not load any more labels than we need to, base this off of the images we're validating
     if not images:
@@ -112,9 +104,7 @@ def validate(
         images = sorted(list(unique_images))
 
     click.echo("Loading label entries...", nl=False)
-    label_entries = store.labels.load_for_image(
-        images, year_max_limit=cfg.max_year_for_any_result_set(result_sets)
-    )
+    label_entries = store.labels.load_for_image(images, year_max_limit=cfg.max_year_for_any_result_set(result_sets))
     click.echo(f"done! {len(label_entries)} entries loaded")
 
     gates = []
@@ -124,9 +114,7 @@ def validate(
             if gate_config.max_year is None:
                 gate_config.max_year = cfg.default_max_year
 
-            click.echo(
-                f"{bcolors.HEADER}{bcolors.BOLD}Validating with {result_set!r}{bcolors.RESET}"
-            )
+            click.echo(f"{bcolors.HEADER}{bcolors.BOLD}Validating with {result_set!r}{bcolors.RESET}")
             new_gates = val.validate_result_set(
                 gate_config,
                 result_set,
@@ -136,8 +124,7 @@ def validate(
                 label_entries=label_entries,
             )
             for gate in new_gates:
-                show_results_used(gate.input_description)
-                show_delta_commentary(gate)
+                show_results_for_image(gate.input_description, gate)
 
             gates.extend(new_gates)
         click.echo()
@@ -146,12 +133,10 @@ def validate(
             click.echo(
                 f"{bcolors.HEADER}Breaking down label comparison by ecosystem performance...{bcolors.RESET}",
             )
-            results_by_image, label_entries, stats = (
-                yardstick.compare_results_against_labels_by_ecosystem(
-                    result_set=result_set,
-                    year_max_limit=cfg.max_year_for_result_set(result_set),
-                    label_entries=label_entries,
-                )
+            results_by_image, label_entries, stats = yardstick.compare_results_against_labels_by_ecosystem(
+                result_set=result_set,
+                year_max_limit=cfg.max_year_for_result_set(result_set),
+                label_entries=label_entries,
             )
             display.labels_by_ecosystem_comparison(
                 results_by_image,
@@ -172,9 +157,7 @@ def validate(
         click.echo(f"{bcolors.FAIL}{bcolors.BOLD}Quality gate FAILED{bcolors.RESET}")
         sys.exit(1)
     else:
-        click.echo(
-            f"{bcolors.OKGREEN}{bcolors.BOLD}Quality gate passed!{bcolors.RESET}"
-        )
+        click.echo(f"{bcolors.OKGREEN}{bcolors.BOLD}Quality gate passed!{bcolors.RESET}")
 
 
 def setup_logging(verbosity: int):
@@ -245,9 +228,7 @@ def show_delta_commentary(gate: Gate):
         return ansi_escape.sub("", line)
 
     # sort but don't consider ansi escape codes
-    all_rows = sorted(
-        all_rows, key=lambda x: escape_ansi(str(x[0] + x[1] + x[2] + x[3]))
-    )
+    all_rows = sorted(all_rows, key=lambda x: escape_ansi(str(x[0] + x[1] + x[2] + x[3])))
     click.echo("Match differences between tooling (with labels):")
     indent = "   "
     click.echo(
@@ -260,9 +241,7 @@ def show_delta_commentary(gate: Gate):
     )
 
 
-def show_results_used(input_description: GateInputDescription):
-    if not input_description:
-        return
+def show_results_for_image(input_description: GateInputDescription, gate: Gate):
     click.echo(f"   Results used for image {input_description.image}:")
     for idx, description in enumerate(input_description.configs):
         branch = "├──"
@@ -271,7 +250,8 @@ def show_results_used(input_description: GateInputDescription):
         label = " "
         if description.tool_label and len(description.tool_label) > 0:
             label = f" ({description.tool_label}) "
-        click.echo(
-            f"    {branch} {description.id} : {description.tool}{label} against {input_description.image}"
-        )
-    click.echo()
+        click.echo(f"    {branch} {description.id} : {description.tool}{label} against {input_description.image}")
+    if gate.deltas:
+        click.echo(f"Deltas for {input_description.image}:")
+        show_delta_commentary(gate)
+    click.echo("-" * 80)
