@@ -195,10 +195,7 @@ class ResultSelectionPane:
         else:
 
             def fetch_in_background():
-                if (
-                    self.get_selected_entry().match.vulnerability.id
-                    == entry.match.vulnerability.id
-                ):
+                if self.get_selected_entry().match.vulnerability.id == entry.match.vulnerability.id:
                     self.cve_descriptions.get(entry.match.vulnerability.id)
                     get_app().invalidate()
 

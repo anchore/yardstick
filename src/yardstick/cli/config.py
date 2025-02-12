@@ -66,22 +66,14 @@ class ScanMatrix:
             else:
                 images += [image]
         self.images = images
-        invalid = [
-            image for image in images if not ScanMatrix.is_valid_oci_reference(image)
-        ]
+        invalid = [image for image in images if not ScanMatrix.is_valid_oci_reference(image)]
         if invalid:
-            raise ValueError(
-                f"all images must be complete OCI references, but {' '.join(invalid)} are not"
-            )
+            raise ValueError(f"all images must be complete OCI references, but {' '.join(invalid)} are not")
 
     @staticmethod
     def is_valid_oci_reference(image: str) -> bool:
         host, _, repository, _, digest = ScanMatrix.parse_oci_reference(image)
-        return (
-            all([host, repository, digest])
-            and bool(ScanMatrix.DIGEST_REGEX.match(digest or ""))
-            and ("." in host or "localhost" in host)
-        )
+        return all([host, repository, digest]) and bool(ScanMatrix.DIGEST_REGEX.match(digest or "")) and ("." in host or "localhost" in host)
 
     @staticmethod
     def parse_oci_reference(image: str) -> tuple[str, str, str, str, str]:
@@ -247,9 +239,7 @@ def _load_paths(
 
 def _load(path: str) -> Application:
     with open(path, encoding="utf-8") as f:
-        app_object = (
-            yaml.load(f.read(), yaml.SafeLoader) or {}
-        )  # noqa: S506 (since our loader is using the safe loader)
+        app_object = yaml.load(f.read(), yaml.SafeLoader) or {}  # noqa: S506 (since our loader is using the safe loader)
         # we need a full default application config first then merge the loaded config on top.
         # Why? dataclass_wizard.fromdict() will create instances from the dataclass default
         # and NOT the field definition from the container. So it is possible to specify a

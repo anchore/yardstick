@@ -113,9 +113,7 @@ class LabelManager:
         self.filter_text = None
         # we should filter down the set of label entries that we have to only those which match with this image. This
         # is a performance enhancement to prevent matching an ALL labels for all images on every UI action.
-        self.label_entries: List[artifact.LabelEntry] = (
-            self._keep_only_matched_label_entries(label_entries, lineage)
-        )
+        self.label_entries: List[artifact.LabelEntry] = self._keep_only_matched_label_entries(label_entries, lineage)
         self.match_select_entries_invalidated = True
         self._last_match_select_entries: List[MatchSelectEntry] = []
         self.deleted_label_entries: List[artifact.LabelEntry] = []
@@ -222,9 +220,7 @@ class LabelManager:
         self,
         label_entry_id: str,
     ) -> Optional[artifact.LabelEntry]:
-        label_entries = [
-            label for label in self.label_entries if label_entry_id == label.ID
-        ]
+        label_entries = [label for label in self.label_entries if label_entry_id == label.ID]
         if len(label_entries) > 1:
             raise RuntimeError
 

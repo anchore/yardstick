@@ -98,17 +98,13 @@ def test_delta_properties(
 @pytest.fixture
 def reference_result():
     """Fixture for creating a mock reference result."""
-    return MagicMock(
-        name="reference_results", ID="reference", config=MagicMock(tool="reference")
-    )
+    return MagicMock(name="reference_results", ID="reference", config=MagicMock(tool="reference"))
 
 
 @pytest.fixture
 def candidate_result():
     """Fixture for creating a mock candidate result."""
-    return MagicMock(
-        name="candidate_results", ID="candidate", config=MagicMock(tool="candidate")
-    )
+    return MagicMock(name="candidate_results", ID="candidate", config=MagicMock(tool="candidate"))
 
 
 @pytest.fixture

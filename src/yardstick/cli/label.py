@@ -95,9 +95,7 @@ def compare_results_against_labels(  # noqa: PLR0913
 @click.option("--summarize", "-s", is_flag=True, help="summarize each entry")
 @click.pass_obj
 def list_labels(_: config.Application, image: str, summarize: bool):
-    display_label_entries = (
-        store.labels.load_for_image(image) if image else store.labels.load_all()
-    )
+    display_label_entries = store.labels.load_for_image(image) if image else store.labels.load_all()
 
     for entry in display_label_entries:
         if summarize:

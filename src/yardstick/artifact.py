@@ -171,7 +171,7 @@ class ScanConfiguration:
 
     def __str__(self):
         s = f"""\
-image:\t\t{self.image_repo}{':'+self.image_tag if self.image_tag else ''}@{self.image_digest}
+image:\t\t{self.image_repo}{":" + self.image_tag if self.image_tag else ""}@{self.image_digest}
 tool:\t{self.tool}"""
         if self.timestamp:
             s += f"\ntimestamp:\t{self.timestamp}"
@@ -324,11 +324,7 @@ class Match:
         if self.package.version != other.package.version:
             return self.package.version < other.package.version
 
-        if (
-            self.config
-            and other.config
-            and self.package.version != other.package.version
-        ):
+        if self.config and other.config and self.package.version != other.package.version:
             return self.package.version < other.package.version
         return False
 
@@ -442,9 +438,7 @@ class LabelEntry:
     image: ImageSpecifier | None = None  # image specifier
     note: str | None = None  # a general comment field (optional)
     source: str | None = None  # e.g. manually added, import, etc. (optional)
-    effective_cve: str | None = (
-        None  # the CVE the vulnerability ID matches to (optional)
-    )
+    effective_cve: str | None = None  # the CVE the vulnerability ID matches to (optional)
     user: str | None = None  # the user that added this label (optional)
     package: Package | None = None  # package name/version
     fullentry_fields: list[str] = field(

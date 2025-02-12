@@ -20,9 +20,7 @@ class Timer:
 
 def run_scan(
     config: artifact.ScanConfiguration,
-    tool: Optional[
-        Union[vulnerability_scanner.VulnerabilityScanner, sbom_generator.SBOMGenerator]
-    ] = None,
+    tool: Optional[Union[vulnerability_scanner.VulnerabilityScanner, sbom_generator.SBOMGenerator]] = None,
     reinstall: bool = False,
     **kwargs,
 ) -> Tuple[artifact.ScanResult, str]:
@@ -151,7 +149,7 @@ def result_set(  # noqa: C901, PLR0912
     result_set_obj = artifact.ResultSet(name=result_set)
     total = len(scan_requests)
     for idx, scan_request in enumerate(scan_requests):
-        logging.info(f"capturing data for request {idx+1} of {total}")
+        logging.info(f"capturing data for request {idx + 1} of {total}")
         producer_data_path = None
         if scan_request.takes:
             producer = result_set_obj.provider(

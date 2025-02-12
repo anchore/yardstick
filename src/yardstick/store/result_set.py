@@ -62,11 +62,7 @@ def load_scan_results(
 
     result_set = load(name, store_root=store_root)
 
-    descriptions = [
-        result_state.config.path
-        for result_state in result_set.state
-        if result_state.config
-    ]
+    descriptions = [result_state.config.path for result_state in result_set.state if result_state.config]
     return scan_result.load_by_descriptions(
         descriptions,
         year_max_limit=year_max_limit,

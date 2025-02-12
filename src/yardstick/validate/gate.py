@@ -61,10 +61,7 @@ class Gate:
                 f"current F1 score is lower than the latest release F1 score: candidate_score={current_f1_score:0.2f} reference_score={reference_f1_score:0.2f} image={self.input_description.image}"
             )
 
-        if (
-            candidate_comparison.indeterminate_percent
-            > self.config.max_unlabeled_percent
-        ):
+        if candidate_comparison.indeterminate_percent > self.config.max_unlabeled_percent:
             reasons.append(
                 f"current indeterminate matches % is greater than {self.config.max_unlabeled_percent}%: candidate={candidate_comparison.indeterminate_percent:0.2f}% image={self.input_description.image}"
             )

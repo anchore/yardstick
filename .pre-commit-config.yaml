@@ -63,6 +63,12 @@ repos:
         pass_filenames: false
         language: system
 
+      - id: format
+        name: format
+        entry: make format
+        pass_filenames: false
+        language: system
+
       - id: mypy
         name: mypy
         entry: make check-types

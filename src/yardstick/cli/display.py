@@ -74,14 +74,18 @@ def matches(comp: comparison.ByMatch, details=True, summary=True, common=True):
 #############################################################################################################
 # For label comparisons
 
+
 def red(text: str) -> str:
     return f"\033[91m{text}\033[0m"
+
 
 def rgb_ansi(r, g, b):
     return f"\033[38;2;{r};{g};{b}m"
 
+
 def reset_ansi():
     return "\033[0m"
+
 
 def get_section_rgb_tuple(index, sections):
     half_sections = int(sections / 2)
@@ -90,9 +94,7 @@ def get_section_rgb_tuple(index, sections):
             [(0, float(x) / float(half_sections - 1), 1) for x in range(half_sections)],
         ),
     )
-    green_hsv_tuples = [
-        (0.33, float(x) / float(half_sections - 1), 1) for x in range(half_sections)
-    ]
+    green_hsv_tuples = [(0.33, float(x) / float(half_sections - 1), 1) for x in range(half_sections)]
     spectrum = red_hsv_tuples + green_hsv_tuples
     values = [colorsys.hsv_to_rgb(*x) for x in spectrum][index]
     return values[0] * 255, values[1] * 255, values[2] * 255
@@ -122,7 +124,7 @@ def format_value_red_green_spectrum(
     )
     color_rgb_tuple = get_section_rgb_tuple(index, sections)
 
-    formatted_value =  f"{rgb_ansi(*color_rgb_tuple)}{value:6.2f}{reset_ansi()}"
+    formatted_value = f"{rgb_ansi(*color_rgb_tuple)}{value:6.2f}{reset_ansi()}"
 
     if value_ratio > 0.9:
         # bold
@@ -258,21 +260,13 @@ Each indeterminate match for each tool-image pair is logged above.""",
                     tool,
                     (-1, -1),
                 )
-                f1_score_str = (
-                    "error!"
-                    if lower == -1 or upper == -1
-                    else f"{format_value_red_green_spectrum(f1_score)} ({lower:0.2f}-{upper:0.2f})"
-                )
+                f1_score_str = "error!" if lower == -1 or upper == -1 else f"{format_value_red_green_spectrum(f1_score)} ({lower:0.2f}-{upper:0.2f})"
             elif f1_score and f1_score < 0:
                 lower, upper = stats_by_image_tool_pair.f1_score_ranges[image].get(
                     tool,
                     (-1, -1),
                 )
-                f1_score_str = (
-                    "error!"
-                    if lower == -1 or upper == -1
-                    else red(f"Impractical ({lower:0.2f}-{upper:0.2f})")
-                )
+                f1_score_str = "error!" if lower == -1 or upper == -1 else red(f"Impractical ({lower:0.2f}-{upper:0.2f})")
             else:
                 f1_score_str = ""
             row.append(f1_score_str)
@@ -313,7 +307,8 @@ def label_comparison_json(
 
         if show_fns:
             more["fns"] = [
-                label.to_dict() for label in comp.false_negative_label_entries  # type: ignore[attr-defined]
+                label.to_dict()  # type: ignore[attr-defined]
+                for label in comp.false_negative_label_entries
             ]
 
         if show_indeterminates:
@@ -323,10 +318,7 @@ def label_comparison_json(
                     {
                         "match": match.to_dict(),  # type: ignore[attr-defined]
                         "label_set": sorted(
-                            [
-                                label.display
-                                for label in set(comp.labels_by_match.get(match.ID, []))
-                            ],
+                            [label.display for label in set(comp.labels_by_match.get(match.ID, []))],
                         ),
                         "labels": [
                             label.to_dict()  # type: ignore[attr-defined]
@@ -341,20 +333,12 @@ def label_comparison_json(
                 "tool": tool,
                 "stats": {
                     "f1_score": stats_by_image_tool_pair.f1_scores[image][tool],
-                    "f1_score_range": stats_by_image_tool_pair.f1_score_ranges[image][
-                        tool
-                    ],
+                    "f1_score_range": stats_by_image_tool_pair.f1_score_ranges[image][tool],
                     "fn": stats_by_image_tool_pair.false_negatives[image][tool],
                     "tp": stats_by_image_tool_pair.true_positives[image][tool],
                     "fp": stats_by_image_tool_pair.false_positives[image][tool],
-                    "indeterminate": stats_by_image_tool_pair.indeterminate[image][
-                        tool
-                    ],
-                    "indeterminate_percent": stats_by_image_tool_pair.indeterminate_percent[
-                        image
-                    ][
-                        tool
-                    ],
+                    "indeterminate": stats_by_image_tool_pair.indeterminate[image][tool],
+                    "indeterminate_percent": stats_by_image_tool_pair.indeterminate_percent[image][tool],
                 },
                 **more,
             },

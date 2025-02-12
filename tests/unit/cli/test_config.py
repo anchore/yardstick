@@ -132,9 +132,7 @@ test_profile:
 )
 def test_is_valid_oci_reference(name, image, expected_valid):
     result = config.ScanMatrix.is_valid_oci_reference(image)
-    assert (
-        result == expected_valid
-    ), f"Test case {name}: Expected {expected_valid} but got {result} for image '{image}'"
+    assert result == expected_valid, f"Test case {name}: Expected {expected_valid} but got {result} for image '{image}'"
 
 
 @pytest.mark.parametrize(
@@ -194,6 +192,4 @@ def test_is_valid_oci_reference(name, image, expected_valid):
 )
 def test_parse_oci_reference(image, expected_output):
     result = config.ScanMatrix.parse_oci_reference(image)
-    assert (
-        result == expected_output
-    ), f"Expected {expected_output} but got {result} for image '{image}'"
+    assert result == expected_output, f"Expected {expected_output} but got {result} for image '{image}'"
