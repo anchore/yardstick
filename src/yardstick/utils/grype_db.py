@@ -1,4 +1,3 @@
-import json
 import logging
 import os
 import sqlite3
@@ -54,8 +53,8 @@ class GrypeDBManager:
                 sys.stdout.encoding,
             )
             for line in out.split("\n"):
-                if line.startswith("Location:"):
-                    self.db_location = remove_prefix(line, "Location:").strip()
+                if line.startswith("Path:"):
+                    self.db_location = remove_prefix(line, "Path:").strip().removesuffix("vulnerability.db")
         except Exception as e:
             self.message = str(e)
             logging.error("unable to open grype DB %s", e)
@@ -73,24 +72,50 @@ class GrypeDBManager:
     def get_upstream_vulnerability(self, vuln_id: str) -> Optional[str]:
         with closing(self.connect().cursor()) as cur:
             cur.execute(
-                "select related_vulnerabilities from vulnerability where id == ? ;",
+                "SELECT alias FROM vulnerability_aliases where name == ? ORDER BY alias ASC LIMIT 1;",
                 (vuln_id,),
             )
             vulnerability_info = cur.fetchall()
 
         for info in vulnerability_info:
             if info and len(info) > 0 and info[0]:
-                loaded_info = json.loads(info[0])
-                if len(loaded_info) > 0:
-                    return loaded_info[0]["id"]
+                return info[0]
+
         return None
 
-    def get_vuln_description(self, vuln_id: str) -> str:
+    def get_vuln_description(self, vuln_id: str, provider: Optional[str] = None) -> str:
         with closing(self.connect().cursor()) as cur:
-            cur.execute(
-                "select description from vulnerability_metadata where id == ? ;",
-                (vuln_id,),
-            )
+            if provider:
+                cur.execute(
+                    """
+                    SELECT
+                        json_extract(b.value, '$.description') description
+                    FROM
+                        vulnerability_handles vh
+                        INNER JOIN blobs b
+                            ON b.id = vh.blob_id
+                    WHERE
+                        vh.name == ?
+                        AND vh.provider_id == ?
+                    ;
+                    """,
+                    (vuln_id, provider),
+                )
+            else:
+                cur.execute(
+                    """
+                    SELECT
+                        json_extract(b.value, '$.description') description
+                    FROM
+                        vulnerability_handles vh
+                        INNER JOIN blobs b
+                            ON b.id = vh.blob_id
+                    WHERE
+                        vh.name == ?
+                    ;
+                    """,
+                    (vuln_id,),
+                )
             results = cur.fetchall()
 
         for result in results:
@@ -108,7 +133,14 @@ class GrypeDBManager:
         message = ""
 
         if upstream and upstream != vuln_id:
-            vuln_desc = self.get_vuln_description(upstream)
+            provider = None
+
+            if vuln_id.lower().startswith("cve-"):
+                provider = "nvd"
+            elif vuln_id.lower().startswith("ghsa-"):
+                provider = "github"
+
+            vuln_desc = self.get_vuln_description(upstream, provider=provider)
             if vuln_desc:
                 message += f"Upstream Vulnerability: {upstream}\n{vuln_desc}\n\n"
 
