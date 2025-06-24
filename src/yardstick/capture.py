@@ -118,9 +118,10 @@ def one(
 
     profile_obj = None
     if request.profile:
-        profile_obj = profiles.get(scan_config.tool_name, {}).get(request.profile, {})
+        tool_name = scan_config.raw_tool_name
+        profile_obj = profiles.get(tool_name, {}).get(request.profile, {})
         if not profile_obj:
-            raise RuntimeError(f"no profile found for tool {scan_config.tool_name}")
+            raise RuntimeError(f"no profile found for tool {tool_name}")
 
     match_results, raw_json = run_scan(config=scan_config, profile=profile_obj)
     store.scan_result.save(
