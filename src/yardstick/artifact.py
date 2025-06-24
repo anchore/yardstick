@@ -135,6 +135,18 @@ class ScanConfiguration:
         self.image_repo = self.image_repo.replace("+", "/")
 
     @property
+    def raw_tool_name(self):
+        # given anything like "grype[label]" return "grype"
+        if "[" in self.tool_name:
+            return self.tool_name.split("[", 1)[0]
+
+        # given anything like "grype@v0.30.0+linux" return "grype"
+        if "@" in self.tool_name:
+            return self.tool_name.split("@", 1)[0]
+
+        return self.tool_name
+
+    @property
     def path(self):
         return f"{self.image_repo}@{self.image_digest}/{self.tool}/{self.timestamp_rfc3339}"
 
