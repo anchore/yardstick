@@ -185,6 +185,7 @@ def validate_image(
     relative_comparison = yardstick.compare_results(
         descriptions=descriptions,
         year_max_limit=gate_config.max_year,
+        year_from_cve_only=gate_config.year_from_cve_only,
         matches_filter=match_filter,
     )
 
@@ -216,6 +217,7 @@ def validate_image(
     results, label_entries, comparisons_by_result_id, stats_by_image_tool_pair = yardstick.compare_results_against_labels(
         descriptions=descriptions,
         year_max_limit=gate_config.max_year,
+        year_from_cve_only=gate_config.year_from_cve_only,
         label_entries=label_entries,
         matches_filter=match_filter,
     )

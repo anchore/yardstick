@@ -52,6 +52,7 @@ def test_validate_fail_on_empty_matches(mock_compare_results, compare_results_no
     mock_compare_results.assert_called_once_with(
         descriptions=["some-str", "another-str"],
         year_max_limit=None,
+        year_from_cve_only=None,
         matches_filter=None,
     )
 
@@ -70,6 +71,7 @@ def test_validate_dont_fail_on_empty_matches(mock_compare_results, compare_resul
     mock_compare_results.assert_called_once_with(
         descriptions=["some-str", "another-str"],
         year_max_limit=None,
+        year_from_cve_only=None,
         matches_filter=None,
     )
 
@@ -88,6 +90,7 @@ def test_validate_pass_early_identical_match_sets(mock_compare_results, compare_
     mock_compare_results.assert_called_once_with(
         descriptions=["some-str", "another-str"],
         year_max_limit=None,
+        year_from_cve_only=None,
         matches_filter=None,
     )
 

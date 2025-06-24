@@ -133,6 +133,7 @@ def compare_results_against_labels_by_ecosystem(
     results = store.result_set.load_scan_results(
         result_set,
         year_max_limit=year_max_limit,
+        year_from_cve_only=year_from_cve_only,
         skip_sbom_results=True,
     )
     results_by_image = arrange.scan_results_by_image(results)

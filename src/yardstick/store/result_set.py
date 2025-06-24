@@ -52,6 +52,7 @@ def load(name: str, store_root: str | None = None) -> artifact.ResultSet:
 def load_scan_results(
     name: str,
     year_max_limit: int | None = None,
+    year_from_cve_only: bool | None = None,
     store_root: str | None = None,
     skip_sbom_results: bool = False,
 ) -> list[artifact.ScanResult]:
@@ -66,6 +67,7 @@ def load_scan_results(
     return scan_result.load_by_descriptions(
         descriptions,
         year_max_limit=year_max_limit,
+        year_from_cve_only=year_from_cve_only,
         store_root=store_root,
         skip_sbom_results=skip_sbom_results,
     )

@@ -11,6 +11,7 @@ class GateConfig:
     max_new_false_negatives: int = 0
     max_unlabeled_percent: int = 0
     max_year: int | None = None
+    year_from_cve_only: bool | None = None
     reference_tool_label: str = "reference"
     candidate_tool_label: str = "candidate"
     # only consider matches from these namespaces when judging results
