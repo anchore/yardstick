@@ -361,6 +361,7 @@ class Grype(VulnerabilityScanner):
             logging.debug(
                 "no db location found in results, using system grype DB (not ideal and may cause issues with date filtering)",
             )
+            utils.grype_db.use(None)
 
         for entry in obj["matches"]:
             # TODO: normalize version here
