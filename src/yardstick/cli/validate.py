@@ -150,7 +150,7 @@ def validate(
         click.echo("Reasons for quality gate failure:")
     for gate in gates:
         for reason in gate.reasons:
-            click.echo(f"   - {reason}")
+            click.echo(f"   - {reason} ({gate.input_description.image})")
 
     if failure:
         click.echo()
