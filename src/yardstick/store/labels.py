@@ -11,7 +11,6 @@ import omitempty  # type: ignore[import]
 from yardstick import artifact
 from yardstick.store import config as store_config
 from yardstick.store import naming
-from yardstick.utils import remove_prefix
 
 LABELS_DIR = "labels"
 
@@ -175,7 +174,7 @@ def load_all(
         list(glob.glob(f"{root_path}/**/**/*.json")) + list(glob.glob(f"{root_path}/**/*.json")) + list(glob.glob(f"{root_path}/*.json")),
     )
     for file in files:
-        filepath = remove_prefix(file, root_path + "/")
+        filepath = file.removeprefix(root_path + "/")
         loaded_label_entries = load_label_file(
             filepath,
             year_max_limit=year_max_limit,
@@ -203,7 +202,7 @@ def load_for_image(
 
     # load entries that don't have specific image
     for file in glob.glob(f"{root_path}/*.json"):
-        filepath = remove_prefix(file, root_path + "/")
+        filepath = file.removeprefix(root_path + "/")
         loaded_label_entries = load_label_file(
             filepath,
             year_max_limit=year_max_limit,
@@ -220,7 +219,7 @@ def load_for_image(
             list(glob.glob(f"{root_path}/{naming.image.encode(image)}/**/*.json"))
             + list(glob.glob(f"{root_path}/{naming.image.encode(image)}/*.json")),
         ):
-            filename = remove_prefix(file, root_path + "/")
+            filename = file.removeprefix(root_path + "/")
             loaded_label_entries = load_label_file(
                 filename,
                 year_max_limit=year_max_limit,

@@ -118,9 +118,3 @@ def digits_in_number(n: int) -> int:
         count = count + 1
         n = n // 10
     return count
-
-
-def remove_prefix(s: str, prefix: str, /) -> str:
-    if s.startswith(prefix):
-        return s[len(prefix) :]
-    return s[:]

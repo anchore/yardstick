@@ -8,10 +8,6 @@ from contextlib import closing
 from typing import Optional
 
 
-def remove_prefix(text, prefix):
-    return text[text.startswith(prefix) and len(prefix) :]
-
-
 class GrypeDBManager:
     enabled: bool
     message: str
@@ -54,7 +50,7 @@ class GrypeDBManager:
             )
             for line in out.split("\n"):
                 if line.startswith("Path:"):
-                    self.db_location = remove_prefix(line, "Path:").strip().removesuffix("vulnerability.db")
+                    self.db_location = line.removeprefix("Path:").strip().removesuffix("vulnerability.db")
         except Exception as e:
             self.message = str(e)
             logging.error("unable to open grype DB %s", e)
