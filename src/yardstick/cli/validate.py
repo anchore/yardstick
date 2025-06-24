@@ -73,6 +73,13 @@ if not sys.stdout.isatty():
     default=False,
     help="validate all known result sets",
 )
+@click.option(
+    "--derive-year-from-cve-only",
+    "-c",
+    default=None,
+    help="only use the CVE ID year-max-limit",
+    is_flag=True,
+)
 def validate(
     cfg: config.Application,
     images: list[str],
@@ -81,9 +88,14 @@ def validate(
     verbosity: int,
     result_sets: list[str],
     all_result_sets: bool,
+    derive_year_from_cve_only: bool | None,
 ):
     # TODO: don't artificially inflate logging; figure out what to print
     setup_logging(verbosity + 3)
+
+    if derive_year_from_cve_only is None:
+        derive_year_from_cve_only = cfg.derive_year_from_cve_only
+
     if all_result_sets and result_sets and len(result_sets) > 0:  # default result set will be present anyway
         raise ValueError(f"cannot pass --all and -r / --result-set: {all_result_sets} {result_sets}")
 
@@ -104,7 +116,9 @@ def validate(
         images = sorted(list(unique_images))
 
     click.echo("Loading label entries...", nl=False)
-    label_entries = store.labels.load_for_image(images, year_max_limit=cfg.max_year_for_any_result_set(result_sets))
+    label_entries = store.labels.load_for_image(
+        images, year_max_limit=cfg.max_year_for_any_result_set(result_sets), year_from_cve_only=derive_year_from_cve_only
+    )
     click.echo(f"done! {len(label_entries)} entries loaded")
 
     gates = []
@@ -113,6 +127,8 @@ def validate(
         for gate_config in rs_config.validations:
             if gate_config.max_year is None:
                 gate_config.max_year = cfg.default_max_year
+
+            gate_config.year_from_cve_only = derive_year_from_cve_only
 
             click.echo(f"{bcolors.HEADER}{bcolors.BOLD}Validating with {result_set!r}{bcolors.RESET}")
             new_gates = val.validate_result_set(
@@ -136,6 +152,7 @@ def validate(
             results_by_image, label_entries, stats = yardstick.compare_results_against_labels_by_ecosystem(
                 result_set=result_set,
                 year_max_limit=cfg.max_year_for_result_set(result_set),
+                year_from_cve_only=derive_year_from_cve_only,
                 label_entries=label_entries,
             )
             display.labels_by_ecosystem_comparison(
