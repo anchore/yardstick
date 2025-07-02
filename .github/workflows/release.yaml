@@ -15,11 +15,19 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
       - name: Check if tag already exists
         # note: this will fail if the tag already exists
+        env:
+          VERSION_INPUT: ${{ github.event.inputs.version }}
         run: |
-          [[ "${{ github.event.inputs.version }}" == v* ]] || (echo "version '${{ github.event.inputs.version }}' does not have a 'v' prefix" && exit 1)
-          git tag ${{ github.event.inputs.version }}
+          # Validate version format (v followed by semver)
+          if [[ ! "$VERSION_INPUT" =~ ^v[0-9]+\.[0-9]+\.[0-9]+.*$ ]]; then
+            echo "Invalid version format: $VERSION_INPUT (expected format: vX.Y.Z)"
+            exit 1
+          fi
+          git tag "$VERSION_INPUT"
 
       # we don't want to release commits that have been pushed and tagged, but not necessarily merged onto main
       - name: Ensure tagged commit is on main
@@ -39,8 +47,10 @@ jobs:
 
       - name: Quality gate
         if: steps.validations.conclusion != 'success'
+        env:
+          VALIDATION_STATUS: ${{ steps.validations.conclusion }}
         run: |
-          echo "Validations Status: ${{ steps.validations.conclusion }}"
+          echo "Validations Status: $VALIDATION_STATUS"
           false
 
   tag:
@@ -54,15 +64,17 @@ jobs:
         with:
           # in order to properly resolve the version from git
           fetch-depth: 0
+          persist-credentials: false
 
       - name: Tag release
+        env:
+          VERSION_INPUT: ${{ github.event.inputs.version }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           git config --global user.name "anchoreci"
           git config --global user.email "anchoreci@users.noreply.github.com"
-          git tag ${{ github.event.inputs.version }}
+          git tag "$VERSION_INPUT"
           git push origin --tags
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
   release-pypi:
     needs:
@@ -78,6 +90,7 @@ jobs:
         with:
           # in order to properly resolve the version from git
           fetch-depth: 0
+          persist-credentials: false
 
       - name: Bootstrap environment
         uses: ./.github/actions/bootstrap
@@ -100,13 +113,15 @@ jobs:
         with:
           # in order to properly resolve the version from git
           fetch-depth: 0
+          persist-credentials: false
 
       - name: Bootstrap environment
         uses: ./.github/actions/bootstrap
 
       - name: Create github release
+        env:
+          VERSION_INPUT: ${{ github.event.inputs.version }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           make changelog
-          gh release create ${{ github.event.inputs.version }} -F CHANGELOG.md -t ${{ github.event.inputs.version }}
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          gh release create "$VERSION_INPUT" -F CHANGELOG.md -t "$VERSION_INPUT"
