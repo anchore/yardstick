@@ -4,6 +4,20 @@ from dataclasses import dataclass
 from yardstick import artifact, comparison
 
 
+def extract_reference_url(match: artifact.Match) -> str | None:
+    """Extract the specific vulnerability reference URL from match data."""
+    if match.fullentry and isinstance(match.fullentry, dict):
+        # Look for URL in vulnerability data
+        vuln_data = match.fullentry.get("vulnerability", {})
+        if isinstance(vuln_data, dict):
+            # Try different possible URL fields
+            for url_field in ["dataSource", "url", "reference", "link"]:
+                url = vuln_data.get(url_field)
+                if url and isinstance(url, str):
+                    return url
+    return None
+
+
 class DeltaType(enum.Enum):
     Unknown = "Unknown"
     FixedFalseNegative = "FixedFalseNegative"
@@ -20,6 +34,7 @@ class Delta:
     vulnerability_id: str
     added: bool
     label: str | None = None
+    reference_url: str | None = None
 
     @property
     def is_improved(self) -> bool | None:
@@ -94,6 +109,7 @@ def compute_deltas(
                 vulnerability_id=unique_match.vulnerability.id,
                 added=result.config.tool != reference_tool,
                 label=label,
+                reference_url=extract_reference_url(unique_match),
             )
             deltas.append(delta)
     return deltas
