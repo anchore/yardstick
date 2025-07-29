@@ -8,6 +8,7 @@ import yardstick
 from yardstick import store
 from yardstick import validate as val
 from yardstick.cli import config, display
+from yardstick.cli.interactive_validate import InteractiveValidateTUI
 from yardstick.validate import Gate, GateInputDescription
 
 
@@ -80,6 +81,11 @@ if not sys.stdout.isatty():
     help="only use the CVE ID year-max-limit",
     is_flag=True,
 )
+@click.option(
+    "--interactive",
+    is_flag=True,
+    help="open interactive TUI for relabeling after quality gate failure",
+)
 def validate(
     cfg: config.Application,
     images: list[str],
@@ -89,6 +95,7 @@ def validate(
     result_sets: list[str],
     all_result_sets: bool,
     derive_year_from_cve_only: bool | None,
+    interactive: bool,
 ):
     # TODO: don't artificially inflate logging; figure out what to print
     setup_logging(verbosity + 3)
@@ -172,6 +179,12 @@ def validate(
     if failure:
         click.echo()
         click.echo(f"{bcolors.FAIL}{bcolors.BOLD}Quality gate FAILED{bcolors.RESET}")
+
+        if interactive:
+            click.echo("Starting interactive mode...")
+            tui = InteractiveValidateTUI(gates, label_entries)
+            tui.run()
+
         sys.exit(1)
     else:
         click.echo(f"{bcolors.OKGREEN}{bcolors.BOLD}Quality gate passed!{bcolors.RESET}")
