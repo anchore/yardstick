@@ -43,10 +43,10 @@ class InteractiveValidateController:
         self.matches_to_label = self._collect_matches_to_label()
         self.labels_to_save: List[artifact.LabelEntry] = []
 
-    def _collect_matches_to_label(self) -> List[tuple[str, artifact.Match, str, str | None, str | None]]:
+    def _collect_matches_to_label(self) -> List[tuple[str, artifact.Match, str, str | None, str | None, str | None]]:
         """Collect matches that need labeling, prioritized by importance.
 
-        Returns list of tuples: (category, match, gate_image, reference_url, namespace)
+        Returns list of tuples: (category, match, gate_image, reference_url, namespace, fixed_version)
         Categories: "candidate_only", "reference_only", "unlabeled_both"
         """
         matches = []
@@ -67,7 +67,7 @@ class InteractiveValidateController:
                 needs_labeling = not delta.label or delta.label == "(unknown)" or delta.label == "Unclear" or "?" in delta.label
 
                 if needs_labeling:
-                    matches.append((category, match, gate.input_description.image, delta.reference_url, delta.namespace))
+                    matches.append((category, match, gate.input_description.image, delta.reference_url, delta.namespace, delta.fixed_version))
 
         # Sort by priority: candidate_only first, then reference_only, then others
         matches.sort(key=lambda x: (0 if x[0] == "candidate_only" else 1 if x[0] == "reference_only" else 2, x[1].vulnerability.id))
@@ -77,13 +77,13 @@ class InteractiveValidateController:
         """Check if there are more matches to label."""
         return self.current_index < len(self.matches_to_label)
 
-    def get_current_match(self) -> tuple[str, artifact.Match, str, str | None, str | None] | None:
+    def get_current_match(self) -> tuple[str, artifact.Match, str, str | None, str | None, str | None] | None:
         """Get the current match to be labeled."""
         if not self.has_next_match():
             return None
         return self.matches_to_label[self.current_index]
 
-    def next_match(self) -> tuple[str, artifact.Match, str, str | None, str | None] | None:
+    def next_match(self) -> tuple[str, artifact.Match, str, str | None, str | None, str | None] | None:
         """Move to the next match and return it."""
         if self.has_next_match():
             match_info = self.get_current_match()
@@ -97,7 +97,7 @@ class InteractiveValidateController:
         if not current:
             return False
 
-        _, match, image, _, _ = current
+        _, match, image, _, _, _ = current
 
         label_entry = artifact.LabelEntry(
             label=label,
@@ -144,11 +144,12 @@ class InteractiveValidateTUI:
         # Show detailed debug info about first few matches
         if self.controller.matches_to_label:
             click.echo("Debug: First few matches to label:")
-            for i, (category, match, image, ref_url, namespace) in enumerate(self.controller.matches_to_label[:3]):
+            for i, (category, match, image, ref_url, namespace, fixed_version) in enumerate(self.controller.matches_to_label[:3]):
                 url_info = f" (URL: {ref_url})" if ref_url else ""
                 namespace_info = f" (namespace: {namespace})" if namespace else ""
+                fix_info = f" (fixed in: {fixed_version})" if fixed_version else ""
                 click.echo(
-                    f"  {i + 1}. {category}: {match.vulnerability.id} in {match.package.name}@{match.package.version} (image: {image}){url_info}{namespace_info}"
+                    f"  {i + 1}. {category}: {match.vulnerability.id} in {match.package.name}@{match.package.version} (image: {image}){url_info}{namespace_info}{fix_info}"
                 )
 
         if total_matches == 0:
@@ -182,7 +183,7 @@ class InteractiveValidateTUI:
                     ("class:instruction", "Press 's' to save labels, or 'q' to exit without saving"),
                 ]
 
-            category, match, image, reference_url, namespace = current_match
+            category, match, image, reference_url, namespace, fixed_version = current_match
             category_display = {
                 "candidate_only": "CANDIDATE ONLY",
                 "reference_only": "REFERENCE ONLY",
@@ -210,25 +211,51 @@ class InteractiveValidateTUI:
 
             # Add namespace information if available
             if namespace:
-                display_items.extend([
-                    ("class:field", "Namespace: "),
-                    ("class:namespace", namespace),
-                    ("", "\n"),
-                ])
+                display_items.extend(
+                    [
+                        ("class:field", "Namespace: "),
+                        ("class:namespace", namespace),
+                        ("", "\n"),
+                    ]
+                )
+
+            # Add fixed version information if available
+            if fixed_version:
+                # Check if this is a fix state rather than version
+                if fixed_version in ["not-fixed", "wont-fix", "unknown"]:
+                    display_items.extend(
+                        [
+                            ("class:field", "Fix Status: "),
+                            ("class:fix_status", fixed_version.upper()),
+                            ("", "\n"),
+                        ]
+                    )
+                else:
+                    display_items.extend(
+                        [
+                            ("class:field", "Fixed Version: "),
+                            ("class:fixed_version", fixed_version),
+                            ("", "\n"),
+                        ]
+                    )
 
             # Add vulnerability information URL if available
             if vuln_url:
-                display_items.extend([
-                    ("class:field", "Info URL: "),
-                    ("class:url", vuln_url),
-                    ("", "\n"),
-                ])
+                display_items.extend(
+                    [
+                        ("class:field", "Info URL: "),
+                        ("class:url", vuln_url),
+                        ("", "\n"),
+                    ]
+                )
 
-            display_items.extend([
-                ("class:field", "Match ID: "),
-                ("", match.ID if hasattr(match, "ID") else "generated"),
-                ("", "\n\n"),
-            ])
+            display_items.extend(
+                [
+                    ("class:field", "Match ID: "),
+                    ("", match.ID if hasattr(match, "ID") else "generated"),
+                    ("", "\n\n"),
+                ]
+            )
 
             return display_items + [
                 ("class:description", "This match was found "),
@@ -320,6 +347,8 @@ class InteractiveValidateTUI:
                     "nav": "fg:ansicyan",
                     "url": "fg:ansiblue underline",
                     "namespace": "fg:ansimagenta",
+                    "fixed_version": "fg:ansigreen",
+                    "fix_status": "bold fg:ansired",
                 }
             )
 
