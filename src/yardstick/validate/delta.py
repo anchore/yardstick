@@ -18,6 +18,17 @@ def extract_reference_url(match: artifact.Match) -> str | None:
     return None
 
 
+def extract_namespace(match: artifact.Match) -> str | None:
+    """Extract the vulnerability namespace from match data."""
+    if match.fullentry and isinstance(match.fullentry, dict):
+        vuln_data = match.fullentry.get("vulnerability", {})
+        if isinstance(vuln_data, dict):
+            namespace = vuln_data.get("namespace")
+            if namespace and isinstance(namespace, str):
+                return namespace
+    return None
+
+
 class DeltaType(enum.Enum):
     Unknown = "Unknown"
     FixedFalseNegative = "FixedFalseNegative"
@@ -35,6 +46,7 @@ class Delta:
     added: bool
     label: str | None = None
     reference_url: str | None = None
+    namespace: str | None = None
 
     @property
     def is_improved(self) -> bool | None:
@@ -110,6 +122,7 @@ def compute_deltas(
                 added=result.config.tool != reference_tool,
                 label=label,
                 reference_url=extract_reference_url(unique_match),
+                namespace=extract_namespace(unique_match),
             )
             deltas.append(delta)
     return deltas
