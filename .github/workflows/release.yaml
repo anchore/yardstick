@@ -64,7 +64,7 @@ jobs:
         with:
           # in order to properly resolve the version from git
           fetch-depth: 0
-          persist-credentials: false
+          persist-credentials: true
 
       - name: Tag release
         env:
