@@ -119,8 +119,7 @@ class InteractiveValidateController:
     def save_labels(self):
         """Save all collected labels to storage."""
         if self.labels_to_save:
-            for label_entry in self.labels_to_save:
-                store.labels.write(label_entry)
+            store.labels.save(self.labels_to_save)
             self.labels_to_save.clear()
 
 
