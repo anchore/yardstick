@@ -192,9 +192,22 @@ class InteractiveValidateTUI:
             # Use the specific reference URL from the delta, or fallback to generic URL
             vuln_url = reference_url or get_vulnerability_info_url(match)
 
+            # Create progress bar
+            progress_width = 40
+            completed = current_idx
+            progress_ratio = completed / total if total > 0 else 0
+            filled_width = int(progress_ratio * progress_width)
+            empty_width = progress_width - filled_width
+            progress_bar = "█" * filled_width + "░" * empty_width
+
             display_items = [
                 ("class:title", f"Interactive Relabeling Mode ({current_idx + 1}/{total})"),
                 ("", "\n"),
+                ("class:field", "Progress: "),
+                ("class:progress_filled", progress_bar[:filled_width]),
+                ("class:progress_empty", progress_bar[filled_width:]),
+                ("", f" {completed}/{total} ({int(progress_ratio * 100)}%)"),
+                ("", "\n\n"),
                 ("class:category", f"Category: {category_display}"),
                 ("", "\n"),
                 ("class:field", "Image: "),
@@ -348,6 +361,8 @@ class InteractiveValidateTUI:
                     "namespace": "fg:ansimagenta",
                     "fixed_version": "fg:ansigreen",
                     "fix_status": "bold fg:ansired",
+                    "progress_filled": "fg:ansigreen",
+                    "progress_empty": "fg:ansigray",
                 }
             )
 
