@@ -41,7 +41,6 @@ class InteractiveValidateController:
         self.label_entries = label_entries
         self.current_index = 0
         self.matches_to_label = self._collect_matches_to_label()
-        self.labels_to_save: List[artifact.LabelEntry] = []
 
     def _collect_matches_to_label(self) -> List[tuple[str, artifact.Match, str, str | None, str | None, str | None]]:
         """Collect matches that need labeling, prioritized by importance.
@@ -92,7 +91,7 @@ class InteractiveValidateController:
         return None
 
     def label_current_match(self, label: artifact.Label, note: str = "") -> bool:
-        """Label the current match with the given label."""
+        """Label the current match with the given label and save immediately."""
         current = self.get_current_match()
         if not current:
             return False
@@ -109,18 +108,14 @@ class InteractiveValidateController:
             timestamp=datetime.datetime.now(),
         )
 
-        self.labels_to_save.append(label_entry)
+        # Save immediately to prevent data loss
+        store.labels.save([label_entry])
         return True
 
     def get_progress(self) -> tuple[int, int]:
         """Get current progress (current_index, total_matches)."""
         return (self.current_index, len(self.matches_to_label))
 
-    def save_labels(self):
-        """Save all collected labels to storage."""
-        if self.labels_to_save:
-            store.labels.save(self.labels_to_save)
-            self.labels_to_save.clear()
 
 
 class InteractiveValidateTUI:
@@ -177,9 +172,9 @@ class InteractiveValidateTUI:
                 return [
                     ("class:title", "Interactive Relabeling Complete"),
                     ("", "\n\n"),
-                    ("class:success", f"All {total} matches have been processed!"),
+                    ("class:success", f"All {total} matches have been processed and saved!"),
                     ("", "\n\n"),
-                    ("class:instruction", "Press 's' to save labels, or 'q' to exit without saving"),
+                    ("class:instruction", "Press 'q' to exit"),
                 ]
 
             category, match, image, reference_url, namespace, fixed_version = current_match
@@ -297,10 +292,8 @@ class InteractiveValidateTUI:
                 ("class:nav", "Navigation: "),
                 ("class:key", "N"),
                 ("", " - Next (skip)  "),
-                ("class:key", "S"),
-                ("", " - Save & Exit  "),
                 ("class:key", "Q"),
-                ("", " - Quit without saving"),
+                ("", " - Quit"),
             ]
 
         def create_keybindings():
@@ -328,12 +321,6 @@ class InteractiveValidateTUI:
             def next_match(event):
                 self.controller.next_match()
                 event.app.invalidate()
-
-            @bindings.add("s")
-            def save_and_exit(event):
-                self.controller.save_labels()
-                click.echo("Labels saved!")
-                event.app.exit()
 
             @bindings.add("q")
             def quit_app(event):
