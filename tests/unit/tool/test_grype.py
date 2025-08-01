@@ -132,3 +132,10 @@ def test_handle_legacy_archive(legacy_archive):
 def test_handle_zstd_archive(zstd_archive):
     archive_path, expected_checksum = zstd_archive
     assert handle_zstd_archive(str(archive_path)) == expected_checksum
+
+
+def test_handle_import_url():
+    # this does not exist on disk, but we can test the URL handling and just hash the URL
+    url = "https://grype.anchore.io/databases/v6/vulnerability-db_v6.0.3_2025-07-23T01:30:29Z_1753244566.tar.zst?checksum=sha256%3Af09d1f0b71ebf39b53abffb3c7ecb0435576040b2dfbf6e2e35928b5b3b8c592"
+    expected_checksum = "5910fbf3352d25a2"
+    assert handle_zstd_archive(url) == expected_checksum
