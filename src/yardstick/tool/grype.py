@@ -449,6 +449,13 @@ def handle_legacy_archive(archive_path: str) -> str:
 
 # handle_zstd_archive calculates the checksum of the DB from the vulnerability.db file within the DB archive
 def handle_zstd_archive(archive_path: str) -> str:
+    # if starts with https, then hash the URL as a unique identifier
+    if archive_path.startswith("https://"):
+        hasher = xxhash.xxh64()
+        hasher.update(archive_path.encode("utf-8"))
+        return hasher.hexdigest()
+
+    # otherwise, decompress the archive and calculate the checksum of vulnerability.db
     with open(archive_path, "rb") as compressed_file:
         dctx = zstd.ZstdDecompressor()
         with dctx.stream_reader(compressed_file) as decompressed_stream:
