@@ -11,8 +11,10 @@ import xxhash
 from yardstick.tool.grype import (
     Grype,
     GrypeProfile,
+    get_import_checksum,
     handle_legacy_archive,
     handle_zstd_archive,
+    handle_db_file,
 )
 
 
@@ -139,3 +141,40 @@ def test_handle_import_url():
     url = "https://grype.anchore.io/databases/v6/vulnerability-db_v6.0.3_2025-07-23T01:30:29Z_1753244566.tar.zst?checksum=sha256%3Af09d1f0b71ebf39b53abffb3c7ecb0435576040b2dfbf6e2e35928b5b3b8c592"
     expected_checksum = "5910fbf3352d25a2"
     assert handle_zstd_archive(url) == expected_checksum
+
+
+@pytest.fixture
+def db_file(tmp_path):
+    db_path = tmp_path / "vulnerability.db"
+    db_content = b"dummy database file content"
+    with open(db_path, "wb") as f:
+        f.write(db_content)
+    hasher = xxhash.xxh64()
+    hasher.update(db_content)
+    expected_checksum = hasher.hexdigest()
+    return db_path, expected_checksum
+
+
+def test_handle_db_file(db_file):
+    db_path, expected_checksum = db_file
+    assert handle_db_file(str(db_path)) == expected_checksum
+
+
+def test_get_import_checksum_db_file(db_file):
+    db_path, expected_checksum = db_file
+    assert get_import_checksum(str(db_path)) == expected_checksum
+
+
+def test_get_import_checksum_legacy_archive(legacy_archive):
+    archive_path, expected_checksum = legacy_archive
+    assert get_import_checksum(str(archive_path)) == expected_checksum
+
+
+def test_get_import_checksum_zstd_archive(zstd_archive):
+    archive_path, expected_checksum = zstd_archive
+    assert get_import_checksum(str(archive_path)) == expected_checksum
+
+
+def test_get_import_checksum_unsupported():
+    with pytest.raises(ValueError, match="unsupported db import path"):
+        get_import_checksum("unsupported.txt")

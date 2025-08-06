@@ -422,6 +422,8 @@ def get_import_checksum(db_import_path: str) -> str:
         return handle_legacy_archive(db_import_path)
     if db_import_path.endswith(".tar.zstd") or db_import_path.endswith(".tar.zst"):
         return handle_zstd_archive(db_import_path)
+    if db_import_path.endswith(".db"):
+        return handle_db_file(db_import_path)
     raise ValueError(f"unsupported db import path: {db_import_path!r}")
 
 
@@ -482,3 +484,12 @@ def handle_zstd_archive(archive_path: str) -> str:
                     hasher.update(chunk)
 
             return hasher.hexdigest()
+
+
+# handle_db_file calculates the checksum of a raw SQLite database file
+def handle_db_file(db_path: str) -> str:
+    hasher = xxhash.xxh64()
+    with open(db_path, "rb") as db_file:
+        while chunk := db_file.read(8192):
+            hasher.update(chunk)
+    return hasher.hexdigest()
