@@ -161,6 +161,11 @@ class InteractiveValidateController:
         self.relative_comparison = relative_comparison
         self.year_max_limit = year_max_limit
         self.year_from_cve_only = year_from_cve_only
+
+        # Track which gates failed and their failure order
+        self.failed_gates = [gate for gate in gates if not gate.passed()]
+        self.failed_images_order = [gate.input_description.image for gate in self.failed_gates]
+
         self.current_index = 0
         self.matches_to_label = self._collect_matches_to_label()
         self.processing_deltas = True
@@ -207,6 +212,18 @@ class InteractiveValidateController:
 
         return year > self.year_max_limit  # Filter out if year is greater than max
 
+    def _get_image_priority(self, image: str) -> tuple[int, int]:
+        """Get priority for an image based on failure status and order.
+
+        Returns (failure_priority, failure_order) where:
+        - failure_priority: 0 for failed images, 1 for non-failed images
+        - failure_order: position in failed_images_order (0-based) or 999 for non-failed
+        """
+        if image in self.failed_images_order:
+            return (0, self.failed_images_order.index(image))
+        else:
+            return (1, 999)  # Non-failed images get lower priority
+
     def _collect_matches_to_label(self) -> List[tuple[str, artifact.Match, str, str | None, str | None, str | None]]:
         """Collect matches that need labeling, prioritized by importance.
 
@@ -215,8 +232,8 @@ class InteractiveValidateController:
         """
         matches = []
 
-        # First collect delta matches (candidate_only, reference_only)
-        for gate in self.gates:
+        # First collect delta matches (candidate_only, reference_only) - only from failed gates
+        for gate in self.failed_gates:
             if not gate.deltas:
                 continue
 
@@ -240,8 +257,14 @@ class InteractiveValidateController:
                 if needs_labeling and not self._should_filter_match_by_year(match):
                     matches.append((category, match, gate.input_description.image, delta.reference_url, delta.namespace, delta.fixed_version))
 
-        # Sort by priority: candidate_only first, then reference_only, then others
-        matches.sort(key=lambda x: (0 if x[0] == "candidate_only" else 1 if x[0] == "reference_only" else 2, x[1].vulnerability.id))
+        # Sort by priority: failed images first, then category priority, then vulnerability ID
+        def sort_key(match_tuple):
+            category, match, image, _, _, _ = match_tuple
+            image_priority = self._get_image_priority(image)
+            category_priority = 0 if category == "candidate_only" else 1 if category == "reference_only" else 2
+            return (image_priority[0], image_priority[1], category_priority, match.vulnerability.id)
+
+        matches.sort(key=sort_key)
         return matches
 
     def has_next_match(self) -> bool:
@@ -262,52 +285,65 @@ class InteractiveValidateController:
         if not self.relative_comparison:
             return
 
-        # Get the first gate to use its image (all should be the same)
-        if not self.gates:
+        # Only process common matches for failed gate images
+        if not self.failed_gates:
             return
 
-        image = self.gates[0].input_description.image
+        common_matches = []
 
-        for equivalent_match in self.relative_comparison.common:
-            # Use the first match from any tool as the representative
-            representative_match = None
-            for matches_list in equivalent_match.matches.values():
-                if matches_list:
-                    representative_match = matches_list[0]
-                    break
+        # Process common matches for each failed gate's image
+        for failed_gate in self.failed_gates:
+            image = failed_gate.input_description.image
 
-            if not representative_match:
-                continue
+            for equivalent_match in self.relative_comparison.common:
+                # Use the first match from any tool as the representative
+                representative_match = None
+                for matches_list in equivalent_match.matches.values():
+                    if matches_list:
+                        representative_match = matches_list[0]
+                        break
 
-            # Check if this match is already labeled
-            match_labels = find_labels_for_match(
-                image,
-                representative_match,
-                self.label_entries,
-                lineage=[],  # TODO: Could pass actual lineage if available
-                fuzzy_package_match=False,
-            )
+                if not representative_match:
+                    continue
 
-            # Only include if unlabeled or unclear AND not filtered by year
-            if (
-                not match_labels
-                or any(label.label in [artifact.Label.Unclear] for label in match_labels)
-                or len(set(label.label for label in match_labels)) != 1
-            ) and not self._should_filter_match_by_year(representative_match):
-                # Extract metadata like we do for deltas
-                reference_url = get_vulnerability_info_url(representative_match)
-                namespace = representative_match.fullentry.get("vulnerability", {}).get("namespace") if representative_match.fullentry else None
-                fixed_version = None
-                if representative_match.fullentry and isinstance(representative_match.fullentry, dict):
-                    match_details = representative_match.fullentry.get("matchDetails", [])
-                    for detail in match_details:
-                        if isinstance(detail, dict) and "fix" in detail:
-                            fix_info = detail["fix"]
-                            if isinstance(fix_info, dict) and "suggestedVersion" in fix_info:
-                                fixed_version = str(fix_info["suggestedVersion"])
-                                break
+                # Check if this match is already labeled
+                match_labels = find_labels_for_match(
+                    image,
+                    representative_match,
+                    self.label_entries,
+                    lineage=[],  # TODO: Could pass actual lineage if available
+                    fuzzy_package_match=False,
+                )
 
-                self.matches_to_label.append(("common_unlabeled", representative_match, image, reference_url, namespace, fixed_version))
+                # Only include if unlabeled or unclear AND not filtered by year
+                if (
+                    not match_labels
+                    or any(label.label in [artifact.Label.Unclear] for label in match_labels)
+                    or len(set(label.label for label in match_labels)) != 1
+                ) and not self._should_filter_match_by_year(representative_match):
+                    # Extract metadata like we do for deltas
+                    reference_url = get_vulnerability_info_url(representative_match)
+                    namespace = representative_match.fullentry.get("vulnerability", {}).get("namespace") if representative_match.fullentry else None
+                    fixed_version = None
+                    if representative_match.fullentry and isinstance(representative_match.fullentry, dict):
+                        match_details = representative_match.fullentry.get("matchDetails", [])
+                        for detail in match_details:
+                            if isinstance(detail, dict) and "fix" in detail:
+                                fix_info = detail["fix"]
+                                if isinstance(fix_info, dict) and "suggestedVersion" in fix_info:
+                                    fixed_version = str(fix_info["suggestedVersion"])
+                                    break
+
+                    common_matches.append(("common_unlabeled", representative_match, image, reference_url, namespace, fixed_version))
+
+        # Sort common matches by image priority
+        def sort_key(match_tuple):
+            category, match, image, _, _, _ = match_tuple
+            image_priority = self._get_image_priority(image)
+            return (image_priority[0], image_priority[1], match.vulnerability.id)
+
+        common_matches.sort(key=sort_key)
+        self.matches_to_label.extend(common_matches)
 
     def get_current_match(self) -> tuple[str, artifact.Match, str, str | None, str | None, str | None] | None:
         """Get the current match to be labeled."""
