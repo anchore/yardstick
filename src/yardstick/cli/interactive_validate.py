@@ -5,12 +5,124 @@ from typing import List
 import click
 from prompt_toolkit.application import Application
 from prompt_toolkit.key_binding import KeyBindings
-from prompt_toolkit.layout import Layout, HSplit, Window, FormattedTextControl, Dimension
+from prompt_toolkit.layout import Layout, VSplit, Window, FormattedTextControl, Dimension
 from prompt_toolkit.styles import Style
 
-from yardstick import artifact, store
+import yardstick
+from yardstick import artifact, store, comparison
 from yardstick.utils import is_cve_vuln_id
 from yardstick.validate import Gate
+from yardstick.label import find_labels_for_match
+
+
+def format_match_details(match: artifact.Match) -> List[tuple[str, str]]:
+    """Extract and format key information from matchDetails for display."""
+    if not match.fullentry or not isinstance(match.fullentry, dict):
+        return [("", "No match details available")]
+
+    match_details = match.fullentry.get("matchDetails", [])
+    if not match_details or not isinstance(match_details, list):
+        return [("", "No match details available")]
+
+    formatted_details = []
+    for i, detail in enumerate(match_details[:3]):  # Show first 3 details
+        if not isinstance(detail, dict):
+            continue
+
+        detail_lines = [("class:match_detail_header", f"Match Detail {i + 1}:")]
+        detail_lines.append(("", "\n"))
+
+        # Show type and matcher
+        if "type" in detail:
+            detail_lines.append(("class:field", "  Type: "))
+            detail_lines.append(("", str(detail["type"])))
+            detail_lines.append(("", "\n"))
+
+        if "matcher" in detail:
+            detail_lines.append(("class:field", "  Matcher: "))
+            detail_lines.append(("", str(detail["matcher"])))
+            detail_lines.append(("", "\n"))
+
+        # Show searchedBy information
+        if "searchedBy" in detail:
+            searched_by = detail["searchedBy"]
+            if isinstance(searched_by, dict):
+                detail_lines.append(("class:field", "  Searched By:"))
+                detail_lines.append(("", "\n"))
+
+                # Handle distro information
+                if "distro" in searched_by and isinstance(searched_by["distro"], dict):
+                    distro = searched_by["distro"]
+                    detail_lines.append(("class:field", "    Distro: "))
+                    distro_parts = []
+                    if "type" in distro:
+                        distro_parts.append(f"type={distro['type']}")
+                    if "version" in distro:
+                        distro_parts.append(f"version={distro['version']}")
+                    detail_lines.append(("", " ".join(distro_parts)))
+                    detail_lines.append(("", "\n"))
+
+                # Handle package information
+                if "package" in searched_by and isinstance(searched_by["package"], dict):
+                    pkg = searched_by["package"]
+                    detail_lines.append(("class:field", "    Package: "))
+                    pkg_parts = []
+                    if "name" in pkg:
+                        pkg_parts.append(f"name={pkg['name']}")
+                    if "version" in pkg:
+                        pkg_parts.append(f"version={pkg['version']}")
+                    detail_lines.append(("", " ".join(pkg_parts)))
+                    detail_lines.append(("", "\n"))
+
+                # Handle namespace
+                if "namespace" in searched_by:
+                    detail_lines.append(("class:field", "    Namespace: "))
+                    detail_lines.append(("", str(searched_by["namespace"])))
+                    detail_lines.append(("", "\n"))
+
+                # Handle language (for other matcher types)
+                if "language" in searched_by:
+                    detail_lines.append(("class:field", "    Language: "))
+                    detail_lines.append(("", str(searched_by["language"])))
+                    detail_lines.append(("", "\n"))
+
+        # Show found information
+        if "found" in detail:
+            found = detail["found"]
+            if isinstance(found, dict):
+                detail_lines.append(("class:field", "  Found:"))
+                detail_lines.append(("", "\n"))
+
+                if "vulnerabilityID" in found:
+                    detail_lines.append(("class:field", "    Vuln ID: "))
+                    detail_lines.append(("", str(found["vulnerabilityID"])))
+                    detail_lines.append(("", "\n"))
+
+                if "versionConstraint" in found:
+                    detail_lines.append(("class:field", "    Constraint: "))
+                    detail_lines.append(("", str(found["versionConstraint"])))
+                    detail_lines.append(("", "\n"))
+
+        # Show fix information if available
+        if "fix" in detail:
+            fix_info = detail["fix"]
+            if isinstance(fix_info, dict):
+                detail_lines.append(("class:field", "  Fix:"))
+                detail_lines.append(("", "\n"))
+
+                if "suggestedVersion" in fix_info:
+                    detail_lines.append(("class:field", "    Suggested: "))
+                    detail_lines.append(("class:fixed_version", str(fix_info["suggestedVersion"])))
+                    detail_lines.append(("", "\n"))
+
+        detail_lines.append(("", "\n"))
+        formatted_details.extend(detail_lines)
+
+    if len(match_details) > 3:
+        formatted_details.append(("class:field", f"... and {len(match_details) - 3} more match details"))
+        formatted_details.append(("", "\n"))
+
+    return formatted_details
 
 
 def get_vulnerability_info_url(match: artifact.Match) -> str | None:
@@ -36,20 +148,54 @@ def get_vulnerability_info_url(match: artifact.Match) -> str | None:
 class InteractiveValidateController:
     """Controller for interactive validation mode that handles match presentation and labeling."""
 
-    def __init__(self, gates: List[Gate], label_entries: List[artifact.LabelEntry]):
+    def __init__(self, gates: List[Gate], label_entries: List[artifact.LabelEntry], relative_comparison: comparison.ByPreservedMatch | None = None):
         self.gates = gates
         self.label_entries = label_entries
+        self.relative_comparison = relative_comparison
         self.current_index = 0
         self.matches_to_label = self._collect_matches_to_label()
+        self.processing_deltas = True
+
+        # If no relative comparison provided, try to create it
+        if not self.relative_comparison and gates:
+            self._create_relative_comparison()
+
+        # If no delta matches need labeling, immediately check for common matches
+        if not self.matches_to_label and self.relative_comparison:
+            self._add_common_unlabeled_matches()
+            self.processing_deltas = False  # We're starting directly with common matches
+
+    def _create_relative_comparison(self) -> None:
+        """Create relative comparison data for accessing common matches."""
+        try:
+            # Get result descriptions from the first gate
+            if not self.gates or not self.gates[0].input_description.configs:
+                return
+
+            descriptions = [config.id for config in self.gates[0].input_description.configs]
+            if len(descriptions) < 2:
+                return
+
+            # Create the comparison - using basic parameters for now
+            self.relative_comparison = yardstick.compare_results(
+                descriptions=descriptions,
+                year_max_limit=None,  # Could get this from gate config if needed
+                year_from_cve_only=False,  # Could get this from gate config if needed
+                matches_filter=None,  # Could add namespace filtering if needed
+            )
+        except Exception as e:
+            # If we can't create the comparison, just continue without common matches
+            print(f"Warning: Could not create relative comparison for common matches: {e}")
 
     def _collect_matches_to_label(self) -> List[tuple[str, artifact.Match, str, str | None, str | None, str | None]]:
         """Collect matches that need labeling, prioritized by importance.
 
         Returns list of tuples: (category, match, gate_image, reference_url, namespace, fixed_version)
-        Categories: "candidate_only", "reference_only", "unlabeled_both"
+        Categories: "candidate_only", "reference_only", "common_unlabeled"
         """
         matches = []
 
+        # First collect delta matches (candidate_only, reference_only)
         for gate in self.gates:
             if not gate.deltas:
                 continue
@@ -57,9 +203,14 @@ class InteractiveValidateController:
             for delta in gate.deltas:
                 category = "candidate_only" if delta.added else "reference_only"
 
-                match = artifact.Match(
-                    vulnerability=artifact.Vulnerability(id=delta.vulnerability_id),
-                    package=artifact.Package(name=delta.package_name, version=delta.package_version),
+                # Use the full match if available, otherwise create a minimal one
+                match = (
+                    delta.full_match
+                    if delta.full_match
+                    else artifact.Match(
+                        vulnerability=artifact.Vulnerability(id=delta.vulnerability_id),
+                        package=artifact.Package(name=delta.package_name, version=delta.package_version),
+                    )
                 )
 
                 # Include matches that are unlabeled OR have unknown/unclear labels
@@ -74,7 +225,68 @@ class InteractiveValidateController:
 
     def has_next_match(self) -> bool:
         """Check if there are more matches to label."""
-        return self.current_index < len(self.matches_to_label)
+        if self.current_index < len(self.matches_to_label):
+            return True
+
+        # If we've finished processing deltas, check if we can switch to common matches
+        if self.processing_deltas and self.relative_comparison:
+            self._add_common_unlabeled_matches()
+            self.processing_deltas = False
+            return self.current_index < len(self.matches_to_label)
+
+        return False
+
+    def _add_common_unlabeled_matches(self) -> None:
+        """Add unlabeled common matches to the list after processing deltas."""
+        if not self.relative_comparison:
+            return
+
+        # Get the first gate to use its image (all should be the same)
+        if not self.gates:
+            return
+
+        image = self.gates[0].input_description.image
+
+        for equivalent_match in self.relative_comparison.common:
+            # Use the first match from any tool as the representative
+            representative_match = None
+            for matches_list in equivalent_match.matches.values():
+                if matches_list:
+                    representative_match = matches_list[0]
+                    break
+
+            if not representative_match:
+                continue
+
+            # Check if this match is already labeled
+            match_labels = find_labels_for_match(
+                image,
+                representative_match,
+                self.label_entries,
+                lineage=[],  # TODO: Could pass actual lineage if available
+                fuzzy_package_match=False,
+            )
+
+            # Only include if unlabeled or unclear
+            if (
+                not match_labels
+                or any(label.label in [artifact.Label.Unclear] for label in match_labels)
+                or len(set(label.label for label in match_labels)) != 1
+            ):
+                # Extract metadata like we do for deltas
+                reference_url = get_vulnerability_info_url(representative_match)
+                namespace = representative_match.fullentry.get("vulnerability", {}).get("namespace") if representative_match.fullentry else None
+                fixed_version = None
+                if representative_match.fullentry and isinstance(representative_match.fullentry, dict):
+                    match_details = representative_match.fullentry.get("matchDetails", [])
+                    for detail in match_details:
+                        if isinstance(detail, dict) and "fix" in detail:
+                            fix_info = detail["fix"]
+                            if isinstance(fix_info, dict) and "suggestedVersion" in fix_info:
+                                fixed_version = str(fix_info["suggestedVersion"])
+                                break
+
+                self.matches_to_label.append(("common_unlabeled", representative_match, image, reference_url, namespace, fixed_version))
 
     def get_current_match(self) -> tuple[str, artifact.Match, str, str | None, str | None, str | None] | None:
         """Get the current match to be labeled."""
@@ -117,12 +329,11 @@ class InteractiveValidateController:
         return (self.current_index, len(self.matches_to_label))
 
 
-
 class InteractiveValidateTUI:
     """Interactive TUI for relabeling matches that caused quality gate failure."""
 
-    def __init__(self, gates: List[Gate], label_entries: List[artifact.LabelEntry]):
-        self.controller = InteractiveValidateController(gates, label_entries)
+    def __init__(self, gates: List[Gate], label_entries: List[artifact.LabelEntry], relative_comparison: comparison.ByPreservedMatch | None = None):
+        self.controller = InteractiveValidateController(gates, label_entries, relative_comparison)
 
     def run(self):
         """Run the interactive validation TUI."""
@@ -146,7 +357,13 @@ class InteractiveValidateTUI:
                     f"  {i + 1}. {category}: {match.vulnerability.id} in {match.package.name}@{match.package.version} (image: {image}){url_info}{namespace_info}{fix_info}"
                 )
 
-        if total_matches == 0:
+        # Re-check total matches after potentially adding common matches
+        total_matches_final = len(self.controller.matches_to_label)
+        if total_matches_final > total_matches:
+            click.echo(f"Debug: Added {total_matches_final - total_matches} common unlabeled matches")
+            click.echo(f"Debug: Total matches to label: {total_matches_final}")
+
+        if total_matches_final == 0:
             click.echo("No unlabeled matches found that need interactive labeling.")
 
             # Show what deltas we did find for debugging
@@ -164,7 +381,7 @@ class InteractiveValidateTUI:
     def _run_tui(self):
         """Run the prompt_toolkit TUI."""
 
-        def get_text():
+        def get_main_text():
             current_match = self.controller.get_current_match()
             current_idx, total = self.controller.get_progress()
 
@@ -182,6 +399,7 @@ class InteractiveValidateTUI:
                 "candidate_only": "CANDIDATE ONLY",
                 "reference_only": "REFERENCE ONLY",
                 "unlabeled_both": "UNLABELED (BOTH SCANS)",
+                "common_unlabeled": "COMMON (UNLABELED)",
             }.get(category, category.upper())
 
             # Use the specific reference URL from the delta, or fallback to generic URL
@@ -272,7 +490,9 @@ class InteractiveValidateTUI:
                     if category == "candidate_only"
                     else "only by the reference tool"
                     if category == "reference_only"
-                    else "by both tools but is unlabeled",
+                    else "by both tools but is unlabeled"
+                    if category == "common_unlabeled"
+                    else "by both tools but needs labeling",
                 ),
                 ("class:description", " and needs to be labeled to resolve the quality gate failure."),
                 ("", "\n"),
@@ -295,6 +515,23 @@ class InteractiveValidateTUI:
                 ("class:key", "Q"),
                 ("", " - Quit"),
             ]
+
+        def get_match_details_text():
+            current_match = self.controller.get_current_match()
+            if not current_match:
+                return [("", "")]
+
+            _, match, _, _, _, _ = current_match
+
+            details_header = [
+                ("class:match_detail_title", "Match Details"),
+                ("", "\n"),
+                ("", "─" * 40),
+                ("", "\n\n"),
+            ]
+
+            match_details = format_match_details(match)
+            return details_header + match_details
 
         def create_keybindings():
             bindings = KeyBindings()
@@ -350,15 +587,21 @@ class InteractiveValidateTUI:
                     "fix_status": "bold fg:ansired",
                     "progress_filled": "fg:ansigreen",
                     "progress_empty": "fg:ansigray",
+                    "match_detail_title": "bold underline fg:ansicyan",
+                    "match_detail_header": "bold fg:ansiyellow",
                 }
             )
 
         layout = Layout(
-            HSplit(
+            VSplit(
                 [
                     Window(
-                        content=FormattedTextControl(get_text),
-                        height=Dimension(preferred=25),
+                        content=FormattedTextControl(get_main_text),
+                        width=Dimension(preferred=80),
+                    ),
+                    Window(
+                        content=FormattedTextControl(get_match_details_text),
+                        width=Dimension(preferred=60),
                     ),
                 ]
             )

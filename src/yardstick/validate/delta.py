@@ -106,6 +106,7 @@ class Delta:
     reference_url: str | None = None
     namespace: str | None = None
     fixed_version: str | None = None
+    full_match: artifact.Match | None = None
 
     @property
     def is_improved(self) -> bool | None:
@@ -183,6 +184,7 @@ def compute_deltas(
                 reference_url=extract_reference_url(unique_match),
                 namespace=extract_namespace(unique_match),
                 fixed_version=extract_fixed_version(unique_match),
+                full_match=unique_match,
             )
             deltas.append(delta)
     return deltas
