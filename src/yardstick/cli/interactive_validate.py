@@ -148,10 +148,19 @@ def get_vulnerability_info_url(match: artifact.Match) -> str | None:
 class InteractiveValidateController:
     """Controller for interactive validation mode that handles match presentation and labeling."""
 
-    def __init__(self, gates: List[Gate], label_entries: List[artifact.LabelEntry], relative_comparison: comparison.ByPreservedMatch | None = None):
+    def __init__(
+        self,
+        gates: List[Gate],
+        label_entries: List[artifact.LabelEntry],
+        relative_comparison: comparison.ByPreservedMatch | None = None,
+        year_max_limit: int | None = None,
+        year_from_cve_only: bool = False,
+    ):
         self.gates = gates
         self.label_entries = label_entries
         self.relative_comparison = relative_comparison
+        self.year_max_limit = year_max_limit
+        self.year_from_cve_only = year_from_cve_only
         self.current_index = 0
         self.matches_to_label = self._collect_matches_to_label()
         self.processing_deltas = True
@@ -176,16 +185,27 @@ class InteractiveValidateController:
             if len(descriptions) < 2:
                 return
 
-            # Create the comparison - using basic parameters for now
+            # Create the comparison - using year filtering parameters from CLI
             self.relative_comparison = yardstick.compare_results(
                 descriptions=descriptions,
-                year_max_limit=None,  # Could get this from gate config if needed
-                year_from_cve_only=False,  # Could get this from gate config if needed
+                year_max_limit=self.year_max_limit,
+                year_from_cve_only=self.year_from_cve_only,
                 matches_filter=None,  # Could add namespace filtering if needed
             )
         except Exception as e:
             # If we can't create the comparison, just continue without common matches
             print(f"Warning: Could not create relative comparison for common matches: {e}")
+
+    def _should_filter_match_by_year(self, match: artifact.Match) -> bool:
+        """Check if a match should be filtered out based on year constraints."""
+        if self.year_max_limit is None:
+            return False  # No year filtering
+
+        year = match.vulnerability.effective_year(by_cve=self.year_from_cve_only)
+        if year is None:
+            return False  # Include matches with unknown years
+
+        return year > self.year_max_limit  # Filter out if year is greater than max
 
     def _collect_matches_to_label(self) -> List[tuple[str, artifact.Match, str, str | None, str | None, str | None]]:
         """Collect matches that need labeling, prioritized by importance.
@@ -216,7 +236,8 @@ class InteractiveValidateController:
                 # Include matches that are unlabeled OR have unknown/unclear labels
                 needs_labeling = not delta.label or delta.label == "(unknown)" or delta.label == "Unclear" or "?" in delta.label
 
-                if needs_labeling:
+                # Apply year filtering
+                if needs_labeling and not self._should_filter_match_by_year(match):
                     matches.append((category, match, gate.input_description.image, delta.reference_url, delta.namespace, delta.fixed_version))
 
         # Sort by priority: candidate_only first, then reference_only, then others
@@ -267,12 +288,12 @@ class InteractiveValidateController:
                 fuzzy_package_match=False,
             )
 
-            # Only include if unlabeled or unclear
+            # Only include if unlabeled or unclear AND not filtered by year
             if (
                 not match_labels
                 or any(label.label in [artifact.Label.Unclear] for label in match_labels)
                 or len(set(label.label for label in match_labels)) != 1
-            ):
+            ) and not self._should_filter_match_by_year(representative_match):
                 # Extract metadata like we do for deltas
                 reference_url = get_vulnerability_info_url(representative_match)
                 namespace = representative_match.fullentry.get("vulnerability", {}).get("namespace") if representative_match.fullentry else None
@@ -332,8 +353,15 @@ class InteractiveValidateController:
 class InteractiveValidateTUI:
     """Interactive TUI for relabeling matches that caused quality gate failure."""
 
-    def __init__(self, gates: List[Gate], label_entries: List[artifact.LabelEntry], relative_comparison: comparison.ByPreservedMatch | None = None):
-        self.controller = InteractiveValidateController(gates, label_entries, relative_comparison)
+    def __init__(
+        self,
+        gates: List[Gate],
+        label_entries: List[artifact.LabelEntry],
+        relative_comparison: comparison.ByPreservedMatch | None = None,
+        year_max_limit: int | None = None,
+        year_from_cve_only: bool = False,
+    ):
+        self.controller = InteractiveValidateController(gates, label_entries, relative_comparison, year_max_limit, year_from_cve_only)
 
     def run(self):
         """Run the interactive validation TUI."""

@@ -82,6 +82,12 @@ if not sys.stdout.isatty():
     is_flag=True,
 )
 @click.option(
+    "--max-year",
+    "-y",
+    type=int,
+    help="filter matches by maximum CVE year (e.g., 2022 includes CVE-2022-XXXX and earlier)",
+)
+@click.option(
     "--interactive",
     is_flag=True,
     help="open interactive TUI for relabeling after quality gate failure",
@@ -95,6 +101,7 @@ def validate(
     result_sets: list[str],
     all_result_sets: bool,
     derive_year_from_cve_only: bool | None,
+    max_year: int | None,
     interactive: bool,
 ):
     # TODO: don't artificially inflate logging; figure out what to print
@@ -122,10 +129,11 @@ def validate(
                     unique_images.add(state.config.image)
         images = sorted(list(unique_images))
 
+    # Determine the year limit to use: CLI option overrides config
+    year_limit = max_year if max_year is not None else cfg.max_year_for_any_result_set(result_sets)
+
     click.echo("Loading label entries...", nl=False)
-    label_entries = store.labels.load_for_image(
-        images, year_max_limit=cfg.max_year_for_any_result_set(result_sets), year_from_cve_only=derive_year_from_cve_only
-    )
+    label_entries = store.labels.load_for_image(images, year_max_limit=year_limit, year_from_cve_only=derive_year_from_cve_only)
     click.echo(f"done! {len(label_entries)} entries loaded")
 
     gates = []
@@ -133,7 +141,7 @@ def validate(
         rs_config = cfg.result_sets[result_set]
         for gate_config in rs_config.validations:
             if gate_config.max_year is None:
-                gate_config.max_year = cfg.default_max_year
+                gate_config.max_year = max_year if max_year is not None else cfg.default_max_year
 
             gate_config.year_from_cve_only = derive_year_from_cve_only
 
@@ -156,9 +164,10 @@ def validate(
             click.echo(
                 f"{bcolors.HEADER}Breaking down label comparison by ecosystem performance...{bcolors.RESET}",
             )
+            ecosystem_year_limit = max_year if max_year is not None else cfg.max_year_for_result_set(result_set)
             results_by_image, label_entries, stats = yardstick.compare_results_against_labels_by_ecosystem(
                 result_set=result_set,
-                year_max_limit=cfg.max_year_for_result_set(result_set),
+                year_max_limit=ecosystem_year_limit,
                 year_from_cve_only=derive_year_from_cve_only,
                 label_entries=label_entries,
             )
@@ -182,7 +191,7 @@ def validate(
 
         if interactive:
             click.echo("Starting interactive mode...")
-            tui = InteractiveValidateTUI(gates, label_entries)
+            tui = InteractiveValidateTUI(gates, label_entries, year_max_limit=year_limit, year_from_cve_only=derive_year_from_cve_only)
             tui.run()
 
         sys.exit(1)
