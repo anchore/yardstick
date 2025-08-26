@@ -353,19 +353,13 @@ class InteractiveValidateController:
 
                     # For common matches, we need to determine which result ID to use
                     # Since this is a common match, it appears in multiple results
-                    # We'll use the result ID from the first available match in the equivalency
+                    # The keys in equivalent_match.matches are already the result IDs
                     result_id = None
-                    for tool_name, matches_list in equivalent_match.matches.items():
+                    for result_key, matches_list in equivalent_match.matches.items():
                         if matches_list:
-                            # Get the result ID from the first match's result
-                            # We need to find the corresponding result in the comparison
-                            if self.relative_comparison:
-                                for result in self.relative_comparison.results:
-                                    if result.config.tool == tool_name:
-                                        result_id = result.ID
-                                        break
-                                if result_id:
-                                    break
+                            # The result_key is already the result ID we want
+                            result_id = result_key
+                            break
 
                     common_matches.append(
                         (
