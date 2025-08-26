@@ -257,12 +257,19 @@ class InteractiveValidateController:
                 if needs_labeling and not self._should_filter_match_by_year(match):
                     matches.append((category, match, gate.input_description.image, delta.reference_url, delta.namespace, delta.fixed_version))
 
-        # Sort by priority: failed images first, then category priority, then vulnerability ID
+        # Sort by priority: failed images first, then category priority, then vulnerability ID, package name, package version for full determinism
         def sort_key(match_tuple):
             category, match, image, _, _, _ = match_tuple
             image_priority = self._get_image_priority(image)
             category_priority = 0 if category == "candidate_only" else 1 if category == "reference_only" else 2
-            return (image_priority[0], image_priority[1], category_priority, match.vulnerability.id)
+            return (
+                image_priority[0],
+                image_priority[1],
+                category_priority,
+                match.vulnerability.id,
+                match.package.name or "",
+                match.package.version or "",
+            )
 
         matches.sort(key=sort_key)
         return matches
@@ -336,11 +343,11 @@ class InteractiveValidateController:
 
                     common_matches.append(("common_unlabeled", representative_match, image, reference_url, namespace, fixed_version))
 
-        # Sort common matches by image priority
+        # Sort common matches by image priority, then vulnerability ID, package name, package version for full determinism
         def sort_key(match_tuple):
             category, match, image, _, _, _ = match_tuple
             image_priority = self._get_image_priority(image)
-            return (image_priority[0], image_priority[1], match.vulnerability.id)
+            return (image_priority[0], image_priority[1], match.vulnerability.id, match.package.name or "", match.package.version or "")
 
         common_matches.sort(key=sort_key)
         self.matches_to_label.extend(common_matches)
