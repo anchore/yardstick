@@ -438,6 +438,47 @@ class InteractiveValidateController:
         """Get current progress (current_index, total_matches)."""
         return (self.current_index, len(self.matches_to_label))
 
+    def skip_to_next_image(self) -> bool:
+        """Skip all remaining matches for the current image and move to the next image.
+
+        Returns True if successfully skipped to next image, False if no next image available.
+        """
+        current_match = self.get_current_match()
+        if not current_match:
+            return False
+
+        current_image = current_match[2]  # image is at index 2 in the tuple
+
+        # Find the next match from a different image
+        while self.current_index < len(self.matches_to_label):
+            match_info = self.matches_to_label[self.current_index]
+            match_image = match_info[2]  # image is at index 2
+
+            if match_image != current_image:
+                # Found a match from a different image
+                return True
+
+            # Still the same image, keep advancing
+            self.current_index += 1
+
+        # If we've finished processing deltas but haven't added common matches yet, try that
+        if self.processing_deltas and self.current_index >= len(self.matches_to_label):
+            self._add_common_unlabeled_matches()
+            self.processing_deltas = False
+
+            # Check if we now have matches from a different image
+            while self.current_index < len(self.matches_to_label):
+                match_info = self.matches_to_label[self.current_index]
+                match_image = match_info[2]
+
+                if match_image != current_image:
+                    return True
+
+                self.current_index += 1
+
+        # No more matches or no different image found
+        return False
+
 
 class InteractiveValidateTUI:
     """Interactive TUI for relabeling matches that caused quality gate failure."""
@@ -632,6 +673,8 @@ class InteractiveValidateTUI:
                 ("class:nav", "Navigation: "),
                 ("class:key", "N"),
                 ("", " - Next (skip)  "),
+                ("class:key", "S"),
+                ("", " - Skip to next image  "),
                 ("class:key", "Q"),
                 ("", " - Quit"),
             ]
@@ -678,6 +721,14 @@ class InteractiveValidateTUI:
             def next_match(event):
                 self.controller.next_match()
                 event.app.invalidate()
+
+            @bindings.add("s")
+            def skip_to_next_image(event):
+                if self.controller.skip_to_next_image():
+                    event.app.invalidate()
+                else:
+                    # No next image available, could show a message or just do nothing
+                    pass
 
             @bindings.add("q")
             def quit_app(event):
