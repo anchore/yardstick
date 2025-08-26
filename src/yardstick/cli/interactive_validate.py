@@ -224,10 +224,10 @@ class InteractiveValidateController:
         else:
             return (1, 999)  # Non-failed images get lower priority
 
-    def _collect_matches_to_label(self) -> List[tuple[str, artifact.Match, str, str | None, str | None, str | None]]:
+    def _collect_matches_to_label(self) -> List[tuple[str, artifact.Match, str, str | None, str | None, str | None, str | None]]:
         """Collect matches that need labeling, prioritized by importance.
 
-        Returns list of tuples: (category, match, gate_image, reference_url, namespace, fixed_version)
+        Returns list of tuples: (category, match, gate_image, reference_url, namespace, fixed_version, result_id)
         Categories: "candidate_only", "reference_only", "common_unlabeled"
         """
         matches = []
@@ -255,11 +255,21 @@ class InteractiveValidateController:
 
                 # Apply year filtering
                 if needs_labeling and not self._should_filter_match_by_year(match):
-                    matches.append((category, match, gate.input_description.image, delta.reference_url, delta.namespace, delta.fixed_version))
+                    matches.append(
+                        (
+                            category,
+                            match,
+                            gate.input_description.image,
+                            delta.reference_url,
+                            delta.namespace,
+                            delta.fixed_version,
+                            delta.result_id,
+                        )
+                    )
 
         # Sort by priority: failed images first, then category priority, then vulnerability ID, package name, package version for full determinism
         def sort_key(match_tuple):
-            category, match, image, _, _, _ = match_tuple
+            category, match, image, _, _, _, _ = match_tuple
             image_priority = self._get_image_priority(image)
             category_priority = 0 if category == "candidate_only" else 1 if category == "reference_only" else 2
             return (
@@ -341,24 +351,50 @@ class InteractiveValidateController:
                                     fixed_version = str(fix_info["suggestedVersion"])
                                     break
 
-                    common_matches.append(("common_unlabeled", representative_match, image, reference_url, namespace, fixed_version))
+                    # For common matches, we need to determine which result ID to use
+                    # Since this is a common match, it appears in multiple results
+                    # We'll use the result ID from the first available match in the equivalency
+                    result_id = None
+                    for tool_name, matches_list in equivalent_match.matches.items():
+                        if matches_list:
+                            # Get the result ID from the first match's result
+                            # We need to find the corresponding result in the comparison
+                            if self.relative_comparison:
+                                for result in self.relative_comparison.results:
+                                    if result.config.tool == tool_name:
+                                        result_id = result.ID
+                                        break
+                                if result_id:
+                                    break
+
+                    common_matches.append(
+                        (
+                            "common_unlabeled",
+                            representative_match,
+                            image,
+                            reference_url,
+                            namespace,
+                            fixed_version,
+                            result_id,
+                        )
+                    )
 
         # Sort common matches by image priority, then vulnerability ID, package name, package version for full determinism
         def sort_key(match_tuple):
-            category, match, image, _, _, _ = match_tuple
+            category, match, image, _, _, _, _ = match_tuple
             image_priority = self._get_image_priority(image)
             return (image_priority[0], image_priority[1], match.vulnerability.id, match.package.name or "", match.package.version or "")
 
         common_matches.sort(key=sort_key)
         self.matches_to_label.extend(common_matches)
 
-    def get_current_match(self) -> tuple[str, artifact.Match, str, str | None, str | None, str | None] | None:
+    def get_current_match(self) -> tuple[str, artifact.Match, str, str | None, str | None, str | None, str | None] | None:
         """Get the current match to be labeled."""
         if not self.has_next_match():
             return None
         return self.matches_to_label[self.current_index]
 
-    def next_match(self) -> tuple[str, artifact.Match, str, str | None, str | None, str | None] | None:
+    def next_match(self) -> tuple[str, artifact.Match, str, str | None, str | None, str | None, str | None] | None:
         """Move to the next match and return it."""
         if self.has_next_match():
             match_info = self.get_current_match()
@@ -372,7 +408,7 @@ class InteractiveValidateController:
         if not current:
             return False
 
-        _, match, image, _, _, _ = current
+        _, match, image, _, _, _, _ = current
 
         label_entry = artifact.LabelEntry(
             label=label,
@@ -420,7 +456,7 @@ class InteractiveValidateTUI:
         # Show detailed debug info about first few matches
         if self.controller.matches_to_label:
             click.echo("Debug: First few matches to label:")
-            for i, (category, match, image, ref_url, namespace, fixed_version) in enumerate(self.controller.matches_to_label[:3]):
+            for i, (category, match, image, ref_url, namespace, fixed_version, result_id) in enumerate(self.controller.matches_to_label[:3]):
                 url_info = f" (URL: {ref_url})" if ref_url else ""
                 namespace_info = f" (namespace: {namespace})" if namespace else ""
                 fix_info = f" (fixed in: {fixed_version})" if fixed_version else ""
@@ -465,7 +501,7 @@ class InteractiveValidateTUI:
                     ("class:instruction", "Press 'q' to exit"),
                 ]
 
-            category, match, image, reference_url, namespace, fixed_version = current_match
+            category, match, image, reference_url, namespace, fixed_version, result_id = current_match
             category_display = {
                 "candidate_only": "CANDIDATE ONLY",
                 "reference_only": "REFERENCE ONLY",
@@ -496,6 +532,9 @@ class InteractiveValidateTUI:
                 ("", "\n"),
                 ("class:field", "Image: "),
                 ("", image),
+                ("", "\n"),
+                ("class:field", "Result ID: "),
+                ("", result_id or "unknown"),
                 ("", "\n"),
                 ("class:field", "Package: "),
                 ("", f"{match.package.name}@{match.package.version}"),
@@ -592,7 +631,7 @@ class InteractiveValidateTUI:
             if not current_match:
                 return [("", "")]
 
-            _, match, _, _, _, _ = current_match
+            _, match, _, _, _, _, _ = current_match
 
             details_header = [
                 ("class:match_detail_title", "Match Details"),
