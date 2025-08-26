@@ -299,93 +299,10 @@ class InteractiveValidateController:
 
     def _add_common_unlabeled_matches(self) -> None:
         """Add unlabeled common matches to the list after processing deltas."""
-        if not self.relative_comparison:
-            return
-
-        # Only process common matches for failed gate images
-        if not self.failed_gates:
-            return
-
-        common_matches = []
-
-        # Process common matches for each failed gate's image
-        for failed_gate in self.failed_gates:
-            image = failed_gate.input_description.image
-
-            for equivalent_match in self.relative_comparison.common:
-                # Use the first match from any tool as the representative
-                representative_match = None
-                for matches_list in equivalent_match.matches.values():
-                    if matches_list:
-                        representative_match = matches_list[0]
-                        break
-
-                if not representative_match:
-                    continue
-
-                # Check if this match is already labeled
-                match_labels = find_labels_for_match(
-                    image,
-                    representative_match,
-                    self.label_entries,
-                    lineage=[],  # TODO: Could pass actual lineage if available
-                    fuzzy_package_match=False,
-                )
-
-                # Only include if unlabeled or unclear AND not filtered by year
-                if (
-                    not match_labels
-                    or any(label.label in [artifact.Label.Unclear] for label in match_labels)
-                    or len(set(label.label for label in match_labels)) != 1
-                ) and not self._should_filter_match_by_year(representative_match):
-                    # Extract metadata like we do for deltas
-                    reference_url = get_vulnerability_info_url(representative_match)
-                    namespace = representative_match.fullentry.get("vulnerability", {}).get("namespace") if representative_match.fullentry else None
-                    fixed_version = None
-                    if representative_match.fullentry and isinstance(representative_match.fullentry, dict):
-                        match_details = representative_match.fullentry.get("matchDetails", [])
-                        for detail in match_details:
-                            if isinstance(detail, dict) and "fix" in detail:
-                                fix_info = detail["fix"]
-                                if isinstance(fix_info, dict) and "suggestedVersion" in fix_info:
-                                    fixed_version = str(fix_info["suggestedVersion"])
-                                    break
-
-                    # For common matches, we need to find the result ID that corresponds to this specific image
-                    # The keys in equivalent_match.matches are result IDs, but we need to find the one
-                    # that matches the current failed gate's image
-                    result_id = None
-                    if self.relative_comparison:
-                        for result_key, matches_list in equivalent_match.matches.items():
-                            if matches_list:
-                                # Find the result that corresponds to this image
-                                for result in self.relative_comparison.results:
-                                    if result.ID == result_key and result.config.image == image:
-                                        result_id = result_key
-                                        break
-                                if result_id:
-                                    break
-
-                    common_matches.append(
-                        (
-                            "common_unlabeled",
-                            representative_match,
-                            image,
-                            reference_url,
-                            namespace,
-                            fixed_version,
-                            result_id,
-                        )
-                    )
-
-        # Sort common matches by image priority, then vulnerability ID, package name, package version for full determinism
-        def sort_key(match_tuple):
-            category, match, image, _, _, _, _ = match_tuple
-            image_priority = self._get_image_priority(image)
-            return (image_priority[0], image_priority[1], match.vulnerability.id, match.package.name or "", match.package.version or "")
-
-        common_matches.sort(key=sort_key)
-        self.matches_to_label.extend(common_matches)
+        # TODO: Temporarily disabled until we can properly handle cross-image relative comparisons
+        # The issue is that self.relative_comparison may be from a different image context
+        # than the failed gates we're processing, leading to mismatched image/result ID pairs
+        pass
 
     def get_current_match(self) -> tuple[str, artifact.Match, str, str | None, str | None, str | None, str | None] | None:
         """Get the current match to be labeled."""
