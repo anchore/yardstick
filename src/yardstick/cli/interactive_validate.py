@@ -351,15 +351,20 @@ class InteractiveValidateController:
                                     fixed_version = str(fix_info["suggestedVersion"])
                                     break
 
-                    # For common matches, we need to determine which result ID to use
-                    # Since this is a common match, it appears in multiple results
-                    # The keys in equivalent_match.matches are already the result IDs
+                    # For common matches, we need to find the result ID that corresponds to this specific image
+                    # The keys in equivalent_match.matches are result IDs, but we need to find the one
+                    # that matches the current failed gate's image
                     result_id = None
-                    for result_key, matches_list in equivalent_match.matches.items():
-                        if matches_list:
-                            # The result_key is already the result ID we want
-                            result_id = result_key
-                            break
+                    if self.relative_comparison:
+                        for result_key, matches_list in equivalent_match.matches.items():
+                            if matches_list:
+                                # Find the result that corresponds to this image
+                                for result in self.relative_comparison.results:
+                                    if result.ID == result_key and result.config.image == image:
+                                        result_id = result_key
+                                        break
+                                if result_id:
+                                    break
 
                     common_matches.append(
                         (
