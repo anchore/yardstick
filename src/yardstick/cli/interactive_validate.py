@@ -170,6 +170,10 @@ class InteractiveValidateController:
         self.matches_to_label = self._collect_matches_to_label()
         self.processing_deltas = True
 
+        # Cache for labels needed calculation to avoid expensive recalculations
+        self._labels_needed_cache: dict[str, int | None] = {}  # image -> labels_needed
+        self._last_cached_image: str | None = None
+
         # If no relative comparison provided, try to create it
         if not self.relative_comparison and gates:
             self._create_relative_comparison()
@@ -432,7 +436,18 @@ class InteractiveValidateController:
 
         # Save immediately to prevent data loss
         store.labels.save([label_entry])
+
+        # Decrement the cached labels needed count for this image
+        self._decrement_labels_needed_cache(image)
+
         return True
+
+    def _decrement_labels_needed_cache(self, image: str) -> None:
+        """Decrement the cached labels needed count for the given image."""
+        if image in self._labels_needed_cache and self._labels_needed_cache[image] is not None:
+            current_count = self._labels_needed_cache[image]
+            if current_count > 0:
+                self._labels_needed_cache[image] = current_count - 1
 
     def get_progress(self) -> tuple[int, int]:
         """Get current progress (current_index, total_matches)."""
@@ -482,7 +497,7 @@ class InteractiveValidateController:
     def get_labels_needed_for_current_image(self) -> int | None:
         """Calculate how many more labels needed for current image to pass its gate.
 
-        Uses the same calculation logic as the actual quality gate to ensure accuracy.
+        Uses caching to avoid expensive recalculation on every call.
         Returns None if not applicable (no current match, gate not failing due to percentage, etc.)
         """
         current_match = self.get_current_match()
@@ -490,6 +505,26 @@ class InteractiveValidateController:
             return None
 
         image = current_match[2]  # image at index 2
+
+        # Check if we've switched to a new image - if so, invalidate cache
+        if self._last_cached_image != image:
+            self._labels_needed_cache.clear()
+            self._last_cached_image = image
+
+        # Return cached value if available
+        if image in self._labels_needed_cache:
+            return self._labels_needed_cache[image]
+
+        # Calculate and cache the result
+        labels_needed = self._calculate_labels_needed_for_image(image)
+        self._labels_needed_cache[image] = labels_needed
+        return labels_needed
+
+    def _calculate_labels_needed_for_image(self, image: str) -> int | None:
+        """Internal method to calculate labels needed for a specific image.
+
+        This does the expensive calculation that gets cached.
+        """
 
         # Find the failed gate for this image
         failed_gate = next((g for g in self.failed_gates if g.input_description.image == image), None)
