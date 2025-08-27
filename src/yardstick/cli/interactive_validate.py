@@ -166,6 +166,10 @@ class InteractiveValidateController:
         self.failed_gates = [gate for gate in gates if not gate.passed()]
         self.failed_images_order = [gate.input_description.image for gate in self.failed_gates]
 
+        # Build mapping from result_id to image to fix common match labeling bug
+        self._result_id_to_image: dict[str, str] = {}
+        self._build_result_id_to_image_mapping()
+
         self.current_index = 0
         self.matches_to_label = self._collect_matches_to_label()
         self.processing_deltas = True
@@ -182,6 +186,13 @@ class InteractiveValidateController:
         if not self.matches_to_label and self.relative_comparison:
             self._add_common_unlabeled_matches()
             self.processing_deltas = False  # We're starting directly with common matches
+
+    def _build_result_id_to_image_mapping(self) -> None:
+        """Build mapping from result_id to correct image for accurate label creation."""
+        for gate in self.failed_gates:
+            image = gate.input_description.image
+            for config in gate.input_description.configs:
+                self._result_id_to_image[config.id] = image
 
     def _create_relative_comparison(self) -> None:
         """Create relative comparison data for accessing common matches."""
@@ -310,7 +321,7 @@ class InteractiveValidateController:
 
         # Process common matches for each failed gate individually
         for failed_gate in self.failed_gates:
-            image = failed_gate.input_description.image
+            gate_image = failed_gate.input_description.image
 
             # Get the result descriptions for this specific gate
             descriptions = [config.id for config in failed_gate.input_description.configs]
@@ -339,8 +350,21 @@ class InteractiveValidateController:
                         continue
 
                     # Check if this match is already labeled
+                    # Need to find which result_id this representative match came from
+                    representative_result_id = None
+                    for result_key, matches_list in equivalent_match.matches.items():
+                        if matches_list and matches_list[0] == representative_match:
+                            representative_result_id = result_key
+                            break
+
+                    # Use the result_id to get the correct image for label matching
+                    # This fixes the bug where common matches used wrong image context for label detection
+                    correct_image_for_label_check = (
+                        self._result_id_to_image.get(representative_result_id, gate_image) if representative_result_id else gate_image
+                    )
+
                     match_labels = find_labels_for_match(
-                        image,
+                        correct_image_for_label_check,
                         representative_match,
                         self.label_entries,
                         lineage=[],  # TODO: Could pass actual lineage if available
@@ -376,11 +400,25 @@ class InteractiveValidateController:
                                 result_id = result_key
                                 break
 
+                        # Use the correct image from result_id mapping for consistency
+                        correct_image_for_match_tuple = self._result_id_to_image.get(result_id, gate_image) if result_id else gate_image
+
+                        # Determine more accurate category based on label status
+                        if not match_labels:
+                            category = "common_unlabeled"
+                        elif any(label.label in [artifact.Label.Unclear] for label in match_labels):
+                            category = "common_unclear"
+                        elif len(set(label.label for label in match_labels)) != 1:
+                            category = "common_mixed"
+                        else:
+                            # This shouldn't happen since we only include matches that need attention
+                            category = "common_unlabeled"
+
                         common_matches.append(
                             (
-                                "common_unlabeled",
+                                category,
                                 representative_match,
-                                image,
+                                correct_image_for_match_tuple,  # Use the correct image here too
                                 reference_url,
                                 namespace,
                                 fixed_version,
@@ -390,7 +428,7 @@ class InteractiveValidateController:
 
             except Exception as e:
                 # If we can't create comparison for this gate, skip it and continue with others
-                print(f"Warning: Could not create relative comparison for {image}: {e}")
+                print(f"Warning: Could not create relative comparison for {gate_image}: {e}")
                 continue
 
         # Sort common matches by image priority, then vulnerability ID, package name, package version for full determinism
@@ -422,12 +460,16 @@ class InteractiveValidateController:
         if not current:
             return False
 
-        _, match, image, _, _, _, _ = current
+        _, match, tuple_image, _, _, _, result_id = current
+
+        # Use result_id to get the correct image, falling back to tuple image if mapping not available
+        # This fixes the bug where common matches had incorrect image associations
+        correct_image = self._result_id_to_image.get(result_id, tuple_image) if result_id else tuple_image
 
         label_entry = artifact.LabelEntry(
             label=label,
             vulnerability_id=match.vulnerability.id,
-            image=artifact.ImageSpecifier(exact=image),
+            image=artifact.ImageSpecifier(exact=correct_image),
             package=match.package,
             note=note if note else None,
             user=getpass.getuser(),
@@ -437,8 +479,8 @@ class InteractiveValidateController:
         # Save immediately to prevent data loss
         store.labels.save([label_entry])
 
-        # Decrement the cached labels needed count for this image
-        self._decrement_labels_needed_cache(image)
+        # Decrement the cached labels needed count for the correct image
+        self._decrement_labels_needed_cache(correct_image)
 
         return True
 
@@ -576,7 +618,6 @@ class InteractiveValidateController:
             candidate_comparison = candidate_comparisons_by_image[image]
 
             # Now we have the exact same comparison the gate uses!
-            current_indeterminate_percent = candidate_comparison.summary.indeterminate_percent
             max_allowed_percent = failed_gate.config.max_unlabeled_percent
 
             # Calculate how many labels needed to get under the threshold
@@ -678,6 +719,8 @@ class InteractiveValidateTUI:
                 "reference_only": "REFERENCE ONLY",
                 "unlabeled_both": "UNLABELED (BOTH SCANS)",
                 "common_unlabeled": "COMMON (UNLABELED)",
+                "common_unclear": "COMMON (HAS UNCLEAR LABELS)",
+                "common_mixed": "COMMON (MIXED LABELS)",
             }.get(category, category.upper())
 
             # Use the specific reference URL from the delta, or fallback to generic URL
@@ -788,6 +831,28 @@ class InteractiveValidateTUI:
                     ]
                 )
 
+            # For common matches with existing labels, show what labels already exist
+            if category.startswith("common_") and category != "common_unlabeled":
+                from yardstick.label import find_labels_for_match
+
+                existing_labels = find_labels_for_match(
+                    image=image, match=match, label_entries=self.controller.label_entries, lineage=[], fuzzy_package_match=False
+                )
+
+                if existing_labels:
+                    label_counts = {}
+                    for label in existing_labels:
+                        label_counts[label.label] = label_counts.get(label.label, 0) + 1
+
+                    label_summary = ", ".join([f"{count} {label.value}" for label, count in label_counts.items()])
+                    display_items.extend(
+                        [
+                            ("class:field", "Existing Labels: "),
+                            ("class:highlight", label_summary),
+                            ("", "\n"),
+                        ]
+                    )
+
             display_items.extend(
                 [
                     ("class:field", "Match ID: "),
@@ -806,9 +871,13 @@ class InteractiveValidateTUI:
                     if category == "reference_only"
                     else "by both tools but is unlabeled"
                     if category == "common_unlabeled"
+                    else "by both tools but has unclear labels that need resolution"
+                    if category == "common_unclear"
+                    else "by both tools but has conflicting labels that need resolution"
+                    if category == "common_mixed"
                     else "by both tools but needs labeling",
                 ),
-                ("class:description", " and needs to be labeled to resolve the quality gate failure."),
+                ("class:description", ". Please provide a definitive label to resolve the quality gate failure."),
                 ("", "\n"),
                 ("class:instruction", "Use the Info URL above to research the vulnerability before labeling."),
                 ("", "\n\n"),
