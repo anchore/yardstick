@@ -431,11 +431,22 @@ class InteractiveValidateController:
                 print(f"Warning: Could not create relative comparison for {gate_image}: {e}")
                 continue
 
-        # Sort common matches by image priority, then vulnerability ID, package name, package version for full determinism
+        # Sort common matches by image priority, then by label status (unlabeled first, then conflicting), then vulnerability ID, package name, package version for full determinism
         def sort_key(match_tuple):
             category, match, image, _, _, _, _ = match_tuple
             image_priority = self._get_image_priority(image)
-            return (image_priority[0], image_priority[1], match.vulnerability.id, match.package.name or "", match.package.version or "")
+
+            # Priority for label status: unlabeled (0) is easiest to resolve, then unclear (1), then mixed (2)
+            label_priority = 0 if category == "common_unlabeled" else 1 if category == "common_unclear" else 2
+
+            return (
+                image_priority[0],
+                image_priority[1],
+                label_priority,
+                match.vulnerability.id,
+                match.package.name or "",
+                match.package.version or "",
+            )
 
         common_matches.sort(key=sort_key)
         self.matches_to_label.extend(common_matches)
