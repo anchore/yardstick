@@ -853,6 +853,30 @@ class InteractiveValidateTUI:
                         ]
                     )
 
+                    # Show detailed label information with UUIDs for inspection
+                    display_items.extend(
+                        [
+                            ("class:field", "Label Details:"),
+                            ("", "\n"),
+                        ]
+                    )
+
+                    for i, label in enumerate(existing_labels, 1):
+                        user_info = f" by {label.user}" if label.user else ""
+                        time_info = f" at {label.timestamp.strftime('%Y-%m-%d %H:%M')}" if label.timestamp else ""
+                        display_items.extend(
+                            [
+                                ("", f"  {i}. "),
+                                ("class:highlight", label.label.value),
+                                ("", user_info),
+                                ("", time_info),
+                                ("", "\n"),
+                                ("", "     UUID: "),
+                                ("class:uuid", label.ID),
+                                ("", "\n"),
+                            ]
+                        )
+
             display_items.extend(
                 [
                     ("class:field", "Match ID: "),
@@ -982,6 +1006,7 @@ class InteractiveValidateTUI:
                     "progress_empty": "fg:ansigray",
                     "match_detail_title": "bold underline fg:ansicyan",
                     "match_detail_header": "bold fg:ansiyellow",
+                    "uuid": "fg:ansigray",
                 }
             )
 
