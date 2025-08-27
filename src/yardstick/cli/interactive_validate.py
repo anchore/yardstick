@@ -479,6 +479,91 @@ class InteractiveValidateController:
         # No more matches or no different image found
         return False
 
+    def get_labels_needed_for_current_image(self) -> int | None:
+        """Calculate how many more labels needed for current image to pass its gate.
+
+        Uses the same calculation logic as the actual quality gate to ensure accuracy.
+        Returns None if not applicable (no current match, gate not failing due to percentage, etc.)
+        """
+        current_match = self.get_current_match()
+        if not current_match:
+            return None
+
+        image = current_match[2]  # image at index 2
+
+        # Find the failed gate for this image
+        failed_gate = next((g for g in self.failed_gates if g.input_description.image == image), None)
+        if not failed_gate:
+            return None
+
+        # Check if this gate failed due to indeterminate percentage
+        indeterminate_failure = any("indeterminate matches %" in reason for reason in failed_gate.reasons)
+        if not indeterminate_failure:
+            return None  # Not failing due to unlabeled matches
+
+        try:
+            # Get the result descriptions for this gate (same as in validate_image)
+            descriptions = [config.id for config in failed_gate.input_description.configs]
+            if len(descriptions) < 2:
+                return None
+
+            # Recreate the same label comparison that the gate used
+            # This ensures we use the exact same calculation
+            results, label_entries, comparisons_by_result_id, _ = yardstick.compare_results_against_labels(
+                descriptions=descriptions,
+                year_max_limit=self.year_max_limit,
+                year_from_cve_only=self.year_from_cve_only,
+                label_entries=self.label_entries,
+                matches_filter=None,
+            )
+
+            # Find the candidate tool comparison (same logic as in Gate.__post_init__)
+            candidate_tool = None
+            reference_tool = None
+
+            # Get tool designations (same logic as in validate_image)
+            from yardstick.validate.validate import tool_designations
+
+            scan_configs = [comparison.config for comparison in comparisons_by_result_id.values()]
+            reference_tool, candidate_tool = tool_designations(failed_gate.config.candidate_tool_label, scan_configs)
+
+            if not candidate_tool:
+                return None
+
+            # Find the candidate comparison for this image
+            candidate_comparisons_by_image = {
+                comp.config.image: comp for comp in comparisons_by_result_id.values() if comp.config.tool == candidate_tool
+            }
+
+            if image not in candidate_comparisons_by_image:
+                return None
+
+            candidate_comparison = candidate_comparisons_by_image[image]
+
+            # Now we have the exact same comparison the gate uses!
+            current_indeterminate_percent = candidate_comparison.summary.indeterminate_percent
+            max_allowed_percent = failed_gate.config.max_unlabeled_percent
+
+            # Calculate how many labels needed to get under the threshold
+            total_matches = candidate_comparison.summary.total
+            current_indeterminate = candidate_comparison.summary.indeterminate
+
+            if total_matches == 0:
+                return None
+
+            # Calculate max allowed indeterminate matches (must be <= max_allowed_percent)
+            max_allowed_indeterminate = int(total_matches * max_allowed_percent / 100)
+
+            # How many matches need to be labeled to get indeterminate count down to acceptable level
+            labels_needed = max(0, current_indeterminate - max_allowed_indeterminate)
+
+            return labels_needed
+
+        except Exception as e:
+            # If we can't recreate the gate calculation, return None
+            print(f"Warning: Could not calculate labels needed for {image}: {e}")
+            return None
+
 
 class InteractiveValidateTUI:
     """Interactive TUI for relabeling matches that caused quality gate failure."""
@@ -571,6 +656,9 @@ class InteractiveValidateTUI:
             empty_width = progress_width - filled_width
             progress_bar = "█" * filled_width + "░" * empty_width
 
+            # Get labels needed for current image to show progress towards gate pass
+            labels_needed = self.controller.get_labels_needed_for_current_image()
+
             display_items = [
                 ("class:title", f"Interactive Relabeling Mode ({current_idx + 1}/{total})"),
                 ("", "\n"),
@@ -578,22 +666,52 @@ class InteractiveValidateTUI:
                 ("class:progress_filled", progress_bar[:filled_width]),
                 ("class:progress_empty", progress_bar[filled_width:]),
                 ("", f" {completed}/{total} ({int(progress_ratio * 100)}%)"),
-                ("", "\n\n"),
-                ("class:category", f"Category: {category_display}"),
-                ("", "\n"),
-                ("class:field", "Image: "),
-                ("", image),
-                ("", "\n"),
-                ("class:field", "Result ID: "),
-                ("", result_id or "unknown"),
-                ("", "\n"),
-                ("class:field", "Package: "),
-                ("", f"{match.package.name}@{match.package.version}"),
-                ("", "\n"),
-                ("class:field", "Vulnerability: "),
-                ("", match.vulnerability.id),
                 ("", "\n"),
             ]
+
+            # Add labels needed info on its own line if available
+            if labels_needed is not None:
+                if labels_needed == 0:
+                    display_items.extend(
+                        [
+                            ("class:success", "✓ This image will pass quality gate"),
+                            ("", "\n"),
+                        ]
+                    )
+                else:
+                    display_items.extend(
+                        [
+                            ("", "Need "),
+                            ("class:highlight", str(labels_needed)),
+                            ("", f" more label{'s' if labels_needed != 1 else ''} for this image to pass quality gate"),
+                            ("", "\n"),
+                        ]
+                    )
+
+            display_items.extend(
+                [
+                    ("", "\n"),
+                    ("class:category", f"Category: {category_display}"),
+                    ("", "\n"),
+                    ("class:field", "Image: "),
+                    ("", image),
+                    ("", "\n"),
+                ]
+            )
+
+            display_items.extend(
+                [
+                    ("class:field", "Result ID: "),
+                    ("", result_id or "unknown"),
+                    ("", "\n"),
+                    ("class:field", "Package: "),
+                    ("", f"{match.package.name}@{match.package.version}"),
+                    ("", "\n"),
+                    ("class:field", "Vulnerability: "),
+                    ("", match.vulnerability.id),
+                    ("", "\n"),
+                ]
+            )
 
             # Add namespace information if available
             if namespace:
