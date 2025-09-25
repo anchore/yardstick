@@ -66,7 +66,7 @@ if not sys.stdout.isatty():
     bcolors.RESET = ""
 
 
-def results_used(image: str, results: Sequence[artifact.ScanResult]) -> GateInputDescription:
+def results_used(image: str, results: Sequence[artifact.ScanResult], result_set: str | None = None) -> GateInputDescription:
     return GateInputDescription(
         image=image,
         configs=[
@@ -77,6 +77,7 @@ def results_used(image: str, results: Sequence[artifact.ScanResult]) -> GateInpu
             )
             for result in results
         ],
+        result_set=result_set,
     )
 
 
@@ -112,6 +113,7 @@ def validate_result_set(
             verbosity=verbosity,
             label_entries=label_entries,
             match_filter=m_filter,
+            result_set=result_set,
         )
         ret.append(gate)
 
@@ -141,6 +143,7 @@ def validate_image(
     verbosity: int,
     label_entries: Optional[list[artifact.LabelEntry]] = None,
     match_filter: Callable[[list[artifact.Match]], list[artifact.Match]] | None = None,
+    result_set: str | None = None,
 ) -> Gate:
     """
     Compare the results of two different vulnerability scanner configurations with each other,
@@ -200,12 +203,12 @@ def validate_image(
                 reasons=[
                     "gate configured to fail on empty matches, and no matches found",
                 ],
-                input_description=results_used(image, relative_comparison.results),
+                input_description=results_used(image, relative_comparison.results, result_set),
             )
 
     if not always_run_label_comparison and not sum([len(relative_comparison.unique[result.ID]) for result in relative_comparison.results]):
         return Gate.passing(
-            input_description=results_used(image, relative_comparison.results),
+            input_description=results_used(image, relative_comparison.results, result_set),
         )
 
     logging.info("Running comparison against labels...")
@@ -250,7 +253,7 @@ def validate_image(
         reference_comparison=reference_comparison.summary,
         candidate_comparison=candidate_comparison.summary,
         config=gate_config,
-        input_description=results_used(image, relative_comparison.results),
+        input_description=results_used(image, relative_comparison.results, result_set),
         deltas=deltas,
     )
 

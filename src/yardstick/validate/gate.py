@@ -32,6 +32,7 @@ class GateInputResultConfig:
 class GateInputDescription:
     image: str
     configs: list[GateInputResultConfig] = field(default_factory=list)
+    result_set: str | None = None
 
 
 @dataclass
