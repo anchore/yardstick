@@ -185,6 +185,8 @@ def test_compute_deltas(comparisons_by_result_id, relative_comparison):
             vulnerability_id="CVE-2023-0002",
             added=False,
             label="TruePositive",
+            full_match=relative_comparison.unique["reference"][0],  # match2
+            result_id="reference",
         ),
         Delta(
             tool="reference",
@@ -193,6 +195,8 @@ def test_compute_deltas(comparisons_by_result_id, relative_comparison):
             vulnerability_id="CVE-2023-5678",
             added=False,
             label="FalsePositive",
+            full_match=relative_comparison.unique["reference"][1],  # match3
+            result_id="reference",
         ),
         Delta(
             tool="candidate",
@@ -201,6 +205,8 @@ def test_compute_deltas(comparisons_by_result_id, relative_comparison):
             vulnerability_id="CVE-2023-1234",
             added=True,
             label="TruePositive",
+            full_match=relative_comparison.unique["candidate"][0],  # match1
+            result_id="candidate",
         ),
         Delta(
             tool="candidate",
@@ -209,6 +215,8 @@ def test_compute_deltas(comparisons_by_result_id, relative_comparison):
             vulnerability_id="CVE-2023-8888",
             added=True,
             label="FalsePositive",
+            full_match=relative_comparison.unique["candidate"][1],  # match4
+            result_id="candidate",
         ),
     ]
 
