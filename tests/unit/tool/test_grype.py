@@ -21,7 +21,10 @@ from yardstick.tool.grype import (
 def test_grype_profiles():
     profile_arg = {"name": "test-profile", "config_path": "test-config-path"}
     profile = GrypeProfile(**profile_arg)
-    with mock.patch("subprocess.check_output") as check_output:
+    with (
+        mock.patch("subprocess.check_output") as check_output,
+        mock.patch.dict(os.environ, {}, clear=True),  # Clear env vars
+    ):
         check_output.return_value = bytes("test-output", "utf-8")
         tool = Grype(path="test-path", profile=profile, db_identity="oss")
         tool.capture(image="test-image", tool_input=None)
@@ -36,7 +39,10 @@ def test_grype_profiles():
 
 
 def test_grype_no_profile():
-    with mock.patch("subprocess.check_output") as check_output:
+    with (
+        mock.patch("subprocess.check_output") as check_output,
+        mock.patch.dict(os.environ, {}, clear=True),  # Clear env vars
+    ):
         check_output.return_value = bytes("test-output", "utf-8")
         tool = Grype(path="test-path", db_identity="oss")
         tool.capture(image="test-image", tool_input=None)
@@ -61,6 +67,7 @@ def test_install_from_path():
         mock.patch(
             "os.chmod",
         ),
+        mock.patch.dict(os.environ, {}, clear=True),  # Clear env vars including GRYPE_EXECUTABLE_PATH
     ):
         check_call.return_value = bytes("test-output", "utf-8")
         exists.return_value = True
@@ -178,3 +185,250 @@ def test_get_import_checksum_zstd_archive(zstd_archive):
 def test_get_import_checksum_unsupported():
     with pytest.raises(ValueError, match="unsupported db import path"):
         get_import_checksum("unsupported.txt")
+
+
+# Tests for GRYPE_EXECUTABLE_PATH environment variable support
+class TestGrypeExecutablePathOverride:
+    """Test GRYPE_EXECUTABLE_PATH environment variable support."""
+
+    def test_check_executable_path_override_valid_absolute_path(self, tmp_path, mocker):
+        """Test _check_executable_path_override returns resolved path for valid absolute path."""
+        from yardstick.tool.grype import _check_executable_path_override
+
+        fake_grype = tmp_path / "fake-grype"
+        fake_grype.write_text("#!/bin/bash\necho 'fake grype'")
+        fake_grype.chmod(0o755)
+
+        # Set environment variable with absolute path
+        mocker.patch.dict(os.environ, {"GRYPE_EXECUTABLE_PATH": str(fake_grype)})
+
+        result = _check_executable_path_override()
+
+        # Should return realpath of the executable
+        assert result == str(fake_grype.resolve())
+
+    def test_check_executable_path_override_valid_path_on_path(self, tmp_path, mocker):
+        """Test _check_executable_path_override searches PATH for relative names."""
+        from yardstick.tool.grype import _check_executable_path_override
+
+        # Create a fake grype binary
+        fake_grype = tmp_path / "grype"
+        fake_grype.write_text("#!/bin/bash\necho 'grype'")
+        fake_grype.chmod(0o755)
+
+        # Mock shutil.which to simulate finding grype on PATH
+        mock_which = mocker.patch("yardstick.tool.grype.shutil.which")
+        mock_which.return_value = str(fake_grype)
+
+        # Set environment variable with relative name
+        mocker.patch.dict(os.environ, {"GRYPE_EXECUTABLE_PATH": "grype"})
+
+        result = _check_executable_path_override()
+
+        # Should have called which and returned resolved path
+        mock_which.assert_called_once_with("grype")
+        assert result == str(fake_grype.resolve())
+
+    def test_check_executable_path_override_invalid_absolute_path(self, mocker):
+        """Test _check_executable_path_override returns None for invalid absolute path."""
+        from yardstick.tool.grype import _check_executable_path_override
+
+        fake_path = "/nonexistent/grype"
+
+        # Set environment variable to invalid absolute path
+        mocker.patch.dict(os.environ, {"GRYPE_EXECUTABLE_PATH": fake_path})
+
+        result = _check_executable_path_override()
+
+        assert result is None
+
+    def test_check_executable_path_override_not_on_path(self, mocker):
+        """Test _check_executable_path_override returns None when name not found on PATH."""
+        from yardstick.tool.grype import _check_executable_path_override
+
+        # Mock shutil.which to return None (not found on PATH)
+        mock_which = mocker.patch("yardstick.tool.grype.shutil.which")
+        mock_which.return_value = None
+
+        # Set environment variable to relative name
+        mocker.patch.dict(os.environ, {"GRYPE_EXECUTABLE_PATH": "nonexistent-grype"})
+
+        result = _check_executable_path_override()
+
+        assert result is None
+        mock_which.assert_called_once_with("nonexistent-grype")
+
+    def test_check_executable_path_override_no_env_var(self, mocker):
+        """Test _check_executable_path_override returns None when env var not set."""
+        from yardstick.tool.grype import _check_executable_path_override
+
+        # Ensure no environment variable is set
+        mocker.patch.dict(os.environ, {}, clear=True)
+
+        result = _check_executable_path_override()
+
+        assert result is None
+
+    def test_install_uses_executable_path_override(self, tmp_path, mocker):
+        """Test Grype.install uses result from _check_executable_path_override."""
+        fake_grype = tmp_path / "grype"
+        fake_grype.write_text("#!/bin/bash\necho 'fake grype'")
+        fake_grype.chmod(0o755)
+
+        # Mock the override function to return a path
+        mock_override = mocker.patch("yardstick.tool.grype._check_executable_path_override")
+        mock_override.return_value = str(fake_grype)
+
+        # Mock run to avoid actual grype execution
+        mock_run = mocker.patch.object(Grype, "run")
+
+        result = Grype.install("latest", update_db=False)
+
+        # Should have used the override and created a working directory
+        assert result.version_detail == "external-latest"
+        assert "external-latest" in result.path
+        # Should have created symlink to the binary
+        symlink = os.path.join(result.path, "grype")
+        assert os.path.islink(symlink) or os.path.exists(symlink)
+        mock_override.assert_called_once()
+
+    def test_install_with_executable_path_and_custom_db(self, tmp_path, mocker):
+        """Test Grype.install with GRYPE_EXECUTABLE_PATH and custom DB import."""
+        fake_grype = tmp_path / "grype"
+        fake_grype.write_text("#!/bin/bash\necho 'fake grype'")
+        fake_grype.chmod(0o755)
+
+        fake_db = tmp_path / "custom.tar.zst"
+        fake_db.write_text("fake db")
+
+        # Mock the override function
+        mock_override = mocker.patch("yardstick.tool.grype._check_executable_path_override")
+        mock_override.return_value = str(fake_grype)
+
+        # Mock get_import_checksum to avoid processing the fake DB
+        mock_checksum = mocker.patch("yardstick.tool.grype.get_import_checksum")
+        mock_checksum.return_value = "fake-checksum"
+
+        # Mock os.path.exists to simulate DB doesn't exist
+        mock_exists = mocker.patch("os.path.exists")
+        mock_exists.return_value = False
+
+        # Mock run to avoid actual grype execution
+        mock_run = mocker.patch.object(Grype, "run")
+
+        result = Grype.install(f"main+import-db={fake_db}", update_db=False)
+
+        # Should have imported the DB
+        assert mock_run.called
+        run_args = mock_run.call_args[0]
+        assert "import" in run_args
+
+    def test_install_without_executable_path_continues_normally(self, mocker):
+        """Test Grype.install proceeds normally when GRYPE_EXECUTABLE_PATH is not set."""
+        # Mock the override to return None
+        mock_override = mocker.patch("yardstick.tool.grype._check_executable_path_override")
+        mock_override.return_value = None
+
+        # Mock _install_from_installer to avoid actual installation
+        mock_install = mocker.patch("yardstick.tool.grype.Grype._install_from_installer")
+        mock_grype = mocker.MagicMock(spec=Grype)
+        mock_install.return_value = mock_grype
+
+        result = Grype.install("v0.100.0", update_db=False)
+
+        # Should have called normal install process
+        mock_install.assert_called_once()
+        assert result == mock_grype
+
+    def test_run_with_external_binary_path(self, tmp_path, mocker):
+        """Test Grype.run handles external binary path correctly."""
+        fake_grype = tmp_path / "grype"
+        fake_grype.write_text("#!/bin/bash\necho 'fake output'")
+        fake_grype.chmod(0o755)
+
+        # Create Grype instance with path to directory containing binary
+        tool = Grype(path=str(tmp_path), db_identity="oss")
+
+        # Mock subprocess.check_output
+        mock_check_output = mocker.patch("subprocess.check_output")
+        mock_check_output.return_value = b"fake output"
+
+        tool.run("version")
+
+        # Should have called with correct binary path
+        called_cmd = mock_check_output.call_args[0][0]
+        assert called_cmd[0] == str(fake_grype)
+
+    def test_install_with_executable_path_without_custom_db_respects_update_db_param(self, tmp_path, mocker):
+        """Test that update_db parameter is respected when no custom DB specified."""
+        fake_grype = tmp_path / "grype"
+        fake_grype.write_text("#!/bin/bash\necho 'fake grype'")
+        fake_grype.chmod(0o755)
+
+        # Mock the override function
+        mock_override = mocker.patch("yardstick.tool.grype._check_executable_path_override")
+        mock_override.return_value = str(fake_grype)
+
+        # Mock run to track calls
+        mock_run = mocker.patch.object(Grype, "run")
+
+        # Test 1: update_db=True should call db update
+        Grype.install("latest", update_db=True)
+        assert mock_run.called
+        calls = [str(call) for call in mock_run.call_args_list]
+        assert any("update" in str(call) for call in calls)
+
+        # Test 2: update_db=False should NOT call db update
+        mock_run.reset_mock()
+        Grype.install("latest", update_db=False)
+        # Should not have called run at all (no db import, no update)
+        assert not mock_run.called
+
+    def test_install_with_executable_path_handles_existing_symlink(self, tmp_path, mocker):
+        """Test that installing twice doesn't fail on existing symlink (race condition test)."""
+        fake_grype = tmp_path / "fake-grype"
+        fake_grype.write_text("#!/bin/bash\necho 'fake grype'")
+        fake_grype.chmod(0o755)
+
+        # Mock the override function
+        mock_override = mocker.patch("yardstick.tool.grype._check_executable_path_override")
+        mock_override.return_value = str(fake_grype)
+
+        # Mock run to avoid actual execution
+        mock_run = mocker.patch.object(Grype, "run")
+
+        # First install
+        result1 = Grype.install("v0.100.0", update_db=False)
+
+        # Second install to same location - should not fail on existing symlink
+        result2 = Grype.install("v0.100.0", update_db=False)
+
+        # Both should succeed
+        assert result1.path == result2.path
+        assert "external-v0.100.0" in result1.path
+
+    def test_install_detects_version_from_external_binary(self, tmp_path, mocker):
+        """Test that version_detail is detected from the actual binary, not just the version string."""
+        fake_grype = tmp_path / "grype"
+        fake_grype.write_text('#!/bin/bash\necho \'{"version": "0.101.1"}\'')
+        fake_grype.chmod(0o755)
+
+        # Mock the override function
+        mock_override = mocker.patch("yardstick.tool.grype._check_executable_path_override")
+        mock_override.return_value = str(fake_grype)
+
+        # Mock subprocess.check_output for version detection
+        mock_check_output = mocker.patch("subprocess.check_output")
+        mock_check_output.return_value = '{"version": "0.101.1"}'
+
+        # Mock Grype.run to avoid DB operations
+        mock_run = mocker.patch.object(Grype, "run")
+
+        result = Grype.install("latest", update_db=False)
+
+        # Should have detected the actual version
+        assert result.version_detail == "external-0.101.1"
+        # Verify version detection was called
+        mock_check_output.assert_called_once()
+        call_args = mock_check_output.call_args[0][0]
+        assert call_args[1:] == ["version", "-o", "json"]
