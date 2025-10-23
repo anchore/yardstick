@@ -327,15 +327,16 @@ class Grype(VulnerabilityScanner):
                     tool_name = f"grype[{grype_profile.name}]"
                 path = tool_store.install_base(name=tool_name)
                 path = os.path.join(path, f"external-{version}")
-                os.makedirs(path, exist_ok=True)
-                # Create symlink to the external binary in our working directory
-                symlink_path = os.path.join(path, "grype")
-                try:
-                    if not os.path.exists(symlink_path):
-                        os.symlink(existing_binary, symlink_path)
-                except FileExistsError:
-                    # Race condition: another process created it
-                    pass
+
+            # Ensure path exists and create symlink (works for both explicit and generated paths)
+            os.makedirs(path, exist_ok=True)
+            symlink_path = os.path.join(path, "grype")
+            try:
+                if not os.path.exists(symlink_path):
+                    os.symlink(existing_binary, symlink_path)
+            except FileExistsError:
+                # Race condition: another process created it
+                pass
 
             # Detect actual version from the binary
             try:

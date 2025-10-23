@@ -432,3 +432,35 @@ class TestGrypeExecutablePathOverride:
         mock_check_output.assert_called_once()
         call_args = mock_check_output.call_args[0][0]
         assert call_args[1:] == ["version", "-o", "json"]
+
+    def test_install_with_explicit_path_creates_symlink(self, tmp_path, mocker):
+        """Test that symlink is created even when path is explicitly provided.
+
+        This catches the bug where symlink creation was inside the 'if not path:' block,
+        so it wouldn't create symlinks when grype-db-manager provides an explicit path.
+        """
+        fake_grype = tmp_path / "fake-grype"
+        fake_grype.write_text("#!/bin/bash\necho 'fake grype'")
+        fake_grype.chmod(0o755)
+
+        # Mock the override function
+        mock_override = mocker.patch("yardstick.tool.grype._check_executable_path_override")
+        mock_override.return_value = str(fake_grype)
+
+        # Mock subprocess for version detection
+        mock_check_output = mocker.patch("subprocess.check_output")
+        mock_check_output.return_value = '{"version": "0.101.1"}'
+
+        # Mock run to avoid DB operations
+        mock_run = mocker.patch.object(Grype, "run")
+
+        # Provide explicit path (like grype-db-manager does)
+        explicit_path = tmp_path / "custom-install-dir"
+        explicit_path.mkdir()
+
+        result = Grype.install("main", path=str(explicit_path), update_db=False)
+
+        # Should have created symlink at the provided path
+        expected_symlink = explicit_path / "grype"
+        assert expected_symlink.exists() or expected_symlink.is_symlink()
+        assert result.path == str(explicit_path)
