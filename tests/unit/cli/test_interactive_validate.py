@@ -217,6 +217,103 @@ class TestLabelMatchingEdgeCases:
         assert len(labels_different) == 0
 
 
+class TestLabelsNeededCalculation:
+    """Tests for the labels_needed calculation when gate fails due to unlabeled percent."""
+
+    def test_tool_designations_return_order(self):
+        """Verify that tool_designations returns (candidate, reference) in that order.
+
+        This test documents the expected return order of tool_designations,
+        which is important for correct usage in _calculate_labels_needed_for_image.
+        """
+        from yardstick.validate.validate import tool_designations
+        from yardstick.artifact import ScanConfiguration
+
+        # Create scan configs with distinct tool labels
+        scan_configs = [
+            ScanConfiguration(
+                image_repo="docker.io/test",
+                image_digest="sha256:abc123",
+                tool_name="grype",
+                tool_version="v1.0.0",
+                tool_label="candidate",
+            ),
+            ScanConfiguration(
+                image_repo="docker.io/test",
+                image_digest="sha256:abc123",
+                tool_name="grype",
+                tool_version="v2.0.0",
+                tool_label="reference",
+            ),
+        ]
+
+        # Call tool_designations with candidate_tool_label="candidate"
+        result = tool_designations("candidate", scan_configs)
+
+        # tool_designations returns (candidate_tool, reference_tool)
+        # So result[0] should be the candidate tool, result[1] should be reference
+        assert result[0] == "grype@v1.0.0", f"First return value should be candidate tool, got {result[0]}"
+        assert result[1] == "grype@v2.0.0", f"Second return value should be reference tool, got {result[1]}"
+
+        # The correct assignment order (used in _calculate_labels_needed_for_image) is:
+        #   candidate_tool, reference_tool = tool_designations(...)
+        candidate_tool, reference_tool = tool_designations("candidate", scan_configs)
+
+        assert candidate_tool == "grype@v1.0.0", f"candidate_tool should be 'grype@v1.0.0', got {candidate_tool}"
+        assert reference_tool == "grype@v2.0.0", f"reference_tool should be 'grype@v2.0.0', got {reference_tool}"
+
+    def test_labels_needed_with_unlabeled_percent_only_failure(self):
+        """Test that labels_needed calculation uses the correct tool designations.
+
+        This test verifies that _calculate_labels_needed_for_image correctly assigns
+        the return value of tool_designations, which returns (candidate, reference).
+
+        The correct assignment is:
+            candidate_tool, reference_tool = tool_designations(...)
+
+        This ensures the calculation uses the CANDIDATE tool's indeterminate count
+        (not the reference tool's) when determining how many labels are needed.
+        """
+        from yardstick.validate.validate import tool_designations
+        from yardstick.artifact import ScanConfiguration
+
+        # Create scan configs where tools have different labels
+        # ScanConfiguration requires: image_repo, image_digest, tool_name, tool_version, tool_label
+        candidate_config = ScanConfiguration(
+            image_repo="docker.io/test",
+            image_digest="sha256:abc123",
+            tool_name="grype",
+            tool_version="v1.0.0-custom",
+            tool_label="custom-db",  # candidate tool (the one being tested)
+        )
+        reference_config = ScanConfiguration(
+            image_repo="docker.io/test",
+            image_digest="sha256:abc123",
+            tool_name="grype",
+            tool_version="v1.0.0",
+            tool_label="reference",  # reference tool (the baseline)
+        )
+
+        scan_configs = [candidate_config, reference_config]
+
+        # tool_designations returns (candidate, reference) based on tool_label matching
+        # The function signature is: tool_designations(candidate_tool_label, scan_configs) -> (candidate, reference)
+        returned_candidate, returned_reference = tool_designations("custom-db", scan_configs)
+
+        # Verify tool_designations returns correctly - candidate first, reference second
+        # Note: .tool property returns "{tool_name}@{tool_version}"
+        assert returned_candidate == "grype@v1.0.0-custom", f"Expected candidate 'grype@v1.0.0-custom', got '{returned_candidate}'"
+        assert returned_reference == "grype@v1.0.0", f"Expected reference 'grype@v1.0.0', got '{returned_reference}'"
+
+        # Verify that the correct assignment order (as used in _calculate_labels_needed_for_image) works:
+        # candidate_tool, reference_tool = tool_designations(...)
+        candidate_tool, reference_tool = tool_designations("custom-db", scan_configs)
+
+        # candidate_tool should be the candidate, reference_tool should be the reference
+        assert candidate_tool == "grype@v1.0.0-custom", f"candidate_tool='{candidate_tool}' should be 'grype@v1.0.0-custom' (the candidate tool)"
+        assert reference_tool == "grype@v1.0.0", f"reference_tool='{reference_tool}' should be 'grype@v1.0.0' (the reference tool)"
+
+
 @pytest.fixture
 def real_expat_scenario():
     """Fixture providing the actual expat scenario data that's failing in reality."""

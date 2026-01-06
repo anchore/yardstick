@@ -613,7 +613,7 @@ class InteractiveValidateController:
             from yardstick.validate.validate import tool_designations
 
             scan_configs = [comparison.config for comparison in comparisons_by_result_id.values()]
-            reference_tool, candidate_tool = tool_designations(failed_gate.config.candidate_tool_label, scan_configs)
+            candidate_tool, reference_tool = tool_designations(failed_gate.config.candidate_tool_label, scan_configs)
 
             if not candidate_tool:
                 return None
