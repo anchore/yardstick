@@ -3,8 +3,55 @@ from __future__ import annotations
 import hashlib
 import logging
 import os
+from urllib.parse import urlparse
 
 import git
+
+
+def parse_local_path(version: str) -> str | None:
+    """Extract the local filesystem path from a version string.
+
+    Supports two formats:
+    - path:/some/path -> /some/path
+    - file:///some/path -> /some/path
+    - file://some/relative/path -> some/relative/path
+
+    Returns None if the version string doesn't start with a local path prefix.
+    """
+    if version.startswith("path:"):
+        return version.removeprefix("path:")
+
+    if version.startswith("file://"):
+        parsed = urlparse(version)
+        # For file:// URIs, the path is in parsed.path
+        # file:///absolute/path -> path = /absolute/path
+        # file://relative/path -> netloc = relative, path = /path (need special handling)
+        if parsed.netloc and parsed.netloc != "localhost":
+            # This handles file://relative/path case where relative becomes netloc
+            return parsed.netloc + parsed.path
+        return parsed.path
+
+    return None
+
+
+def is_local_path_version(version: str) -> bool:
+    """Check if a version string refers to a local filesystem path."""
+    return version.startswith("path:") or version.startswith("file://")
+
+
+def strip_local_path_prefix(s: str) -> str:
+    """Remove local path prefixes (path: or file://) from anywhere in the string.
+
+    This is useful for cleaning up paths that may contain normalized version strings
+    with the prefix embedded (e.g., ".yardstick/tools/grype/path:_where_grype_is_cloned").
+
+    Note: When version strings have slashes replaced with underscores, file:///path becomes
+    file:___path, so we also need to strip "file:" without the slashes.
+    """
+    result = s.replace("path:", "").replace("file://", "")
+    # Also handle "file:" without slashes (for normalized paths where / -> _)
+    result = result.replace("file:", "")
+    return result
 
 
 def local_build_version_suffix(src_path: str) -> str:
