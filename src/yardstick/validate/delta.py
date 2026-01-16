@@ -4,6 +4,89 @@ from dataclasses import dataclass
 from yardstick import artifact, comparison
 
 
+def extract_reference_url(match: artifact.Match) -> str | None:
+    """Extract the specific vulnerability reference URL from match data."""
+    if match.fullentry and isinstance(match.fullentry, dict):
+        # Look for URL in vulnerability data
+        vuln_data = match.fullentry.get("vulnerability", {})
+        if isinstance(vuln_data, dict):
+            # Try different possible URL fields
+            for url_field in ["dataSource", "url", "reference", "link"]:
+                url = vuln_data.get(url_field)
+                if url and isinstance(url, str):
+                    return url
+    return None
+
+
+def extract_namespace(match: artifact.Match) -> str | None:
+    """Extract the vulnerability namespace from match data."""
+    if match.fullentry and isinstance(match.fullentry, dict):
+        vuln_data = match.fullentry.get("vulnerability", {})
+        if isinstance(vuln_data, dict):
+            namespace = vuln_data.get("namespace")
+            if namespace and isinstance(namespace, str):
+                return namespace
+    return None
+
+
+def extract_fixed_version(match: artifact.Match) -> str | None:
+    """Extract the fixed version/version constraint from match data."""
+    if match.fullentry and isinstance(match.fullentry, dict):
+        # Check for fix information in vulnerability.fix.versions (Grype structure)
+        vuln_data = match.fullentry.get("vulnerability", {})
+        if isinstance(vuln_data, dict):
+            fix_data = vuln_data.get("fix", {})
+            if isinstance(fix_data, dict):
+                # Check for fix state first
+                fix_state = fix_data.get("state")
+                if fix_state and isinstance(fix_state, str):
+                    if fix_state == "fixed":
+                        # If state is "fixed", check for versions
+                        versions = fix_data.get("versions")
+                        if versions and isinstance(versions, list) and versions:
+                            return ", ".join(str(v) for v in versions)
+                    else:
+                        # Return the state for non-fixed states
+                        return fix_state
+                else:
+                    # Fallback to check versions without state
+                    versions = fix_data.get("versions")
+                    if versions and isinstance(versions, list) and versions:
+                        return ", ".join(str(v) for v in versions)
+
+        # Check for suggested version in matchDetails[].fix.suggestedVersion
+        match_details = match.fullentry.get("matchDetails", [])
+        if isinstance(match_details, list):
+            for detail in match_details:
+                if isinstance(detail, dict):
+                    fix_detail = detail.get("fix", {})
+                    if isinstance(fix_detail, dict):
+                        suggested = fix_detail.get("suggestedVersion")
+                        if suggested and isinstance(suggested, str):
+                            return suggested
+
+        # Fallback: Check for other common fix version fields
+        if isinstance(vuln_data, dict):
+            for fix_field in ["fixVersions", "fixedIn", "fixVersion", "fixed_version"]:
+                fix_versions = vuln_data.get(fix_field)
+                if fix_versions:
+                    if isinstance(fix_versions, list) and fix_versions:
+                        return ", ".join(str(v) for v in fix_versions)
+                    elif isinstance(fix_versions, str):
+                        return fix_versions
+
+        # Check for fix information in match-level data
+        for fix_field in ["fixVersions", "fixedIn", "fixVersion", "fixed_version"]:
+            fix_versions = match.fullentry.get(fix_field)
+            if fix_versions:
+                if isinstance(fix_versions, list) and fix_versions:
+                    return ", ".join(str(v) for v in fix_versions)
+                elif isinstance(fix_versions, str):
+                    return fix_versions
+
+    return None
+
+
 class DeltaType(enum.Enum):
     Unknown = "Unknown"
     FixedFalseNegative = "FixedFalseNegative"
@@ -20,6 +103,11 @@ class Delta:
     vulnerability_id: str
     added: bool
     label: str | None = None
+    reference_url: str | None = None
+    namespace: str | None = None
+    fixed_version: str | None = None
+    full_match: artifact.Match | None = None
+    result_id: str | None = None
 
     @property
     def is_improved(self) -> bool | None:
@@ -94,6 +182,11 @@ def compute_deltas(
                 vulnerability_id=unique_match.vulnerability.id,
                 added=result.config.tool != reference_tool,
                 label=label,
+                reference_url=extract_reference_url(unique_match),
+                namespace=extract_namespace(unique_match),
+                fixed_version=extract_fixed_version(unique_match),
+                full_match=unique_match,
+                result_id=result.ID,
             )
             deltas.append(delta)
     return deltas
