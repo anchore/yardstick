@@ -1,8 +1,8 @@
 import atexit
 import functools
+import io
 import json
 import logging
-import io
 import os
 import re
 import shlex
@@ -21,6 +21,55 @@ import zstandard as zstd
 from yardstick import artifact, utils
 from yardstick.tool.vulnerability_scanner import VulnerabilityScanner
 from yardstick.utils import github
+
+
+def _prepare_db(tool: "Grype", db_import_path: Optional[str], update_db: bool) -> None:
+    """Handle DB import or update for a Grype instance.
+
+    Args:
+        tool: The Grype instance to prepare the database for
+        db_import_path: Path to custom DB archive to import, or None for OSS DB
+        update_db: Whether to update the DB if no custom DB is provided
+    """
+    if db_import_path:
+        if os.path.exists(tool.db_root):
+            logging.info("using existing (custom) db from %r", tool.db_root)
+        else:
+            logging.info("importing given (custom) db from %r", db_import_path)
+            tool.run("db", "import", db_import_path)
+    elif update_db:
+        logging.debug("updating db from OSS")
+        tool.run("db", "update", "-vv")
+
+
+def _check_executable_path_override() -> Optional[str]:
+    """Check for existing grype binary via GRYPE_EXECUTABLE_PATH environment variable.
+
+    Returns:
+        str | None: Resolved path to grype binary if found and executable, None otherwise.
+    """
+    grype_path = os.getenv("GRYPE_EXECUTABLE_PATH")
+    if not grype_path:
+        return None
+
+    # Handle absolute paths explicitly for clarity
+    if os.path.isabs(grype_path):
+        if os.path.isfile(grype_path) and os.access(grype_path, os.X_OK):
+            resolved = os.path.realpath(grype_path)
+            logging.info("Using grype from GRYPE_EXECUTABLE_PATH: %s", resolved)
+            return resolved
+        logging.warning("GRYPE_EXECUTABLE_PATH not executable: %s", grype_path)
+        return None
+
+    # Search PATH for relative names
+    found = shutil.which(grype_path)
+    if found:
+        resolved = os.path.realpath(found)
+        logging.info("Using grype from PATH via GRYPE_EXECUTABLE_PATH: %s", resolved)
+        return resolved
+
+    logging.warning("GRYPE_EXECUTABLE_PATH not found on PATH: %s", grype_path)
+    return None
 
 
 @dataclass(frozen=False)
@@ -248,6 +297,75 @@ class Grype(VulnerabilityScanner):
         profile: Optional[Dict[str, str]] = None,
         **kwargs,
     ) -> "Grype":
+        """Install grype from a specified version.
+
+        If GRYPE_EXECUTABLE_PATH environment variable is set and points to an executable,
+        that binary will be used instead of building from source.
+        """
+        # Check for explicit grype binary override (opt-in only)
+        if existing_binary := _check_executable_path_override():
+            original_version = version
+            specified_db = "+import-db=" in version
+            db_identity = "oss"
+            if specified_db:
+                fields = version.split("+import-db=")
+                db_import_path = fields[1]
+                version = fields[0]
+                update_db = False
+                db_identity = get_import_checksum(db_import_path)
+
+            grype_profile = GrypeProfile(**profile) if profile else GrypeProfile()
+
+            # Create a proper working directory for external binary
+            # We can't use the binary's directory (/opt/homebrew/bin) as it's not writable
+            # Use the provided path or create a temp directory under the tool store
+            if not path:
+                from yardstick.store import tool as tool_store
+
+                tool_name = "grype"
+                if grype_profile and grype_profile.name:
+                    tool_name = f"grype[{grype_profile.name}]"
+                path = tool_store.install_base(name=tool_name)
+                path = os.path.join(path, f"external-{version}")
+
+            # Ensure path exists and create symlink (works for both explicit and generated paths)
+            os.makedirs(path, exist_ok=True)
+            symlink_path = os.path.join(path, "grype")
+            try:
+                if not os.path.exists(symlink_path):
+                    os.symlink(existing_binary, symlink_path)
+            except FileExistsError:
+                # Race condition: another process created it
+                pass
+
+            # Detect actual version from the binary
+            try:
+                version_output = subprocess.check_output(
+                    [existing_binary, "version", "-o", "json"],
+                    stderr=subprocess.DEVNULL,
+                    text=True,
+                    timeout=5,
+                )
+                version_json = json.loads(version_output)
+                detected_version = version_json.get("version", version)
+                version_detail = f"external-{detected_version}"
+            except Exception:
+                # Fallback if version detection fails or times out
+                version_detail = f"external-{version}"
+
+            tool_obj = Grype(
+                path=path,
+                db_identity=db_identity,
+                version_detail=version_detail,
+                profile=grype_profile,
+                **kwargs,
+            )
+
+            # Handle DB import/update
+            _prepare_db(tool_obj, db_import_path, update_db)
+
+            return tool_obj
+
         original_version = version
         specified_db = "+import-db=" in version
         db_identity = "oss"
@@ -304,15 +422,7 @@ class Grype(VulnerabilityScanner):
             )
 
         # always update the DB, raise exception on failure
-        if db_import_path:
-            if os.path.exists(tool_obj.db_root):
-                logging.info(f"using existing (custom) db from {tool_obj.db_root!r}")
-            else:
-                logging.info(f"importing given (custom) db from {db_import_path!r}")
-                tool_obj.run("db", "import", db_import_path)
-        elif update_db:
-            logging.debug("updating db from OSS")
-            tool_obj.run("db", "update", "-vv")
+        _prepare_db(tool_obj, db_import_path, update_db)
 
         return tool_obj
 
@@ -394,7 +504,9 @@ class Grype(VulnerabilityScanner):
         return self.run("-o", "json", i)
 
     def run(self, *args, env=None) -> str:
-        cmd = [f"{self.path}/grype", *args]
+        # self.path is always a directory containing the grype binary (or symlink to it)
+        grype_binary = os.path.join(self.path, "grype")
+        cmd = [grype_binary, *args]
         if self.profile and self.profile.config_path:
             cmd.append("-c")
             cmd.append(self.profile.config_path)
