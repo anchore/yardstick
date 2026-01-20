@@ -351,3 +351,41 @@ def test_effective_year(
 
     with patch("yardstick.utils.grype_db.normalize_to_cve", lambda _: cve_id_lookup):
         assert expected == le.effective_year(by_cve=year_from_cve_only)
+
+
+def test_match_md5_hash_with_openssl3():
+    """
+    Test that Match objects can be created without UnsupportedDigestmodError.
+
+    This validates the fix for Python 3.13 / OpenSSL 3+ compatibility where
+    MD5 is disabled by default. The Match.__post_init__ uses MD5 for generating
+    content-based IDs (not for cryptographic security), so it should use
+    usedforsecurity=False to work with strict OpenSSL configurations.
+    """
+    # Create a Match object with config - this triggers MD5 hash in __post_init__
+    match = artifact.Match(
+        vulnerability=artifact.Vulnerability(id="CVE-2019-18276"),
+        package=artifact.Package(name="bash", version="5.0-6ubuntu1.1"),
+        fullentry={"some": "data", "nested": {"key": "value"}},
+        config=artifact.ScanConfiguration(
+            image_repo="docker.io/library/ubuntu",
+            image_digest="sha256:abc123",
+            tool_name="grype",
+            tool_version="v0.50.0",
+        ),
+    )
+
+    # Verify the ID was generated (no exception raised)
+    assert match.ID is not None
+    assert isinstance(match.ID, str)
+    assert len(match.ID) == 32  # MD5 hexdigest is 32 characters
+
+    # Test with a simpler Match without config
+    simple_match = artifact.Match(
+        vulnerability=artifact.Vulnerability(id="CVE-2020-1234"),
+        package=artifact.Package(name="test-pkg", version="1.0.0"),
+    )
+
+    assert simple_match.ID is not None
+    assert isinstance(simple_match.ID, str)
+    assert len(simple_match.ID) == 32
