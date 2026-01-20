@@ -200,7 +200,6 @@ def validate(
 
 
 def setup_logging(verbosity: int):
-    # pylint: disable=redefined-outer-name, import-outside-toplevel
     import logging.config
 
     if verbosity in [0, 1, 2]:
