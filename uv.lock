@@ -387,14 +387,14 @@ wheels = [
 
 [[package]]
 name = "marshmallow"
-version = "3.25.0"
+version = "3.26.2"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "packaging" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/bd/5c/cbfa41491d6c83b36471f2a2f75602349d20a8f88afd94f83c1e68bbc298/marshmallow-3.25.0.tar.gz", hash = "sha256:5ba94a4eb68894ad6761a505eb225daf7e5cb7b4c32af62d4a45e9d42665bc31", size = 176751, upload-time = "2025-01-09T18:57:29.061Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/55/79/de6c16cc902f4fc372236926b0ce2ab7845268dcc30fb2fbb7f71b418631/marshmallow-3.26.2.tar.gz", hash = "sha256:bbe2adb5a03e6e3571b573f42527c6fe926e17467833660bebd11593ab8dfd57", size = 222095, upload-time = "2025-12-22T06:53:53.309Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/76/26/b347619b719d4c048e038929769f8f6b28c6d930149b40d950bbdde31d48/marshmallow-3.25.0-py3-none-any.whl", hash = "sha256:50894cd57c6b097a6c6ed2bf216af47d10146990a54db52d03e32edb0448c905", size = 49480, upload-time = "2025-01-09T18:57:26.066Z" },
+    { url = "https://files.pythonhosted.org/packages/be/2f/5108cb3ee4ba6501748c4908b908e55f42a5b66245b4cfe0c99326e1ef6e/marshmallow-3.26.2-py3-none-any.whl", hash = "sha256:013fa8a3c4c276c24d26d84ce934dc964e2aa794345a0f8c7e5a7191482c8a73", size = 50964, upload-time = "2025-12-22T06:53:51.801Z" },
 ]
 
 [[package]]
@@ -1128,7 +1128,7 @@ dev = [
     { name = "autoflake", specifier = ">=2.3,<3.0" },
     { name = "hatch-vcs", specifier = ">=0.4.0" },
     { name = "hatchling", specifier = ">=1.27.0" },
-    { name = "isort", specifier = ">=5.13.2,<6.0.0" },
+    { name = "isort", specifier = ">=5.13.2,<8.0.0" },
     { name = "mypy", specifier = ">=1.13,<2.0" },
     { name = "pre-commit", specifier = ">=4.0.1,<5.0.0" },
     { name = "pylint", specifier = ">=3.3.2,<4.0.0" },
