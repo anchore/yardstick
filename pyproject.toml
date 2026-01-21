@@ -144,7 +144,7 @@ select = [
 [dependency-groups]
 dev = [
     "pytest-mock<4.0.0,>=3.14.0",
-    "pytest<9.0.0,>=8.3.4",
+    "pytest>=8.3.4,<10.0.0",
     "pre-commit<5.0.0,>=4.0.1",
     "mypy<2.0,>=1.13",
     "isort>=5.13.2,<8.0.0",
