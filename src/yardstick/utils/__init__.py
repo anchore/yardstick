@@ -12,9 +12,8 @@ def parse_local_path(version: str) -> str | None:
     """Extract the local filesystem path from a version string.
 
     Supports two formats:
-    - path:/some/path -> /some/path
-    - file:///some/path -> /some/path
-    - file://some/relative/path -> some/relative/path
+    - path:<path> (e.g., path:/some/path -> /some/path)
+    - file:// URI (e.g., file:///some/path -> /some/path)
 
     Returns None if the version string doesn't start with a local path prefix.
     """
