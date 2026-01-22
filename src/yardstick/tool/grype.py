@@ -250,7 +250,7 @@ class Grype(VulnerabilityScanner):
             binpath=dest_path,
         )
 
-        return Grype(path=dest_path, **kwargs)
+        return Grype(path=dest_path, version_detail=build_version, **kwargs)
 
     @staticmethod
     def _run_go_build(
@@ -406,7 +406,6 @@ class Grype(VulnerabilityScanner):
             tool_obj = cls._install_from_path(
                 path=path,
                 src_path=local_path,
-                version=local_path,
                 use_cache=use_cache,
                 db_identity=db_identity,
                 profile=grype_profile,

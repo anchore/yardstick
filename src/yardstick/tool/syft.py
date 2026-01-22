@@ -176,7 +176,7 @@ class Syft(SBOMGenerator):
             binpath=dest_path,
         )
 
-        return Syft(path=dest_path)
+        return Syft(path=dest_path, version_detail=build_version)
 
     @staticmethod
     def _run_go_build(
@@ -238,9 +238,10 @@ class Syft(SBOMGenerator):
                 **kwargs,
             )
         elif is_local_path_version(version):
+            local_path = parse_local_path(version)
             tool_obj = cls._install_from_path(
                 path=path,
-                src_path=parse_local_path(version),
+                src_path=local_path,
             )
         else:
             tool_obj = cls._install_from_git(
