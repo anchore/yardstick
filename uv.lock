@@ -1101,7 +1101,7 @@ dev = [
     { name = "pre-commit", specifier = ">=4.0.1,<5.0.0" },
     { name = "pytest", specifier = ">=8.3.4,<10.0.0" },
     { name = "pytest-clarity", specifier = ">=1.0.1,<2.0.0" },
-    { name = "pytest-cov", specifier = ">=6.0.0,<7.0.0" },
+    { name = "pytest-cov", specifier = ">=6.0.0,<8.0.0" },
     { name = "pytest-mock", specifier = ">=3.14.0,<4.0.0" },
     { name = "pytest-picked", specifier = ">=0.5.0,<1.0.0" },
     { name = "pytest-sugar", specifier = ">=1.0.0,<2.0.0" },

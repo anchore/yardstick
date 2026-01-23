@@ -8,13 +8,13 @@ result-sets:
         - docker.io/anchore/test_images:java-56d52bc@sha256:10008791acbc5866de04108746a02a0c4029ce3a4400a9b3dad45d7f2245f9da
       tools:
         - name: syft
-          version: v0.54.0
+          version: v1.40.1
           produces: SBOM
           refresh: False
 
         - name: grype
-          version: v0.27.0
+          version: v0.87.0
 
         - name: grype
-          version: v0.72.0+import-db=db.tar.gz
+          version: v0.92.0+import-db=db.tar.zst
           takes: SBOM

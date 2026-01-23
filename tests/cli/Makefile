@@ -1,7 +1,5 @@
-ACTIVATE_VENV = . venv/bin/activate &&
-
-TEST_DB_URL = https://toolbox-data.anchore.io/grype/databases/vulnerability-db_v5_2023-10-25T01:27:28Z_fd5a911f9285633c57e3.tar.gz
-TEST_DB = db.tar.gz
+TEST_DB_URL = https://grype.anchore.io/databases/v6/vulnerability-db_v6.1.3_2026-01-23T00:32:22Z_1769149021.tar.zst
+TEST_DB = db.tar.zst
 
 # formatting variables
 BOLD := $(shell tput -T linux bold)
@@ -13,22 +11,15 @@ RESET := $(shell tput -T linux sgr0)
 TITLE := $(BOLD)$(PURPLE)
 SUCCESS := $(BOLD)$(GREEN)
 
-test: venv $(TEST_DB) ## Run CLI tests
-	$(ACTIVATE_VENV) ./run.sh
+test: $(TEST_DB) ## Run CLI tests
+	./run.sh
 
 $(TEST_DB):
 	curl -o $(TEST_DB) -SsL $(TEST_DB_URL)
 
-venv: venv/touchfile ## Create a python virtual environment
-
-venv/touchfile: ../../pyproject.toml
-	test -d venv || python3 -m venv venv
-	$(ACTIVATE_VENV) pip install -e ../../
-	touch venv/touchfile
-
 .PHONY: clean
-clean: ## Clear all existing yardstick results and delete python environment
-	rm -rf venv
+clean: ## Clear all existing yardstick results
+	rm -f $(TEST_DB)
 
 help:
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "$(BOLD)$(CYAN)%-25s$(RESET)%s\n", $$1, $$2}'

@@ -28,6 +28,9 @@ jobs:
       - name: Run unit tests
         run: make unit
 
+      - name: Run integration tests
+        run: make integration
+
       - name: Build test
         run: make build
 
