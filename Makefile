@@ -31,7 +31,7 @@ static-analysis:  ## Run all static analyses
 	$(ENV) pre-commit run -a --hook-stage push
 
 .PHONY: test
-test: unit cli  ## Run all tests
+test: unit integration cli  ## Run all tests
 
 ## Bootstrapping targets #################################
 
@@ -67,6 +67,10 @@ check-types:  ## Run type checks (mypy)
 .PHONY: unit
 unit:  ## Run unit tests
 	$(ENV) pytest --cov-report html --cov yardstick -v tests/unit/
+
+.PHONY: integration
+integration:  ## Run integration tests
+	$(ENV) pytest -v tests/integration/
 
 .PHONY: cli
 cli: ## Run CLI tests
