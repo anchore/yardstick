@@ -853,15 +853,14 @@ wheels = [
 
 [[package]]
 name = "types-pygments"
-version = "2.19.0.20250107"
+version = "2.19.0.20251121"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "types-docutils" },
-    { name = "types-setuptools" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/3c/d8/9e0ed97a3ca6143c74347bc32a2499809bc83039b115d0138e502679f4e8/types_pygments-2.19.0.20250107.tar.gz", hash = "sha256:94de72c7f09b956c518f566e056812c698272a7a03a9cd81f0065576c6bd3219", size = 18309, upload-time = "2025-01-07T02:43:48.304Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/90/3b/cd650700ce9e26b56bd1a6aa4af397bbbc1784e22a03971cb633cdb0b601/types_pygments-2.19.0.20251121.tar.gz", hash = "sha256:eef114fde2ef6265365522045eac0f8354978a566852f69e75c531f0553822b1", size = 18590, upload-time = "2025-11-21T03:03:46.623Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/ec/e2/0777eed72b5cec191168b37522fbbe831c8353fe6655c3f29a0454f73498/types_Pygments-2.19.0.20250107-py3-none-any.whl", hash = "sha256:34a555ed327f249daed18c6309e6e62770cdb8b9c321029ba7fd852d10b16f10", size = 25548, upload-time = "2025-01-07T02:43:47.12Z" },
+    { url = "https://files.pythonhosted.org/packages/99/8a/9244b21f1d60dcc62e261435d76b02f1853b4771663d7ec7d287e47a9ba9/types_pygments-2.19.0.20251121-py3-none-any.whl", hash = "sha256:cb3bfde34eb75b984c98fb733ce4f795213bd3378f855c32e75b49318371bb25", size = 25674, upload-time = "2025-11-21T03:03:45.72Z" },
 ]
 
 [[package]]
@@ -883,15 +882,6 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/0f/f3/a0663907082280664d745929205a89d41dffb29e89a50f753af7d57d0a96/types_requests-2.32.4.20260107.tar.gz", hash = "sha256:018a11ac158f801bfa84857ddec1650750e393df8a004a8a9ae2a9bec6fcb24f", size = 23165, upload-time = "2026-01-07T03:20:54.091Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/1c/12/709ea261f2bf91ef0a26a9eed20f2623227a8ed85610c1e54c5805692ecb/types_requests-2.32.4.20260107-py3-none-any.whl", hash = "sha256:b703fe72f8ce5b31ef031264fe9395cac8f46a04661a79f7ed31a80fb308730d", size = 20676, upload-time = "2026-01-07T03:20:52.929Z" },
-]
-
-[[package]]
-name = "types-setuptools"
-version = "75.6.0.20241223"
-source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/53/48/a89068ef20e3bbb559457faf0fd3c18df6df5df73b4b48ebf466974e1f54/types_setuptools-75.6.0.20241223.tar.gz", hash = "sha256:d9478a985057ed48a994c707f548e55aababa85fe1c9b212f43ab5a1fffd3211", size = 48063, upload-time = "2024-12-23T02:44:05.452Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/41/2f/051d5d23711209d4077d95c62fa8ef6119df7298635e3a929e50376219d1/types_setuptools-75.6.0.20241223-py3-none-any.whl", hash = "sha256:7cbfd3bf2944f88bbcdd321b86ddd878232a277be95d44c78a53585d78ebc2f6", size = 71377, upload-time = "2024-12-23T02:44:03.179Z" },
 ]
 
 [[package]]
@@ -1101,7 +1091,7 @@ dev = [
     { name = "pre-commit", specifier = ">=4.0.1,<5.0.0" },
     { name = "pytest", specifier = ">=8.3.4,<10.0.0" },
     { name = "pytest-clarity", specifier = ">=1.0.1,<2.0.0" },
-    { name = "pytest-cov", specifier = ">=6.0.0,<7.0.0" },
+    { name = "pytest-cov", specifier = ">=6.0.0,<8.0.0" },
     { name = "pytest-mock", specifier = ">=3.14.0,<4.0.0" },
     { name = "pytest-picked", specifier = ">=0.5.0,<1.0.0" },
     { name = "pytest-sugar", specifier = ">=1.0.0,<2.0.0" },
