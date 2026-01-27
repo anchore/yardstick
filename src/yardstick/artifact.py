@@ -310,10 +310,11 @@ class Match:
                 asdict(self.config).items(),
             )
 
-        # note on S324 usage: we are not using these IDs for crytographic purposes, only
+        # note: we are not using these IDs for crytographic purposes, only
         # for having simple content-sensitive IDs for use for match comparison.
-        match_id = hashlib.md5(  # noqa: S324
+        match_id = hashlib.md5(
             json.dumps(identifier, sort_keys=True, cls=DTEncoder).encode(),
+            usedforsecurity=False,
         ).hexdigest()
 
         object.__setattr__(self, "ID", match_id)
