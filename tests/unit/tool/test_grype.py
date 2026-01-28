@@ -90,6 +90,48 @@ def test_install_from_path():
         assert tool.path == expected_grype_path
 
 
+def test_install_from_file_uri():
+    """Test that file:// URI scheme works the same as path: prefix."""
+    with (
+        mock.patch("subprocess.check_call") as check_call,
+        mock.patch(
+            "git.Repo",
+        ) as repo,
+        mock.patch("os.path.exists") as exists,
+        mock.patch(
+            "os.makedirs",
+        ),
+        mock.patch(
+            "os.chmod",
+        ),
+        mock.patch.dict(os.environ, {}, clear=True),  # Clear env vars including GRYPE_EXECUTABLE_PATH
+    ):
+        check_call.return_value = bytes("test-output", "utf-8")
+        exists.return_value = True
+        fake_repo = mock.Mock()
+        fake_repo.git = mock.Mock()
+        fake_repo.untracked_files = []
+        git_describe_val = "v0.65.1-1-g74a7a67-dirty"
+        hash_of_git_diff = "a29864cf5600b481056b6fa30a21cdbabc15287d"[:8]
+        fake_repo.git.describe.return_value = git_describe_val
+        fake_repo.git.diff.return_value = "test-diff"  # hash is 'a29864cf5600b481056b6fa30a21cdbabc15287d'
+        repo.return_value = fake_repo
+        # Use file:// URI instead of path: prefix
+        # Note: file:///where has 3 slashes (file:// + /where), which becomes file:___where when / -> _
+        version_str = "file:///where/grype/is/cloned"
+        # The path argument is derived from version_str with / replaced by _ (done elsewhere, passed to install)
+        # file:///where/grype/is/cloned -> file:___where_grype_is_cloned
+        path_arg = ".yardstick/tools/grype/file:___where_grype_is_cloned"
+        # strip_local_path_prefix removes "file://" leaving ___where_grype_is_cloned
+        expected_grype_path = f".yardstick/tools/grype/___where_grype_is_cloned/{git_describe_val}-{hash_of_git_diff}/local_install"
+        tool = Grype.install(
+            version=version_str,
+            path=path_arg,
+            update_db=False,
+        )
+        assert tool.path == expected_grype_path
+
+
 def create_legacy_archive_with_metadata(archive_path, metadata):
     with tarfile.open(archive_path, "w:gz") as tar:
         metadata_path = os.path.join(os.path.dirname(archive_path), "metadata.json")
