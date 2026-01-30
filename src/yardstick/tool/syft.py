@@ -15,7 +15,7 @@ import git
 
 from yardstick import artifact, utils
 from yardstick.tool.sbom_generator import SBOMGenerator
-from yardstick.utils import github
+from yardstick.utils import github, is_local_path_version, parse_local_path, strip_local_path_prefix
 
 
 class Syft(SBOMGenerator):
@@ -164,7 +164,7 @@ class Syft(SBOMGenerator):
             path = tempfile.mkdtemp()
             atexit.register(shutil.rmtree, path)
         dest_path = os.path.join(
-            path.replace("path:", ""),
+            strip_local_path_prefix(path),
             build_version,
             "local_install",
         )
@@ -176,7 +176,7 @@ class Syft(SBOMGenerator):
             binpath=dest_path,
         )
 
-        return Syft(path=dest_path)
+        return Syft(path=dest_path, version_detail=build_version)
 
     @staticmethod
     def _run_go_build(
@@ -237,10 +237,11 @@ class Syft(SBOMGenerator):
                 use_cache=use_cache,
                 **kwargs,
             )
-        elif version.startswith("path:"):
+        elif is_local_path_version(version):
+            local_path = parse_local_path(version)
             tool_obj = cls._install_from_path(
                 path=path,
-                src_path=version.removeprefix("path:"),
+                src_path=local_path,
             )
         else:
             tool_obj = cls._install_from_git(
