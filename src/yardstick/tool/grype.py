@@ -20,7 +20,7 @@ import zstandard as zstd
 
 from yardstick import artifact, utils
 from yardstick.tool.vulnerability_scanner import VulnerabilityScanner
-from yardstick.utils import github
+from yardstick.utils import github, is_local_path_version, parse_local_path, strip_local_path_prefix
 
 
 def _prepare_db(tool: "Grype", db_import_path: Optional[str], update_db: bool) -> None:
@@ -237,7 +237,7 @@ class Grype(VulnerabilityScanner):
         logging.debug(f"installing grype from path={src_repo_path!r} to path={path!r}")
 
         dest_path = os.path.join(
-            path.replace("path:", ""),
+            strip_local_path_prefix(path),
             build_version,
             "local_install",
         )
@@ -250,7 +250,7 @@ class Grype(VulnerabilityScanner):
             binpath=dest_path,
         )
 
-        return Grype(path=dest_path, **kwargs)
+        return Grype(path=dest_path, version_detail=build_version, **kwargs)
 
     @staticmethod
     def _run_go_build(
@@ -401,11 +401,11 @@ class Grype(VulnerabilityScanner):
                 db_identity=db_identity,
                 **kwargs,
             )
-        elif version.startswith("path:"):
+        elif is_local_path_version(version):
+            local_path = parse_local_path(version)
             tool_obj = cls._install_from_path(
                 path=path,
-                src_path=version.removeprefix("path:"),
-                version=version.removeprefix("path:"),
+                src_path=local_path,
                 use_cache=use_cache,
                 db_identity=db_identity,
                 profile=grype_profile,
