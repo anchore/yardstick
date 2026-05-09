@@ -1,0 +1,25 @@
+# Yardstick
+
+Yardstick is a Python CLI tool for parsing and comparing vulnerability scanner results. It helps security teams and developers analyze and improve vulnerability detection tools by managing scan results and labels for true/false positives.
+
+## Key Features
+- Captures and stores vulnerability scan results from tools like Grype and Syft
+- Manages true positive/false positive labels for vulnerability matches
+- Compares scanner performance and accuracy
+- Supports result sets for batch operations across multiple images and scanner versions
+- Interactive exploration of scan results and labels
+
+## Main Components
+- Result management: capture, list, explore, import, and compare scan results
+- Label management: add, remove, and analyze vulnerability match labels
+- Configuration via .yardstick.yaml for defining result sets and tool matrices
+- CLI interface with subcommands for result and label operations
+
+## Repository
+https://github.com/anchore/yardstick
+
+## Tech Stack
+- Python 3.11+ with Click for CLI
+- PyYAML for configuration
+- Various data processing libraries (dataclasses-json, tabulate, etc.)
+- Git integration for version tracking
