@@ -20,19 +20,33 @@ runs:
   using: "composite"
   steps:
 
+    # restore-only caching pattern: PRs (and pushes to fork default branches) read existing
+    # caches but never write back. Only pushes to the upstream repo's default branch refresh
+    # them. This keeps untrusted runs from polluting or evicting trusted cache entries.
     - name: Install uv
       uses: astral-sh/setup-uv@08807647e7069bb48b6ef5acd8ec9567f424441b # v8.1.0
       with:
         enable-cache: true
+        save-cache: ${{ github.ref == format('refs/heads/{0}', github.event.repository.default_branch) && github.event.repository.fork == false }}
 
     - name: "Set up Python"
       uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6.2.0
       with:
         python-version-file: "pyproject.toml"
 
+    # tool cache: restore-only on non-default branches and forks
     - name: Restore tool cache
-      if: inputs.tools == 'true'
+      if: ${{ inputs.tools == 'true' && (github.ref != format('refs/heads/{0}', github.event.repository.default_branch) || github.event.repository.fork == true) }}
       id: tool-cache
+      uses: actions/cache/restore@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
+      with:
+        path: ${{ github.workspace }}/.tool
+        key: ${{ inputs.cache-key-prefix }}-${{ runner.os }}-tool-${{ hashFiles('.binny.yaml') }}
+
+    # tool cache: restore + save only on upstream default branch
+    - name: Restore and save tool cache
+      if: ${{ inputs.tools == 'true' && github.ref == format('refs/heads/{0}', github.event.repository.default_branch) && github.event.repository.fork == false }}
+      id: tool-cache-rw
       uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
       with:
         path: ${{ github.workspace }}/.tool
