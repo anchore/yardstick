@@ -81,14 +81,10 @@ def find_labels_for_match(  # noqa: PLR0913, PLR0912, C901
 
 
 def has_overlapping_vulnerability_id(label_entry: LabelEntry, match: Match) -> bool:
-    left_ids = {label_entry.vulnerability_id, label_entry.effective_cve}
-    right_ids = {match.vulnerability.id, match.vulnerability.cve_id}
-
-    if "" in left_ids:
-        left_ids.remove("")
-
-    if "" in right_ids:
-        right_ids.remove("")
+    # drop None and "" so a missing effective_cve on the label and a missing
+    # cve_id on the match don't intersect as a shared "token"
+    left_ids = {label_entry.vulnerability_id, label_entry.effective_cve} - {None, ""}
+    right_ids = {match.vulnerability.id, match.vulnerability.cve_id} - {None, ""}
 
     return bool(left_ids & right_ids)
 
