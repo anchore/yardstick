@@ -3,6 +3,7 @@ from yardstick import artifact
 from yardstick.label import (
     _contains_as_value,
     find_labels_for_match,
+    has_overlapping_vulnerability_id,
     merge_label_entries,
 )
 
@@ -192,6 +193,17 @@ class TestFindLabelsForMatch:
                 ),
                 ["5"],
             ),
+            # case: match on a non-CVE vuln id (e.g. GHSA) must not pull in labels
+            # for *different* non-CVE vuln ids on the same package just because
+            # both sides have no effective_cve / cve_id
+            (
+                "my/image:latest",
+                artifact.Match(
+                    vulnerability=artifact.Vulnerability(id="GHSA-xxxx-yyyy-zzzz"),
+                    package=artifact.Package(name="package", version="1.0"),
+                ),
+                [],
+            ),
         ],
     )
     def test_find_labels_for_match(
@@ -203,6 +215,44 @@ class TestFindLabelsForMatch:
     ):
         ids = [m.ID for m in find_labels_for_match(image, match, label_entries)]
         assert expected_label_ids == ids
+
+
+class TestHasOverlappingVulnerabilityID:
+    @pytest.mark.parametrize(
+        ("label_vuln_id", "label_effective_cve", "match_vuln_id", "match_cve_id", "expected"),
+        [
+            # same CVE on both sides
+            ("CVE-2020-0001", None, "CVE-2020-0001", "CVE-2020-0001", True),
+            # same GHSA on both sides (no CVEs known)
+            ("GHSA-aaaa-bbbb-cccc", None, "GHSA-aaaa-bbbb-cccc", None, True),
+            # GHSA on the label aliases to a CVE that the match also carries
+            ("GHSA-aaaa-bbbb-cccc", "CVE-2020-0001", "CVE-2020-0001", "CVE-2020-0001", True),
+            # GHSA on the match aliases to a CVE that the label also carries
+            ("CVE-2020-0001", None, "GHSA-aaaa-bbbb-cccc", "CVE-2020-0001", True),
+            # different non-CVE ids with no CVE aliases on either side must NOT overlap
+            # (regression: previously both sides carried None and set-intersected on it)
+            ("GHSA-aaaa-bbbb-cccc", None, "GHSA-xxxx-yyyy-zzzz", None, False),
+            # same guard, but with empty strings instead of None
+            ("GHSA-aaaa-bbbb-cccc", "", "GHSA-xxxx-yyyy-zzzz", "", False),
+            # completely disjoint CVE ids
+            ("CVE-2020-0001", None, "CVE-2020-0002", "CVE-2020-0002", False),
+        ],
+    )
+    def test_overlap(self, label_vuln_id, label_effective_cve, match_vuln_id, match_cve_id, expected):
+        label_entry = artifact.LabelEntry(
+            label=artifact.Label.FalsePositive,
+            vulnerability_id=label_vuln_id,
+            effective_cve=label_effective_cve,
+            package=artifact.Package(name="package", version="1.0"),
+            source="manual",
+            user="somebody",
+            ID="x",
+        )
+        match = artifact.Match(
+            vulnerability=artifact.Vulnerability(id=match_vuln_id, cve_id=match_cve_id),
+            package=artifact.Package(name="package", version="1.0"),
+        )
+        assert has_overlapping_vulnerability_id(label_entry, match) is expected
 
 
 class TestMergeLabelEntries:
