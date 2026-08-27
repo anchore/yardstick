@@ -24,7 +24,7 @@ runs:
     # caches but never write back. Only pushes to the upstream repo's default branch refresh
     # them. This keeps untrusted runs from polluting or evicting trusted cache entries.
     - name: Install uv
-      uses: astral-sh/setup-uv@ae62891fec2bb8e7d6c99fc78c9fec3a63790f8d # v10.0.0
+      uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
       with:
         enable-cache: true
         save-cache: ${{ github.ref == format('refs/heads/{0}', github.event.repository.default_branch) && github.event.repository.fork == false }}
