@@ -13,6 +13,10 @@ on:
       version:
         description: tag the latest commit on main with the given version (prefixed with v)
         required: true
+      skip-checks:
+        description: skip pre-release checks (check-gate)
+        type: boolean
+        default: false
 
 jobs:
   version-available:
@@ -23,7 +27,9 @@ jobs:
       version: ${{ github.event.inputs.version }}
 
   check-gate:
+    if: ${{ !inputs.skip-checks }}
     permissions:
+      contents: read # required for the reusable workflow to check out the repo
       checks: read # required for getting the status of specific check names
     uses: anchore/workflows/.github/workflows/check-gate.yaml@b0c30a80409130d329aaa356fd64a34d8c0b3375 # v0.7.2
     with:
@@ -34,6 +40,14 @@ jobs:
 
   tag:
     needs: [check-gate, version-available]
+    # run even when check-gate is skipped, but never when version-available
+    # failed/was skipped, nor when check-gate failed or was cancelled. note:
+    # always() disables the implicit success() gate on ALL needs, so the
+    # version-available requirement must be re-asserted explicitly here.
+    if: >-
+      ${{ always()
+          && needs.version-available.result == 'success'
+          && !contains(fromJSON('["failure", "cancelled"]'), needs.check-gate.result) }}
     runs-on: ubuntu-22.04
     permissions:
       contents: write
@@ -43,11 +57,12 @@ jobs:
           # in order to properly resolve the version from git
           fetch-depth: 0
           persist-credentials: true
+          # for pushing tags (does not inherit workflow permissions)
+          token: ${{ secrets.TAG_TOKEN }}
 
       - name: Tag release
         env:
           VERSION_INPUT: ${{ github.event.inputs.version }}
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           git config --global user.name "anchoreci"
           git config --global user.email "anchoreci@users.noreply.github.com"
