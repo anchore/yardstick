@@ -183,7 +183,11 @@ def validate(
         click.echo("Reasons for quality gate failure:")
     for gate in gates:
         for reason in gate.reasons:
-            click.echo(f"   - {reason} ({gate.input_description.image})")
+            # reasons may list the matches or labels that caused them on the lines after the summary
+            summary, *details = reason.split("\n")
+            click.echo(f"   - {summary} ({gate.input_description.image})")
+            for detail in details:
+                click.echo(detail)
 
     if failure:
         click.echo()
@@ -289,6 +293,11 @@ def show_results_for_image(input_description: GateInputDescription, gate: Gate):
         if description.tool_label and len(description.tool_label) > 0:
             label = f" ({description.tool_label}) "
         click.echo(f"    {branch} {description.id} : {description.tool}{label} against {input_description.image}")
+    click.echo(f"   delta: {gate.added_in_delta} added, {gate.removed_in_delta} removed, {len(gate.unlabeled_in_delta)} unlabeled in delta")
+    click.echo(
+        f"   labeled: {len(gate.new_false_negatives)} new FNs, {len(gate.fixed_false_negatives)} fixed FNs, "
+        f"{len(gate.new_false_positives)} new FPs, {len(gate.fixed_false_positives)} fixed FPs"
+    )
     if gate.deltas:
         click.echo(f"Deltas for {input_description.image}:")
         show_delta_commentary(gate)

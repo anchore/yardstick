@@ -168,18 +168,12 @@ def prune_represented_fns(
 
 
 def has_overlapping_vulnerability_id(tp: LabelEntry, fn: LabelEntry) -> bool:
-    left_ids = {tp.vulnerability_id, tp.effective_cve}
-    right_ids = {fn.vulnerability_id, fn.effective_cve}
+    # note: empty and missing (None) IDs must be dropped, otherwise two label entries that both lack a
+    # CVE alias would "overlap" on the shared placeholder value alone (pruning an unrelated FN).
+    left_ids = {i for i in (tp.vulnerability_id, tp.effective_cve) if i}
+    right_ids = {i for i in (fn.vulnerability_id, fn.effective_cve) if i}
 
-    if "" in left_ids:
-        left_ids.remove("")
-
-    if "" in right_ids:
-        right_ids.remove("")
-
-    result = bool(left_ids & right_ids)
-
-    return result
+    return bool(left_ids & right_ids)
 
 
 def _f1_score(tp, fp, fn):

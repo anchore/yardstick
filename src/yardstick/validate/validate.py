@@ -250,11 +250,12 @@ def validate_image(
     candidate_comparisons_by_images = {comp.config.image: comp for comp in comparisons_by_result_id.values() if comp.config.tool == candidate_tool}
     candidate_comparison = candidate_comparisons_by_images[image]
     return Gate(
-        reference_comparison=reference_comparison.summary,
-        candidate_comparison=candidate_comparison.summary,
+        reference_comparison=reference_comparison,
+        candidate_comparison=candidate_comparison,
         config=gate_config,
         input_description=results_used(image, relative_comparison.results, result_set),
         deltas=deltas,
+        relative_comparison=relative_comparison,
     )
 
 

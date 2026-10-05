@@ -8,9 +8,12 @@ from unittest import mock
 import zstandard as zstd
 import xxhash
 
+from yardstick import artifact
+from yardstick.tool import grype as grype_module
 from yardstick.tool.grype import (
     Grype,
     GrypeProfile,
+    db_location_from_descriptor,
     get_import_checksum,
     handle_legacy_archive,
     handle_zstd_archive,
@@ -190,6 +193,81 @@ def test_handle_import_url():
     url = "https://grype.anchore.io/databases/v6/vulnerability-db_v6.0.3_2025-07-23T01:30:29Z_1753244566.tar.zst?checksum=sha256%3Af09d1f0b71ebf39b53abffb3c7ecb0435576040b2dfbf6e2e35928b5b3b8c592"
     expected_checksum = "5910fbf3352d25a2"
     assert handle_zstd_archive(url) == expected_checksum
+
+
+def test_handle_zstd_archive_is_computed_once_per_process(zstd_archive):
+    archive_path, expected_checksum = zstd_archive
+    with mock.patch.object(grype_module.zstd, "ZstdDecompressor", wraps=zstd.ZstdDecompressor) as decompressor:
+        assert handle_zstd_archive(str(archive_path)) == expected_checksum
+        assert handle_zstd_archive(str(archive_path)) == expected_checksum
+    assert decompressor.call_count == 1
+
+
+def test_handle_zstd_archive_reads_sidecar(zstd_archive):
+    archive_path, expected_checksum = zstd_archive
+    assert handle_zstd_archive(str(archive_path)) == expected_checksum
+
+    sidecar = archive_path.parent / f"{archive_path.name}.xxh64"
+    entry = json.loads(sidecar.read_text())
+    stat = os.stat(archive_path)
+    assert entry == {"digest": expected_checksum, "key": [str(archive_path), stat.st_size, stat.st_mtime_ns]}
+
+    # a new process has only the sidecar to go on
+    grype_module._cached_zstd_archive_checksum.cache_clear()
+    with mock.patch.object(grype_module.zstd, "ZstdDecompressor") as decompressor:
+        assert handle_zstd_archive(str(archive_path)) == expected_checksum
+    decompressor.assert_not_called()
+
+
+def test_handle_zstd_archive_sidecar_invalidated_by_mtime(zstd_archive):
+    archive_path, expected_checksum = zstd_archive
+    sidecar = archive_path.parent / f"{archive_path.name}.xxh64"
+    assert handle_zstd_archive(str(archive_path)) == expected_checksum
+
+    # record a bogus digest for the current archive, then touch the archive so the sidecar no longer applies
+    entry = json.loads(sidecar.read_text())
+    sidecar.write_text(json.dumps({**entry, "digest": "stale"}))
+    stat = os.stat(archive_path)
+    os.utime(archive_path, ns=(stat.st_atime_ns, stat.st_mtime_ns + 1_000_000_000))
+
+    grype_module._cached_zstd_archive_checksum.cache_clear()
+    assert handle_zstd_archive(str(archive_path)) == expected_checksum
+    assert json.loads(sidecar.read_text())["digest"] == expected_checksum
+
+
+def test_handle_zstd_archive_unwritable_sidecar(zstd_archive):
+    archive_path, expected_checksum = zstd_archive
+    with mock.patch.object(grype_module, "_checksum_sidecar_path", return_value=str(archive_path.parent / "missing" / "db.xxh64")):
+        assert handle_zstd_archive(str(archive_path)) == expected_checksum
+
+
+@pytest.mark.parametrize(
+    ("db_descriptor", "expected"),
+    [
+        # current grype reports the path to vulnerability.db
+        ({"status": {"path": "/cache/grype/db/6/vulnerability.db", "valid": True}}, "/cache/grype/db/6"),
+        # legacy grype reports the DB directory
+        ({"location": "/cache/grype/db/5"}, "/cache/grype/db/5"),
+        ({}, None),
+    ],
+)
+def test_db_location_from_descriptor(db_descriptor, expected):
+    assert db_location_from_descriptor(db_descriptor) == expected
+
+
+@pytest.mark.parametrize(
+    ("db_descriptor", "expected"),
+    [
+        ({"status": {"path": "/cache/grype/db/6/vulnerability.db"}}, "/cache/grype/db/6"),
+        ({"location": "/cache/grype/db/5"}, "/cache/grype/db/5"),
+    ],
+)
+def test_parse_uses_db_from_results(db_descriptor, expected):
+    output = json.dumps({"matches": [], "descriptor": {"db": db_descriptor}})
+    config = artifact.ScanConfiguration(image_repo="ubuntu", image_digest="123456", tool_name="grype", tool_version="v1.0")
+    with mock.patch("yardstick.utils.grype_db.use") as use:
+        Grype.parse(output, config)
+    use.assert_called_once_with(expected)
 
 
 @pytest.fixture

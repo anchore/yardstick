@@ -1,3 +1,4 @@
+import logging
 from unittest.mock import patch
 
 import pytest
@@ -342,3 +343,20 @@ class TestFilterByYear:
             ids = [m.vulnerability.id for m in r.matches]
             assert set(expected) == set(ids)
             assert len(expected) == len(ids)  # duplicate matches must be honored
+
+    def test_filter_by_year_logs_unknown_year_count(self, caplog):
+        cfg = art.ScanConfiguration(image_repo="ubuntu", image_digest="123456", tool_name="grype", tool_version="v1.0")
+        pkg = art.Package(name="package", version="1.0")
+        result = art.ScanResult(
+            cfg,
+            matches=[
+                art.Match(vulnerability=art.Vulnerability("CVE-2000-1"), package=pkg),
+                art.Match(vulnerability=art.Vulnerability("GHSA-52rh-5rpj-c3w6"), package=pkg),
+                art.Match(vulnerability=art.Vulnerability("GHSA-52rh-5rpj-abc7"), package=pkg),
+            ],
+        )
+
+        with patch("yardstick.utils.grype_db.normalize_to_cve", lambda _: None), caplog.at_level(logging.INFO):
+            store.scan_result.filter_by_year([result], 2000)
+
+        assert f"kept 2 matches with unknown year when filtering result={result.ID} by year=2000" in caplog.messages

@@ -630,6 +630,8 @@ class InteractiveValidateController:
 
             # Now we have the exact same comparison the gate uses!
             max_allowed_percent = failed_gate.config.max_unlabeled_percent
+            if max_allowed_percent is None:
+                return None
 
             # Calculate how many labels needed to get under the threshold
             total_matches = candidate_comparison.summary.total
