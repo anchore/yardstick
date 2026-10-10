@@ -81,14 +81,11 @@ def find_labels_for_match(  # noqa: PLR0913, PLR0912, C901
 
 
 def has_overlapping_vulnerability_id(label_entry: LabelEntry, match: Match) -> bool:
-    left_ids = {label_entry.vulnerability_id, label_entry.effective_cve}
-    right_ids = {match.vulnerability.id, match.vulnerability.cve_id}
-
-    if "" in left_ids:
-        left_ids.remove("")
-
-    if "" in right_ids:
-        right_ids.remove("")
+    # note: empty and missing (None) IDs must be dropped, otherwise two vulnerabilities that both
+    # lack a CVE alias would "overlap" on the shared placeholder value alone (e.g. a label for
+    # GHSA-A would be considered to pertain to a match for an unrelated GHSA-B).
+    left_ids = {i for i in (label_entry.vulnerability_id, label_entry.effective_cve) if i}
+    right_ids = {i for i in (match.vulnerability.id, match.vulnerability.cve_id) if i}
 
     return bool(left_ids & right_ids)
 

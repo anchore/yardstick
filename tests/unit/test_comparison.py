@@ -247,3 +247,38 @@ def test_comparison_against_labels_indeterminate():
     assert actual.summary.f1_score == 1
     assert actual.summary.f1_score_lower_confidence == 0.6666666666666666
     assert actual.summary.f1_score_upper_confidence == 1
+
+
+class TestHasOverlappingVulnerabilityID:
+    @staticmethod
+    def _label(vulnerability_id: str, effective_cve: str | None = None) -> artifact.LabelEntry:
+        return artifact.LabelEntry(
+            label=artifact.Label.TruePositive,
+            vulnerability_id=vulnerability_id,
+            effective_cve=effective_cve,
+            package=artifact.Package(name="package", version="1.0"),
+            user="somebody",
+        )
+
+    def test_shared_cve_overlaps(self):
+        assert comparison.has_overlapping_vulnerability_id(
+            self._label("GHSA-aaaa-aaaa-aaaa", "CVE-2020-0001"),
+            self._label("ELSA-2020-0001", "CVE-2020-0001"),
+        )
+
+    def test_missing_cve_aliases_do_not_overlap(self):
+        assert not comparison.has_overlapping_vulnerability_id(
+            self._label("GHSA-aaaa-aaaa-aaaa"),
+            self._label("GHSA-bbbb-bbbb-bbbb"),
+        )
+
+    def test_empty_cve_aliases_do_not_overlap(self):
+        assert not comparison.has_overlapping_vulnerability_id(
+            self._label("GHSA-aaaa-aaaa-aaaa", ""),
+            self._label("GHSA-bbbb-bbbb-bbbb", ""),
+        )
+
+    def test_alias_less_true_positive_does_not_prune_unrelated_false_negative(self):
+        tp = self._label("GHSA-aaaa-aaaa-aaaa")
+        fn = self._label("GHSA-bbbb-bbbb-bbbb")
+        assert comparison.prune_represented_fns({fn}, {tp}) == {fn}

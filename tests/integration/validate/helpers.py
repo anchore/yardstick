@@ -69,6 +69,8 @@ def create_yardstick_config(
     max_unlabeled_percent: int = 100,
     fail_on_empty_match_set: bool = True,
     max_year: int | None = None,
+    max_new_false_positives: int | None = None,
+    max_unlabeled_in_delta: int | None = None,
 ) -> dict[str, Any]:
     """
     Create a .yardstick.yaml config dict.
@@ -84,6 +86,8 @@ def create_yardstick_config(
         max_unlabeled_percent: Maximum percentage of unlabeled matches
         fail_on_empty_match_set: Whether to fail if no matches found
         max_year: Maximum CVE year filter
+        max_new_false_positives: Maximum new false positives allowed (unchecked when None)
+        max_unlabeled_in_delta: Maximum unlabeled matches that differ between tools (unchecked when None)
 
     Returns:
         Config dict suitable for YAML serialization
@@ -111,6 +115,13 @@ def create_yardstick_config(
             },
         },
     }
+
+    validation = config["result-sets"][result_set_name]["validations"][0]
+    # note: dashed keys, as consumers write them in .yardstick.yaml
+    if max_new_false_positives is not None:
+        validation["max-new-false-positives"] = max_new_false_positives
+    if max_unlabeled_in_delta is not None:
+        validation["max-unlabeled-in-delta"] = max_unlabeled_in_delta
 
     if max_year is not None:
         config["default-max-year"] = max_year
@@ -174,6 +185,8 @@ def setup_validate_test_env(
     fail_on_empty_match_set: bool = True,
     max_year: int | None = None,
     result_set_name: str = "test-result-set",
+    max_new_false_positives: int | None = None,
+    max_unlabeled_in_delta: int | None = None,
 ) -> ValidateTestEnv:
     """
     Set up a complete test environment for validate testing.
@@ -198,6 +211,8 @@ def setup_validate_test_env(
         fail_on_empty_match_set: Fail if no matches found
         max_year: CVE year filter
         result_set_name: Name for the result set
+        max_new_false_positives: Maximum new FPs threshold (unchecked when None)
+        max_unlabeled_in_delta: Maximum unlabeled matches in the delta (unchecked when None)
 
     Returns:
         ValidateTestEnv with all paths configured
@@ -269,6 +284,8 @@ def setup_validate_test_env(
         max_unlabeled_percent=max_unlabeled_percent,
         fail_on_empty_match_set=fail_on_empty_match_set,
         max_year=max_year,
+        max_new_false_positives=max_new_false_positives,
+        max_unlabeled_in_delta=max_unlabeled_in_delta,
     )
 
     save_config(env.config_path, config)

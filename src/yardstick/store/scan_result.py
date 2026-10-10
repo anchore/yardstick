@@ -281,10 +281,16 @@ def filter_by_year(
         if not r.matches:
             continue
 
+        unknown_year = 0
         for m in r.matches:
             year = m.vulnerability.effective_year(by_cve=year_from_cve_only)
 
+            if not year:
+                unknown_year += 1
+
             if not year or year <= year_max_limit:
                 results_copy[i].matches.append(m)  # type: ignore[union-attr]
+
+        logging.info(f"kept {unknown_year} matches with unknown year when filtering result={r.ID} by year={year_max_limit}")
 
     return results_copy

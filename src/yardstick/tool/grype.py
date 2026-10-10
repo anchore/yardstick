@@ -458,7 +458,7 @@ class Grype(VulnerabilityScanner):
 
         # patch the config with the db information found
         config.detail["db"] = utils.dig(obj, "descriptor", "db", default={})
-        db_location = config.detail["db"].get("location", None)  # type: ignore[union-attr]
+        db_location = db_location_from_descriptor(config.detail["db"])  # type: ignore[arg-type]
         if db_location:
             # we should always interpret results with the same DB if the DB is still there (e.g. to support
             # GHSA to CVE mapping for the latest results) if the DB is not there, we try to fall back to
@@ -529,6 +529,17 @@ class Grype(VulnerabilityScanner):
         )
 
 
+def db_location_from_descriptor(db_descriptor: Dict[str, Any]) -> Optional[str]:
+    """Return the directory containing vulnerability.db from the descriptor.db section of grype JSON output."""
+    # current grype reports the path to the DB file itself at status.path, older grype reports the DB directory at location
+    db_path = utils.dig(db_descriptor, "status", "path", default=None)
+    if db_path:
+        if os.path.basename(db_path) == "vulnerability.db":
+            return os.path.dirname(db_path)
+        return db_path
+    return db_descriptor.get("location", None)
+
+
 def get_import_checksum(db_import_path: str) -> str:
     if db_import_path.endswith(".tar.gz"):
         return handle_legacy_archive(db_import_path)
@@ -569,7 +580,48 @@ def handle_zstd_archive(archive_path: str) -> str:
         hasher.update(archive_path.encode("utf-8"))
         return hasher.hexdigest()
 
-    # otherwise, decompress the archive and calculate the checksum of vulnerability.db
+    # otherwise, the checksum of vulnerability.db is expensive to compute (the whole archive is decompressed),
+    # so cache it for as long as the archive is unchanged
+    stat = os.stat(archive_path)
+    return _cached_zstd_archive_checksum((os.path.abspath(archive_path), stat.st_size, stat.st_mtime_ns))
+
+
+@functools.cache
+def _cached_zstd_archive_checksum(key: tuple[str, int, int]) -> str:
+    archive_path = key[0]
+    digest = _read_checksum_sidecar(archive_path, key)
+    if digest:
+        return digest
+
+    digest = _hash_zstd_archive(archive_path)
+    _write_checksum_sidecar(archive_path, key, digest)
+    return digest
+
+
+def _checksum_sidecar_path(archive_path: str) -> str:
+    return f"{archive_path}.xxh64"
+
+
+def _read_checksum_sidecar(archive_path: str, key: tuple[str, int, int]) -> Optional[str]:
+    try:
+        with open(_checksum_sidecar_path(archive_path), encoding="utf-8") as f:
+            entry = json.loads(f.readline())
+        if tuple(entry["key"]) == key:
+            return entry["digest"]
+    except (OSError, ValueError, KeyError, TypeError) as e:
+        logging.debug(f"unable to use checksum sidecar for {archive_path!r}: {e}")
+    return None
+
+
+def _write_checksum_sidecar(archive_path: str, key: tuple[str, int, int], digest: str) -> None:
+    try:
+        with open(_checksum_sidecar_path(archive_path), "w", encoding="utf-8") as f:
+            f.write(json.dumps({"digest": digest, "key": list(key)}) + "\n")
+    except OSError as e:
+        logging.debug(f"unable to write checksum sidecar for {archive_path!r}: {e}")
+
+
+def _hash_zstd_archive(archive_path: str) -> str:
     with open(archive_path, "rb") as compressed_file:
         dctx = zstd.ZstdDecompressor()
         with dctx.stream_reader(compressed_file) as decompressed_stream:

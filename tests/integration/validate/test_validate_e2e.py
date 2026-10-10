@@ -1005,3 +1005,96 @@ class TestValidateEdgeCases:
         # Should pass - candidate is better (found more TPs)
         assert result.exit_code == 0, f"Expected pass, got: {result.output}"
         assert "Quality gate passed" in result.output
+
+
+class TestValidateSetDifferences:
+    """Gate checks that compare which labels and matches changed, not just how many."""
+
+    LIBC = artifact.Package(name="libc", version="2.29")
+    OPENSSL = artifact.Package(name="openssl", version="1.1.1")
+    CURL = artifact.Package(name="curl", version="7.68.0")
+    ZLIB = artifact.Package(name="zlib", version="1.2.11")
+
+    @staticmethod
+    def _match(vulnerability_id: str, package: artifact.Package) -> GrypeMatchEntry:
+        return GrypeMatchEntry(vulnerability_id=vulnerability_id, package_name=package.name, package_version=package.version)
+
+    @staticmethod
+    def _label(label: artifact.Label, vulnerability_id: str, package: artifact.Package) -> artifact.LabelEntry:
+        return create_label_entry(label=label, vulnerability_id=vulnerability_id, package=package, image=DEFAULT_IMAGE)
+
+    def _validate(self, cli_runner: CliRunner, env: ValidateTestEnv):
+        return cli_runner.invoke(cli, ["-c", env.config_path, "validate", "-r", env.result_set_name], catch_exceptions=False)
+
+    def test_swapped_false_negatives_fail(self, cli_runner: CliRunner, tmp_path):
+        """
+        The reference misses CVE-2020-0001 and finds CVE-2020-0002, the candidate does the opposite.
+        The number of false negatives is unchanged, but CVE-2020-0002 is a new false negative.
+        """
+        env = setup_validate_test_env(
+            tmp_path=str(tmp_path),
+            matches_reference=[self._match("CVE-2020-0002", self.OPENSSL)],
+            matches_candidate=[self._match("CVE-2020-0001", self.LIBC)],
+            labels=[
+                self._label(artifact.Label.TruePositive, "CVE-2020-0001", self.LIBC),
+                self._label(artifact.Label.TruePositive, "CVE-2020-0002", self.OPENSSL),
+            ],
+        )
+
+        result = self._validate(cli_runner, env)
+
+        assert result.exit_code == 1, f"Expected failure, got: {result.output}"
+        assert "1 new false negatives (max 0, 1 fixed)" in result.output
+        assert "openssl@1.1.1 CVE-2020-0002 [TruePositive]" in result.output
+        assert "labeled: 1 new FNs, 1 fixed FNs, 0 new FPs, 0 fixed FPs" in result.output
+
+    def test_new_false_positive_and_unlabeled_delta_fail(self, cli_runner: CliRunner, tmp_path):
+        """
+        The candidate adds a labeled FP and an unlabeled match; both are named in the failure output.
+        """
+        env = setup_validate_test_env(
+            tmp_path=str(tmp_path),
+            matches_reference=[self._match("CVE-2020-0001", self.LIBC)],
+            matches_candidate=[
+                self._match("CVE-2020-0001", self.LIBC),
+                self._match("CVE-2020-0003", self.CURL),
+                self._match("CVE-2020-0004", self.ZLIB),
+            ],
+            labels=[
+                self._label(artifact.Label.TruePositive, "CVE-2020-0001", self.LIBC),
+                self._label(artifact.Label.FalsePositive, "CVE-2020-0003", self.CURL),
+            ],
+            max_f1_regression=1.0,
+            max_new_false_positives=0,
+            max_unlabeled_in_delta=0,
+        )
+
+        result = self._validate(cli_runner, env)
+
+        assert result.exit_code == 1, f"Expected failure, got: {result.output}"
+        assert "delta: 2 added, 0 removed, 1 unlabeled in delta" in result.output
+        assert "1 new false positives (max 0, 0 fixed)" in result.output
+        assert "curl@7.68.0 CVE-2020-0003" in result.output
+        assert "1 unlabeled matches differ between tools (max 0)" in result.output
+        assert "zlib@1.2.11 CVE-2020-0004 (added)" in result.output
+
+    def test_unlabeled_matches_outside_delta_pass(self, cli_runner: CliRunner, tmp_path):
+        """
+        Unlabeled matches both tools report do not count against the delta bound.
+        """
+        env = setup_validate_test_env(
+            tmp_path=str(tmp_path),
+            matches_reference=[self._match("CVE-2020-0004", self.ZLIB)],
+            matches_candidate=[
+                self._match("CVE-2020-0004", self.ZLIB),
+                self._match("CVE-2020-0001", self.LIBC),
+            ],
+            labels=[self._label(artifact.Label.TruePositive, "CVE-2020-0001", self.LIBC)],
+            max_new_false_positives=0,
+            max_unlabeled_in_delta=0,
+        )
+
+        result = self._validate(cli_runner, env)
+
+        assert result.exit_code == 0, f"Expected pass, got: {result.output}"
+        assert "delta: 1 added, 0 removed, 0 unlabeled in delta" in result.output

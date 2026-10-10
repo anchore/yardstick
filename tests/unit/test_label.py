@@ -3,6 +3,7 @@ from yardstick import artifact
 from yardstick.label import (
     _contains_as_value,
     find_labels_for_match,
+    has_overlapping_vulnerability_id,
     merge_label_entries,
 )
 
@@ -54,6 +55,132 @@ class TestContainsAsValue:
     )
     def test_list_of_dicts(self, list_of_dicts, value, expected_path):
         assert expected_path == _contains_as_value(list_of_dicts, value)
+
+
+class TestHasOverlappingVulnerabilityID:
+    @staticmethod
+    def _label(vulnerability_id: str, effective_cve: str | None = None) -> artifact.LabelEntry:
+        return artifact.LabelEntry(
+            label=artifact.Label.FalsePositive,
+            vulnerability_id=vulnerability_id,
+            effective_cve=effective_cve,
+            package=artifact.Package(name="package", version="1.0"),
+            user="somebody",
+            ID="test-label",
+        )
+
+    @staticmethod
+    def _match(vulnerability_id: str, cve_id: str | None = None) -> artifact.Match:
+        return artifact.Match(
+            vulnerability=artifact.Vulnerability(id=vulnerability_id, cve_id=cve_id),
+            package=artifact.Package(name="package", version="1.0"),
+        )
+
+    @pytest.mark.parametrize(
+        ("label_id", "label_effective_cve", "match_id", "match_cve_id", "expected"),
+        [
+            # case: both sides have no CVE alias (None) and unrelated vulnerability IDs.
+            # a shared "missing alias" must never be treated as an overlap.
+            (
+                "GHSA-5j5w-g665-5m35",
+                None,
+                "GHSA-7ww5-4wqc-m92c",
+                None,
+                False,
+            ),
+            # case: both sides have no CVE alias, but the same vulnerability ID (must not regress)
+            (
+                "GHSA-5j5w-g665-5m35",
+                None,
+                "GHSA-5j5w-g665-5m35",
+                None,
+                True,
+            ),
+            # case: label keyed by CVE, match keyed by GHSA that aliases to that CVE
+            (
+                "CVE-2020-15257",
+                None,
+                "GHSA-36xw-fx78-c5r4",
+                "CVE-2020-15257",
+                True,
+            ),
+            # case: label carries an effective CVE, match is aliasless with a different ID
+            (
+                "GHSA-5j5w-g665-5m35",
+                "CVE-2020-15257",
+                "GHSA-7ww5-4wqc-m92c",
+                None,
+                False,
+            ),
+            # case: label aliasless, match carries a CVE alias, IDs differ
+            (
+                "GHSA-5j5w-g665-5m35",
+                None,
+                "GHSA-7ww5-4wqc-m92c",
+                "CVE-2020-15257",
+                False,
+            ),
+            # case: match's CVE alias overlaps the label's effective CVE
+            (
+                "GHSA-5j5w-g665-5m35",
+                "CVE-2020-15257",
+                "GHSA-36xw-fx78-c5r4",
+                "CVE-2020-15257",
+                True,
+            ),
+            # case: empty-string aliases on both sides must not be treated as an overlap
+            (
+                "GHSA-5j5w-g665-5m35",
+                "",
+                "GHSA-7ww5-4wqc-m92c",
+                "",
+                False,
+            ),
+            # case: empty string on one side, None on the other, unrelated IDs
+            (
+                "GHSA-5j5w-g665-5m35",
+                "",
+                "GHSA-7ww5-4wqc-m92c",
+                None,
+                False,
+            ),
+            # case: empty-string aliases with matching vulnerability IDs still overlap
+            (
+                "GHSA-5j5w-g665-5m35",
+                "",
+                "GHSA-5j5w-g665-5m35",
+                "",
+                True,
+            ),
+            # case: plain unrelated CVEs (control)
+            (
+                "CVE-2020-0001",
+                None,
+                "CVE-2020-0002",
+                None,
+                False,
+            ),
+        ],
+    )
+    def test_has_overlapping_vulnerability_id(
+        self,
+        label_id,
+        label_effective_cve,
+        match_id,
+        match_cve_id,
+        expected,
+    ):
+        label_entry = self._label(label_id, label_effective_cve)
+        match = self._match(match_id, match_cve_id)
+        assert expected == has_overlapping_vulnerability_id(label_entry, match)
+
+    def test_aliasless_label_does_not_attach_to_unrelated_aliasless_match(self):
+        # end-to-end guard through find_labels_for_match: a label about GHSA-A on a package
+        # must not be returned for a match about an unrelated GHSA-B on the same package.
+        label_entry = self._label("GHSA-5j5w-g665-5m35")
+        match = self._match("GHSA-7ww5-4wqc-m92c")
+
+        assert [] == find_labels_for_match(None, match, [label_entry], must_match_image=False)
 
 
 class TestFindLabelsForMatch:
