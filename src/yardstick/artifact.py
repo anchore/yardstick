@@ -14,7 +14,7 @@ from typing import Any
 
 from dataclasses_json import config, dataclass_json
 
-from yardstick.utils import grype_db, is_cve_vuln_id, parse_year_from_id
+from yardstick.utils import grype_db, is_cve_vuln_id, parse_year_from_id, same_image_digest
 
 
 def get_image_digest(image: str) -> str:
@@ -408,7 +408,7 @@ class ImageSpecifier:
         if not self.exact and not self.regex and not self.prefix and not self.suffix:
             # if the specification is empty then any image matches automatically
             return True
-        if self.exact and image == self.exact:
+        if self.exact and (image == self.exact or same_image_digest(image, self.exact)):
             return True
 
         if self.prefix and image.startswith(self.prefix):

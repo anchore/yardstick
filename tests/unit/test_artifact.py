@@ -96,6 +96,22 @@ class TestImageSpecifier:
                 "something/exact:latest",
                 True,
             ),
+            # exact matches the same digest at another registry address
+            (
+                artifact.ImageSpecifier(
+                    exact="docker.io/anchore/test_images@sha256:abc",
+                ),
+                "ghcr.io/anchore/test-images/golang@sha256:abc",
+                True,
+            ),
+            # exact does not match a different digest
+            (
+                artifact.ImageSpecifier(
+                    exact="docker.io/anchore/test_images@sha256:abc",
+                ),
+                "ghcr.io/anchore/test-images/golang@sha256:abd",
+                False,
+            ),
             # matches regex
             (
                 artifact.ImageSpecifier(
