@@ -8,6 +8,17 @@ from urllib.parse import urlparse
 import git
 
 
+def image_digest(image: str) -> str | None:
+    """The digest of a reference like registry/repo@sha256:abc, or None if it is not pinned by digest."""
+    return image.split("@", 1)[1] if "@" in image else None
+
+
+def same_image_digest(a: str, b: str) -> bool:
+    """The same digest at different registry addresses is the same image."""
+    digest = image_digest(a)
+    return digest is not None and digest == image_digest(b)
+
+
 def parse_local_path(version: str) -> str | None:
     """Extract the local filesystem path from a version string.
 

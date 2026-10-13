@@ -11,6 +11,7 @@ import omitempty  # type: ignore[import]
 from yardstick import artifact
 from yardstick.store import config as store_config
 from yardstick.store import naming
+from yardstick.utils import image_digest
 
 LABELS_DIR = "labels"
 
@@ -214,21 +215,26 @@ def load_for_image(
                 if entry.matches_image(image):
                     label_entries.append(entry)
 
+    # an image pinned by digest is looked up by digest alone, since the same image may be labeled under another registry address
+    files: set[str] = set()
     for image in images:
-        for file in set(
-            list(glob.glob(f"{root_path}/{naming.image.encode(image)}/**/*.json"))
-            + list(glob.glob(f"{root_path}/{naming.image.encode(image)}/*.json")),
-        ):
-            filename = file.removeprefix(root_path + "/")
-            loaded_label_entries = load_label_file(
-                filename,
-                year_max_limit=year_max_limit,
-                year_from_cve_only=year_from_cve_only,
-                store_root=store_root,
-            )
-            for entry in loaded_label_entries:
-                if entry.matches_image(image):
-                    label_entries.append(entry)
+        digest = image_digest(image)
+        dirname = f"*@{glob.escape(digest)}" if digest else glob.escape(naming.image.encode(image))
+        files.update(glob.glob(f"{root_path}/{dirname}/**/*.json"))
+        files.update(glob.glob(f"{root_path}/{dirname}/*.json"))
+
+    # a set of files, so images that share a digest do not load the same labels twice
+    for file in sorted(files):
+        filename = file.removeprefix(root_path + "/")
+        loaded_label_entries = load_label_file(
+            filename,
+            year_max_limit=year_max_limit,
+            year_from_cve_only=year_from_cve_only,
+            store_root=store_root,
+        )
+        for entry in loaded_label_entries:
+            if any(entry.matches_image(image) for image in images):
+                label_entries.append(entry)
 
     return label_entries
 
