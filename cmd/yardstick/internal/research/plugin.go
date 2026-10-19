@@ -9,8 +9,8 @@ import (
 	"time"
 )
 
-// InstallCommand installs the plugin the default command needs.
-const InstallCommand = "claude plugin install yardstick --marketplace anchore/yardstick"
+// InstallCommand installs the plugin the default command needs, from this repository's marketplace.
+const InstallCommand = "claude plugin marketplace add anchore/yardstick && claude plugin install yardstick@yardstick"
 
 // Availability says whether research can run here and, when it cannot, why and what to run.
 type Availability struct {
