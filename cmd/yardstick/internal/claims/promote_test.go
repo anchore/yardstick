@@ -7,8 +7,8 @@ import (
 	"testing"
 
 	"github.com/anchore/yardstick/cmd/yardstick/internal/cache"
+	claimsv1 "github.com/anchore/yardstick/cmd/yardstick/internal/claims/v1"
 	"github.com/anchore/yardstick/cmd/yardstick/internal/fixture"
-	"github.com/anchore/yardstick/cmd/yardstick/internal/labels"
 )
 
 func sbomBytes(t *testing.T, image string) []byte {
@@ -20,8 +20,8 @@ func sbomBytes(t *testing.T, image string) []byte {
 	return data
 }
 
-func seen(l labels.Label, sbom []byte) labels.Label {
-	l.SeenIn = &labels.SeenIn{SBOM: sbomDigest(sbom)}
+func seen(l claimsv1.Label, sbom []byte) claimsv1.Label {
+	l.SeenIn = &claimsv1.SeenIn{SBOM: sbomDigest(sbom)}
 	return l
 }
 
@@ -41,32 +41,32 @@ func TestPromote(t *testing.T) {
 	deb, npm := sbomBytes(t, "deb"), sbomBytes(t, "npm")
 
 	// the checkout: fp on a key, and the first image's SBOM
-	target := corpus(t, at(labels.TypeFile(dir, "deb"), label(libudv, "CVE-2020-13776", labels.FP)))
-	writeAt(t, filepath.Join(target, dir, labels.ImageSBOMFile), deb)
+	target := corpus(t, at(claimsv1.TypeFile(dir, "deb"), label(libudv, "CVE-2020-13776", claimsv1.FP)))
+	writeAt(t, filepath.Join(target, dir, claimsv1.ImageSBOMFile), deb)
 	// the local labels: tp on that key, and a label on the other image, whose SBOM only the local
 	// directory holds
 	local := corpus(t,
-		at(labels.TypeFile(dir, "deb"), seen(label(libudv, "CVE-2020-13776", labels.TP), npm)),
-		at(labels.TypeFile(otherDir, "deb"), seen(label(libudv, "CVE-2021-33910", labels.TP), npm)),
+		at(claimsv1.TypeFile(dir, "deb"), seen(label(libudv, "CVE-2020-13776", claimsv1.TP), npm)),
+		at(claimsv1.TypeFile(otherDir, "deb"), seen(label(libudv, "CVE-2021-33910", claimsv1.TP), npm)),
 	)
-	writeAt(t, filepath.Join(local, otherDir, labels.ImageSBOMFile), npm)
+	writeAt(t, filepath.Join(local, otherDir, claimsv1.ImageSBOMFile), npm)
 
 	out, err := Promote(local, target)
 	if err != nil {
 		t.Fatal(err)
 	}
-	f, err := labels.Parse("deb.json", must(os.ReadFile(filepath.Join(target, labels.TypeFile(dir, "deb")))))
-	if err != nil || len(f.Labels) != 1 || f.Labels[0].Verdict != labels.TP {
+	f, err := claimsv1.Parse("deb.json", must(os.ReadFile(filepath.Join(target, claimsv1.TypeFile(dir, "deb")))))
+	if err != nil || len(f.Labels) != 1 || f.Labels[0].Verdict != claimsv1.TP {
 		t.Errorf("expected the target's fp replaced by tp, got %+v %v", f, err)
 	}
-	if out.Labels != 2 || len(out.SBOMs) != 1 || out.SBOMs[0] != otherDir+"/"+labels.ImageSBOMFile {
+	if out.Labels != 2 || len(out.SBOMs) != 1 || out.SBOMs[0] != otherDir+"/"+claimsv1.ImageSBOMFile {
 		t.Errorf("expected two labels and the one SBOM the target lacked copied, got %+v", out)
 	}
-	if got := must(os.ReadFile(filepath.Join(target, otherDir, labels.ImageSBOMFile))); sbomDigest(got) != sbomDigest(npm) {
+	if got := must(os.ReadFile(filepath.Join(target, otherDir, claimsv1.ImageSBOMFile))); sbomDigest(got) != sbomDigest(npm) {
 		t.Error("expected the copied SBOM's bytes")
 	}
 	// the target held the first image's SBOM already; promote leaves it
-	if got := must(os.ReadFile(filepath.Join(target, dir, labels.ImageSBOMFile))); sbomDigest(got) != sbomDigest(deb) {
+	if got := must(os.ReadFile(filepath.Join(target, dir, claimsv1.ImageSBOMFile))); sbomDigest(got) != sbomDigest(deb) {
 		t.Error("promote replaced an SBOM the target held")
 	}
 }
@@ -77,11 +77,11 @@ func TestPromoteFromTheCache(t *testing.T) {
 	// a run read the SBOM from a claims source: the cache keeps it by digest
 	writeAt(t, cache.Dir("sboms-read", strings.ReplaceAll(sbomDigest(npm), ":", "-")+".syft.json"), npm)
 	target := corpus(t)
-	local := corpus(t, at(labels.TypeFile(otherDir, "deb"), seen(label(libudv, "CVE-2021-33910", labels.TP), npm)))
+	local := corpus(t, at(claimsv1.TypeFile(otherDir, "deb"), seen(label(libudv, "CVE-2021-33910", claimsv1.TP), npm)))
 	if _, err := Promote(local, target); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := os.Stat(filepath.Join(target, otherDir, labels.ImageSBOMFile)); err != nil {
+	if _, err := os.Stat(filepath.Join(target, otherDir, claimsv1.ImageSBOMFile)); err != nil {
 		t.Errorf("expected the SBOM copied from the cache: %v", err)
 	}
 }
@@ -95,11 +95,11 @@ func TestPromoteRefuses(t *testing.T) {
 		want  string
 	}{
 		{"an SBOM missing from both", func(t *testing.T) string {
-			return corpus(t, at(labels.TypeFile(otherDir, "deb"), seen(label(libudv, "CVE-2021-33910", labels.TP), npm)))
+			return corpus(t, at(claimsv1.TypeFile(otherDir, "deb"), seen(label(libudv, "CVE-2021-33910", claimsv1.TP), npm)))
 		}, sbomDigest(npm)},
 		{"an invalid label", func(t *testing.T) string {
-			src := corpus(t, at(labels.TypeFile(otherDir, "deb"), label(libudv, "CVE-2021-33910", labels.TP)))
-			p := filepath.Join(src, labels.TypeFile(otherDir, "deb"))
+			src := corpus(t, at(claimsv1.TypeFile(otherDir, "deb"), label(libudv, "CVE-2021-33910", claimsv1.TP)))
+			p := filepath.Join(src, claimsv1.TypeFile(otherDir, "deb"))
 			// an fp with no justification, as a hand edit leaves it
 			edited := strings.Replace(string(must(os.ReadFile(p))), `"verdict": "tp",`, `"verdict": "fp",`, 1)
 			edited = strings.Replace(edited, `"justification": "fix-newer",`, "", 1)
@@ -108,14 +108,14 @@ func TestPromoteRefuses(t *testing.T) {
 		}, "fp needs a justification"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			target := corpus(t, at(labels.TypeFile(dir, "deb"), label(libudv, "CVE-2020-13776", labels.FP)))
-			before := must(os.ReadFile(filepath.Join(target, labels.TypeFile(dir, "deb"))))
+			target := corpus(t, at(claimsv1.TypeFile(dir, "deb"), label(libudv, "CVE-2020-13776", claimsv1.FP)))
+			before := must(os.ReadFile(filepath.Join(target, claimsv1.TypeFile(dir, "deb"))))
 			_, err := Promote(tc.local(t), target)
 			if err == nil || !strings.Contains(err.Error(), tc.want) || !strings.Contains(err.Error(), "CVE-2021-33910") {
 				t.Errorf("expected a refusal naming the label and %q, got %v", tc.want, err)
 			}
 			entries, _ := os.ReadDir(target)
-			if after := must(os.ReadFile(filepath.Join(target, labels.TypeFile(dir, "deb")))); string(after) != string(before) || len(entries) != 2 {
+			if after := must(os.ReadFile(filepath.Join(target, claimsv1.TypeFile(dir, "deb")))); string(after) != string(before) || len(entries) != 2 {
 				t.Errorf("expected nothing written, got %v", entries)
 			}
 		})
@@ -146,8 +146,8 @@ func TestPromoteStaysInsideTheTarget(t *testing.T) {
 	if err := os.Symlink(outside, link); err != nil {
 		t.Fatal(err)
 	}
-	local := corpus(t, at(labels.TypeFile(otherDir, "deb"), seen(label(libudv, "CVE-2021-33910", labels.TP), npm)))
-	writeAt(t, filepath.Join(local, otherDir, labels.ImageSBOMFile), npm)
+	local := corpus(t, at(claimsv1.TypeFile(otherDir, "deb"), seen(label(libudv, "CVE-2021-33910", claimsv1.TP), npm)))
+	writeAt(t, filepath.Join(local, otherDir, claimsv1.ImageSBOMFile), npm)
 	if _, err := Promote(local, target); err == nil {
 		t.Error("expected promote through a symlinked subject directory refused")
 	}

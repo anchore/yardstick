@@ -1,19 +1,33 @@
-// Package labels is the claims corpus's file format: one JSON file per subject and package type,
+// Package v1 is version 1 of the claims corpus format: one JSON file per subject and package type,
 // each label one person's call (tp, fp or unclear) on one vulnerability on one package, carrying
 // the evidence it rests on. yardstick owns the format; the corpus owns the vocabulary.
-package labels
+//
+// the v1 here is the format's MODEL and nothing else. A breaking change to yardstick leaves it
+// alone, and a v2 format lands beside this package rather than in it.
+package v1
 
 import (
 	"bytes"
 	"encoding/json"
 	"fmt"
 	"sort"
-	"strings"
+
+	"github.com/Masterminds/semver/v3"
 )
 
-// Major is the label format major this yardstick reads and writes. It is not yardstick's
-// version: a new optional field or vocabulary value is not a bump; a change to what a label
-// means or how it pairs is.
+// Version is the label file format this package writes, as SchemaVer MODEL.REVISION.ADDITION
+// (the same scheme syft's JSON schema follows). It is not yardstick's version.
+//
+//   - ADDITION: a change every existing file still satisfies, like a new optional field
+//   - REVISION: a change some existing files may not satisfy
+//   - MODEL: a change no existing file satisfies, such as what a label means or how it pairs
+//
+// a MODEL bump is a new package beside this one, not an edit to it. A new vocabulary value is
+// no bump at all, since the vocabulary is the corpus's data.
+const Version = "1.0.0"
+
+// Major is Version's MODEL as the corpus names it: the format in its publish.yaml, and the
+// claims/latest-<major>.json pointer a remote source reads.
 const Major = "v1"
 
 // Verdict is a call on a match.
@@ -234,14 +248,26 @@ func Marshal(f *File) ([]byte, error) {
 	return buf.Bytes(), nil
 }
 
-// MajorOf is a schema value's major: v1 for v1 and v1.2.
+// MajorOf is a schema value's MODEL as Major spells it, v1 for 1.0.0 and 1.2.0, or "" for a
+// value that is not a version.
 func MajorOf(schema string) string {
-	major, _, _ := strings.Cut(schema, ".")
-	return major
+	v, err := semver.StrictNewVersion(schema)
+	if err != nil {
+		return ""
+	}
+	return fmt.Sprintf("v%d", v.Major())
 }
 
-// Parse reads a label file, refusing a format major this yardstick does not read before
-// anything else about it is trusted. name is used in errors.
+// newer reports whether schema is a later version than Version. Both are the same MODEL.
+func newer(schema string) bool {
+	v, err := semver.StrictNewVersion(schema)
+	return err == nil && v.GreaterThan(semver.MustParse(Version))
+}
+
+// Parse reads a label file, refusing a format MODEL this yardstick does not read before
+// anything else about it is trusted. Unlike syft, a later REVISION or ADDITION of the same MODEL
+// is read: the corpus moves ahead of yardstick releases, and unknown fields are kept. name is
+// used in errors.
 func Parse(name string, data []byte) (*File, error) {
 	var head struct {
 		Schema string `json:"schema"`
@@ -250,7 +276,7 @@ func Parse(name string, data []byte) (*File, error) {
 		return nil, fmt.Errorf("%s: %w", name, err)
 	}
 	if MajorOf(head.Schema) != Major {
-		return nil, fmt.Errorf("%s: label format %q; this yardstick reads %s, so a newer yardstick is needed", name, head.Schema, Major)
+		return nil, fmt.Errorf("%s: label format %q; this yardstick reads %s (%s), so another yardstick is needed", name, head.Schema, Major, Version)
 	}
 	var f File
 	if err := json.Unmarshal(data, &f); err != nil {

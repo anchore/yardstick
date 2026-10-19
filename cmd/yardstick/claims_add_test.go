@@ -8,8 +8,8 @@ import (
 	"strings"
 	"testing"
 
+	claimsv1 "github.com/anchore/yardstick/cmd/yardstick/internal/claims/v1"
 	"github.com/anchore/yardstick/cmd/yardstick/internal/fixture"
-	"github.com/anchore/yardstick/cmd/yardstick/internal/labels"
 	"github.com/anchore/yardstick/cmd/yardstick/internal/ref"
 	"github.com/anchore/yardstick/cmd/yardstick/internal/runrecord"
 )
@@ -56,7 +56,7 @@ checks: [{name: unlabeledPercentAtMost, params: {max: 100}}]
 
 	// it lands in the last source, the subject's deb.json, with seenIn from the scan
 	r, _ := ref.Parse(debImage)
-	f := labelFile(t, filepath.Join(w.dir, "local", labels.ImageDir(r), "deb.json"))
+	f := labelFile(t, filepath.Join(w.dir, "local", claimsv1.ImageDir(r), "deb.json"))
 	t.Chdir(w.dir)
 	rec, err := runrecord.Load(runrecord.DefaultName, "deb")
 	if err != nil {
@@ -64,23 +64,23 @@ checks: [{name: unlabeledPercentAtMost, params: {max: 100}}]
 	}
 	// only the reference reported the tar match, so seenIn names the reference's grype
 	seen := f.Labels[0].SeenIn
-	if seen == nil || seen.SBOM != rec.Subjects[0].UnfilteredDigest || seen.Tool(labels.ToolSyft) != "1.54.1" || seen.Tool(labels.ToolGrype) != whole {
+	if seen == nil || seen.SBOM != rec.Subjects[0].UnfilteredDigest || seen.Tool(claimsv1.ToolSyft) != "1.54.1" || seen.Tool(claimsv1.ToolGrype) != whole {
 		t.Errorf("expected seenIn from the scan, with the reference's grype, got %+v", seen)
 	}
 	// a match both setups report names the candidate's
 	if _, stderr, code := add("--subject", "deb", "--package", libc, "--vulnerability", "CVE-2026-5450", "--verdict", "tp"); code != 0 {
 		t.Fatalf("expected the label written, got %d: %s", code, stderr)
 	}
-	both, err := labels.Parse("deb.json", []byte(read(t, filepath.Join(w.dir, "local", labels.ImageDir(r), "deb.json"))))
+	both, err := claimsv1.Parse("deb.json", []byte(read(t, filepath.Join(w.dir, "local", claimsv1.ImageDir(r), "deb.json"))))
 	if err != nil {
 		t.Fatal(err)
 	}
 	for _, l := range both.Labels {
-		if l.Vulnerability == "CVE-2026-5450" && l.SeenIn.Tool(labels.ToolGrype) != noTar {
+		if l.Vulnerability == "CVE-2026-5450" && l.SeenIn.Tool(claimsv1.ToolGrype) != noTar {
 			t.Errorf("expected seenIn with the candidate's grype for a match both report, got %+v", l.SeenIn)
 		}
 	}
-	if strings.Contains(read(t, filepath.Join(w.dir, "claims", labels.ImageDir(r), "deb.json")), "CVE-2005-2541") {
+	if strings.Contains(read(t, filepath.Join(w.dir, "claims", claimsv1.ImageDir(r), "deb.json")), "CVE-2005-2541") {
 		t.Error("the label was written into the gate's own claims source instead of the last one")
 	}
 
@@ -95,7 +95,7 @@ checks: [{name: unlabeledPercentAtMost, params: {max: 100}}]
 		t.Fatal(err)
 	}
 	sub := olRec.Subjects[0]
-	f = labelFile(t, filepath.Join(w.dir, "local", labels.DocumentDir(sub.UnfilteredDigest), "python.json"))
+	f = labelFile(t, filepath.Join(w.dir, "local", claimsv1.DocumentDir(sub.UnfilteredDigest), "python.json"))
 	if f.Labels[0].SeenIn.SBOM != sub.UnfilteredDigest || sub.Digest == sub.UnfilteredDigest || f.Subject.SBOM != sub.UnfilteredDigest {
 		t.Errorf("expected seenIn.sbom and the subject to be the unfiltered digest %s (scanned %s), got %+v %+v", sub.UnfilteredDigest, sub.Digest, f.Labels[0].SeenIn, f.Subject)
 	}
@@ -104,7 +104,7 @@ checks: [{name: unlabeledPercentAtMost, params: {max: 100}}]
 	if _, stderr, code := add("--subject", "deb", "--vulnerability", "CVE-2023-4911", "--verdict", "tp"); code != 0 {
 		t.Fatalf("expected an image-level label written, got %d: %s", code, stderr)
 	}
-	if _, err := os.Stat(filepath.Join(w.dir, "local", labels.ImageDir(r), labels.NoPackageFile)); err != nil {
+	if _, err := os.Stat(filepath.Join(w.dir, "local", claimsv1.ImageDir(r), claimsv1.NoPackageFile)); err != nil {
 		t.Errorf("expected image.json: %v", err)
 	}
 
@@ -115,13 +115,13 @@ checks: [{name: unlabeledPercentAtMost, params: {max: 100}}]
 	}
 }
 
-func labelFile(t *testing.T, p string) *labels.File {
+func labelFile(t *testing.T, p string) *claimsv1.File {
 	t.Helper()
 	data, err := os.ReadFile(p)
 	if err != nil {
 		t.Fatalf("expected a label file at %s: %v", p, err)
 	}
-	f, err := labels.Parse(p, data)
+	f, err := claimsv1.Parse(p, data)
 	if err != nil || len(f.Labels) != 1 {
 		t.Fatalf("expected one label in %s, got %v %v", p, f, err)
 	}
@@ -168,7 +168,7 @@ func TestClaimsAddStaysInsideTheSource(t *testing.T) {
 	// through it are refused as well
 	r, _ := ref.Parse(debImage)
 	outside := t.TempDir()
-	link := filepath.Join(w.dir, "local", filepath.FromSlash(labels.ImageDir(r)))
+	link := filepath.Join(w.dir, "local", filepath.FromSlash(claimsv1.ImageDir(r)))
 	if err := os.MkdirAll(filepath.Dir(link), 0o755); err != nil {
 		t.Fatal(err)
 	}

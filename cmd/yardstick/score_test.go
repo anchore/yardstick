@@ -9,8 +9,8 @@ import (
 	"testing"
 
 	"github.com/anchore/yardstick/cmd/yardstick/internal/analysis"
+	claimsv1 "github.com/anchore/yardstick/cmd/yardstick/internal/claims/v1"
 	"github.com/anchore/yardstick/cmd/yardstick/internal/fixture"
-	"github.com/anchore/yardstick/cmd/yardstick/internal/labels"
 	"github.com/anchore/yardstick/cmd/yardstick/internal/ref"
 	"github.com/anchore/yardstick/cmd/yardstick/internal/report"
 )
@@ -37,8 +37,8 @@ func newWorkspace(t *testing.T) *workspace {
 	w := &workspace{t: t, dir: t.TempDir(), tools: t.TempDir()}
 	r, _ := ref.Parse(debImage)
 	sbom, _ := os.ReadFile(fixture.SBOM("deb", "syft"))
-	writeFile(t, filepath.Join(w.dir, "claims", labels.ImageDir(r), labels.ImageSBOMFile), string(sbom))
-	writeFile(t, filepath.Join(w.dir, "claims", labels.VocabularyFile), vocabulary)
+	writeFile(t, filepath.Join(w.dir, "claims", claimsv1.ImageDir(r), claimsv1.ImageSBOMFile), string(sbom))
+	writeFile(t, filepath.Join(w.dir, "claims", claimsv1.VocabularyFile), vocabulary)
 	return w
 }
 
@@ -82,18 +82,18 @@ func contains(s []string, v string) bool {
 func (w *workspace) label(pkg, vuln string) {
 	w.t.Helper()
 	r, _ := ref.Parse(debImage)
-	f := labels.TypeFile(labels.ImageDir(r), "deb")
+	f := claimsv1.TypeFile(claimsv1.ImageDir(r), "deb")
 	p := filepath.Join(w.dir, "claims", filepath.FromSlash(f))
-	file := labels.File{Schema: labels.Major, Subject: &labels.Subject{Image: r.Image()}}
+	file := claimsv1.File{Schema: claimsv1.Version, Subject: &claimsv1.Subject{Image: r.Image()}}
 	if data, err := os.ReadFile(p); err == nil {
-		parsed, err := labels.Parse(f, data)
+		parsed, err := claimsv1.Parse(f, data)
 		if err != nil {
 			w.t.Fatal(err)
 		}
 		file = *parsed
 	}
-	file.Labels = append(file.Labels, labels.Label{Package: pkg, Vulnerability: vuln, Verdict: labels.TP, Author: "e2e", FirstIssued: "2026-10-14T10:00:00Z", LastUpdated: "2026-10-14T10:00:00Z"})
-	data, _ := labels.Marshal(&file)
+	file.Labels = append(file.Labels, claimsv1.Label{Package: pkg, Vulnerability: vuln, Verdict: claimsv1.TP, Author: "e2e", FirstIssued: "2026-10-14T10:00:00Z", LastUpdated: "2026-10-14T10:00:00Z"})
+	data, _ := claimsv1.Marshal(&file)
 	writeFile(w.t, p, string(data))
 }
 
@@ -220,9 +220,9 @@ func TestScoreWithOtherClaims(t *testing.T) {
 	// a labels-only source, given as --claims after the run: scored with the same scans
 	r, _ := ref.Parse(debImage)
 	demo := filepath.Join(w.dir, ".demo-claims")
-	file := labels.File{Schema: labels.Major, Subject: &labels.Subject{Image: r.Image()}, Labels: []labels.Label{{Package: tar, Vulnerability: "CVE-2005-2541", Verdict: labels.TP, Author: "e2e", FirstIssued: "2026-10-16T10:00:00Z", LastUpdated: "2026-10-16T10:00:00Z"}}}
-	out, _ := labels.Marshal(&file)
-	writeFile(t, filepath.Join(demo, filepath.FromSlash(labels.TypeFile(labels.ImageDir(r), "deb"))), string(out))
+	file := claimsv1.File{Schema: claimsv1.Version, Subject: &claimsv1.Subject{Image: r.Image()}, Labels: []claimsv1.Label{{Package: tar, Vulnerability: "CVE-2005-2541", Verdict: claimsv1.TP, Author: "e2e", FirstIssued: "2026-10-16T10:00:00Z", LastUpdated: "2026-10-16T10:00:00Z"}}}
+	out, _ := claimsv1.Marshal(&file)
+	writeFile(t, filepath.Join(demo, filepath.FromSlash(claimsv1.TypeFile(claimsv1.ImageDir(r), "deb"))), string(out))
 	t.Setenv("PATH", "")
 	stdout, stderr, code := yardstick(t, w.dir, "score", "gates/deb.yaml", "--claims", ".demo-claims", "-o", "check")
 	if code != 1 || !strings.Contains(stdout, "FAIL noNewFalseNegatives") || strings.Contains(stdout, "UNDECIDED gate deb") {
@@ -231,7 +231,7 @@ func TestScoreWithOtherClaims(t *testing.T) {
 
 	// a source ahead of the corpus holding another SBOM for the image: the scans no longer apply
 	npm, _ := os.ReadFile(fixture.SBOM("npm", "syft"))
-	writeFile(t, filepath.Join(w.dir, "other", labels.ImageDir(r), labels.ImageSBOMFile), string(npm))
+	writeFile(t, filepath.Join(w.dir, "other", claimsv1.ImageDir(r), claimsv1.ImageSBOMFile), string(npm))
 	writeFile(t, filepath.Join(w.dir, ".yardstick.yaml"), "claims: [./other, ./claims]\n")
 	stdout, _, code = yardstick(t, w.dir, "score", "gates/deb.yaml", "-o", "check")
 	if code != 0 || !strings.Contains(stdout, "UNDECIDED gate deb") || !strings.Contains(stdout, "subject deb was scanned from SBOM") || !strings.Contains(stdout, "run yardstick ") {

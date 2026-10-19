@@ -1,4 +1,4 @@
-package labels
+package v1
 
 import (
 	"bytes"
@@ -154,15 +154,21 @@ func TestLabelFileFormat(t *testing.T) {
 // format-major-check and additive-changes-tolerated: a newer major is refused naming the major
 // this yardstick reads; an unknown field and an unknown value are read, and survive a rewrite
 func TestFormatMajorAndAdditiveChanges(t *testing.T) {
-	_, err := Parse("deb.json", []byte(`{"schema": "v2", "labels": []}`))
-	if err == nil || !strings.Contains(err.Error(), `"v2"`) || !strings.Contains(err.Error(), "reads v1") || !strings.Contains(err.Error(), "newer yardstick") {
-		t.Errorf("expected v2 refused naming v1, got %v", err)
+	_, err := Parse("deb.json", []byte(`{"schema": "2.0.0", "labels": []}`))
+	if err == nil || !strings.Contains(err.Error(), `"2.0.0"`) || !strings.Contains(err.Error(), "reads v1 (1.0.0)") {
+		t.Errorf("expected 2.0.0 refused naming v1, got %v", err)
+	}
+	// the MODEL alone, as publish.yaml spells it, is not a file's version
+	if _, err := Parse("deb.json", []byte(`{"schema": "v1", "labels": []}`)); err == nil {
+		t.Error("expected a bare v1 refused")
 	}
 
 	dir := corpus(t)
 	file := filepath.Join(dir, TypeFile(debDir, "deb"))
 	newer := strings.Replace(read(t, file), `"author": "Will Murphy",`, `"author": "Will Murphy", "reviewedBy": "Alex Goodman",`, 1)
 	newer = strings.Replace(newer, `"justification": "fix-installed"`, `"justification": "binary-stripped"`, 1)
+	// a later ADDITION of the same MODEL is read, unlike syft refusing anything newer than itself
+	newer = strings.Replace(newer, `"schema": "1.0.0"`, `"schema": "1.3.0"`, 1)
 	write(t, file, newer)
 	f, err := Parse("deb.json", []byte(newer))
 	if err != nil {
@@ -184,6 +190,9 @@ func TestFormatMajorAndAdditiveChanges(t *testing.T) {
 	}
 	if !strings.Contains(read(t, file), `"reviewedBy": "Alex Goodman"`) {
 		t.Error("expected the rewrite to keep the field this yardstick does not know")
+	}
+	if !strings.Contains(read(t, file), `"schema": "1.3.0"`) {
+		t.Error("expected the rewrite to keep the newer version rather than stamp its own")
 	}
 }
 
@@ -521,7 +530,7 @@ func TestValidateCorpus(t *testing.T) {
 			edit(CatalogFile, "platform:", "config: syft.yaml\nplatform:")(t, dir)
 		}, CatalogFile, "", "config: "},
 		{"label file elsewhere", func(t *testing.T, dir string) {
-			write(t, filepath.Join(dir, "images/centos/labels.json"), `{"schema": "v1", "labels": []}`)
+			write(t, filepath.Join(dir, "images/centos/labels.json"), `{"schema": "1.0.0", "labels": []}`)
 		}, "images/centos/labels.json", "", "not a place in the corpus layout"},
 		{"labels without their SBOM", func(t *testing.T, dir string) { _ = os.Remove(filepath.Join(dir, debDir, ImageSBOMFile)) }, debDir, "", "no sbom.syft.json"},
 		{"path and subject disagree", edit(debFile, "docker.io/anchore/yardstick-fixture-deb@", "docker.io/bitnami/yardstick-fixture-deb@"), debFile, "", "subject.image docker.io/bitnami/yardstick-fixture-deb@" + debDigest + " is not docker.io/anchore/yardstick-fixture-deb"},
@@ -529,7 +538,7 @@ func TestValidateCorpus(t *testing.T) {
 			// the SBOM's manifest is another digest than the directory's: the directory's is an index
 			edit(debDir+"/"+ImageSBOMFile, `"manifestDigest":"`+debDigest, `"manifestDigest":"sha256:`+strings.Repeat("0", 64))(t, dir)
 		}, debFile, "", "subject.platform must say which platform"},
-		{"a schema v2 file", edit(debFile, `"schema": "v1"`, `"schema": "v2"`), debFile, "", "reads v1"},
+		{"a schema v2 file", edit(debFile, `"schema": "1.0.0"`, `"schema": "2.0.0"`), debFile, "", "reads v1"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -550,7 +559,7 @@ func TestValidateCorpus(t *testing.T) {
 }
 
 func TestMarshalIsStable(t *testing.T) {
-	f := &File{Schema: Major, Subject: debImage, Labels: []Label{fp(zlib, "CVE-2022-37434")}}
+	f := &File{Schema: Version, Subject: debImage, Labels: []Label{fp(zlib, "CVE-2022-37434")}}
 	a, _ := Marshal(f)
 	var round File
 	if err := json.Unmarshal(a, &round); err != nil {
@@ -638,5 +647,46 @@ func TestProblems(t *testing.T) {
 	}
 	if problems := v.CheckRules(); len(problems) > 0 {
 		t.Errorf("expected the corpus's rules consistent with its justifications, got %v", problems)
+	}
+}
+
+func TestWriteSchema(t *testing.T) {
+	dir := t.TempDir()
+	if _, wrote, err := WriteSchema(dir); err != nil || !wrote {
+		t.Fatalf("expected the schema written, got %v %v", wrote, err)
+	}
+	if _, wrote, err := WriteSchema(dir); err != nil || wrote {
+		t.Fatalf("expected an identical schema left alone, got %v %v", wrote, err)
+	}
+	write(t, filepath.Join(dir, SchemaFile), `{}`)
+	if _, _, err := WriteSchema(dir); err == nil || !strings.Contains(err.Error(), "never edited") {
+		t.Errorf("expected a different published schema refused, got %v", err)
+	}
+}
+
+// every key of the published schema says what it is, so the schema is the format's documentation
+func TestSchemaDescribesEveryKey(t *testing.T) {
+	var doc map[string]any
+	if err := json.Unmarshal(Schema, &doc); err != nil {
+		t.Fatal(err)
+	}
+	var walk func(path string, node map[string]any)
+	walk = func(path string, node map[string]any) {
+		if props, ok := node["properties"].(map[string]any); ok {
+			for name, p := range props {
+				p := p.(map[string]any)
+				if d, _ := p["description"].(string); d == "" {
+					t.Errorf("%s.%s has no description", path, name)
+				}
+				walk(path+"."+name, p)
+			}
+		}
+		if items, ok := node["items"].(map[string]any); ok {
+			walk(path+"[]", items)
+		}
+	}
+	walk("$", doc)
+	for name, def := range doc["$defs"].(map[string]any) {
+		walk("$defs."+name, def.(map[string]any))
 	}
 }

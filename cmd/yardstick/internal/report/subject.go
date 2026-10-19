@@ -9,7 +9,7 @@ import (
 	"unicode/utf8"
 
 	"github.com/anchore/yardstick/cmd/yardstick/internal/analysis"
-	"github.com/anchore/yardstick/cmd/yardstick/internal/labels"
+	claimsv1 "github.com/anchore/yardstick/cmd/yardstick/internal/claims/v1"
 )
 
 // bySubject is the subject-first layout: each gate's outcome and a line per check, then each
@@ -334,7 +334,7 @@ func subjectGrouped(g Gate, sub *Subject) ([]subjectKey, map[subjectKey][]Match)
 			sides[k.side] = len(sides)
 		}
 	}
-	rank := map[string]int{string(labels.TP): 0, string(labels.FP): 1}
+	rank := map[string]int{string(claimsv1.TP): 0, string(claimsv1.FP): 1}
 	sort.SliceStable(keys, func(i, j int) bool {
 		if sides[keys[i].side] != sides[keys[j].side] {
 			return sides[keys[i].side] < sides[keys[j].side]
@@ -462,12 +462,12 @@ func subjectPackages(ms []Match) string {
 // moves when the gate's outcome does not.
 func subjectEffect(g Gate, e *analysis.Effect) string {
 	word := map[analysis.State]string{analysis.Pass: subjectPasses, analysis.Fail: subjectFails, analysis.Undecided: "is undecided"}
-	tp, fp := e.Outcome[labels.TP], e.Outcome[labels.FP]
+	tp, fp := e.Outcome[claimsv1.TP], e.Outcome[claimsv1.FP]
 	if tp != fp {
 		return fmt.Sprintf("if any one is labeled tp the gate %s, if fp it %s", word[tp], word[fp])
 	}
 	var moves []string
-	for _, v := range []labels.Verdict{labels.TP, labels.FP} {
+	for _, v := range []claimsv1.Verdict{claimsv1.TP, claimsv1.FP} {
 		var moved []string
 		for _, c := range g.Checks {
 			if s, ok := e.States[v][c.Name]; ok && s != c.State {

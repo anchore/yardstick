@@ -9,9 +9,9 @@ import (
 
 	"github.com/anchore/grype/grype/presenter/models"
 	"github.com/anchore/yardstick/cmd/yardstick/internal/claims"
+	claimsv1 "github.com/anchore/yardstick/cmd/yardstick/internal/claims/v1"
 	"github.com/anchore/yardstick/cmd/yardstick/internal/fixture"
 	"github.com/anchore/yardstick/cmd/yardstick/internal/gatefile"
-	"github.com/anchore/yardstick/cmd/yardstick/internal/labels"
 	"github.com/anchore/yardstick/cmd/yardstick/internal/pairing"
 	"github.com/anchore/yardstick/cmd/yardstick/internal/ref"
 	"github.com/anchore/yardstick/cmd/yardstick/internal/subject"
@@ -53,8 +53,8 @@ func packagesOf(t *testing.T, image string) []subject.Package {
 
 // label is a person's call, as one claims source holds it: labels are people's data, not tool
 // output, so tests write them.
-func label(pkg, vuln string, v labels.Verdict) claims.Label {
-	l := claims.Label{Label: labels.Label{Package: pkg, Vulnerability: vuln, Verdict: v}, File: "x.json"}
+func label(pkg, vuln string, v claimsv1.Verdict) claims.Label {
+	l := claims.Label{Label: claimsv1.Label{Package: pkg, Vulnerability: vuln, Verdict: v}, File: "x.json"}
 	l.Held = []claims.SourceVerdict{{Source: "corpus", Verdict: v}}
 	return l
 }
@@ -154,7 +154,7 @@ func expectationSubject(t *testing.T, met, total int) Subject {
 	res := &pairing.Result{}
 	m := &pairing.Match{Rows: map[string][]int{pairing.Candidate: {0}}}
 	for i := range total {
-		b := &pairing.Bound{Label: label("", cand.Matches[i%len(cand.Matches)].Vulnerability.ID, labels.TP), Present: true}
+		b := &pairing.Bound{Label: label("", cand.Matches[i%len(cand.Matches)].Vulnerability.ID, claimsv1.TP), Present: true}
 		if i < met {
 			b.Matches = []*pairing.Match{m}
 		}
@@ -166,11 +166,11 @@ func expectationSubject(t *testing.T, met, total int) Subject {
 // pooled F1 cannot hide a small subject
 func TestF1PerSubject(t *testing.T) {
 	deb := pairOne(t, "deb", "deb", grype(t, "deb"), grype(t, "deb"),
-		label(ncursesBase, "CVE-2023-50495", labels.TP), label(libc, "CVE-2026-5450", labels.TP))
+		label(ncursesBase, "CVE-2023-50495", claimsv1.TP), label(libc, "CVE-2026-5450", claimsv1.TP))
 	// the candidate stops reporting log4j's CVE-2021-44228 in one jar... and in the other
 	javaCand := without(grype(t, "java"), "GHSA-jfh8-c2jp-5v3q", "log4j-core")
 	java := pairOne(t, "java", "java", javaCand, grype(t, "java"),
-		label(log4j, "CVE-2021-44228", labels.TP), label(log4j, "CVE-2021-45046", labels.TP))
+		label(log4j, "CVE-2021-44228", claimsv1.TP), label(log4j, "CVE-2021-45046", claimsv1.TP))
 	g := evaluate([]gatefile.Check{check(F1NotWorse, nil)}, deb, java)
 	c := g.Checks[0]
 	if c.State != Fail {
@@ -192,7 +192,7 @@ func TestF1PerSubject(t *testing.T) {
 
 // one versionless label pairs two matches: precision counts matches, recall counts labels
 func TestPrecisionCountsMatchesRecallCountsLabels(t *testing.T) {
-	java := pairOne(t, "java", "java", grype(t, "java"), grype(t, "java"), label(log4j, "CVE-2021-44228", labels.TP))
+	java := pairOne(t, "java", "java", grype(t, "java"), grype(t, "java"), label(log4j, "CVE-2021-44228", claimsv1.TP))
 	e := evaluator{}
 	st := e.stats(java.Result, pairing.Candidate, worstCase)
 	if st.TP != 2 || st.FP != 0 || st.Labels != 1 || st.Satisfied != 1 || st.Precision() != 1 || st.Recall() != 1 {
@@ -201,7 +201,7 @@ func TestPrecisionCountsMatchesRecallCountsLabels(t *testing.T) {
 
 	// one tp label pairs two matches, one fp label pairs one, another tp label pairs nothing
 	java = pairOne(t, "java", "java", grype(t, "java"), grype(t, "java"),
-		label(log4j, "CVE-2021-44228", labels.TP), label(log4j, "CVE-2021-45046", labels.FP), label(log4j, "CVE-2020-9999", labels.TP))
+		label(log4j, "CVE-2021-44228", claimsv1.TP), label(log4j, "CVE-2021-45046", claimsv1.FP), label(log4j, "CVE-2020-9999", claimsv1.TP))
 	st = e.stats(java.Result, pairing.Candidate, worstCase)
 	// CVE-2021-45046's fp pairs it in both jars, so precision is 2 of 4
 	if st.TP != 2 || st.FP != 2 || st.Labels != 2 || st.Satisfied != 1 {
@@ -214,11 +214,11 @@ func TestPrecisionCountsMatchesRecallCountsLabels(t *testing.T) {
 
 func TestUnlabeledMeans(t *testing.T) {
 	const ncurses = "pkg:deb/debian/ncurses-base@6.4-4"
-	disputed := label(ncurses, "CVE-2025-69720", labels.TP)
-	disputed.Held = append(disputed.Held, claims.SourceVerdict{Source: "local", Verdict: labels.FP})
+	disputed := label(ncurses, "CVE-2025-69720", claimsv1.TP)
+	disputed.Held = append(disputed.Held, claims.SourceVerdict{Source: "local", Verdict: claimsv1.FP})
 	deb := pairOne(t, "deb", "deb", grype(t, "deb"), grype(t, "deb"),
-		label(ncurses, "CVE-2023-50495", labels.Unclear), disputed,
-		label(ncurses, "CVE-2020-9999", labels.Unclear), label(libc, "CVE-2026-5450", labels.TP))
+		label(ncurses, "CVE-2023-50495", claimsv1.Unclear), disputed,
+		label(ncurses, "CVE-2020-9999", claimsv1.Unclear), label(libc, "CVE-2026-5450", claimsv1.TP))
 	st := evaluator{}.stats(deb.Result, pairing.Candidate, worstCase)
 	// the unclear-only and the disputed match count toward no tp or fp; an unclear label pairing
 	// nothing is no false negative
@@ -233,7 +233,7 @@ func TestFixVersionIsNotADelta(t *testing.T) {
 	for i := range cand.Matches {
 		cand.Matches[i].Vulnerability.Fix.Versions = []string{"99.0"}
 	}
-	deb := pairOne(t, "deb", "deb", cand, grype(t, "deb"), label(libc, "CVE-2026-5450", labels.TP))
+	deb := pairOne(t, "deb", "deb", cand, grype(t, "deb"), label(libc, "CVE-2026-5450", claimsv1.TP))
 	g := evaluate([]gatefile.Check{check(UnjudgedChangesAtMost, map[string]float64{"max": 0}), check(NoNewFalseNegatives, nil)}, deb)
 	for _, c := range g.Checks {
 		if c.State != Pass || c.Value.Worst != 0 {
@@ -261,7 +261,7 @@ func cpeOnly(t *testing.T, s Subject) *pairing.Match {
 }
 
 func TestUnlabeledDeltasAreBounded(t *testing.T) {
-	tpLabel := label("pkg:rpm/rocky/openssl-libs", "CVE-2026-45447", labels.TP)
+	tpLabel := label("pkg:rpm/rocky/openssl-libs", "CVE-2026-45447", claimsv1.TP)
 	s := cpes(t, tpLabel)
 	added := 0
 	for _, m := range s.Result.Matches {
@@ -283,13 +283,13 @@ func TestUnlabeledDeltasAreBounded(t *testing.T) {
 	}
 
 	// one unlabeled match only the reference reports: worst 1, best 0
-	ref := pairOne(t, "deb", "deb", without(grype(t, "deb"), "CVE-2026-5450", "libc6"), grype(t, "deb"), label(ncursesBase, "CVE-2023-50495", labels.TP))
+	ref := pairOne(t, "deb", "deb", without(grype(t, "deb"), "CVE-2026-5450", "libc6"), grype(t, "deb"), label(ncursesBase, "CVE-2023-50495", claimsv1.TP))
 	c := evaluate([]gatefile.Check{check(NoNewFalseNegatives, nil)}, ref).Checks[0]
 	if c.State != Undecided || c.Value.Worst != 1 || c.Value.Best != 0 {
 		t.Errorf("expected undecided with worst 1 and best 0, got %s %+v", c.State, c.Value)
 	}
 	// labeled tp, the same match fails in both cases
-	ref = pairOne(t, "deb", "deb", without(grype(t, "deb"), "CVE-2026-5450", "libc6"), grype(t, "deb"), label(libc, "CVE-2026-5450", labels.TP))
+	ref = pairOne(t, "deb", "deb", without(grype(t, "deb"), "CVE-2026-5450", "libc6"), grype(t, "deb"), label(libc, "CVE-2026-5450", claimsv1.TP))
 	c = evaluate([]gatefile.Check{check(NoNewFalseNegatives, nil)}, ref).Checks[0]
 	if c.State != Fail || c.Value.Worst != 1 || c.Value.Best != 1 || len(c.FailsOn) != 1 {
 		t.Errorf("expected a fail in both cases naming the match, got %s %+v %v", c.State, c.Value, c.FailsOn)
@@ -299,9 +299,9 @@ func TestUnlabeledDeltasAreBounded(t *testing.T) {
 func TestPerSubjectChecksTakeTheWorstSubject(t *testing.T) {
 	var subjects []Subject
 	for _, name := range []string{"a", "b", "c", "d", "e"} {
-		subjects = append(subjects, pairOne(t, name, "deb", grype(t, "deb"), grype(t, "deb"), label(libc, "CVE-2026-5450", labels.TP)))
+		subjects = append(subjects, pairOne(t, name, "deb", grype(t, "deb"), grype(t, "deb"), label(libc, "CVE-2026-5450", claimsv1.TP)))
 	}
-	subjects = append(subjects, pairOne(t, "lost", "deb", without(grype(t, "deb"), "CVE-2026-5450", "libc6"), grype(t, "deb"), label(libc, "CVE-2026-5450", labels.TP)))
+	subjects = append(subjects, pairOne(t, "lost", "deb", without(grype(t, "deb"), "CVE-2026-5450", "libc6"), grype(t, "deb"), label(libc, "CVE-2026-5450", claimsv1.TP)))
 	c := evaluate([]gatefile.Check{check(NoNewFalseNegatives, nil)}, subjects...).Checks[0]
 	failed := []string{}
 	for _, sc := range c.Subjects {
@@ -318,13 +318,13 @@ func TestNewByIdentity(t *testing.T) {
 	// the candidate loses one labeled match and gains another
 	ref := without(grype(t, "deb"), "CVE-2023-50495", "ncurses-base")
 	cand := without(grype(t, "deb"), "CVE-2026-5450", "libc6")
-	s := pairOne(t, "deb", "deb", cand, ref, label(libc, "CVE-2026-5450", labels.TP), label(ncursesBase+"@6.4-4", "CVE-2023-50495", labels.TP))
+	s := pairOne(t, "deb", "deb", cand, ref, label(libc, "CVE-2026-5450", claimsv1.TP), label(ncursesBase+"@6.4-4", "CVE-2023-50495", claimsv1.TP))
 	c := evaluate([]gatefile.Check{check(NoNewFalseNegatives, nil)}, s).Checks[0]
 	if c.Value.Best != 1 || c.Value.Worst != 1 {
 		t.Errorf("expected one new false negative, got %+v", c.Value)
 	}
 	// a false positive both setups report is not new
-	s = pairOne(t, "deb", "deb", grype(t, "deb"), grype(t, "deb"), label(libc, "CVE-2026-5450", labels.FP))
+	s = pairOne(t, "deb", "deb", grype(t, "deb"), grype(t, "deb"), label(libc, "CVE-2026-5450", claimsv1.FP))
 	if c := evaluate([]gatefile.Check{check(NoNewFalsePositives, nil)}, s).Checks[0]; c.State != Pass || c.Value.Worst != 0 {
 		t.Errorf("expected no new false positive, got %+v", c)
 	}
@@ -333,7 +333,7 @@ func TestNewByIdentity(t *testing.T) {
 func TestUnjudgedChangesCountOnlyDeltas(t *testing.T) {
 	// every match both report is unlabeled; two only the candidate reports
 	ref := without(without(grype(t, "deb"), "CVE-2026-5450", "libc6"), "CVE-2023-50495", "ncurses-base")
-	s := pairOne(t, "deb", "deb", grype(t, "deb"), ref, label(libc, "CVE-2026-5928", labels.TP))
+	s := pairOne(t, "deb", "deb", grype(t, "deb"), ref, label(libc, "CVE-2026-5928", claimsv1.TP))
 	c := evaluate([]gatefile.Check{check(UnjudgedChangesAtMost, map[string]float64{"max": 0})}, s).Checks[0]
 	if c.State != Undecided || c.Value.Worst != 2 || c.Value.Best != 0 {
 		t.Errorf("expected undecided at 2, got %s %+v", c.State, c.Value)
@@ -348,7 +348,7 @@ func TestUnlabeledPercentReadsTheCandidate(t *testing.T) {
 	for _, m := range java.Matches {
 		if m.Vulnerability.ID != "GHSA-3pxv-7cmr-fjr4" && !seen[m.Vulnerability.ID] {
 			seen[m.Vulnerability.ID] = true
-			ls = append(ls, label(log4j, m.Vulnerability.ID, labels.TP))
+			ls = append(ls, label(log4j, m.Vulnerability.ID, claimsv1.TP))
 		}
 	}
 	s := pairOne(t, "java", "java", java, nil, ls...)
@@ -366,11 +366,11 @@ func TestUnlabeledPercentReadsTheCandidate(t *testing.T) {
 
 func TestExpectations(t *testing.T) {
 	deb := pairOne(t, "deb", "deb", without(grype(t, "deb"), "CVE-2005-2541", "tar"), grype(t, "deb"),
-		label("", "CVE-2023-50495", labels.TP), // reported: met
-		label("", "CVE-2005-2541", labels.TP),  // only on tar, which the candidate dropped: unmet, and a new miss
-		label("", "CVE-2020-9999", labels.FP),  // nothing reports it: met
-		label("", "CVE-2019-0001", labels.TP),  // nothing reports it: unmet
-		label("", "CVE-2023-50495", labels.Unclear))
+		label("", "CVE-2023-50495", claimsv1.TP), // reported: met
+		label("", "CVE-2005-2541", claimsv1.TP),  // only on tar, which the candidate dropped: unmet, and a new miss
+		label("", "CVE-2020-9999", claimsv1.FP),  // nothing reports it: met
+		label("", "CVE-2019-0001", claimsv1.TP),  // nothing reports it: unmet
+		label("", "CVE-2023-50495", claimsv1.Unclear))
 	g := evaluate([]gatefile.Check{check(ExpectationsMetAtLeast, map[string]float64{"min": 2}), check(NoNewMisses, nil)}, deb)
 	met, misses := g.Checks[0], g.Checks[1]
 	if met.State != Pass || met.Message != "met 2 of 4" || len(met.Unmet) != 2 || met.Unmet[0].Subject != "deb" {
@@ -402,7 +402,7 @@ func TestLabelingEffect(t *testing.T) {
 	var ls []claims.Label
 	for _, m := range s.Result.Matches {
 		if m.In(pairing.Candidate) {
-			ls = append(ls, label(m.Package.PURL, m.Vulnerability, labels.TP))
+			ls = append(ls, label(m.Package.PURL, m.Vulnerability, claimsv1.TP))
 		}
 	}
 	s = pairOne(t, "deb", "deb", without(grype(t, "deb"), "CVE-2026-5450", "libc6"), grype(t, "deb"), ls...)
@@ -411,14 +411,14 @@ func TestLabelingEffect(t *testing.T) {
 		t.Fatalf("expected one undecided check and one effect, got %s %d", g.Checks[0].State, len(g.Effects))
 	}
 	eff := g.Effects[0]
-	if eff.States[labels.TP][NoNewFalseNegatives] != Fail || eff.States[labels.FP][NoNewFalseNegatives] != Pass ||
-		eff.Outcome[labels.TP] != Fail || eff.Outcome[labels.FP] != Pass || strings.Join(eff.Narrows, ",") != NoNewFalseNegatives {
+	if eff.States[claimsv1.TP][NoNewFalseNegatives] != Fail || eff.States[claimsv1.FP][NoNewFalseNegatives] != Pass ||
+		eff.Outcome[claimsv1.TP] != Fail || eff.Outcome[claimsv1.FP] != Pass || strings.Join(eff.Narrows, ",") != NoNewFalseNegatives {
 		t.Errorf("expected tp to fail it and fp to pass it, got %+v", eff)
 	}
 
 	// labeling a candidate-added match fp makes noNewFalsePositives fail, naming the match
 	m := cpeOnly(t, cpes(t))
-	labeled := cpes(t, label(m.Package.PURL, m.Vulnerability, labels.FP))
+	labeled := cpes(t, label(m.Package.PURL, m.Vulnerability, claimsv1.FP))
 	c := evaluate([]gatefile.Check{check(NoNewFalsePositives, nil)}, labeled).Checks[0]
 	found := false
 	for _, id := range c.FailsOn {

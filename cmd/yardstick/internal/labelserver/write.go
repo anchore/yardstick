@@ -10,7 +10,7 @@ import (
 
 	"github.com/anchore/yardstick/cmd/yardstick/internal/agentstore"
 	"github.com/anchore/yardstick/cmd/yardstick/internal/analysis"
-	"github.com/anchore/yardstick/cmd/yardstick/internal/labels"
+	claimsv1 "github.com/anchore/yardstick/cmd/yardstick/internal/claims/v1"
 	"github.com/anchore/yardstick/cmd/yardstick/internal/labelwrite"
 	"github.com/anchore/yardstick/cmd/yardstick/internal/log"
 	"github.com/anchore/yardstick/cmd/yardstick/internal/pairing"
@@ -34,12 +34,12 @@ func global(scope string) (bool, error) {
 
 // pending is a batch of labels to write in one go, and the override records they make.
 type pending struct {
-	placed    []labels.Placed
+	placed    []claimsv1.Placed
 	overrides []agentstore.Override
 }
 
 // add places a label about a row, with seenIn from the setup that reported it.
-func (p *pending) add(e *entry, r *rowRef, l labels.Label, glob bool) error {
+func (p *pending) add(e *entry, r *rowRef, l claimsv1.Label, glob bool) error {
 	sub := &e.rec.Subjects[r.si]
 	setup := pairing.Candidate
 	if !r.match.InCandidate && r.match.InReference {
@@ -111,13 +111,13 @@ func (s *Server) handleLabels(w http.ResponseWriter, req *http.Request) {
 	if !decode(w, req, &body) {
 		return
 	}
-	verdict := labels.Verdict(body.Verdict)
+	verdict := claimsv1.Verdict(body.Verdict)
 	glob, err := global(body.Scope)
 	switch {
 	case err != nil:
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
-	case !slices.Contains(labels.Verdicts, verdict):
+	case !slices.Contains(claimsv1.Verdicts, verdict):
 		http.Error(w, fmt.Sprintf("verdict must be tp, fp or unclear, got %q", body.Verdict), http.StatusBadRequest)
 		return
 	case len(body.Rows) == 0:
@@ -144,8 +144,8 @@ func (s *Server) handleLabels(w http.ResponseWriter, req *http.Request) {
 			http.Error(w, "no such row: "+id, http.StatusBadRequest)
 			return
 		}
-		l := labels.Label{Package: r.match.Package, Vulnerability: labelVulnerability(v, r), Verdict: verdict, Justification: body.Justification,
-			Author: s.opts.Author, Notes: labels.NotesOf(body.Note, s.opts.Author, ts), FirstIssued: ts, LastUpdated: ts}
+		l := claimsv1.Label{Package: r.match.Package, Vulnerability: labelVulnerability(v, r), Verdict: verdict, Justification: body.Justification,
+			Author: s.opts.Author, Notes: claimsv1.NotesOf(body.Note, s.opts.Author, ts), FirstIssued: ts, LastUpdated: ts}
 		if err := batch.add(e, r, l, glob); err != nil {
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
@@ -171,7 +171,7 @@ func (s *Server) handleLabels(w http.ResponseWriter, req *http.Request) {
 
 // overrides are the records a person's label on a row makes against the row's pending hint and
 // the causes listing it, when its verdict differs from theirs.
-func (s *Server) overrides(e *entry, v *view, r *rowRef, l labels.Label, reason *agentstore.Reason, now time.Time) []agentstore.Override {
+func (s *Server) overrides(e *entry, v *view, r *rowRef, l claimsv1.Label, reason *agentstore.Reason, now time.Time) []agentstore.Override {
 	var against []string
 	if h := v.hints[r.match.Row]; h != nil && h.Status == "pending" && h.Proposal.Verdict != l.Verdict {
 		against = append(against, h.Proposal.ID)
@@ -181,7 +181,7 @@ func (s *Server) overrides(e *entry, v *view, r *rowRef, l labels.Label, reason 
 			against = append(against, cv.ID)
 		}
 	}
-	subj, err := labelwrite.Place(&e.rec.Subjects[r.si], labels.Label{}, false)
+	subj, err := labelwrite.Place(&e.rec.Subjects[r.si], claimsv1.Label{}, false)
 	if err != nil || subj.Subject == nil {
 		return nil // the label's own placement refuses the row before this matters
 	}
@@ -302,7 +302,7 @@ func (s *Server) handleAcceptCause(w http.ResponseWriter, req *http.Request) {
 // pairing.
 func (s *Server) handlePreview(w http.ResponseWriter, req *http.Request) {
 	var body struct {
-		Labels map[string]labels.Verdict `json:"labels"`
+		Labels map[string]claimsv1.Verdict `json:"labels"`
 	}
 	if !decode(w, req, &body) {
 		return
@@ -315,11 +315,11 @@ func (s *Server) handlePreview(w http.ResponseWriter, req *http.Request) {
 		http.Error(w, fmt.Sprintf("gate %s has no result to preview: %s", e.name, v.stale), http.StatusConflict)
 		return
 	}
-	hyp := map[*pairing.Match]labels.Verdict{}
+	hyp := map[*pairing.Match]claimsv1.Verdict{}
 	for id, verdict := range body.Labels {
 		r := v.rows[id]
 		switch {
-		case verdict != labels.TP && verdict != labels.FP:
+		case verdict != claimsv1.TP && verdict != claimsv1.FP:
 			http.Error(w, fmt.Sprintf("row %s: a preview label must be tp or fp, got %q", id, verdict), http.StatusBadRequest)
 			return
 		case r == nil:

@@ -16,8 +16,8 @@ import (
 	"github.com/anchore/yardstick/cmd/yardstick/internal/agentstore"
 	"github.com/anchore/yardstick/cmd/yardstick/internal/analysis"
 	"github.com/anchore/yardstick/cmd/yardstick/internal/claims"
+	claimsv1 "github.com/anchore/yardstick/cmd/yardstick/internal/claims/v1"
 	"github.com/anchore/yardstick/cmd/yardstick/internal/gatefile"
-	"github.com/anchore/yardstick/cmd/yardstick/internal/labels"
 	"github.com/anchore/yardstick/cmd/yardstick/internal/labelwrite"
 	"github.com/anchore/yardstick/cmd/yardstick/internal/log"
 	"github.com/anchore/yardstick/cmd/yardstick/internal/pairing"
@@ -140,7 +140,7 @@ type view struct {
 	verdict report.Gate
 	stale   string // why the scans no longer apply; empty when they do
 	set     *claims.Set
-	vocab   *labels.Vocabulary
+	vocab   *claimsv1.Vocabulary
 
 	rows    map[string]*rowRef // by row id
 	effects map[string]analysis.Effect
@@ -161,7 +161,7 @@ type rowRef struct {
 }
 
 func (r *rowRef) open() bool {
-	return verdictOf(r) == unlabeled || verdictOf(r) == string(labels.Unclear)
+	return verdictOf(r) == unlabeled || verdictOf(r) == string(claimsv1.Unclear)
 }
 
 func (s *Server) view(e *entry) (*view, error) {
@@ -254,7 +254,7 @@ func (s *Server) compute(e *entry) (*view, error) {
 
 // subjectKey is how a label file names a run's subject: its image, else its SBOM's digest.
 func subjectKey(sub *runrecord.Subject) string {
-	p, err := labelwrite.Place(sub, labels.Label{}, false)
+	p, err := labelwrite.Place(sub, claimsv1.Label{}, false)
 	if err != nil || p.Subject == nil {
 		return sub.Name
 	}
@@ -288,11 +288,11 @@ type policyCheck struct {
 // namedRule is a vocabulary rule with its name, as delta's policy rule was served.
 type namedRule struct {
 	Name string `json:"rule"`
-	labels.Rule
+	claimsv1.Rule
 }
 
 // ruleOf is the first rule a call's evidence cites, from the vocabulary.
-func ruleOf(vocab *labels.Vocabulary, evidence []labels.Evidence) *namedRule {
+func ruleOf(vocab *claimsv1.Vocabulary, evidence []claimsv1.Evidence) *namedRule {
 	for _, e := range evidence {
 		if e.Rule == "" {
 			continue

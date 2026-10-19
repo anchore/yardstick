@@ -21,9 +21,9 @@ import (
 	"github.com/anchore/yardstick/cmd/yardstick/internal/bus"
 	"github.com/anchore/yardstick/cmd/yardstick/internal/cache"
 	"github.com/anchore/yardstick/cmd/yardstick/internal/claims"
+	claimsv1 "github.com/anchore/yardstick/cmd/yardstick/internal/claims/v1"
 	"github.com/anchore/yardstick/cmd/yardstick/internal/event"
 	"github.com/anchore/yardstick/cmd/yardstick/internal/gatefile"
-	"github.com/anchore/yardstick/cmd/yardstick/internal/labels"
 	"github.com/anchore/yardstick/cmd/yardstick/internal/log"
 	"github.com/anchore/yardstick/cmd/yardstick/internal/ref"
 )
@@ -172,12 +172,12 @@ func document(s gatefile.Subject) (*Resolved, error) {
 		return nil, err
 	}
 	d := digest(data)
-	return &Resolved{Subject: s, Dir: labels.DocumentDir(d), SBOM: s.Ref.Path, Digest: d, From: FromFile}, nil
+	return &Resolved{Subject: s, Dir: claimsv1.DocumentDir(d), SBOM: s.Ref.Path, Digest: d, From: FromFile}, nil
 }
 
 // image finds an image's SBOM: the first claims source holding it, the cache, then a build.
 func (r *Resolver) image(ctx context.Context, s gatefile.Subject) (*Resolved, error) {
-	res := &Resolved{Subject: s, Dir: labels.ImageDir(s.Ref)}
+	res := &Resolved{Subject: s, Dir: claimsv1.ImageDir(s.Ref)}
 	cat, err := r.effectiveCatalog()
 	if err != nil {
 		return nil, err
@@ -188,7 +188,7 @@ func (r *Resolver) image(ctx context.Context, s gatefile.Subject) (*Resolved, er
 	var held []byte
 	var heldBy *claims.Source
 	for _, src := range r.Sources {
-		data, err := src.ReadFile(path.Join(res.Dir, labels.ImageSBOMFile))
+		data, err := src.ReadFile(path.Join(res.Dir, claimsv1.ImageSBOMFile))
 		if errors.Is(err, fs.ErrNotExist) {
 			continue
 		}
@@ -253,9 +253,9 @@ func (r *Resolver) fromSource(res *Resolved, data []byte, src *claims.Source) (*
 	}
 	// the corpus SBOM is what labels pair against, so it is used; a gate pinning another syft
 	// setup is told
-	doc, err := labels.ReadSyftDocument(data)
+	doc, err := claimsv1.ReadSyftDocument(data)
 	if err != nil {
-		return nil, fmt.Errorf("%s in %s: %w", labels.ImageSBOMFile, src.Locator, err)
+		return nil, fmt.Errorf("%s in %s: %w", claimsv1.ImageSBOMFile, src.Locator, err)
 	}
 	var cfg []byte
 	if r.Catalog.Config != "" {
@@ -263,7 +263,7 @@ func (r *Resolver) fromSource(res *Resolved, data []byte, src *claims.Source) (*
 			return nil, fmt.Errorf("catalog config: %w", err)
 		}
 	}
-	drift, err := labels.DescriptorDrift(doc, r.Catalog, cfg)
+	drift, err := claimsv1.DescriptorDrift(doc, r.Catalog, cfg)
 	if err != nil {
 		return nil, err
 	}
@@ -287,7 +287,7 @@ func (r *Resolver) effectiveCatalog() (*Catalog, error) {
 		return c, nil
 	}
 	for _, src := range r.Sources {
-		data, err := src.ReadFile(labels.CatalogFile)
+		data, err := src.ReadFile(claimsv1.CatalogFile)
 		if errors.Is(err, fs.ErrNotExist) {
 			continue
 		}
@@ -300,9 +300,9 @@ func (r *Resolver) effectiveCatalog() (*Catalog, error) {
 			err = parsed.CheckData()
 		}
 		if err != nil {
-			return nil, fmt.Errorf("claims source %s: %s: %w", src.Locator, labels.CatalogFile, err)
+			return nil, fmt.Errorf("claims source %s: %s: %w", src.Locator, claimsv1.CatalogFile, err)
 		}
-		c := &Catalog{Catalog: *parsed, Origin: src.Locator + "/" + labels.CatalogFile}
+		c := &Catalog{Catalog: *parsed, Origin: src.Locator + "/" + claimsv1.CatalogFile}
 		if c.Config != "" {
 			if c.ConfigData, err = src.ReadFile(filepath.ToSlash(c.Config)); err != nil {
 				return nil, fmt.Errorf("claims source %s: catalog config: %w", src.Locator, err)

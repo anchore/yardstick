@@ -17,8 +17,8 @@ import (
 	"sync"
 	"testing"
 
+	claimsv1 "github.com/anchore/yardstick/cmd/yardstick/internal/claims/v1"
 	"github.com/anchore/yardstick/cmd/yardstick/internal/fixture"
-	"github.com/anchore/yardstick/cmd/yardstick/internal/labels"
 	"github.com/anchore/yardstick/cmd/yardstick/internal/ref"
 )
 
@@ -38,7 +38,7 @@ const debImage = "oci:docker.io/anchore/yardstick-fixture-deb@sha256:617d48dd260
 // TestCollectIntoACorpus (-tags integration)
 func TestCollectRefuses(t *testing.T) {
 	corpus := filepath.Join(t.TempDir(), "corpus")
-	writeFile(t, filepath.Join(corpus, labels.CatalogFile), "syft: syft@v1.54.1\n")
+	writeFile(t, filepath.Join(corpus, claimsv1.CatalogFile), "syft: syft@v1.54.1\n")
 	outside := filepath.Join(filepath.Dir(corpus), "outside.yaml")
 	writeFile(t, outside, "search:\n  scope: all-layers\n")
 	if err := os.Symlink(outside, filepath.Join(corpus, "linked.yaml")); err != nil {
@@ -89,8 +89,8 @@ func scanGate(t *testing.T, dir string) {
 	reference := stubTool(t, tools, "reference-grype", strings.Replace(stubGrype, "{{OUT}}", fixture.Grype("v0.119.0", "deb"), 1))
 	r, _ := ref.Parse(debImage)
 	sbom, _ := os.ReadFile(fixture.SBOM("deb", "syft"))
-	writeFile(t, filepath.Join(dir, "claims", labels.ImageDir(r), labels.ImageSBOMFile), string(sbom))
-	writeFile(t, filepath.Join(dir, "claims", labels.VocabularyFile), "justifications: {fp: {fix-installed: x}}\nfact-sources: [sbom]\nadvisory-ids: [ELSA]\nvulnerability-namespaces: [CVE, GHSA]\n")
+	writeFile(t, filepath.Join(dir, "claims", claimsv1.ImageDir(r), claimsv1.ImageSBOMFile), string(sbom))
+	writeFile(t, filepath.Join(dir, "claims", claimsv1.VocabularyFile), "justifications: {fp: {fix-installed: x}}\nfact-sources: [sbom]\nadvisory-ids: [ELSA]\nvulnerability-namespaces: [CVE, GHSA]\n")
 	writeFile(t, filepath.Join(dir, "gates/deb.yaml"), `schema: v1
 claims: [../claims]
 candidate: {grype: `+candidate+`, db: "dir:`+t.TempDir()+`"}
@@ -310,7 +310,7 @@ func TestNamedRunsStayApart(t *testing.T) {
 		t.Fatalf("expected the label written, got %d: %s", code, stderr)
 	}
 	r, _ := ref.Parse(debImage)
-	if seen := labelFile(t, filepath.Join(w.dir, "local", labels.ImageDir(r), "deb.json")).Labels[0].SeenIn; seen.Tool(labels.ToolGrype) != reference {
+	if seen := labelFile(t, filepath.Join(w.dir, "local", claimsv1.ImageDir(r), "deb.json")).Labels[0].SeenIn; seen.Tool(claimsv1.ToolGrype) != reference {
 		t.Errorf("expected seenIn from run a's reference grype, got %+v", seen)
 	}
 

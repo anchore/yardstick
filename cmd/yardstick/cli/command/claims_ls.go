@@ -17,8 +17,8 @@ import (
 	"github.com/anchore/clio"
 	"github.com/anchore/yardstick/cmd/yardstick/internal/agentstore"
 	"github.com/anchore/yardstick/cmd/yardstick/internal/claims"
+	claimsv1 "github.com/anchore/yardstick/cmd/yardstick/internal/claims/v1"
 	"github.com/anchore/yardstick/cmd/yardstick/internal/gatefile"
-	"github.com/anchore/yardstick/cmd/yardstick/internal/labels"
 	"github.com/anchore/yardstick/cmd/yardstick/internal/purl"
 )
 
@@ -77,10 +77,10 @@ func (o *claimsListOptions) AddFlags(flags clio.FlagSet) {
 
 // listedLabel is one label in a claims source, with where it is.
 type listedLabel struct {
-	Source  string          `json:"source"`
-	File    string          `json:"file"`
-	Subject *labels.Subject `json:"subject,omitempty"` // nil for a global label
-	Label   labels.Label    `json:"label"`
+	Source  string            `json:"source"`
+	File    string            `json:"file"`
+	Subject *claimsv1.Subject `json:"subject,omitempty"` // nil for a global label
+	Label   claimsv1.Label    `json:"label"`
 }
 
 func ClaimsList(app clio.Application) *cobra.Command {
@@ -140,14 +140,14 @@ func sourceLabels(src *claims.Source) ([]listedLabel, error) {
 		if err != nil || d.IsDir() {
 			return err
 		}
-		if loc, ok := labels.Locate(p); !ok || !loc.IsLabelFile() {
+		if loc, ok := claimsv1.Locate(p); !ok || !loc.IsLabelFile() {
 			return nil
 		}
 		data, err := fs.ReadFile(src.FS, p)
 		if err != nil {
 			return err
 		}
-		f, err := labels.Parse(p, data)
+		f, err := claimsv1.Parse(p, data)
 		if err != nil {
 			return fmt.Errorf("claims source %s: %w", src.Locator, err)
 		}
@@ -177,10 +177,10 @@ func (o *claimsListOptions) keeps(l listedLabel) bool {
 type override struct {
 	HintID        string               `json:"hintId"`
 	Gate          string               `json:"gate"`
-	Subject       labels.Subject       `json:"subject"`
+	Subject       claimsv1.Subject     `json:"subject"`
 	Package       string               `json:"package,omitempty"`
 	Vulnerability string               `json:"vulnerability"`
-	Verdict       labels.Verdict       `json:"verdict"` // the person's
+	Verdict       claimsv1.Verdict     `json:"verdict"` // the person's
 	Justification string               `json:"justification,omitempty"`
 	Reason        *agentstore.Reason   `json:"reason,omitempty"`
 	Note          string               `json:"note,omitempty"`
@@ -321,11 +321,11 @@ func writeOverrides(w io.Writer, groups []overrideGroup) error {
 // policyView is the labeling policy as the claims vocabulary holds it, for the skills to read
 // rather than parse markdown.
 type policyView struct {
-	Justifications map[labels.Verdict]map[string]string `json:"justifications"`
-	Rules          map[string]labels.Rule               `json:"rules"`
-	FactSources    []string                             `json:"factSources"`
-	AdvisoryIDs    []string                             `json:"advisoryIds"`
-	Namespaces     []string                             `json:"vulnerabilityNamespaces"`
+	Justifications map[claimsv1.Verdict]map[string]string `json:"justifications"`
+	Rules          map[string]claimsv1.Rule               `json:"rules"`
+	FactSources    []string                               `json:"factSources"`
+	AdvisoryIDs    []string                               `json:"advisoryIds"`
+	Namespaces     []string                               `json:"vulnerabilityNamespaces"`
 }
 
 type claimsPolicyOptions struct {
@@ -357,7 +357,7 @@ justifications allowed under each verdict, the fact sources, and the vulnerabili
 			}
 			v := set.Vocabulary()
 			if v == nil {
-				return fmt.Errorf("no claims source has a %s", labels.VocabularyFile)
+				return fmt.Errorf("no claims source has a %s", claimsv1.VocabularyFile)
 			}
 			if cfg.Output == outputJSON {
 				return writeJSON(cmd.OutOrStdout(), policyView{Justifications: v.Justifications, Rules: v.Rules, FactSources: v.FactSources, AdvisoryIDs: v.AdvisoryIDs, Namespaces: v.Namespaces})
@@ -370,7 +370,7 @@ justifications allowed under each verdict, the fact sources, and the vulnerabili
 			}
 			fmt.Fprintln(tw)
 			fmt.Fprintln(tw, "VERDICT\tJUSTIFICATION\tDESCRIPTION")
-			for _, verdict := range labels.Verdicts {
+			for _, verdict := range claimsv1.Verdicts {
 				for _, j := range v.Allowed(verdict) {
 					fmt.Fprintf(tw, "%s\t%s\t%s\n", verdict, j, v.Justifications[verdict][j])
 				}

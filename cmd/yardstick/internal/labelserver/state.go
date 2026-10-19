@@ -10,8 +10,8 @@ import (
 
 	"github.com/anchore/yardstick/cmd/yardstick/internal/agentstore"
 	"github.com/anchore/yardstick/cmd/yardstick/internal/analysis"
+	claimsv1 "github.com/anchore/yardstick/cmd/yardstick/internal/claims/v1"
 	"github.com/anchore/yardstick/cmd/yardstick/internal/gatefile"
-	"github.com/anchore/yardstick/cmd/yardstick/internal/labels"
 	"github.com/anchore/yardstick/cmd/yardstick/internal/pairing"
 	"github.com/anchore/yardstick/cmd/yardstick/internal/report"
 	"github.com/anchore/yardstick/cmd/yardstick/internal/research"
@@ -26,8 +26,8 @@ func verdictOf(r *rowRef) string {
 	switch {
 	case r.match.Verdict != "":
 		return string(r.match.Verdict)
-	case r.pm.Label != nil && r.pm.Label.Verdict == labels.Unclear && !r.pm.Label.Disagrees():
-		return string(labels.Unclear)
+	case r.pm.Label != nil && r.pm.Label.Verdict == claimsv1.Unclear && !r.pm.Label.Disagrees():
+		return string(claimsv1.Unclear)
 	}
 	return unlabeled
 }
@@ -65,10 +65,10 @@ type state struct {
 
 // vocabulary is what the UI needs of vocabulary.yaml: the justifications by verdict.
 type vocabulary struct {
-	Justifications map[labels.Verdict]map[string]string `json:"justifications"`
+	Justifications map[claimsv1.Verdict]map[string]string `json:"justifications"`
 }
 
-func vocabOf(v *labels.Vocabulary) *vocabulary {
+func vocabOf(v *claimsv1.Vocabulary) *vocabulary {
 	if v == nil {
 		return nil
 	}
@@ -122,9 +122,9 @@ func (v *view) effectOf(id string) *rowEffect {
 	if !ok {
 		return nil
 	}
-	out := &rowEffect{Bears: eff.Narrows, IfTP: outcomeEffect{eff.Outcome[labels.TP]}, IfFP: outcomeEffect{eff.Outcome[labels.FP]}}
+	out := &rowEffect{Bears: eff.Narrows, IfTP: outcomeEffect{eff.Outcome[claimsv1.TP]}, IfFP: outcomeEffect{eff.Outcome[claimsv1.FP]}}
 	for _, c := range v.verdict.Checks {
-		if eff.States[labels.TP][c.Name] != c.State || eff.States[labels.FP][c.Name] != c.State {
+		if eff.States[claimsv1.TP][c.Name] != c.State || eff.States[claimsv1.FP][c.Name] != c.State {
 			out.CouldFlip = append(out.CouldFlip, c.Name)
 		}
 	}
@@ -136,20 +136,20 @@ func (v *view) effectOf(id string) *rowEffect {
 
 // hintSummary is what lists show of a hint.
 type hintSummary struct {
-	ID            string         `json:"id"`
-	Verdict       labels.Verdict `json:"verdict"`
-	Justification string         `json:"justification,omitempty"`
-	Confidence    string         `json:"confidence,omitempty"`
-	Skill         string         `json:"skill,omitempty"`
-	Model         string         `json:"model,omitempty"`
-	ResearchJob   string         `json:"researchJob,omitempty"`
-	Rule          string         `json:"rule,omitempty"`
-	Decision      string         `json:"decision,omitempty"`
-	Title         string         `json:"title,omitempty"` // the rule's, a headline for people
-	Problems      int            `json:"problems,omitempty"`
-	Status        string         `json:"status"`
-	Written       time.Time      `json:"written,omitzero"`
-	Origin        string         `json:"origin,omitempty"` // label-ui, research-job or skill-run
+	ID            string           `json:"id"`
+	Verdict       claimsv1.Verdict `json:"verdict"`
+	Justification string           `json:"justification,omitempty"`
+	Confidence    string           `json:"confidence,omitempty"`
+	Skill         string           `json:"skill,omitempty"`
+	Model         string           `json:"model,omitempty"`
+	ResearchJob   string           `json:"researchJob,omitempty"`
+	Rule          string           `json:"rule,omitempty"`
+	Decision      string           `json:"decision,omitempty"`
+	Title         string           `json:"title,omitempty"` // the rule's, a headline for people
+	Problems      int              `json:"problems,omitempty"`
+	Status        string           `json:"status"`
+	Written       time.Time        `json:"written,omitzero"`
+	Origin        string           `json:"origin,omitempty"` // label-ui, research-job or skill-run
 }
 
 func (h *hint) summary() *hintSummary {
@@ -399,10 +399,10 @@ type rowResponse struct {
 
 // labelView is the label deciding a row, as its file holds it, and every source holding its key.
 type labelView struct {
-	Label   labels.Label `json:"label"`
-	File    string       `json:"file"`
-	Global  bool         `json:"global,omitempty"`
-	Sources []string     `json:"sources"`
+	Label   claimsv1.Label `json:"label"`
+	File    string         `json:"file"`
+	Global  bool           `json:"global,omitempty"`
+	Sources []string       `json:"sources"`
 }
 
 func (s *Server) handleRow(w http.ResponseWriter, req *http.Request) {

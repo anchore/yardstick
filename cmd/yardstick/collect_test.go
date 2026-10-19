@@ -6,8 +6,8 @@ import (
 	"strings"
 	"testing"
 
+	claimsv1 "github.com/anchore/yardstick/cmd/yardstick/internal/claims/v1"
 	"github.com/anchore/yardstick/cmd/yardstick/internal/fixture"
-	"github.com/anchore/yardstick/cmd/yardstick/internal/labels"
 	"github.com/anchore/yardstick/cmd/yardstick/internal/ref"
 )
 
@@ -53,7 +53,7 @@ func TestCollectSBOMsForAGate(t *testing.T) {
 	npm := "oci:docker.io/anchore/yardstick-fixture-npm@sha256:" + strings.Repeat("2", 64)
 	r, _ := ref.Parse(rpm)
 	sbom, _ := os.ReadFile(fixture.SBOM("rpm", "syft"))
-	writeFile(t, filepath.Join(w.dir, "claims", labels.ImageDir(r), labels.ImageSBOMFile), string(sbom))
+	writeFile(t, filepath.Join(w.dir, "claims", claimsv1.ImageDir(r), claimsv1.ImageSBOMFile), string(sbom))
 	syftCalls, grypeCalls := filepath.Join(w.tools, "syft-calls"), filepath.Join(w.tools, "grype-calls")
 	syft := stubTool(t, w.tools, "syft", "#!/bin/sh\necho \"$*\" >> \""+syftCalls+"\"\ncat \""+fixture.SBOM("npm", "syft")+"\"\n")
 	grype := logged(t, w.grype("grype"), grypeCalls)

@@ -9,7 +9,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/anchore/yardstick/cmd/yardstick/internal/labels"
+	claimsv1 "github.com/anchore/yardstick/cmd/yardstick/internal/claims/v1"
 )
 
 // Author is who wrote a record. An agent's names the skill and model, and the research job it
@@ -32,20 +32,20 @@ const (
 // Proposal is an agent's call on one match that no person has vouched for: the label accepting it
 // writes, plus how sure the agent is and what would settle it.
 type Proposal struct {
-	Schema        string            `json:"schema"`
-	ID            string            `json:"id"`
-	Gate          string            `json:"gate"`
-	Subject       labels.Subject    `json:"subject"`
-	Package       string            `json:"package,omitempty"`
-	Vulnerability string            `json:"vulnerability"`
-	Verdict       labels.Verdict    `json:"verdict"`
-	Justification string            `json:"justification,omitempty"`
-	Confidence    string            `json:"confidence,omitempty"` // high, medium or low
-	Evidence      []labels.Evidence `json:"evidence,omitempty"`
-	Note          string            `json:"note,omitempty"`
-	OpenQuestions []string          `json:"openQuestions,omitempty"` // what would settle an unclear verdict
-	Author        Author            `json:"author"`
-	Timestamp     time.Time         `json:"timestamp"`
+	Schema        string              `json:"schema"`
+	ID            string              `json:"id"`
+	Gate          string              `json:"gate"`
+	Subject       claimsv1.Subject    `json:"subject"`
+	Package       string              `json:"package,omitempty"`
+	Vulnerability string              `json:"vulnerability"`
+	Verdict       claimsv1.Verdict    `json:"verdict"`
+	Justification string              `json:"justification,omitempty"`
+	Confidence    string              `json:"confidence,omitempty"` // high, medium or low
+	Evidence      []claimsv1.Evidence `json:"evidence,omitempty"`
+	Note          string              `json:"note,omitempty"`
+	OpenQuestions []string            `json:"openQuestions,omitempty"` // what would settle an unclear verdict
+	Author        Author              `json:"author"`
+	Timestamp     time.Time           `json:"timestamp"`
 }
 
 // a proposal supersedes an earlier one about the same match, whatever its id
@@ -57,10 +57,10 @@ func (p Proposal) schema() string { return p.Schema }
 
 // Label is the label accepting the proposal writes, by the person accepting it. The confidence
 // stays on the proposal: a label has none.
-func (p Proposal) Label(author string, now time.Time) labels.Label {
+func (p Proposal) Label(author string, now time.Time) claimsv1.Label {
 	ts := now.UTC().Format(time.RFC3339)
-	return labels.Label{Package: p.Package, Vulnerability: p.Vulnerability, Verdict: p.Verdict, Justification: p.Justification,
-		Author: author, Evidence: p.Evidence, Notes: labels.NotesOf(p.Note, author, ts), FirstIssued: ts, LastUpdated: ts}
+	return claimsv1.Label{Package: p.Package, Vulnerability: p.Vulnerability, Verdict: p.Verdict, Justification: p.Justification,
+		Author: author, Evidence: p.Evidence, Notes: claimsv1.NotesOf(p.Note, author, ts), FirstIssued: ts, LastUpdated: ts}
 }
 
 // Validate checks the proposal's shape. Problems checks it against the vocabulary and the policy.
@@ -78,10 +78,10 @@ func (p Proposal) Validate() error {
 
 // Problems is how the proposal sits with the vocabulary and the labeling policy: everything a
 // label would be refused for, and a confidence above its rule's ceiling.
-func (p Proposal) Problems(v *labels.Vocabulary) []string {
+func (p Proposal) Problems(v *claimsv1.Vocabulary) []string {
 	var out []string
 	if v == nil {
-		return problems(v, labels.Label{}, "")
+		return problems(v, claimsv1.Label{}, "")
 	}
 	if err := v.CheckVulnerability(p.Vulnerability); err != nil {
 		out = append(out, err.Error())
@@ -99,17 +99,17 @@ type Cause struct {
 	Title  string `json:"title"` // one line
 	Note   string `json:"note,omitempty"`
 	// Subject is the subject the rows are in; nil when they span subjects.
-	Subject       *labels.Subject   `json:"subject,omitempty"`
-	SourcePackage string            `json:"sourcePackage"`
-	Direction     string            `json:"direction,omitempty"` // added (candidate only) or dropped (reference only)
-	Members       []Member          `json:"members"`
-	Verdict       labels.Verdict    `json:"verdict"`
-	Justification string            `json:"justification,omitempty"`
-	Confidence    string            `json:"confidence,omitempty"`
-	Evidence      []labels.Evidence `json:"evidence,omitempty"`
-	OpenQuestions []string          `json:"openQuestions,omitempty"`
-	Author        Author            `json:"author"`
-	Timestamp     time.Time         `json:"timestamp"`
+	Subject       *claimsv1.Subject   `json:"subject,omitempty"`
+	SourcePackage string              `json:"sourcePackage"`
+	Direction     string              `json:"direction,omitempty"` // added (candidate only) or dropped (reference only)
+	Members       []Member            `json:"members"`
+	Verdict       claimsv1.Verdict    `json:"verdict"`
+	Justification string              `json:"justification,omitempty"`
+	Confidence    string              `json:"confidence,omitempty"`
+	Evidence      []claimsv1.Evidence `json:"evidence,omitempty"`
+	OpenQuestions []string            `json:"openQuestions,omitempty"`
+	Author        Author              `json:"author"`
+	Timestamp     time.Time           `json:"timestamp"`
 }
 
 // Member is one row a cause or an explanation covers: its row id, and the vulnerability and
@@ -124,10 +124,10 @@ func (c Cause) key() string    { return c.ID }
 func (c Cause) schema() string { return c.Schema }
 
 // Label is the label accepting the cause writes for one member.
-func (c Cause) Label(m Member, author string, now time.Time) labels.Label {
+func (c Cause) Label(m Member, author string, now time.Time) claimsv1.Label {
 	ts := now.UTC().Format(time.RFC3339)
-	return labels.Label{Package: m.Package, Vulnerability: m.Vulnerability, Verdict: c.Verdict, Justification: c.Justification,
-		Author: author, Evidence: c.Evidence, Notes: labels.NotesOf(c.Note, author, ts), FirstIssued: ts, LastUpdated: ts}
+	return claimsv1.Label{Package: m.Package, Vulnerability: m.Vulnerability, Verdict: c.Verdict, Justification: c.Justification,
+		Author: author, Evidence: c.Evidence, Notes: claimsv1.NotesOf(c.Note, author, ts), FirstIssued: ts, LastUpdated: ts}
 }
 
 func (c Cause) Validate() error {
@@ -150,7 +150,7 @@ func (c Cause) Validate() error {
 }
 
 // Problems is how the cause sits with the vocabulary and the labeling policy.
-func (c Cause) Problems(v *labels.Vocabulary) []string {
+func (c Cause) Problems(v *claimsv1.Vocabulary) []string {
 	return problems(v, c.Label(Member{}, c.Author.Name, c.Timestamp), c.Confidence)
 }
 
@@ -170,13 +170,13 @@ type Explanation struct {
 	Title  string `json:"title"`
 	Note   string `json:"note,omitempty"`
 	// Reason is the computed why key the explanation refines; empty when it stands alone.
-	Reason        string        `json:"reason,omitempty"`
-	Members       []Member      `json:"members"`
-	Facts         []labels.Fact `json:"facts,omitempty"`
-	LogExcerpts   []LogExcerpt  `json:"logExcerpts,omitempty"`
-	OpenQuestions []string      `json:"openQuestions,omitempty"`
-	Author        Author        `json:"author"`
-	Timestamp     time.Time     `json:"timestamp"`
+	Reason        string          `json:"reason,omitempty"`
+	Members       []Member        `json:"members"`
+	Facts         []claimsv1.Fact `json:"facts,omitempty"`
+	LogExcerpts   []LogExcerpt    `json:"logExcerpts,omitempty"`
+	OpenQuestions []string        `json:"openQuestions,omitempty"`
+	Author        Author          `json:"author"`
+	Timestamp     time.Time       `json:"timestamp"`
 }
 
 // LogExcerpt is lines copied from one side's grype log in the run. SHA256 is the log text's, as the
@@ -238,18 +238,18 @@ func (e Explanation) Validate() error {
 // Override records a person's label that rejected an agent's proposal, with why when they said,
 // so the rules and the policy behind the proposals can improve. The label stays clean of it.
 type Override struct {
-	Schema        string         `json:"schema"`
-	Proposal      string         `json:"proposal"` // the overridden proposal's (or cause's) id
-	Gate          string         `json:"gate"`
-	Subject       labels.Subject `json:"subject"`
-	Package       string         `json:"package,omitempty"`
-	Vulnerability string         `json:"vulnerability"`
-	Verdict       labels.Verdict `json:"verdict"` // the person's
-	Justification string         `json:"justification,omitempty"`
-	Reason        *Reason        `json:"reason,omitempty"`
-	Note          string         `json:"note,omitempty"`
-	Author        string         `json:"author"`
-	Timestamp     time.Time      `json:"timestamp"`
+	Schema        string           `json:"schema"`
+	Proposal      string           `json:"proposal"` // the overridden proposal's (or cause's) id
+	Gate          string           `json:"gate"`
+	Subject       claimsv1.Subject `json:"subject"`
+	Package       string           `json:"package,omitempty"`
+	Vulnerability string           `json:"vulnerability"`
+	Verdict       claimsv1.Verdict `json:"verdict"` // the person's
+	Justification string           `json:"justification,omitempty"`
+	Reason        *Reason          `json:"reason,omitempty"`
+	Note          string           `json:"note,omitempty"`
+	Author        string           `json:"author"`
+	Timestamp     time.Time        `json:"timestamp"`
 }
 
 // Reason is why a person overrode a proposal: one of ReasonKinds, and free text.
@@ -281,7 +281,7 @@ func (o Override) Validate() error {
 		return errors.New("override is missing the proposal it overrides")
 	case o.Vulnerability == "":
 		return errors.New("override is missing a vulnerability")
-	case !slices.Contains(labels.Verdicts, o.Verdict):
+	case !slices.Contains(claimsv1.Verdicts, o.Verdict):
 		return fmt.Errorf("verdict must be tp, fp or unclear, got %q", o.Verdict)
 	case o.Author == "":
 		return errors.New("override is missing its author")
@@ -299,7 +299,7 @@ func checkAuthor(a Author) error {
 }
 
 // checkCall checks a call as the label it would write, and its author and confidence.
-func checkCall(l labels.Label, a Author, confidence string) error {
+func checkCall(l claimsv1.Label, a Author, confidence string) error {
 	if err := checkAuthor(a); err != nil {
 		return err
 	}
@@ -308,7 +308,7 @@ func checkCall(l labels.Label, a Author, confidence string) error {
 	}
 	// a proposal's author is in Author, which may carry no name; the label's is the acceptor's
 	l.Author = string(a.Kind)
-	return labels.CheckRequired(l, nil)
+	return claimsv1.CheckRequired(l, nil)
 }
 
 func checkMembers(members []Member) error {
@@ -330,12 +330,12 @@ func checkMembers(members []Member) error {
 
 // problems is a call's vocabulary and policy problems, and a low-confidence tp or fp, which the
 // policy does not allow: that is an unclear, saying what would settle it.
-func problems(v *labels.Vocabulary, l labels.Label, confidence string) []string {
+func problems(v *claimsv1.Vocabulary, l claimsv1.Label, confidence string) []string {
 	if v == nil {
-		return []string{"no " + labels.VocabularyFile + " to check the call against"}
+		return []string{"no " + claimsv1.VocabularyFile + " to check the call against"}
 	}
 	out := v.Problems(l, confidence)
-	if confidence == "low" && l.Verdict != labels.Unclear {
+	if confidence == "low" && l.Verdict != claimsv1.Unclear {
 		out = append(out, fmt.Sprintf("a low-confidence %s is not allowed; propose unclear and say what would settle it in openQuestions", l.Verdict))
 	}
 	return out

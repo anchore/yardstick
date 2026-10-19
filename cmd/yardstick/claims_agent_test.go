@@ -9,7 +9,7 @@ import (
 	"time"
 
 	"github.com/anchore/yardstick/cmd/yardstick/internal/agentstore"
-	"github.com/anchore/yardstick/cmd/yardstick/internal/labels"
+	claimsv1 "github.com/anchore/yardstick/cmd/yardstick/internal/claims/v1"
 	"github.com/anchore/yardstick/cmd/yardstick/internal/runrecord"
 	"github.com/anchore/yardstick/cmd/yardstick/internal/score"
 )
@@ -23,7 +23,7 @@ const fact = `{"source":"nvd","about":{"vulnerability":"CVE-2005-2541"},"field":
 // the skill-facing commands: propose, propose-cause, explain propose/ls, ls, overrides, policy
 func TestClaimsAgentCommands(t *testing.T) {
 	w := newWorkspace(t)
-	writeFile(t, filepath.Join(w.dir, "claims", labels.VocabularyFile), vocabulary+policyRules)
+	writeFile(t, filepath.Join(w.dir, "claims", claimsv1.VocabularyFile), vocabulary+policyRules)
 	whole := w.grype("whole")
 	w.grype("no-tar", "CVE-2005-2541 tar")
 	// the candidate logs two lines, for an explanation to quote
@@ -135,7 +135,7 @@ func TestClaimsAgentCommands(t *testing.T) {
 
 	// a person overriding the proposal shows under its rule, with the proposal as the hint
 	if err := store.Overrides.Add(agentstore.Override{Schema: agentstore.Schema, Proposal: p.ID, Gate: "deb", Subject: p.Subject, Package: p.Package,
-		Vulnerability: p.Vulnerability, Verdict: labels.TP, Reason: &agentstore.Reason{Kind: "stale-fact", Text: "NVD moved"}, Author: "alex", Timestamp: time.Now()}); err != nil {
+		Vulnerability: p.Vulnerability, Verdict: claimsv1.TP, Reason: &agentstore.Reason{Kind: "stale-fact", Text: "NVD moved"}, Author: "alex", Timestamp: time.Now()}); err != nil {
 		t.Fatal(err)
 	}
 	stdout, _, _ = yardstick(t, w.dir, "claims", "overrides", "-o", "json")
@@ -153,13 +153,13 @@ func TestClaimsAgentCommands(t *testing.T) {
 
 	// ls and policy read the claims sources named by --claims, with no gate
 	stdout, _, _ = yardstick(t, w.dir, "claims", "ls", "--claims", "claims", "-s", "libc6", "-o", "json")
-	var ls []struct{ Label labels.Label }
+	var ls []struct{ Label claimsv1.Label }
 	if err := json.Unmarshal([]byte(stdout), &ls); err != nil || len(ls) != 1 || ls[0].Label.Vulnerability != "CVE-2026-5450" {
 		t.Errorf("expected the libc6 label listed, got %v %s", err, stdout)
 	}
 	stdout, _, _ = yardstick(t, w.dir, "claims", "policy", "--claims", "claims", "-o", "json")
 	var pol struct {
-		Rules          map[string]labels.Rule
+		Rules          map[string]claimsv1.Rule
 		Justifications map[string]map[string]string
 	}
 	if err := json.Unmarshal([]byte(stdout), &pol); err != nil || pol.Rules["nvd/fixed"].Title != "Fixed per NVD" || pol.Justifications["fp"]["fix-installed"] == "" {

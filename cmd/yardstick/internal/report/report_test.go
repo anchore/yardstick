@@ -16,11 +16,11 @@ import (
 	"github.com/anchore/grype/grype/presenter/models"
 	"github.com/anchore/yardstick/cmd/yardstick/internal/analysis"
 	"github.com/anchore/yardstick/cmd/yardstick/internal/claims"
+	claimsv1 "github.com/anchore/yardstick/cmd/yardstick/internal/claims/v1"
 	"github.com/anchore/yardstick/cmd/yardstick/internal/collect"
 	"github.com/anchore/yardstick/cmd/yardstick/internal/fixture"
 	"github.com/anchore/yardstick/cmd/yardstick/internal/gatefile"
 	"github.com/anchore/yardstick/cmd/yardstick/internal/install"
-	"github.com/anchore/yardstick/cmd/yardstick/internal/labels"
 	"github.com/anchore/yardstick/cmd/yardstick/internal/pairing"
 	"github.com/anchore/yardstick/cmd/yardstick/internal/ref"
 	"github.com/anchore/yardstick/cmd/yardstick/internal/runrecord"
@@ -56,8 +56,8 @@ func packagesOf(t *testing.T, image string, keep ...string) []subject.Package {
 }
 
 // label is a person's call, as a claims source holds it.
-func label(pkg, vuln string, v labels.Verdict) claims.Label {
-	l := claims.Label{Label: labels.Label{Package: pkg, Vulnerability: vuln, Verdict: v}, File: "rpm.json"}
+func label(pkg, vuln string, v claimsv1.Verdict) claims.Label {
+	l := claims.Label{Label: claimsv1.Label{Package: pkg, Vulnerability: vuln, Verdict: v}, File: "rpm.json"}
 	l.Held = []claims.SourceVerdict{{Source: "claims", Verdict: v}}
 	return l
 }
@@ -70,11 +70,11 @@ func rpmGate(t *testing.T, checks ...gatefile.Check) (Gate, *pairing.Result) {
 	cand := scan(t, fixture.Path("grype", "v0.120.1-cpes", "rpm.json"))
 	refScan := scan(t, fixture.Grype("v0.120.1", "rpm"))
 	ls := []claims.Label{
-		label("pkg:rpm/rocky/zlib", "CVE-2018-25032", labels.TP),                       // added by the candidate: fixed
-		label("pkg:rpm/rocky/json-c", "CVE-2020-12762", labels.FP),                     // added by the candidate: introduced
-		label("pkg:rpm/rocky/openssl-libs@3.5.5-2.el9_8", "CVE-2026-45447", labels.TP), // no epoch: a near miss
-		label("pkg:rpm/rocky/not-installed@1.0", "CVE-2024-0001", labels.TP),           // not in the SBOM
-		label("pkg:rpm/rocky/bash", "CVE-2024-0002", labels.TP),                        // in the SBOM, matched on nothing
+		label("pkg:rpm/rocky/zlib", "CVE-2018-25032", claimsv1.TP),                       // added by the candidate: fixed
+		label("pkg:rpm/rocky/json-c", "CVE-2020-12762", claimsv1.FP),                     // added by the candidate: introduced
+		label("pkg:rpm/rocky/openssl-libs@3.5.5-2.el9_8", "CVE-2026-45447", claimsv1.TP), // no epoch: a near miss
+		label("pkg:rpm/rocky/not-installed@1.0", "CVE-2024-0001", claimsv1.TP),           // not in the SBOM
+		label("pkg:rpm/rocky/bash", "CVE-2024-0002", claimsv1.TP),                        // in the SBOM, matched on nothing
 	}
 	a := pairing.NewAliases(nil)
 	a.AddScan(cand)
@@ -256,13 +256,13 @@ func TestPerMatchCause(t *testing.T) {
 		}
 	}
 	// a label with no package resolves to MATCHING FAILURE
-	r := &pairing.Result{Labels: []*pairing.Bound{{Label: label("", "CVE-2024-0003", labels.TP), Present: true}}}
+	r := &pairing.Result{Labels: []*pairing.Bound{{Label: label("", "CVE-2024-0003", claimsv1.TP), Present: true}}}
 	if m := misses(r); len(m) != 1 || m[0].Cause != MatchingFailure {
 		t.Errorf("expected a package-less miss to be a matching failure, got %+v", m)
 	}
 	// a miss on a package the candidate matched other vulnerabilities on fits none of the three
 	_, pr := rpmGate(t)
-	pr.Labels = append(pr.Labels, &pairing.Bound{Label: label("pkg:rpm/rocky/zlib", "CVE-2024-0004", labels.TP), Present: true})
+	pr.Labels = append(pr.Labels, &pairing.Bound{Label: label("pkg:rpm/rocky/zlib", "CVE-2024-0004", claimsv1.TP), Present: true})
 	pr.Labels[len(pr.Labels)-1].Fields.Name = "zlib"
 	found := false
 	for _, m := range misses(pr) {
@@ -313,7 +313,7 @@ func TestDirection(t *testing.T) {
 		}
 	}
 	// a candidate-dropped tp is introduced
-	m := &pairing.Match{Rows: map[string][]int{pairing.Reference: {0}}, Verdict: labels.TP}
+	m := &pairing.Match{Rows: map[string][]int{pairing.Reference: {0}}, Verdict: claimsv1.TP}
 	if d := direction(m); d != Introduced {
 		t.Errorf("expected a dropped tp introduced, got %q", d)
 	}

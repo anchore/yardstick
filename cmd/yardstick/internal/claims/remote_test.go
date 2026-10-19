@@ -20,9 +20,9 @@ import (
 	"testing"
 	"time"
 
+	claimsv1 "github.com/anchore/yardstick/cmd/yardstick/internal/claims/v1"
 	"github.com/anchore/yardstick/cmd/yardstick/internal/fixture"
 	"github.com/anchore/yardstick/cmd/yardstick/internal/gatefile"
-	"github.com/anchore/yardstick/cmd/yardstick/internal/labels"
 )
 
 // bundle zips a corpus directory the way the publish workflow does: entries sorted, paths
@@ -161,8 +161,8 @@ func TestRemoteSnapshot(t *testing.T) {
 func TestRemoteReferenceResolution(t *testing.T) {
 	t.Setenv("YARDSTICK_CACHE_DIR", t.TempDir())
 	h := newHost(t)
-	older := h.publish(t, corpus(t, at(labels.TypeFile(dir, "deb"), label(libudv, "CVE-2020-13776", labels.FP))))
-	newer := h.publish(t, corpus(t, at(labels.TypeFile(dir, "deb"), label(libudv, "CVE-2020-13776", labels.TP))))
+	older := h.publish(t, corpus(t, at(claimsv1.TypeFile(dir, "deb"), label(libudv, "CVE-2020-13776", claimsv1.FP))))
+	newer := h.publish(t, corpus(t, at(claimsv1.TypeFile(dir, "deb"), label(libudv, "CVE-2020-13776", claimsv1.TP))))
 	const commit = "4f2a9c1e00000000000000000000000000000000"
 	h.put(t, "/claims/commits/"+commit+".json", pointer{Digest: older})
 	h.put(t, "/claims/latest-v1.json", pointer{Digest: newer, Commit: "77aa000000000000000000000000000000000000"})
@@ -195,8 +195,8 @@ func TestRemoteReferenceResolution(t *testing.T) {
 func bigCorpus(t *testing.T) string {
 	t.Helper()
 	root := corpus(t,
-		at(labels.TypeFile(dir, "deb"), label(libudv, "CVE-2020-13776", labels.FP)),
-		at(labels.TypeFile(otherDir, "deb"), label(libudv, "CVE-2021-33910", labels.TP)),
+		at(claimsv1.TypeFile(dir, "deb"), label(libudv, "CVE-2020-13776", claimsv1.FP)),
+		at(claimsv1.TypeFile(otherDir, "deb"), label(libudv, "CVE-2021-33910", claimsv1.TP)),
 	)
 	f, err := os.Open(fixture.Path("vml", "sbom", "docker.io+oraclelinux@sha256-a06327c0f1d18d753f2a60bb17864c84a850bb6dcbcf5946dd1a8123f6e75495.syft.json.gz"))
 	if err != nil {
@@ -211,7 +211,7 @@ func bigCorpus(t *testing.T) string {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(filepath.Join(root, filepath.FromSlash(otherDir), labels.ImageSBOMFile), data, 0o600); err != nil {
+	if err := os.WriteFile(filepath.Join(root, filepath.FromSlash(otherDir), claimsv1.ImageSBOMFile), data, 0o600); err != nil {
 		t.Fatal(err)
 	}
 	return root
@@ -330,7 +330,7 @@ func TestRemoteDigestsAreHex(t *testing.T) {
 	cacheDir := t.TempDir()
 	t.Setenv("YARDSTICK_CACHE_DIR", cacheDir)
 	h := newHost(t)
-	good := h.publish(t, corpus(t, at(labels.TypeFile(dir, "deb"), label(libudv, "CVE-2020-13776", labels.FP))))
+	good := h.publish(t, corpus(t, at(claimsv1.TypeFile(dir, "deb"), label(libudv, "CVE-2020-13776", claimsv1.FP))))
 	traversal := "sha256:" + strings.Repeat("../", 21) + "x"
 	const commit = "4f2a9c1e00000000000000000000000000000000"
 	for _, tc := range []struct {

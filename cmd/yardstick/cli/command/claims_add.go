@@ -11,7 +11,7 @@ import (
 
 	"github.com/anchore/clio"
 	"github.com/anchore/yardstick/cmd/yardstick/internal/claims"
-	"github.com/anchore/yardstick/cmd/yardstick/internal/labels"
+	claimsv1 "github.com/anchore/yardstick/cmd/yardstick/internal/claims/v1"
 	"github.com/anchore/yardstick/cmd/yardstick/internal/labelwrite"
 	"github.com/anchore/yardstick/cmd/yardstick/internal/log"
 	"github.com/anchore/yardstick/cmd/yardstick/internal/runrecord"
@@ -99,8 +99,8 @@ neither did), so a label that later stops pairing can say why.`,
 				return err
 			}
 			now := time.Now().UTC().Format(time.RFC3339)
-			l := labels.Label{Package: cfg.Package, Vulnerability: cfg.Vulnerability, Verdict: labels.Verdict(cfg.Verdict), Justification: cfg.Justification,
-				Author: author, Notes: labels.NotesOf(cfg.Note, author, now), FirstIssued: now, LastUpdated: now}
+			l := claimsv1.Label{Package: cfg.Package, Vulnerability: cfg.Vulnerability, Verdict: claimsv1.Verdict(cfg.Verdict), Justification: cfg.Justification,
+				Author: author, Notes: claimsv1.NotesOf(cfg.Note, author, now), FirstIssued: now, LastUpdated: now}
 			if l.SeenIn, err = labelwrite.SeenIn(rec, runrecord.Dir(cfg.Name, g.Name), sub, l, set.Vocabulary()); err != nil {
 				return err
 			}

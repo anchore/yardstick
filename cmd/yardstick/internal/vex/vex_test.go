@@ -11,8 +11,8 @@ import (
 
 	"github.com/santhosh-tekuri/jsonschema/v6"
 
+	claimsv1 "github.com/anchore/yardstick/cmd/yardstick/internal/claims/v1"
 	"github.com/anchore/yardstick/cmd/yardstick/internal/fixture"
-	"github.com/anchore/yardstick/cmd/yardstick/internal/labels"
 	"github.com/anchore/yardstick/cmd/yardstick/internal/ref"
 )
 
@@ -37,7 +37,7 @@ const debDigest = "sha256:617d48dd2601779266746a9a382bfb9f3fee2744fba698733b3203
 var (
 	now         = time.Date(2026, 10, 14, 12, 0, 0, 0, time.UTC)
 	debImage, _ = ref.Parse("oci:docker.io/anchore/yardstick-fixture-deb@" + debDigest)
-	debDir      = labels.ImageDir(debImage)
+	debDir      = claimsv1.ImageDir(debImage)
 )
 
 func read(t *testing.T, path string) []byte {
@@ -49,21 +49,21 @@ func read(t *testing.T, path string) []byte {
 	return data
 }
 
-func corpusDir(t *testing.T) (string, labels.Writer) {
+func corpusDir(t *testing.T) (string, claimsv1.Writer) {
 	t.Helper()
 	dir := t.TempDir()
-	if err := os.WriteFile(filepath.Join(dir, labels.VocabularyFile), []byte(vocabYAML), 0o600); err != nil {
+	if err := os.WriteFile(filepath.Join(dir, claimsv1.VocabularyFile), []byte(vocabYAML), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	v, err := labels.LoadVocabulary(os.DirFS(dir))
+	v, err := claimsv1.LoadVocabulary(os.DirFS(dir))
 	if err != nil {
 		t.Fatal(err)
 	}
-	return dir, labels.Writer{Dir: dir, Vocab: v}
+	return dir, claimsv1.Writer{Dir: dir, Vocab: v}
 }
 
-func find(placed []labels.Placed, vuln string) []labels.Placed {
-	var out []labels.Placed
+func find(placed []claimsv1.Placed, vuln string) []claimsv1.Placed {
+	var out []claimsv1.Placed
 	for _, p := range placed {
 		if p.Label.Vulnerability == vuln {
 			out = append(out, p)
@@ -82,7 +82,7 @@ func TestImportOpenVEX(t *testing.T) {
 
 	// an image product with a subcomponent: an fp in the image's deb file, citing the statement
 	np := find(got.Placed, "CVE-2023-45853")
-	if len(np) != 1 || np[0].File != labels.TypeFile(debDir, "deb") || np[0].Label.Verdict != labels.FP ||
+	if len(np) != 1 || np[0].File != claimsv1.TypeFile(debDir, "deb") || np[0].Label.Verdict != claimsv1.FP ||
 		np[0].Label.Justification != "vulnerable_code_not_present" || np[0].Label.Package != "pkg:deb/debian/zlib1g@1:1.2.13.dfsg-1?arch=arm64&distro=debian-12" {
 		t.Fatalf("expected an fp on zlib1g in the deb file, got %+v", np)
 	}
@@ -99,11 +99,11 @@ func TestImportOpenVEX(t *testing.T) {
 	}
 	// an image with no subcomponent is about the image: image.json, tp, the action as its note
 	aff := find(got.Placed, "CVE-2023-4911")
-	if len(aff) != 1 || aff[0].File != debDir+"/image.json" || aff[0].Label.Verdict != labels.TP || aff[0].Label.Package != "" || len(aff[0].Label.Notes) != 1 || aff[0].Label.Notes[0].Text != "upgrade libc6" {
+	if len(aff) != 1 || aff[0].File != debDir+"/image.json" || aff[0].Label.Verdict != claimsv1.TP || aff[0].Label.Package != "" || len(aff[0].Label.Notes) != 1 || aff[0].Label.Notes[0].Text != "upgrade libc6" {
 		t.Errorf("expected a tp in image.json, got %+v", aff)
 	}
 	ui := find(got.Placed, "CVE-2023-50495")
-	if len(ui) != 1 || ui[0].Label.Verdict != labels.Unclear || ui[0].Label.Justification != "not-assessed" {
+	if len(ui) != 1 || ui[0].Label.Verdict != claimsv1.Unclear || ui[0].Label.Justification != "not-assessed" {
 		t.Errorf("expected under_investigation as unclear, got %+v", ui)
 	}
 	// a product that is no package URL is skipped, and listed
@@ -116,7 +116,7 @@ func TestImportOpenVEX(t *testing.T) {
 	if err := w.Write(got.Placed); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := os.Stat(filepath.Join(dir, filepath.FromSlash(labels.TypeFile(debDir, "deb")))); err != nil {
+	if _, err := os.Stat(filepath.Join(dir, filepath.FromSlash(claimsv1.TypeFile(debDir, "deb")))); err != nil {
 		t.Error(err)
 	}
 }
@@ -133,7 +133,7 @@ func TestImportOSV(t *testing.T) {
 		t.Fatalf("expected the two fixed versions, got %+v", got.Placed)
 	}
 	for _, p := range got.Placed {
-		if p.File != "global/npm.json" || p.Label.Vulnerability != "CVE-2023-45133" || p.Label.Verdict != labels.FP || p.Label.Justification != "fix-installed" {
+		if p.File != "global/npm.json" || p.Label.Vulnerability != "CVE-2023-45133" || p.Label.Verdict != claimsv1.FP || p.Label.Justification != "fix-installed" {
 			t.Errorf("unexpected label %+v", p)
 		}
 	}
@@ -152,9 +152,9 @@ func TestImportOSV(t *testing.T) {
 	var tps, fps int
 	for _, p := range got.Placed {
 		switch {
-		case p.Label.Verdict == labels.TP:
+		case p.Label.Verdict == claimsv1.TP:
 			tps++
-		case p.Label.Verdict == labels.FP && p.Label.Package == "pkg:pypi/urllib3@1.26.5":
+		case p.Label.Verdict == claimsv1.FP && p.Label.Package == "pkg:pypi/urllib3@1.26.5":
 			fps++
 		}
 		if p.Label.Evidence[0].Facts[0].Source != "osv" || p.Label.Evidence[0].Facts[0].About["record"] != "PYSEC-2021-108" {
@@ -173,23 +173,23 @@ func TestImportOSV(t *testing.T) {
 // export-to-openvex
 func TestExport(t *testing.T) {
 	dir, w := corpusDir(t)
-	label := func(pkg, vuln string, v labels.Verdict, just, note string) labels.Label {
-		return labels.Label{Package: pkg, Vulnerability: vuln, Verdict: v, Justification: just, Notes: labels.NotesOf(note, "Alex Goodman", "2026-10-14T10:00:00Z"), Author: "Alex Goodman",
+	label := func(pkg, vuln string, v claimsv1.Verdict, just, note string) claimsv1.Label {
+		return claimsv1.Label{Package: pkg, Vulnerability: vuln, Verdict: v, Justification: just, Notes: claimsv1.NotesOf(note, "Alex Goodman", "2026-10-14T10:00:00Z"), Author: "Alex Goodman",
 			FirstIssued: "2026-10-14T10:00:00Z", LastUpdated: "2026-10-14T11:00:00Z",
-			SeenIn: &labels.SeenIn{SBOM: debDigest, Tools: []labels.Tool{{Name: labels.ToolSyft, Version: "v1.54.1"}}},
-			Evidence: []labels.Evidence{{Facts: []labels.Fact{{Source: "sbom", About: map[string]string{"package": "x"}, Field: "name", Value: "x", ObservedAt: "2026-10-14T10:00:00Z"}},
+			SeenIn: &claimsv1.SeenIn{SBOM: debDigest, Tools: []claimsv1.Tool{{Name: claimsv1.ToolSyft, Version: "v1.54.1"}}},
+			Evidence: []claimsv1.Evidence{{Facts: []claimsv1.Fact{{Source: "sbom", About: map[string]string{"package": "x"}, Field: "name", Value: "x", ObservedAt: "2026-10-14T10:00:00Z"}},
 				Interpretation: "a reason"}}}
 	}
-	subject := &labels.Subject{Image: debImage.Image(), Platform: "linux/arm64"}
-	doc := labels.DocumentDir(debDigest)
-	err := w.Write([]labels.Placed{
-		{File: labels.TypeFile(debDir, "deb"), Subject: subject, Label: label("pkg:deb/debian/libc6@2.36-9?arch=arm64&distro=debian-12", "CVE-2023-4911", labels.TP, "fix-newer", "")},
-		{File: labels.TypeFile(debDir, "deb"), Subject: subject, Label: label("pkg:deb/debian/zlib1g@1.2.13?distro=debian-12", "CVE-2022-37434", labels.FP, "fix-installed", "")},
-		{File: labels.TypeFile(debDir, "deb"), Subject: subject, Label: label("pkg:deb/debian/tar@1.34?distro=debian-12", "CVE-2005-2541", labels.FP, "vulnerable_code_not_present", "")},
-		{File: labels.TypeFile(debDir, "deb"), Subject: subject, Label: label("pkg:deb/debian/bash@5.2?distro=debian-12", "CVE-2019-18276", labels.FP, "different-product", "it is about GNU bash on Windows")},
-		{File: debDir + "/image.json", Subject: subject, Label: label("", "CVE-2023-50495", labels.Unclear, "not-assessed", "")},
-		{File: labels.TypeFile(doc, "npm"), Subject: &labels.Subject{SBOM: debDigest}, Label: label("pkg:npm/%40babel/traverse@7.22.0", "GHSA-67hx-6x53-jw92", labels.TP, "", "")},
-		{File: labels.GlobalFile("rpm"), Label: label("pkg:rpm/rocky/openssl-libs@3.5.5-2.el9_8?epoch=1", "CVE-2024-0727", labels.FP, "fix-installed", "")},
+	subject := &claimsv1.Subject{Image: debImage.Image(), Platform: "linux/arm64"}
+	doc := claimsv1.DocumentDir(debDigest)
+	err := w.Write([]claimsv1.Placed{
+		{File: claimsv1.TypeFile(debDir, "deb"), Subject: subject, Label: label("pkg:deb/debian/libc6@2.36-9?arch=arm64&distro=debian-12", "CVE-2023-4911", claimsv1.TP, "fix-newer", "")},
+		{File: claimsv1.TypeFile(debDir, "deb"), Subject: subject, Label: label("pkg:deb/debian/zlib1g@1.2.13?distro=debian-12", "CVE-2022-37434", claimsv1.FP, "fix-installed", "")},
+		{File: claimsv1.TypeFile(debDir, "deb"), Subject: subject, Label: label("pkg:deb/debian/tar@1.34?distro=debian-12", "CVE-2005-2541", claimsv1.FP, "vulnerable_code_not_present", "")},
+		{File: claimsv1.TypeFile(debDir, "deb"), Subject: subject, Label: label("pkg:deb/debian/bash@5.2?distro=debian-12", "CVE-2019-18276", claimsv1.FP, "different-product", "it is about GNU bash on Windows")},
+		{File: debDir + "/image.json", Subject: subject, Label: label("", "CVE-2023-50495", claimsv1.Unclear, "not-assessed", "")},
+		{File: claimsv1.TypeFile(doc, "npm"), Subject: &claimsv1.Subject{SBOM: debDigest}, Label: label("pkg:npm/%40babel/traverse@7.22.0", "GHSA-67hx-6x53-jw92", claimsv1.TP, "", "")},
+		{File: claimsv1.GlobalFile("rpm"), Label: label("pkg:rpm/rocky/openssl-libs@3.5.5-2.el9_8?epoch=1", "CVE-2024-0727", claimsv1.FP, "fix-installed", "")},
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -275,8 +275,8 @@ func TestExport(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if libc := find(back.Placed, "CVE-2023-4911"); len(libc) != 1 || libc[0].File != labels.TypeFile(debDir, "deb") {
-		t.Errorf("expected the exported image label to import into %s, got %+v", labels.TypeFile(debDir, "deb"), libc)
+	if libc := find(back.Placed, "CVE-2023-4911"); len(libc) != 1 || libc[0].File != claimsv1.TypeFile(debDir, "deb") {
+		t.Errorf("expected the exported image label to import into %s, got %+v", claimsv1.TypeFile(debDir, "deb"), libc)
 	}
 
 	again, _ := Export(os.DirFS(dir), "anchore claims corpus")

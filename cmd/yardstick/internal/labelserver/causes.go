@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"github.com/anchore/yardstick/cmd/yardstick/internal/agentstore"
-	"github.com/anchore/yardstick/cmd/yardstick/internal/labels"
+	claimsv1 "github.com/anchore/yardstick/cmd/yardstick/internal/claims/v1"
 )
 
 // causeView is a cause as it applies to one gate: its member rows present, and the policy check.
@@ -83,7 +83,7 @@ func (v *view) memberState(cv *causeView, id string) string {
 type stateCause struct {
 	ID            string            `json:"id"`
 	Title         string            `json:"title"`
-	Verdict       labels.Verdict    `json:"verdict"`
+	Verdict       claimsv1.Verdict  `json:"verdict"`
 	Justification string            `json:"justification,omitempty"`
 	Confidence    string            `json:"confidence,omitempty"`
 	Author        agentstore.Author `json:"author"`

@@ -11,9 +11,9 @@ import (
 
 	"github.com/anchore/grype/grype/presenter/models"
 	"github.com/anchore/yardstick/cmd/yardstick/internal/analysis"
+	claimsv1 "github.com/anchore/yardstick/cmd/yardstick/internal/claims/v1"
 	"github.com/anchore/yardstick/cmd/yardstick/internal/fixture"
 	"github.com/anchore/yardstick/cmd/yardstick/internal/gatefile"
-	"github.com/anchore/yardstick/cmd/yardstick/internal/labels"
 	"github.com/anchore/yardstick/cmd/yardstick/internal/pairing"
 )
 
@@ -29,10 +29,10 @@ func focusGate() Gate {
 	var misses []Miss
 	var unmet []analysis.Expectation
 	for _, r := range []struct{ pkgID, vuln, pkg string }{{"aa", "CVE-2024-1234", openssl}, {"bb", "CVE-2024-1234", libssl3}, {"aa", "CVE-2024-5678", openssl}} {
-		ref := LabelRef{Package: basePURL(r.pkg), Vulnerability: r.vuln, Verdict: labels.TP, File: "deb.json"}
-		rows = append(rows, Match{ID: r.pkgID + "/" + r.vuln, Vulnerability: r.vuln, Package: r.pkg, InReference: true, Verdict: labels.TP, Label: &ref, Direction: Introduced})
+		ref := LabelRef{Package: basePURL(r.pkg), Vulnerability: r.vuln, Verdict: claimsv1.TP, File: "deb.json"}
+		rows = append(rows, Match{ID: r.pkgID + "/" + r.vuln, Vulnerability: r.vuln, Package: r.pkg, InReference: true, Verdict: claimsv1.TP, Label: &ref, Direction: Introduced})
 		misses = append(misses, Miss{Label: ref, InReference: true, Cause: NoCause})
-		unmet = append(unmet, analysis.Expectation{Subject: "img", Package: ref.Package, Vulnerability: r.vuln, Verdict: labels.TP})
+		unmet = append(unmet, analysis.Expectation{Subject: "img", Package: ref.Package, Vulnerability: r.vuln, Verdict: claimsv1.TP})
 	}
 	ids := []string{"aa/CVE-2024-1234", "bb/CVE-2024-1234", "aa/CVE-2024-5678"}
 	three := analysis.Value{Worst: 3, Best: 3}

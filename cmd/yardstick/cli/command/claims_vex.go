@@ -9,7 +9,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/anchore/clio"
-	"github.com/anchore/yardstick/cmd/yardstick/internal/labels"
+	claimsv1 "github.com/anchore/yardstick/cmd/yardstick/internal/claims/v1"
 	"github.com/anchore/yardstick/cmd/yardstick/internal/log"
 	"github.com/anchore/yardstick/cmd/yardstick/internal/vex"
 )
@@ -44,11 +44,11 @@ skipped and listed.`,
 			}
 			log.Debugf("options: to=%s author=%s source=%s", cfg.To, cfg.Author, cfg.Source)
 			log.Infof("importing %d VEX documents into %s", len(args), cfg.To)
-			vocab, err := labels.FindVocabulary(os.DirFS(cfg.To))
+			vocab, err := claimsv1.FindVocabulary(os.DirFS(cfg.To))
 			if err != nil {
 				return err
 			}
-			var placed []labels.Placed
+			var placed []claimsv1.Placed
 			var skipped []string
 			for _, a := range args {
 				data, err := os.ReadFile(a)
@@ -61,7 +61,7 @@ skipped and listed.`,
 				}
 				placed, skipped = append(placed, got.Placed...), append(skipped, got.Skipped...)
 			}
-			if err := (labels.Writer{Dir: cfg.To, Vocab: vocab}).Write(placed); err != nil {
+			if err := (claimsv1.Writer{Dir: cfg.To, Vocab: vocab}).Write(placed); err != nil {
 				return err
 			}
 			out := cmd.OutOrStdout()

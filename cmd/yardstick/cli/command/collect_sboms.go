@@ -12,11 +12,11 @@ import (
 
 	"github.com/anchore/clio"
 	"github.com/anchore/yardstick/cmd/yardstick/internal/cache"
+	claimsv1 "github.com/anchore/yardstick/cmd/yardstick/internal/claims/v1"
 	"github.com/anchore/yardstick/cmd/yardstick/internal/collect"
 	"github.com/anchore/yardstick/cmd/yardstick/internal/execute"
 	"github.com/anchore/yardstick/cmd/yardstick/internal/gatefile"
 	"github.com/anchore/yardstick/cmd/yardstick/internal/install"
-	"github.com/anchore/yardstick/cmd/yardstick/internal/labels"
 	"github.com/anchore/yardstick/cmd/yardstick/internal/log"
 	"github.com/anchore/yardstick/cmd/yardstick/internal/ref"
 	"github.com/anchore/yardstick/cmd/yardstick/internal/subject"
@@ -89,10 +89,10 @@ func collectImage(cmd *cobra.Command, cfg *collectSBOMsOptions, args []string) e
 	}
 	catPath, inCorpus := cfg.Catalog, false
 	if catPath == "" {
-		if _, err := os.Stat(labels.CatalogFile); err != nil {
+		if _, err := os.Stat(claimsv1.CatalogFile); err != nil {
 			return errors.New("collect sboms needs --catalog <catalog.yaml>, or to run in a corpus holding one")
 		}
-		catPath, inCorpus = labels.CatalogFile, true
+		catPath, inCorpus = claimsv1.CatalogFile, true
 	}
 	cat, err := readCatalog(catPath)
 	if err != nil {
@@ -114,7 +114,7 @@ func collectImage(cmd *cobra.Command, cfg *collectSBOMsOptions, args []string) e
 	case cfg.Out != "":
 		out = cfg.Out
 	case inCorpus:
-		out = filepath.Join(filepath.FromSlash(labels.ImageDir(image)), labels.ImageSBOMFile)
+		out = filepath.Join(filepath.FromSlash(claimsv1.ImageDir(image)), claimsv1.ImageSBOMFile)
 	}
 	if err := subject.WriteFile(out, data); err != nil {
 		return err
@@ -153,7 +153,7 @@ func readCatalog(path string) (*subject.Catalog, error) {
 		return nil, err
 	}
 	defer root.Close()
-	if cat.ConfigData, err = labels.ReadCatalogConfig(root.FS(), cat.Config); err != nil {
+	if cat.ConfigData, err = claimsv1.ReadCatalogConfig(root.FS(), cat.Config); err != nil {
 		return nil, fmt.Errorf("%s: %w", path, err)
 	}
 	// syft reads the bytes read through the root, from a file of yardstick's own

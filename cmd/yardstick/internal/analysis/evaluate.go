@@ -5,8 +5,8 @@ import (
 	"math"
 	"sort"
 
+	claimsv1 "github.com/anchore/yardstick/cmd/yardstick/internal/claims/v1"
 	"github.com/anchore/yardstick/cmd/yardstick/internal/gatefile"
-	"github.com/anchore/yardstick/cmd/yardstick/internal/labels"
 	"github.com/anchore/yardstick/cmd/yardstick/internal/log"
 	"github.com/anchore/yardstick/cmd/yardstick/internal/pairing"
 )
@@ -55,11 +55,11 @@ type SubjectCheck struct {
 
 // Expectation is a tp or fp label that applies to a subject, and whether each setup met it.
 type Expectation struct {
-	Subject       string          `json:"subject"`
-	Package       string          `json:"package,omitempty"`
-	Vulnerability string          `json:"vulnerability"`
-	Verdict       labels.Verdict  `json:"verdict"`
-	Met           map[string]bool `json:"met"`
+	Subject       string           `json:"subject"`
+	Package       string           `json:"package,omitempty"`
+	Vulnerability string           `json:"vulnerability"`
+	Verdict       claimsv1.Verdict `json:"verdict"`
+	Met           map[string]bool  `json:"met"`
 }
 
 // Check is one check's result for a gate.
@@ -85,8 +85,8 @@ type Effect struct {
 	// Narrows are the undecided checks whose range labeling the match narrows.
 	Narrows []string `json:"narrows,omitempty"`
 	// States are each check's state, and Outcome the gate's, were the match labeled tp or fp.
-	States  map[labels.Verdict]map[string]State `json:"states"`
-	Outcome map[labels.Verdict]State            `json:"outcome"`
+	States  map[claimsv1.Verdict]map[string]State `json:"states"`
+	Outcome map[claimsv1.Verdict]State            `json:"outcome"`
 }
 
 // Gate is a gate's checks evaluated.
@@ -113,7 +113,7 @@ func Evaluate(checks []gatefile.Check, subjects []Subject) Gate {
 
 // EvaluateAs computes every check as if the given matches were labeled so, leaving out the
 // per-delta effects: what the label server previews before anything is written.
-func EvaluateAs(checks []gatefile.Check, subjects []Subject, hyp map[*pairing.Match]labels.Verdict) Gate {
+func EvaluateAs(checks []gatefile.Check, subjects []Subject, hyp map[*pairing.Match]claimsv1.Verdict) Gate {
 	return evaluator{checks: checks, subjects: subjects, hyp: hyp}.gate()
 }
 
@@ -121,7 +121,7 @@ type evaluator struct {
 	checks   []gatefile.Check
 	subjects []Subject
 	// hyp labels matches hypothetically, to work out what labeling them would do
-	hyp map[*pairing.Match]labels.Verdict
+	hyp map[*pairing.Match]claimsv1.Verdict
 }
 
 func (e evaluator) gate() Gate {
@@ -205,7 +205,7 @@ func Counts(r *pairing.Result, setup string) Stats {
 
 // verdict is how a match counts in a case: its own verdict, a hypothetical one, or for an
 // unlabeled match only one setup reports, the one the case gives it. Empty leaves it out.
-func (e evaluator) verdict(m *pairing.Match, x extreme) labels.Verdict {
+func (e evaluator) verdict(m *pairing.Match, x extreme) claimsv1.Verdict {
 	if v, ok := e.hyp[m]; ok {
 		return v
 	}
@@ -218,9 +218,9 @@ func (e evaluator) verdict(m *pairing.Match, x extreme) labels.Verdict {
 	cand, ref := m.In(pairing.Candidate), m.In(pairing.Reference)
 	switch {
 	case cand && !ref && x == worstCase, ref && !cand && x == bestCase:
-		return labels.FP
+		return claimsv1.FP
 	case cand && !ref, ref && !cand:
-		return labels.TP
+		return claimsv1.TP
 	}
 	return ""
 }
@@ -237,12 +237,12 @@ type unit struct {
 func (e evaluator) units(r *pairing.Result, x extreme) []unit {
 	var out []unit
 	for _, b := range r.Labels {
-		if b.Verdict == labels.TP && !b.Disagrees() {
+		if b.Verdict == claimsv1.TP && !b.Disagrees() {
 			out = append(out, unit{cand: b.PairedIn(pairing.Candidate), ref: b.PairedIn(pairing.Reference), matches: b.Matches})
 		}
 	}
 	for _, m := range r.Matches {
-		if (m.Unlabeled() || e.hyp[m] != "") && e.verdict(m, x) == labels.TP && !pairedByTP(m) {
+		if (m.Unlabeled() || e.hyp[m] != "") && e.verdict(m, x) == claimsv1.TP && !pairedByTP(m) {
 			out = append(out, unit{cand: m.In(pairing.Candidate), ref: m.In(pairing.Reference), matches: []*pairing.Match{m}})
 		}
 	}
@@ -251,7 +251,7 @@ func (e evaluator) units(r *pairing.Result, x extreme) []unit {
 
 func pairedByTP(m *pairing.Match) bool {
 	for _, b := range m.Paired {
-		if b.Verdict == labels.TP && !b.Disagrees() {
+		if b.Verdict == claimsv1.TP && !b.Disagrees() {
 			return true
 		}
 	}
@@ -295,9 +295,9 @@ func (e evaluator) stats(r *pairing.Result, setup string, x extreme) Stats {
 			continue
 		}
 		switch e.verdict(m, x) {
-		case labels.TP:
+		case claimsv1.TP:
 			s.TP++
-		case labels.FP:
+		case claimsv1.FP:
 			s.FP++
 		default:
 			s.Unlabeled++
@@ -315,7 +315,7 @@ func (e evaluator) stats(r *pairing.Result, setup string, x extreme) Stats {
 // hasLabels says whether any tp or fp label applies to the subject.
 func hasLabels(r *pairing.Result) bool {
 	for _, b := range r.Labels {
-		if (b.Verdict == labels.TP || b.Verdict == labels.FP) && !b.Disagrees() {
+		if (b.Verdict == claimsv1.TP || b.Verdict == claimsv1.FP) && !b.Disagrees() {
 			return true
 		}
 	}
@@ -377,7 +377,7 @@ func (e evaluator) newFalseNegatives(r *pairing.Result, x extreme) []unit {
 func (e evaluator) newFalsePositives(r *pairing.Result, x extreme) []*pairing.Match {
 	var out []*pairing.Match
 	for _, m := range r.Matches {
-		if m.In(pairing.Candidate) && !m.In(pairing.Reference) && e.verdict(m, x) == labels.FP {
+		if m.In(pairing.Candidate) && !m.In(pairing.Reference) && e.verdict(m, x) == claimsv1.FP {
 			out = append(out, m)
 		}
 	}
@@ -476,12 +476,12 @@ func (e evaluator) expectations() []Expectation {
 	var out []Expectation
 	for _, s := range e.subjects {
 		for _, b := range s.Result.Labels {
-			if (b.Verdict != labels.TP && b.Verdict != labels.FP) || b.Disagrees() {
+			if (b.Verdict != claimsv1.TP && b.Verdict != claimsv1.FP) || b.Disagrees() {
 				continue
 			}
 			x := Expectation{Subject: s.Name, Package: b.Package, Vulnerability: b.Vulnerability, Verdict: b.Verdict, Met: map[string]bool{}}
 			for _, setup := range []string{pairing.Candidate, pairing.Reference} {
-				x.Met[setup] = b.PairedIn(setup) == (b.Verdict == labels.TP)
+				x.Met[setup] = b.PairedIn(setup) == (b.Verdict == claimsv1.TP)
 			}
 			out = append(out, x)
 		}
@@ -541,10 +541,10 @@ func (e evaluator) effects(current Gate) []Effect {
 	var out []Effect
 	for _, s := range e.subjects {
 		for _, m := range e.unlabeledDeltas(s.Result) {
-			eff := Effect{Subject: s.Name, Match: MatchID(m), States: map[labels.Verdict]map[string]State{}, Outcome: map[labels.Verdict]State{}}
+			eff := Effect{Subject: s.Name, Match: MatchID(m), States: map[claimsv1.Verdict]map[string]State{}, Outcome: map[claimsv1.Verdict]State{}}
 			narrows := map[string]bool{}
-			for _, v := range []labels.Verdict{labels.TP, labels.FP} {
-				h := evaluator{checks: e.checks, subjects: e.subjects, hyp: map[*pairing.Match]labels.Verdict{m: v}}
+			for _, v := range []claimsv1.Verdict{claimsv1.TP, claimsv1.FP} {
+				h := evaluator{checks: e.checks, subjects: e.subjects, hyp: map[*pairing.Match]claimsv1.Verdict{m: v}}
 				g := h.gate()
 				eff.Outcome[v] = g.Outcome
 				eff.States[v] = map[string]State{}

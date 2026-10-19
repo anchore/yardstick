@@ -8,8 +8,8 @@ import (
 	"sort"
 
 	"github.com/anchore/yardstick/cmd/yardstick/internal/analysis"
+	claimsv1 "github.com/anchore/yardstick/cmd/yardstick/internal/claims/v1"
 	"github.com/anchore/yardstick/cmd/yardstick/internal/gatefile"
-	"github.com/anchore/yardstick/cmd/yardstick/internal/labels"
 	"github.com/anchore/yardstick/cmd/yardstick/internal/lookup"
 	"github.com/anchore/yardstick/cmd/yardstick/internal/pairing"
 	"github.com/anchore/yardstick/cmd/yardstick/internal/purl"
@@ -96,8 +96,8 @@ type Match struct {
 	InCandidate bool   `json:"inCandidate"`
 	InReference bool   `json:"inReference"`
 	// Verdict is tp or fp, empty when the match is unlabeled.
-	Verdict labels.Verdict `json:"verdict,omitempty"`
-	Label   *LabelRef      `json:"label,omitempty"`
+	Verdict claimsv1.Verdict `json:"verdict,omitempty"`
+	Label   *LabelRef        `json:"label,omitempty"`
 	// Direction is fixed, introduced or review for a match one setup reports; empty for one both
 	// report. Renderers print it only under checks that read the reference.
 	Direction string `json:"direction,omitempty"`
@@ -129,11 +129,11 @@ const (
 
 // LabelRef is the label deciding a match, or the one a row is about.
 type LabelRef struct {
-	Package       string         `json:"package,omitempty"`
-	Vulnerability string         `json:"vulnerability"`
-	Verdict       labels.Verdict `json:"verdict"`
-	File          string         `json:"file"`
-	Sources       []string       `json:"sources"`
+	Package       string           `json:"package,omitempty"`
+	Vulnerability string           `json:"vulnerability"`
+	Verdict       claimsv1.Verdict `json:"verdict"`
+	File          string           `json:"file"`
+	Sources       []string         `json:"sources"`
 }
 
 // Causes of a miss, in the order they are tried.
@@ -284,7 +284,7 @@ func direction(m *pairing.Match) string {
 	switch {
 	case m.Unlabeled():
 		return Review
-	case (m.Verdict == labels.TP) == cand:
+	case (m.Verdict == claimsv1.TP) == cand:
 		return Fixed
 	}
 	return Introduced
@@ -303,7 +303,7 @@ func labelRef(b *pairing.Bound) LabelRef {
 func misses(r *pairing.Result) []Miss {
 	var out []Miss
 	for _, b := range r.Labels {
-		if b.Verdict != labels.TP || b.Disagrees() || b.PairedIn(pairing.Candidate) {
+		if b.Verdict != claimsv1.TP || b.Disagrees() || b.PairedIn(pairing.Candidate) {
 			continue
 		}
 		miss := Miss{Label: labelRef(b), InReference: b.PairedIn(pairing.Reference)}
@@ -355,7 +355,7 @@ func matchedOn(r *pairing.Result, b *pairing.Bound) bool {
 func loose(r *pairing.Result) []Loose {
 	var out []Loose
 	for _, b := range r.Labels {
-		if b.Verdict != labels.FP || len(b.Matches) < 2 {
+		if b.Verdict != claimsv1.FP || len(b.Matches) < 2 {
 			continue
 		}
 		for _, field := range []string{fieldVersion, fieldDistro} {

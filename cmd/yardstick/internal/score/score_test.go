@@ -11,9 +11,9 @@ import (
 
 	"github.com/anchore/yardstick/cmd/yardstick/internal/analysis"
 	"github.com/anchore/yardstick/cmd/yardstick/internal/claims"
+	claimsv1 "github.com/anchore/yardstick/cmd/yardstick/internal/claims/v1"
 	"github.com/anchore/yardstick/cmd/yardstick/internal/fixture"
 	"github.com/anchore/yardstick/cmd/yardstick/internal/gatefile"
-	"github.com/anchore/yardstick/cmd/yardstick/internal/labels"
 	"github.com/anchore/yardstick/cmd/yardstick/internal/lookup"
 	"github.com/anchore/yardstick/cmd/yardstick/internal/ref"
 	"github.com/anchore/yardstick/cmd/yardstick/internal/report"
@@ -33,15 +33,15 @@ vulnerability-namespaces: [CVE, GHSA]
 var debRef, _ = ref.Parse("oci:docker.io/anchore/yardstick-fixture-deb@sha256:617d48dd2601779266746a9a382bfb9f3fee2744fba698733b320366f41718b0")
 
 // corpus is a claims source with one label file for the deb image.
-func corpus(t *testing.T, platform string, ls ...labels.Label) string {
+func corpus(t *testing.T, platform string, ls ...claimsv1.Label) string {
 	t.Helper()
 	dir := t.TempDir()
-	if err := os.WriteFile(filepath.Join(dir, labels.VocabularyFile), []byte(vocabYAML), 0o600); err != nil {
+	if err := os.WriteFile(filepath.Join(dir, claimsv1.VocabularyFile), []byte(vocabYAML), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	f := &labels.File{Schema: labels.Major, Subject: &labels.Subject{Image: debRef.Image(), Platform: platform}, Labels: ls}
-	data, _ := labels.Marshal(f)
-	p := filepath.Join(dir, filepath.FromSlash(labels.TypeFile(labels.ImageDir(debRef), "deb")))
+	f := &claimsv1.File{Schema: claimsv1.Version, Subject: &claimsv1.Subject{Image: debRef.Image(), Platform: platform}, Labels: ls}
+	data, _ := claimsv1.Marshal(f)
+	p := filepath.Join(dir, filepath.FromSlash(claimsv1.TypeFile(claimsv1.ImageDir(debRef), "deb")))
 	if err := os.MkdirAll(filepath.Dir(p), 0o755); err != nil {
 		t.Fatal(err)
 	}
@@ -51,10 +51,10 @@ func corpus(t *testing.T, platform string, ls ...labels.Label) string {
 	return dir
 }
 
-func label(pkg, vuln string, v labels.Verdict) labels.Label {
-	l := labels.Label{Package: pkg, Vulnerability: vuln, Verdict: v, Author: "test", FirstIssued: "2026-10-14T10:00:00Z", LastUpdated: "2026-10-14T10:00:00Z"}
-	if v != labels.TP {
-		l.Justification = map[labels.Verdict]string{labels.FP: "fix-installed", labels.Unclear: "not-assessed"}[v]
+func label(pkg, vuln string, v claimsv1.Verdict) claimsv1.Label {
+	l := claimsv1.Label{Package: pkg, Vulnerability: vuln, Verdict: v, Author: "test", FirstIssued: "2026-10-14T10:00:00Z", LastUpdated: "2026-10-14T10:00:00Z"}
+	if v != claimsv1.TP {
+		l.Justification = map[claimsv1.Verdict]string{claimsv1.FP: "fix-installed", claimsv1.Unclear: "not-assessed"}[v]
 	}
 	return l
 }
@@ -69,7 +69,7 @@ func scanned(t *testing.T, g *gatefile.Gate) *runrecord.Record {
 		t.Fatal(err)
 	}
 	res.Subject = gatefile.Subject{Ref: debRef, Name: "deb", Platform: "linux/amd64"}
-	res.Dir, res.Platform = labels.ImageDir(debRef), "linux/amd64"
+	res.Dir, res.Platform = claimsv1.ImageDir(debRef), "linux/amd64"
 	rec := &runrecord.Record{Gate: runrecord.Gate{Name: g.Name, Fingerprint: g.Fingerprint()}, Subjects: []runrecord.Subject{{Resolved: *res, Scans: map[string]string{
 		"candidate": "candidate/00.json", "reference": "reference/00.json",
 	}}}}
@@ -111,9 +111,9 @@ func gate(sources ...string) *gatefile.Gate {
 func TestWarnings(t *testing.T) {
 	t.Chdir(t.TempDir())
 	const libc = "pkg:deb/debian/libc6"
-	before := label(libc, "CVE-2026-5450", labels.TP)
-	before.SeenIn = &labels.SeenIn{SBOM: "sha256:3e1a000000000000000000000000000000000000000000000000000000000000"}
-	unseen := label(libc, "CVE-2026-5928", labels.TP)
+	before := label(libc, "CVE-2026-5450", claimsv1.TP)
+	before.SeenIn = &claimsv1.SeenIn{SBOM: "sha256:3e1a000000000000000000000000000000000000000000000000000000000000"}
+	unseen := label(libc, "CVE-2026-5928", claimsv1.TP)
 	g := gate(corpus(t, "linux/arm64", before, unseen))
 	rec := scanned(t, g)
 	v, err := gateOf(t, g, rec)
@@ -136,8 +136,8 @@ func TestWarnings(t *testing.T) {
 func TestDisagreementInEveryRenderer(t *testing.T) {
 	t.Chdir(t.TempDir())
 	const libc = "pkg:deb/debian/libc6"
-	published := corpus(t, "", label(libc, "CVE-2026-5450", labels.FP))
-	local := corpus(t, "", label(libc, "CVE-2026-5450", labels.TP))
+	published := corpus(t, "", label(libc, "CVE-2026-5450", claimsv1.FP))
+	local := corpus(t, "", label(libc, "CVE-2026-5450", claimsv1.TP))
 	g := gate(published, local)
 	v, err := gateOf(t, g, scanned(t, g))
 	if err != nil {
@@ -174,7 +174,7 @@ func gateOf(t *testing.T, g *gatefile.Gate, rec *runrecord.Record) (report.Gate,
 // a row id resolves back to the match it names, whatever the labels say
 func TestResolveRow(t *testing.T) {
 	t.Chdir(t.TempDir())
-	g := gate(corpus(t, "", label("pkg:deb/debian/libc6", "CVE-2026-5450", labels.TP)))
+	g := gate(corpus(t, "", label("pkg:deb/debian/libc6", "CVE-2026-5450", claimsv1.TP)))
 	rec := scanned(t, g)
 	v, err := gateOf(t, g, rec)
 	if err != nil {

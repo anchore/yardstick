@@ -15,11 +15,11 @@ import (
 	"testing"
 
 	"github.com/anchore/yardstick/cmd/yardstick/internal/claims"
+	claimsv1 "github.com/anchore/yardstick/cmd/yardstick/internal/claims/v1"
 	"github.com/anchore/yardstick/cmd/yardstick/internal/execute"
 	"github.com/anchore/yardstick/cmd/yardstick/internal/fixture"
 	"github.com/anchore/yardstick/cmd/yardstick/internal/gatefile"
 	"github.com/anchore/yardstick/cmd/yardstick/internal/install"
-	"github.com/anchore/yardstick/cmd/yardstick/internal/labels"
 	"github.com/anchore/yardstick/cmd/yardstick/internal/lookup"
 	"github.com/anchore/yardstick/cmd/yardstick/internal/ref"
 	"github.com/anchore/yardstick/cmd/yardstick/internal/runrecord"
@@ -108,7 +108,7 @@ func gate(t *testing.T, s stubs) *gatefile.Gate {
 		t.Fatal(err)
 	}
 	sbom, _ := os.ReadFile(fixture.SBOM("deb", "syft"))
-	write(t, filepath.Join(corpus, labels.ImageDir(debRef), labels.ImageSBOMFile), sbom)
+	write(t, filepath.Join(corpus, claimsv1.ImageDir(debRef), claimsv1.ImageSBOMFile), sbom)
 	npm, err := ref.Parse("sbom:" + fixture.SBOM("npm", "syft"))
 	if err != nil {
 		t.Fatal(err)

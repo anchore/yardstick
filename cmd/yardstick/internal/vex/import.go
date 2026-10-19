@@ -14,7 +14,7 @@ import (
 
 	"github.com/anchore/packageurl-go"
 	"github.com/anchore/syft/syft/pkg"
-	"github.com/anchore/yardstick/cmd/yardstick/internal/labels"
+	claimsv1 "github.com/anchore/yardstick/cmd/yardstick/internal/claims/v1"
 	"github.com/anchore/yardstick/cmd/yardstick/internal/log"
 	"github.com/anchore/yardstick/cmd/yardstick/internal/ref"
 )
@@ -33,7 +33,7 @@ type Options struct {
 // Imported is what one document became: labels placed in corpus files, and every statement
 // that names nothing a label can be about.
 type Imported struct {
-	Placed  []labels.Placed
+	Placed  []claimsv1.Placed
 	Skipped []string
 }
 
@@ -90,22 +90,22 @@ func ImportOpenVEX(name string, data []byte, opts Options) (*Imported, error) {
 		vuln := string(st.Vulnerability.Name)
 		observed := stamp(st.Timestamp, doc.Timestamp, opts.Now)
 		for _, p := range st.Products {
-			fact := labels.Fact{
+			fact := claimsv1.Fact{
 				Source:     opts.Source,
 				About:      map[string]string{"document": doc.ID, "statement": fmt.Sprint(i), "vulnerability": vuln, "product": p.ID},
 				Field:      "status",
 				Value:      statusValue(st),
 				ObservedAt: observed,
 			}
-			l := labels.Label{
+			l := claimsv1.Label{
 				Vulnerability: vuln,
 				Verdict:       verdict,
 				Justification: justification,
 				Author:        opts.Author,
-				Notes:         labels.NotesOf(firstOf(st.ImpactStatement, st.ActionStatement, st.StatusNotes), opts.Author, opts.Now.UTC().Format(time.RFC3339)),
+				Notes:         claimsv1.NotesOf(firstOf(st.ImpactStatement, st.ActionStatement, st.StatusNotes), opts.Author, opts.Now.UTC().Format(time.RFC3339)),
 				FirstIssued:   opts.Now.UTC().Format(time.RFC3339),
 				LastUpdated:   opts.Now.UTC().Format(time.RFC3339),
-				Evidence: []labels.Evidence{{Facts: []labels.Fact{fact}, Interpretation: fmt.Sprintf(
+				Evidence: []claimsv1.Evidence{{Facts: []claimsv1.Fact{fact}, Interpretation: fmt.Sprintf(
 					"%s's VEX statement %d in %s says %s for this product", doc.Author, i, name, statusValue(st))}},
 			}
 			placed, why := place(p, l)
@@ -121,19 +121,19 @@ func ImportOpenVEX(name string, data []byte, opts Options) (*Imported, error) {
 
 // fromStatus maps a VEX status to a verdict on the match: not affected and fixed mean the match
 // is wrong, affected means it is right, under investigation decides nothing.
-func fromStatus(st vex.Statement) (labels.Verdict, string) {
+func fromStatus(st vex.Statement) (claimsv1.Verdict, string) {
 	switch st.Status {
 	case vex.StatusNotAffected:
 		if st.Justification != "" {
-			return labels.FP, string(st.Justification)
+			return claimsv1.FP, string(st.Justification)
 		}
-		return labels.FP, "vendor-not-affected"
+		return claimsv1.FP, "vendor-not-affected"
 	case vex.StatusFixed:
-		return labels.FP, fixInstalled
+		return claimsv1.FP, fixInstalled
 	case vex.StatusAffected:
-		return labels.TP, ""
+		return claimsv1.TP, ""
 	}
-	return labels.Unclear, "not-assessed"
+	return claimsv1.Unclear, "not-assessed"
 }
 
 func statusValue(st vex.Statement) string {
@@ -144,36 +144,36 @@ func statusValue(st vex.Statement) string {
 }
 
 // place puts a label about a product where the corpus keeps it, or says why it can't.
-func place(p vex.Product, l labels.Label) ([]labels.Placed, string) {
+func place(p vex.Product, l claimsv1.Label) ([]claimsv1.Placed, string) {
 	purl, err := packageurl.FromString(p.ID)
 	if err != nil {
 		return nil, "the product is not a package URL, so it names no image and no package"
 	}
 	if purl.Type != "oci" {
 		t := pkg.TypeFromPURL(p.ID)
-		if t == pkg.UnknownPkg || !labels.ValidType(string(t)) {
+		if t == pkg.UnknownPkg || !claimsv1.ValidType(string(t)) {
 			return nil, "no package type for the product"
 		}
 		l.Package = p.ID
-		return []labels.Placed{{File: labels.GlobalFile(string(t)), Label: l}}, ""
+		return []claimsv1.Placed{{File: claimsv1.GlobalFile(string(t)), Label: l}}, ""
 	}
 	image, err := ociImage(purl)
 	if err != nil {
 		return nil, err.Error()
 	}
-	dir, subject := labels.ImageDir(image), &labels.Subject{Image: image.Image()}
+	dir, subject := claimsv1.ImageDir(image), &claimsv1.Subject{Image: image.Image()}
 	if len(p.Subcomponents) == 0 {
-		return []labels.Placed{{File: dir + "/" + labels.NoPackageFile, Subject: subject, Label: l}}, ""
+		return []claimsv1.Placed{{File: dir + "/" + claimsv1.NoPackageFile, Subject: subject, Label: l}}, ""
 	}
-	var out []labels.Placed
+	var out []claimsv1.Placed
 	for _, sc := range p.Subcomponents {
 		t := pkg.TypeFromPURL(sc.ID)
-		if t == pkg.UnknownPkg || !labels.ValidType(string(t)) {
+		if t == pkg.UnknownPkg || !claimsv1.ValidType(string(t)) {
 			return nil, fmt.Sprintf("subcomponent %s is not a package URL with a known type", sc.ID)
 		}
 		withPkg := l
 		withPkg.Package = sc.ID
-		out = append(out, labels.Placed{File: labels.TypeFile(dir, string(t)), Subject: subject, Label: withPkg})
+		out = append(out, claimsv1.Placed{File: claimsv1.TypeFile(dir, string(t)), Subject: subject, Label: withPkg})
 	}
 	return out, ""
 }

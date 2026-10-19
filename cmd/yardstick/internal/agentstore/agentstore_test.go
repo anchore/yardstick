@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/anchore/yardstick/cmd/yardstick/internal/labels"
+	claimsv1 "github.com/anchore/yardstick/cmd/yardstick/internal/claims/v1"
 )
 
 const vocabYAML = `justifications:
@@ -23,13 +23,13 @@ rules:
 
 var (
 	now   = time.Date(2026, 10, 16, 9, 0, 0, 0, time.UTC)
-	image = labels.Subject{Image: "docker.io/anchore/x@sha256:" + strings.Repeat("a", 64)}
+	image = claimsv1.Subject{Image: "docker.io/anchore/x@sha256:" + strings.Repeat("a", 64)}
 )
 
-func proposal(id, vuln string, verdict labels.Verdict, rule, confidence string) Proposal {
+func proposal(id, vuln string, verdict claimsv1.Verdict, rule, confidence string) Proposal {
 	return Proposal{Schema: Schema, ID: id, Gate: "deb", Subject: image, Package: "pkg:deb/debian/zlib1g@1.2.13", Vulnerability: vuln,
 		Verdict: verdict, Justification: "fix-installed", Confidence: confidence,
-		Evidence: []labels.Evidence{{Rule: rule, Facts: []labels.Fact{{Source: "debian-security-tracker", About: map[string]string{"vulnerability": vuln}, Field: "fixed", Value: "1.2.13", ObservedAt: "2026-10-16T09:00:00Z"}}}},
+		Evidence: []claimsv1.Evidence{{Rule: rule, Facts: []claimsv1.Fact{{Source: "debian-security-tracker", About: map[string]string{"vulnerability": vuln}, Field: "fixed", Value: "1.2.13", ObservedAt: "2026-10-16T09:00:00Z"}}}},
 		Author:   Author{Kind: Agent, Skill: "triage-deltas", Model: "opus"}, Timestamp: now}
 }
 
@@ -44,8 +44,8 @@ func TestLog(t *testing.T) {
 	if cur, err := s.Proposals.Current(); err != nil || len(cur) != 0 {
 		t.Fatalf("expected an empty store before anything is added, got %v %v", cur, err)
 	}
-	first := proposal("p1", "CVE-2022-37434", labels.FP, "debian/installed-has-fix", "high")
-	other := proposal("p2", "CVE-2023-1", labels.FP, "debian/installed-has-fix", "high")
+	first := proposal("p1", "CVE-2022-37434", claimsv1.FP, "debian/installed-has-fix", "high")
+	other := proposal("p2", "CVE-2023-1", claimsv1.FP, "debian/installed-has-fix", "high")
 	if err := s.Proposals.Add(first, other); err != nil {
 		t.Fatal(err)
 	}
@@ -57,8 +57,8 @@ func TestLog(t *testing.T) {
 	if again != added {
 		t.Error("expected the snapshot steady when nothing is added")
 	}
-	rerun := proposal("p3", "CVE-2022-37434", labels.FP, "debian/installed-has-fix", "medium")
-	bad := proposal("", "CVE-2023-2", labels.FP, "", "")
+	rerun := proposal("p3", "CVE-2022-37434", claimsv1.FP, "debian/installed-has-fix", "medium")
+	bad := proposal("", "CVE-2023-2", claimsv1.FP, "", "")
 	if err := s.Proposals.Add(rerun, bad); err == nil || !strings.Contains(err.Error(), "missing an id") {
 		t.Fatalf("expected the batch refused for the proposal with no id, got %v", err)
 	}
@@ -86,19 +86,19 @@ func TestLog(t *testing.T) {
 }
 
 func TestValidate(t *testing.T) {
-	noJust := proposal("p", "CVE-2023-1", labels.FP, "", "")
+	noJust := proposal("p", "CVE-2023-1", claimsv1.FP, "", "")
 	noJust.Justification = ""
-	noSubject := proposal("p", "CVE-2023-1", labels.FP, "", "")
-	noSubject.Subject = labels.Subject{}
-	noFacts := proposal("p", "CVE-2023-1", labels.FP, "", "")
+	noSubject := proposal("p", "CVE-2023-1", claimsv1.FP, "", "")
+	noSubject.Subject = claimsv1.Subject{}
+	noFacts := proposal("p", "CVE-2023-1", claimsv1.FP, "", "")
 	noFacts.Evidence[0].Facts = nil
-	badConfidence := proposal("p", "CVE-2023-1", labels.FP, "", "certain")
-	cause := Cause{Schema: Schema, ID: "c", Gate: "deb", Title: "fixed in Debian", SourcePackage: "zlib", Verdict: labels.FP, Justification: "fix-installed",
+	badConfidence := proposal("p", "CVE-2023-1", claimsv1.FP, "", "certain")
+	cause := Cause{Schema: Schema, ID: "c", Gate: "deb", Title: "fixed in Debian", SourcePackage: "zlib", Verdict: claimsv1.FP, Justification: "fix-installed",
 		Members: []Member{{Row: "r1", Vulnerability: "CVE-1", Package: "pkg:deb/debian/zlib1g"}, {Row: "r1", Vulnerability: "CVE-2", Package: "pkg:deb/debian/zlib1g"}},
 		Author:  Author{Kind: Agent}}
 	explanation := Explanation{Schema: Schema, ID: "e", Gate: "deb", Run: "default", Title: "VEX changed", Members: []Member{{Row: "r1", Vulnerability: "CVE-1", Package: "pkg:deb/debian/zlib1g"}},
 		LogExcerpts: []LogExcerpt{{Side: "candidate", File: "../outside.log", Lines: [2]int{1, 2}, Text: "x", SHA256: strings.Repeat("0", 64)}}, Author: Author{Kind: Agent}}
-	override := Override{Schema: Schema, Proposal: "p", Vulnerability: "CVE-1", Verdict: labels.TP, Author: "Alex Goodman", Reason: &Reason{Kind: "vibes"}}
+	override := Override{Schema: Schema, Proposal: "p", Vulnerability: "CVE-1", Verdict: claimsv1.TP, Author: "Alex Goodman", Reason: &Reason{Kind: "vibes"}}
 	for name, tt := range map[string]struct {
 		r    record
 		want string
@@ -115,7 +115,7 @@ func TestValidate(t *testing.T) {
 			t.Errorf("%s: expected %q, got %v", name, tt.want, err)
 		}
 	}
-	if err := proposal("p", "CVE-2023-1", labels.FP, "", "").Validate(); err != nil {
+	if err := proposal("p", "CVE-2023-1", claimsv1.FP, "", "").Validate(); err != nil {
 		t.Errorf("expected a valid proposal, got %v", err)
 	}
 }
@@ -123,32 +123,32 @@ func TestValidate(t *testing.T) {
 // the policy check: a proposal's confidence at or under its rule's ceiling, its verdict the rule's
 func TestProblems(t *testing.T) {
 	dir := t.TempDir()
-	if err := os.WriteFile(filepath.Join(dir, labels.VocabularyFile), []byte(vocabYAML), 0o600); err != nil {
+	if err := os.WriteFile(filepath.Join(dir, claimsv1.VocabularyFile), []byte(vocabYAML), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	v, err := labels.LoadVocabulary(os.DirFS(dir))
+	v, err := claimsv1.LoadVocabulary(os.DirFS(dir))
 	if err != nil {
 		t.Fatal(err)
 	}
-	wrongVerdict := proposal("p", "CVE-2023-1", labels.TP, "debian/installed-has-fix", "high")
+	wrongVerdict := proposal("p", "CVE-2023-1", claimsv1.TP, "debian/installed-has-fix", "high")
 	wrongVerdict.Justification = "fix-newer"
 	for name, tt := range map[string]struct {
 		p    Proposal
 		want string
 	}{
-		"at the ceiling":     {proposal("p", "CVE-2023-1", labels.FP, "debian/installed-has-fix", "high"), ""},
-		"above the ceiling":  {proposal("p", "CVE-2023-1", labels.FP, "cna/installed-past-range", "high"), "above the medium ceiling for cna/installed-past-range (P-4)"},
+		"at the ceiling":     {proposal("p", "CVE-2023-1", claimsv1.FP, "debian/installed-has-fix", "high"), ""},
+		"above the ceiling":  {proposal("p", "CVE-2023-1", claimsv1.FP, "cna/installed-past-range", "high"), "above the medium ceiling for cna/installed-past-range (P-4)"},
 		"rule of the other":  {wrongVerdict, "supports fp, not tp"},
-		"unknown rule":       {proposal("p", "CVE-2023-1", labels.FP, "debian/guess", "medium"), `rule "debian/guess" is not listed`},
-		"low-confidence fp":  {proposal("p", "CVE-2023-1", labels.FP, "", "low"), "a low-confidence fp is not allowed"},
-		"unlisted namespace": {proposal("p", "GHSA-xxxx", labels.FP, "", ""), `namespace "GHSA"`},
+		"unknown rule":       {proposal("p", "CVE-2023-1", claimsv1.FP, "debian/guess", "medium"), `rule "debian/guess" is not listed`},
+		"low-confidence fp":  {proposal("p", "CVE-2023-1", claimsv1.FP, "", "low"), "a low-confidence fp is not allowed"},
+		"unlisted namespace": {proposal("p", "GHSA-xxxx", claimsv1.FP, "", ""), `namespace "GHSA"`},
 	} {
 		got := strings.Join(tt.p.Problems(v), "; ")
 		if (tt.want == "") != (got == "") || !strings.Contains(got, tt.want) {
 			t.Errorf("%s: expected %q, got %q", name, tt.want, got)
 		}
 	}
-	cause := Cause{Verdict: labels.FP, Justification: "fix-installed", Confidence: "high", Evidence: proposal("p", "CVE-1", labels.FP, "cna/installed-past-range", "").Evidence}
+	cause := Cause{Verdict: claimsv1.FP, Justification: "fix-installed", Confidence: "high", Evidence: proposal("p", "CVE-1", claimsv1.FP, "cna/installed-past-range", "").Evidence}
 	if got := cause.Problems(v); len(got) != 1 || !strings.Contains(got[0], "ceiling") {
 		t.Errorf("expected a cause over its rule's ceiling flagged, got %v", got)
 	}

@@ -8,7 +8,7 @@ import (
 
 	"github.com/anchore/packageurl-go"
 	"github.com/anchore/syft/syft/pkg"
-	"github.com/anchore/yardstick/cmd/yardstick/internal/labels"
+	claimsv1 "github.com/anchore/yardstick/cmd/yardstick/internal/claims/v1"
 )
 
 // osvRecord is the part of an OSV record a label can come from.
@@ -50,7 +50,7 @@ func ImportOSV(name string, data []byte, opts Options) (*Imported, error) {
 	for i, a := range rec.Affected {
 		base, err := packageurl.FromString(a.Package.PURL)
 		t := pkg.TypeFromPURL(a.Package.PURL)
-		if a.Package.PURL == "" || err != nil || t == pkg.UnknownPkg || !labels.ValidType(string(t)) {
+		if a.Package.PURL == "" || err != nil || t == pkg.UnknownPkg || !claimsv1.ValidType(string(t)) {
 			out.Skipped = append(out.Skipped, fmt.Sprintf("%s affected[%d] (%s %s): no package URL with a known type", name, i, a.Package.Ecosystem, a.Package.Name))
 			continue
 		}
@@ -62,7 +62,7 @@ func ImportOSV(name string, data []byte, opts Options) (*Imported, error) {
 		for _, sv := range stated {
 			p := base
 			p.Version = sv.version
-			l := labels.Label{
+			l := claimsv1.Label{
 				Package:       p.ToString(),
 				Vulnerability: vuln,
 				Verdict:       sv.verdict,
@@ -70,8 +70,8 @@ func ImportOSV(name string, data []byte, opts Options) (*Imported, error) {
 				Author:        opts.Author,
 				FirstIssued:   opts.Now.UTC().Format(time.RFC3339),
 				LastUpdated:   opts.Now.UTC().Format(time.RFC3339),
-				Evidence: []labels.Evidence{{
-					Facts: []labels.Fact{{
+				Evidence: []claimsv1.Evidence{{
+					Facts: []claimsv1.Fact{{
 						Source:     opts.Source,
 						About:      map[string]string{"record": rec.ID, "package": a.Package.PURL},
 						Field:      sv.field,
@@ -81,7 +81,7 @@ func ImportOSV(name string, data []byte, opts Options) (*Imported, error) {
 					Interpretation: fmt.Sprintf("OSV record %s lists %s as %s", rec.ID, sv.version, sv.meaning),
 				}},
 			}
-			out.Placed = append(out.Placed, labels.Placed{File: labels.GlobalFile(string(t)), Label: l})
+			out.Placed = append(out.Placed, claimsv1.Placed{File: claimsv1.GlobalFile(string(t)), Label: l})
 		}
 	}
 	return out, nil
@@ -100,7 +100,7 @@ func osvVulnerability(rec osvRecord) string {
 
 type statedVersion struct {
 	version, field, meaning string
-	verdict                 labels.Verdict
+	verdict                 claimsv1.Verdict
 	justification           string
 }
 
@@ -119,15 +119,15 @@ func statedVersions(versions []string, ranges []struct {
 		}
 	}
 	for _, v := range versions {
-		add(statedVersion{version: v, field: "affected.versions", meaning: "affected", verdict: labels.TP})
+		add(statedVersion{version: v, field: "affected.versions", meaning: "affected", verdict: claimsv1.TP})
 	}
 	for _, r := range ranges {
 		if r.Type == "GIT" {
 			continue // a commit is not a package version
 		}
 		for _, e := range r.Events {
-			add(statedVersion{version: e["last_affected"], field: "affected.ranges.last_affected", meaning: "the last affected version", verdict: labels.TP})
-			add(statedVersion{version: e["fixed"], field: "affected.ranges.fixed", meaning: "the fix", verdict: labels.FP, justification: fixInstalled})
+			add(statedVersion{version: e["last_affected"], field: "affected.ranges.last_affected", meaning: "the last affected version", verdict: claimsv1.TP})
+			add(statedVersion{version: e["fixed"], field: "affected.ranges.fixed", meaning: "the fix", verdict: claimsv1.FP, justification: fixInstalled})
 		}
 	}
 	return out

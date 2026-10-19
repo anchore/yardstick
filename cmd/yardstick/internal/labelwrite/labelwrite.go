@@ -13,8 +13,8 @@ import (
 	"github.com/anchore/syft/syft/pkg"
 	"github.com/anchore/yardstick/cmd/yardstick/internal/agentstore"
 	"github.com/anchore/yardstick/cmd/yardstick/internal/claims"
+	claimsv1 "github.com/anchore/yardstick/cmd/yardstick/internal/claims/v1"
 	"github.com/anchore/yardstick/cmd/yardstick/internal/collect"
-	"github.com/anchore/yardstick/cmd/yardstick/internal/labels"
 	"github.com/anchore/yardstick/cmd/yardstick/internal/pairing"
 	"github.com/anchore/yardstick/cmd/yardstick/internal/ref"
 	"github.com/anchore/yardstick/cmd/yardstick/internal/runrecord"
@@ -23,7 +23,7 @@ import (
 // SeenIn is what a run's scan of the subject used, for a label about it: the unfiltered SBOM's
 // digest, the syft that built it, and the grype and DB of the setup that reported the match (the
 // candidate's when both or neither did). dir is the run's directory, holding the scans.
-func SeenIn(rec *runrecord.Record, dir string, sub *runrecord.Subject, l labels.Label, vocab *labels.Vocabulary) (*labels.SeenIn, error) {
+func SeenIn(rec *runrecord.Record, dir string, sub *runrecord.Subject, l claimsv1.Label, vocab *claimsv1.Vocabulary) (*claimsv1.SeenIn, error) {
 	setup, err := reportedBy(dir, sub, l, vocab)
 	if err != nil {
 		return nil, err
@@ -33,28 +33,28 @@ func SeenIn(rec *runrecord.Record, dir string, sub *runrecord.Subject, l labels.
 
 // SeenInFor is SeenIn when the caller already knows which setup reported the match, as the label
 // server does from its paired rows.
-func SeenInFor(rec *runrecord.Record, sub *runrecord.Subject, setup string) *labels.SeenIn {
+func SeenInFor(rec *runrecord.Record, sub *runrecord.Subject, setup string) *claimsv1.SeenIn {
 	seen := rec.Setups[setup]
-	out := &labels.SeenIn{SBOM: sub.UnfilteredDigest}
+	out := &claimsv1.SeenIn{SBOM: sub.UnfilteredDigest}
 	add := func(name, version string) {
 		if version != "" {
-			out.Tools = append(out.Tools, labels.Tool{Name: name, Version: version})
+			out.Tools = append(out.Tools, claimsv1.Tool{Name: name, Version: version})
 		}
 	}
-	add(labels.ToolSyft, sub.Syft)
+	add(claimsv1.ToolSyft, sub.Syft)
 	// a grype run from a local binary has no version but its path
 	grype := seen.Grype.Spec.Version
 	if grype == "" {
 		grype = seen.Grype.Spec.Path
 	}
-	add(labels.ToolGrype, grype)
-	add(labels.ToolGrypeDB, seen.DB.Checksum)
+	add(claimsv1.ToolGrype, grype)
+	add(claimsv1.ToolGrypeDB, seen.DB.Checksum)
 	return out
 }
 
 // Write places a label about a subject (or, when global, in global/<type>.json, dropping its
 // seenIn) and writes it into the set's writable source. It returns the path written.
-func Write(set *claims.Set, sub *runrecord.Subject, l labels.Label, global bool) (string, error) {
+func Write(set *claims.Set, sub *runrecord.Subject, l claimsv1.Label, global bool) (string, error) {
 	placed, err := Place(sub, l, global)
 	if err != nil {
 		return "", err
@@ -63,7 +63,7 @@ func Write(set *claims.Set, sub *runrecord.Subject, l labels.Label, global bool)
 	if err != nil {
 		return "", err
 	}
-	if err := w.Write([]labels.Placed{placed}); err != nil {
+	if err := w.Write([]claimsv1.Placed{placed}); err != nil {
 		return "", err
 	}
 	return w.Dir + "/" + placed.File, nil
@@ -71,7 +71,7 @@ func Write(set *claims.Set, sub *runrecord.Subject, l labels.Label, global bool)
 
 // reportedBy is the setup whose grype and DB a label's seenIn records, reading the scans in dir: the
 // reference when only it reports a match the label pairs, else the candidate.
-func reportedBy(dir string, sub *runrecord.Subject, l labels.Label, vocab *labels.Vocabulary) (string, error) {
+func reportedBy(dir string, sub *runrecord.Subject, l claimsv1.Label, vocab *claimsv1.Vocabulary) (string, error) {
 	isAdvisory := func(string) bool { return false }
 	if vocab != nil {
 		isAdvisory = vocab.IsAdvisory
@@ -101,44 +101,44 @@ func reportedBy(dir string, sub *runrecord.Subject, l labels.Label, vocab *label
 
 // Place puts a label in its subject's file for the package's type, its image.json when it names
 // no package, or global/<type>.json.
-func Place(sub *runrecord.Subject, l labels.Label, global bool) (labels.Placed, error) {
+func Place(sub *runrecord.Subject, l claimsv1.Label, global bool) (claimsv1.Placed, error) {
 	t := ""
 	if l.Package != "" {
 		t = string(pkg.TypeFromPURL(l.Package))
-		if t == string(pkg.UnknownPkg) || !labels.ValidType(t) {
-			return labels.Placed{}, fmt.Errorf("package %s names no package type a label file can be named for", l.Package)
+		if t == string(pkg.UnknownPkg) || !claimsv1.ValidType(t) {
+			return claimsv1.Placed{}, fmt.Errorf("package %s names no package type a label file can be named for", l.Package)
 		}
 	}
 	if global {
 		if t == "" {
-			return labels.Placed{}, errors.New("a global label names a package")
+			return claimsv1.Placed{}, errors.New("a global label names a package")
 		}
 		l.SeenIn = nil
-		return labels.Placed{File: labels.GlobalFile(t), Label: l}, nil
+		return claimsv1.Placed{File: claimsv1.GlobalFile(t), Label: l}, nil
 	}
 	// the record keeps the subject's reference as written
 	r, err := ref.Parse(sub.Written)
 	if err != nil {
-		return labels.Placed{}, err
+		return claimsv1.Placed{}, err
 	}
-	s := &labels.Subject{Platform: sub.Platform}
+	s := &claimsv1.Subject{Platform: sub.Platform}
 	if r.Kind == ref.Image {
 		s.Image = r.Image()
 	} else {
 		// a document is addressed by its own bytes, before any filter
 		s.SBOM = sub.UnfilteredDigest
 	}
-	file := sub.Dir + "/" + labels.NoPackageFile
+	file := sub.Dir + "/" + claimsv1.NoPackageFile
 	if t != "" {
-		file = labels.TypeFile(sub.Dir, t)
+		file = claimsv1.TypeFile(sub.Dir, t)
 	}
-	return labels.Placed{File: file, Subject: s, Label: l}, nil
+	return claimsv1.Placed{File: file, Subject: s, Label: l}, nil
 }
 
 // Accept writes the label accepting a proposal says, by the person accepting it: its verdict,
 // justification, note and evidence, with seenIn from the run (SeenIn gives it). The proposal's
 // confidence stays on the proposal.
-func Accept(set *claims.Set, sub *runrecord.Subject, p agentstore.Proposal, author string, seen *labels.SeenIn, now time.Time) (string, error) {
+func Accept(set *claims.Set, sub *runrecord.Subject, p agentstore.Proposal, author string, seen *claimsv1.SeenIn, now time.Time) (string, error) {
 	l := p.Label(author, now)
 	l.SeenIn = seen
 	return Write(set, sub, l, false)

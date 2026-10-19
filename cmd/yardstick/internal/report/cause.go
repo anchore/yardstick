@@ -8,7 +8,7 @@ import (
 	"strings"
 
 	"github.com/anchore/yardstick/cmd/yardstick/internal/analysis"
-	"github.com/anchore/yardstick/cmd/yardstick/internal/labels"
+	claimsv1 "github.com/anchore/yardstick/cmd/yardstick/internal/claims/v1"
 )
 
 // byCause is the cause-first layout: each gate's checks and the changes driving them, then each
@@ -241,7 +241,7 @@ func causeWriteUnmet(w io.Writer, g Gate, c analysis.Check, o Options, st styles
 	}
 	for _, x := range c.Unmet {
 		line := fmt.Sprintf("      %s %s%s, %s", x.Verdict, st.id(x.Vulnerability), on(x.Package), subjectName(x.Subject))
-		if miss := g.subject(x.Subject).missOn(x.Package, x.Vulnerability); miss != nil && x.Verdict == labels.TP {
+		if miss := g.subject(x.Subject).missOn(x.Package, x.Vulnerability); miss != nil && x.Verdict == claimsv1.TP {
 			line += "; " + st.undecided(causeSummary(*miss))
 		}
 		fmt.Fprintln(w, line)
@@ -378,7 +378,7 @@ func causeWriteGroup(w io.Writer, g Gate, sub *Subject, grp *group, indent strin
 		phrase := map[[2]bool]string{
 			{true, true}: "now missed", {true, false}: "now found",
 			{false, true}: "no longer reported", {false, false}: "newly reported",
-		}[[2]bool{verdict == labels.TP, dropped}]
+		}[[2]bool{verdict == claimsv1.TP, dropped}]
 		head = grp.state + ": %d " + string(verdict) + ", " + phrase
 	}
 	fmt.Fprintln(w, indent+st.state(directionState[grp.state], fmt.Sprintf(head, n)))
@@ -466,7 +466,7 @@ func causeDistinct(items []string, format string) []string {
 // causeEffect is what labeling one row does, e.g. "one labeled tp: f1NotWorse FAIL; fp: no
 // change; the gate stays FAIL": each check whose state it changes, and the gate's outcome.
 func causeEffect(g Gate, e *analysis.Effect) string {
-	moved := func(v labels.Verdict) string {
+	moved := func(v claimsv1.Verdict) string {
 		var parts []string
 		for _, c := range g.Checks {
 			if s := e.States[v][c.Name]; s != c.State {
@@ -478,13 +478,13 @@ func causeEffect(g Gate, e *analysis.Effect) string {
 		}
 		return strings.Join(parts, ", ")
 	}
-	tp, fp := moved(labels.TP), moved(labels.FP)
+	tp, fp := moved(claimsv1.TP), moved(claimsv1.FP)
 	line := "one labeled tp: " + tp + "; fp: " + fp
 	if tp == fp {
 		line = "one labeled tp or fp: " + tp
 	}
-	switch out := e.Outcome[labels.TP]; {
-	case out != e.Outcome[labels.FP]:
+	switch out := e.Outcome[claimsv1.TP]; {
+	case out != e.Outcome[claimsv1.FP]:
 	case out == g.Outcome:
 		line += "; the gate stays " + stateWord[out]
 	default:

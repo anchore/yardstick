@@ -15,8 +15,8 @@ import (
 	"strings"
 	"sync"
 
+	claimsv1 "github.com/anchore/yardstick/cmd/yardstick/internal/claims/v1"
 	"github.com/anchore/yardstick/cmd/yardstick/internal/gatefile"
-	"github.com/anchore/yardstick/cmd/yardstick/internal/labels"
 	"github.com/anchore/yardstick/cmd/yardstick/internal/log"
 )
 
@@ -106,7 +106,7 @@ type Set struct {
 	Sources []*Source
 	// vocab is the first vocabulary any source has, for telling advisory ids apart; nil when no
 	// source has one
-	vocab *labels.Vocabulary
+	vocab *claimsv1.Vocabulary
 }
 
 // OpenSet opens every source of a gate, in order.
@@ -120,7 +120,7 @@ func OpenSet(sources []gatefile.Source) (*Set, error) {
 		set.Sources = append(set.Sources, s)
 	}
 	for _, s := range set.Sources {
-		v, err := labels.LoadVocabulary(s.FS)
+		v, err := claimsv1.LoadVocabulary(s.FS)
 		if err != nil {
 			return nil, fmt.Errorf("claims source %s: %w", s.Locator, err)
 		}
@@ -134,23 +134,23 @@ func OpenSet(sources []gatefile.Source) (*Set, error) {
 
 // Writer is a label writer into the last source, which must be a local directory, checking
 // against the writable source's vocabulary, else the first source's that has one.
-func (s *Set) Writer() (labels.Writer, error) {
+func (s *Set) Writer() (claimsv1.Writer, error) {
 	if len(s.Sources) == 0 {
-		return labels.Writer{}, errors.New("no claims source to write labels to")
+		return claimsv1.Writer{}, errors.New("no claims source to write labels to")
 	}
 	last := s.Sources[len(s.Sources)-1]
 	if last.Kind != Corpus {
-		return labels.Writer{}, fmt.Errorf("writes need a local last claims source, and the last is %s; add one with --claims <path>", last.Locator)
+		return claimsv1.Writer{}, fmt.Errorf("writes need a local last claims source, and the last is %s; add one with --claims <path>", last.Locator)
 	}
 	others := make([]fs.FS, len(s.Sources))
 	for i, src := range s.Sources {
 		others[i] = src.FS
 	}
-	vocab, err := labels.FindVocabulary(last.FS, others...)
+	vocab, err := claimsv1.FindVocabulary(last.FS, others...)
 	if err != nil {
-		return labels.Writer{}, err
+		return claimsv1.Writer{}, err
 	}
-	return labels.Writer{Dir: last.Dir, Vocab: vocab}, nil
+	return claimsv1.Writer{Dir: last.Dir, Vocab: vocab}, nil
 }
 
 // Subject is what a gate reads labels for: a subject's directory in the corpus layout and the
@@ -163,7 +163,7 @@ type Subject struct {
 
 // Label is a label as a gate reads it: one per scope and key across every source.
 type Label struct {
-	labels.Label
+	claimsv1.Label
 	// Global is set for a label from global/, which holds on every subject.
 	Global bool
 	// File is where it was read, corpus-relative.
@@ -186,7 +186,7 @@ func (l Label) Disagrees() bool {
 // SourceVerdict is one source's verdict on a key.
 type SourceVerdict struct {
 	Source  string
-	Verdict labels.Verdict
+	Verdict claimsv1.Verdict
 }
 
 // Labels are one subject's labels across every source.
@@ -200,7 +200,7 @@ type Labels struct {
 // scopedKey keys the union: a subject label and a global label on one match are two labels.
 type scopedKey struct {
 	global bool
-	labels.Key
+	claimsv1.Key
 }
 
 // Read reads one subject's labels from every source: the type files for its package types, its
@@ -245,16 +245,16 @@ func subjectFiles(sub Subject) []string {
 	types := append([]string(nil), sub.Types...)
 	sort.Strings(types)
 	log.Debugf("subject %s read package types %v", sub.Name, types)
-	files := []string{sub.Dir + "/" + labels.NoPackageFile}
+	files := []string{sub.Dir + "/" + claimsv1.NoPackageFile}
 	for _, t := range types {
-		if labels.ValidType(t) {
-			files = append(files, labels.TypeFile(sub.Dir, t), labels.GlobalFile(t))
+		if claimsv1.ValidType(t) {
+			files = append(files, claimsv1.TypeFile(sub.Dir, t), claimsv1.GlobalFile(t))
 		}
 	}
 	return files
 }
 
-func (s *Source) readLabels(p string) (*labels.File, error) {
+func (s *Source) readLabels(p string) (*claimsv1.File, error) {
 	data, err := s.ReadFile(p)
 	if errors.Is(err, fs.ErrNotExist) {
 		return nil, nil
@@ -262,7 +262,7 @@ func (s *Source) readLabels(p string) (*labels.File, error) {
 	if err != nil {
 		return nil, fmt.Errorf("claims source %s: %w", s.Locator, err)
 	}
-	f, err := labels.Parse(s.Locator+": "+p, data)
+	f, err := claimsv1.Parse(s.Locator+": "+p, data)
 	if err == nil {
 		log.Debugf("read %s from %s: %d labels", p, s.Locator, len(f.Labels))
 	}
@@ -271,7 +271,7 @@ func (s *Source) readLabels(p string) (*labels.File, error) {
 
 // add takes one file's labels into the union: a key new to the union is added, and a key already
 // there records this source's verdict beside the others. The same verdict twice counts once.
-func (s *Set) add(out *Labels, byKey map[scopedKey]int, src *Source, p string, f *labels.File) error {
+func (s *Set) add(out *Labels, byKey map[scopedKey]int, src *Source, p string, f *claimsv1.File) error {
 	global := strings.HasPrefix(p, "global/")
 	for _, l := range f.Labels {
 		if s.vocab != nil && s.vocab.IsAdvisory(l.Vulnerability) {
@@ -298,6 +298,6 @@ func disagreement(subject string, l Label) string {
 }
 
 // Vocabulary is the first vocabulary any source has, nil when none has one.
-func (s *Set) Vocabulary() *labels.Vocabulary {
+func (s *Set) Vocabulary() *claimsv1.Vocabulary {
 	return s.vocab
 }

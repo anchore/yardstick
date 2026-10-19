@@ -18,8 +18,8 @@ import (
 	"github.com/anchore/clio"
 	"github.com/anchore/yardstick/cmd/yardstick/internal/agentstore"
 	"github.com/anchore/yardstick/cmd/yardstick/internal/claims"
+	claimsv1 "github.com/anchore/yardstick/cmd/yardstick/internal/claims/v1"
 	"github.com/anchore/yardstick/cmd/yardstick/internal/gatefile"
-	"github.com/anchore/yardstick/cmd/yardstick/internal/labels"
 	"github.com/anchore/yardstick/cmd/yardstick/internal/labelwrite"
 	"github.com/anchore/yardstick/cmd/yardstick/internal/pairing"
 	"github.com/anchore/yardstick/cmd/yardstick/internal/runrecord"
@@ -51,7 +51,7 @@ type scanned struct {
 	gate  *gatefile.Gate
 	rec   *runrecord.Record
 	rows  map[string]*score.Row
-	vocab *labels.Vocabulary
+	vocab *claimsv1.Vocabulary
 }
 
 // gatePath is a gate file as given, else the file of the gate scanned under run by that name.
@@ -152,15 +152,15 @@ func policy(problems []string) error {
 }
 
 // subjectOf is the label subject a run's subject is addressed by in the corpus.
-func subjectOf(sub *runrecord.Subject) (labels.Subject, error) {
-	placed, err := labelwrite.Place(sub, labels.Label{}, false)
+func subjectOf(sub *runrecord.Subject) (claimsv1.Subject, error) {
+	placed, err := labelwrite.Place(sub, claimsv1.Label{}, false)
 	if err != nil {
-		return labels.Subject{}, err
+		return claimsv1.Subject{}, err
 	}
 	return *placed.Subject, nil
 }
 
-func describeSubject(s labels.Subject) string {
+func describeSubject(s claimsv1.Subject) string {
 	if s.Image != "" {
 		return s.Image
 	}
@@ -294,7 +294,7 @@ func (s *scanned) proposal(in proposalInput, now time.Time) (agentstore.Proposal
 		if err != nil {
 			return p, err
 		}
-		if p.Subject == (labels.Subject{}) {
+		if p.Subject == (claimsv1.Subject{}) {
 			if p.Subject, err = subjectOf(r.Subject); err != nil {
 				return p, err
 			}

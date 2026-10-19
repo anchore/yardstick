@@ -15,8 +15,8 @@ import (
 	"time"
 
 	"github.com/anchore/yardstick/cmd/yardstick/internal/cache"
+	claimsv1 "github.com/anchore/yardstick/cmd/yardstick/internal/claims/v1"
 	"github.com/anchore/yardstick/cmd/yardstick/internal/gatefile"
-	"github.com/anchore/yardstick/cmd/yardstick/internal/labels"
 	"github.com/anchore/yardstick/cmd/yardstick/internal/log"
 	"github.com/anchore/yardstick/cmd/yardstick/internal/ref"
 )
@@ -73,9 +73,9 @@ func resolve(base, r string) (pointer, error) {
 	case strings.HasPrefix(r, "sha256:"):
 		p.Digest = r
 	case r == "main":
-		u := base + "/claims/latest-" + labels.Major + ".json"
+		u := base + "/claims/latest-" + claimsv1.Major + ".json"
 		if err := getJSON(u, &p); err != nil {
-			return p, fmt.Errorf("no published snapshot of label format %s: %w", labels.Major, err)
+			return p, fmt.Errorf("no published snapshot of label format %s: %w", claimsv1.Major, err)
 		}
 	case commitPattern.MatchString(r):
 		if err := getJSON(base+"/claims/commits/"+r+".json", &p); err != nil {
@@ -93,7 +93,7 @@ func resolve(base, r string) (pointer, error) {
 	}
 	switch {
 	case r == "main":
-		log.Debugf("latest-%s.json named snapshot %s", labels.Major, p.Digest)
+		log.Debugf("latest-%s.json named snapshot %s", claimsv1.Major, p.Digest)
 	case p.Commit != "":
 		log.Debugf("commit record %s named snapshot %s", p.Commit, p.Digest)
 	}

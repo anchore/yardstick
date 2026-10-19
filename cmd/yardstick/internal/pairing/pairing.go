@@ -13,7 +13,7 @@ import (
 	"github.com/anchore/grype/grype/presenter/models"
 	"github.com/anchore/syft/syft/pkg"
 	"github.com/anchore/yardstick/cmd/yardstick/internal/claims"
-	"github.com/anchore/yardstick/cmd/yardstick/internal/labels"
+	claimsv1 "github.com/anchore/yardstick/cmd/yardstick/internal/claims/v1"
 	"github.com/anchore/yardstick/cmd/yardstick/internal/log"
 	"github.com/anchore/yardstick/cmd/yardstick/internal/purl"
 	"github.com/anchore/yardstick/cmd/yardstick/internal/subject"
@@ -62,7 +62,7 @@ type Match struct {
 	Label  *Bound
 	// Verdict is tp or fp, or empty when the match is unlabeled: no label, only unclear, labels
 	// that give different verdicts, or claims sources that disagree.
-	Verdict labels.Verdict
+	Verdict claimsv1.Verdict
 
 	pkg purl.Fields
 }
@@ -326,7 +326,7 @@ func (r *Result) pair(m *Match) {
 		return
 	}
 	best := m.Paired[0]
-	verdicts := map[labels.Verdict]bool{}
+	verdicts := map[claimsv1.Verdict]bool{}
 	for _, b := range m.Paired {
 		if b.Specificity() > best.Specificity() {
 			best = b
@@ -338,7 +338,7 @@ func (r *Result) pair(m *Match) {
 		}
 	}
 	m.Label = best
-	if len(verdicts) == 1 && !best.Disagrees() && best.Verdict != labels.Unclear {
+	if len(verdicts) == 1 && !best.Disagrees() && best.Verdict != claimsv1.Unclear {
 		m.Verdict = best.Verdict
 	}
 }

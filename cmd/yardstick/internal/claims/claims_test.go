@@ -7,8 +7,8 @@ import (
 	"strings"
 	"testing"
 
+	claimsv1 "github.com/anchore/yardstick/cmd/yardstick/internal/claims/v1"
 	"github.com/anchore/yardstick/cmd/yardstick/internal/gatefile"
-	"github.com/anchore/yardstick/cmd/yardstick/internal/labels"
 	"github.com/anchore/yardstick/cmd/yardstick/internal/ref"
 )
 
@@ -32,49 +32,49 @@ const (
 
 var (
 	image, _  = ref.Parse("oci:docker.io/anchore/test_images@" + digest)
-	dir       = labels.ImageDir(image)
-	subject   = &labels.Subject{Image: image.Image()}
+	dir       = claimsv1.ImageDir(image)
+	subject   = &claimsv1.Subject{Image: image.Image()}
 	otherR, _ = ref.Parse("oci:docker.io/anchore/test_images@" + other)
-	otherDir  = labels.ImageDir(otherR)
+	otherDir  = claimsv1.ImageDir(otherR)
 )
 
-func label(pkg, vuln string, v labels.Verdict) labels.Label {
-	l := labels.Label{Package: pkg, Vulnerability: vuln, Verdict: v, Author: "Alex Goodman", FirstIssued: "2026-10-14T10:00:00Z", LastUpdated: "2026-10-14T10:00:00Z"}
+func label(pkg, vuln string, v claimsv1.Verdict) claimsv1.Label {
+	l := claimsv1.Label{Package: pkg, Vulnerability: vuln, Verdict: v, Author: "Alex Goodman", FirstIssued: "2026-10-14T10:00:00Z", LastUpdated: "2026-10-14T10:00:00Z"}
 	switch v {
-	case labels.FP:
+	case claimsv1.FP:
 		l.Justification = "fix-installed"
-	case labels.TP:
+	case claimsv1.TP:
 		l.Justification = "fix-newer"
-	case labels.Unclear:
+	case claimsv1.Unclear:
 		l.Justification = "not-assessed"
 	}
 	return l
 }
 
 // corpus writes a corpus through the label writer: the files every source kind is tested over.
-func corpus(t *testing.T, placed ...labels.Placed) string {
+func corpus(t *testing.T, placed ...claimsv1.Placed) string {
 	t.Helper()
 	root := t.TempDir()
-	if err := os.WriteFile(filepath.Join(root, labels.VocabularyFile), []byte(vocabYAML), 0o600); err != nil {
+	if err := os.WriteFile(filepath.Join(root, claimsv1.VocabularyFile), []byte(vocabYAML), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	v, err := labels.LoadVocabulary(os.DirFS(root))
+	v, err := claimsv1.LoadVocabulary(os.DirFS(root))
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := (labels.Writer{Dir: root, Vocab: v}).Write(placed); err != nil {
+	if err := (claimsv1.Writer{Dir: root, Vocab: v}).Write(placed); err != nil {
 		t.Fatal(err)
 	}
 	return root
 }
 
-func at(file string, l labels.Label) labels.Placed {
-	p := labels.Placed{File: file, Label: l, Subject: subject}
+func at(file string, l claimsv1.Label) claimsv1.Placed {
+	p := claimsv1.Placed{File: file, Label: l, Subject: subject}
 	switch {
 	case strings.HasPrefix(file, "global/"):
 		p.Subject = nil
 	case strings.HasPrefix(file, otherDir):
-		p.Subject = &labels.Subject{Image: otherR.Image()}
+		p.Subject = &claimsv1.Subject{Image: otherR.Image()}
 	}
 	return p
 }
@@ -95,7 +95,7 @@ func setOf(t *testing.T, sources ...*Source) *Set {
 	t.Helper()
 	set := &Set{Sources: sources}
 	for _, s := range sources {
-		if v, _ := labels.LoadVocabulary(s.FS); v != nil {
+		if v, _ := claimsv1.LoadVocabulary(s.FS); v != nil {
 			set.vocab = v
 			break
 		}
@@ -120,14 +120,14 @@ func conformance(t *testing.T, open opener) {
 // reads-limited-to-gate-subjects
 func readsLimited(t *testing.T, open opener) {
 	root := corpus(t,
-		at(labels.TypeFile(dir, "deb"), label(libudv, "CVE-2020-13776", labels.FP)),
-		at(labels.TypeFile(dir, "python"), label(urllib, "CVE-2021-33503", labels.TP)),
-		at(labels.TypeFile(dir, "java-archive"), label(struts, "CVE-2017-5638", labels.TP)),
-		at(dir+"/"+labels.NoPackageFile, label("", "CVE-2017-5638", labels.TP)),
-		at(labels.GlobalFile("deb"), label("pkg:deb/debian/libxml2@2.7.8.dfsg-2+squeeze1?distro=debian-7", "CVE-2016-1839", labels.FP)),
-		at(labels.GlobalFile("python"), label(urllib, "CVE-2023-43804", labels.TP)),
-		at(labels.GlobalFile("java-archive"), label(struts, "CVE-2018-11776", labels.TP)),
-		at(labels.TypeFile(otherDir, "deb"), label(libudv, "CVE-2021-33910", labels.TP)),
+		at(claimsv1.TypeFile(dir, "deb"), label(libudv, "CVE-2020-13776", claimsv1.FP)),
+		at(claimsv1.TypeFile(dir, "python"), label(urllib, "CVE-2021-33503", claimsv1.TP)),
+		at(claimsv1.TypeFile(dir, "java-archive"), label(struts, "CVE-2017-5638", claimsv1.TP)),
+		at(dir+"/"+claimsv1.NoPackageFile, label("", "CVE-2017-5638", claimsv1.TP)),
+		at(claimsv1.GlobalFile("deb"), label("pkg:deb/debian/libxml2@2.7.8.dfsg-2+squeeze1?distro=debian-7", "CVE-2016-1839", claimsv1.FP)),
+		at(claimsv1.GlobalFile("python"), label(urllib, "CVE-2023-43804", claimsv1.TP)),
+		at(claimsv1.GlobalFile("java-archive"), label(struts, "CVE-2018-11776", claimsv1.TP)),
+		at(claimsv1.TypeFile(otherDir, "deb"), label(libudv, "CVE-2021-33910", claimsv1.TP)),
 	)
 	src := open(t, root)
 	got, err := setOf(t, src).Read(Subject{Name: "test-image", Dir: dir, Types: []string{"python", "deb"}})
@@ -167,7 +167,7 @@ func sortStrings(s []string) {
 }
 
 func noLabels(t *testing.T, open opener) {
-	src := open(t, corpus(t, at(labels.TypeFile(dir, "deb"), label(libudv, "CVE-2020-13776", labels.FP))))
+	src := open(t, corpus(t, at(claimsv1.TypeFile(dir, "deb"), label(libudv, "CVE-2020-13776", claimsv1.FP))))
 	got, err := setOf(t, src).Read(Subject{Name: "renamed", Dir: otherDir, Types: []string{"deb"}})
 	if err != nil || len(got.Labels) != 0 {
 		t.Errorf("expected a subject with no directory to load with no labels, got %+v %v", got, err)
@@ -176,24 +176,24 @@ func noLabels(t *testing.T, open opener) {
 
 // format-major-check
 func formatMajor(t *testing.T, open opener) {
-	root := corpus(t, at(labels.TypeFile(dir, "deb"), label(libudv, "CVE-2020-13776", labels.FP)))
-	p := filepath.Join(root, filepath.FromSlash(labels.TypeFile(dir, "deb")))
+	root := corpus(t, at(claimsv1.TypeFile(dir, "deb"), label(libudv, "CVE-2020-13776", claimsv1.FP)))
+	p := filepath.Join(root, filepath.FromSlash(claimsv1.TypeFile(dir, "deb")))
 	data, _ := os.ReadFile(p)
-	if err := os.WriteFile(p, []byte(strings.Replace(string(data), `"schema": "v1"`, `"schema": "v2"`, 1)), 0o600); err != nil {
+	if err := os.WriteFile(p, []byte(strings.Replace(string(data), `"schema": "1.0.0"`, `"schema": "2.0.0"`, 1)), 0o600); err != nil {
 		t.Fatal(err)
 	}
 	_, err := setOf(t, open(t, root)).Read(Subject{Name: "test-image", Dir: dir, Types: []string{"deb"}})
-	if err == nil || !strings.Contains(err.Error(), "deb.json") || !strings.Contains(err.Error(), `"v2"`) || !strings.Contains(err.Error(), "reads v1") {
+	if err == nil || !strings.Contains(err.Error(), "deb.json") || !strings.Contains(err.Error(), `"2.0.0"`) || !strings.Contains(err.Error(), "reads v1") {
 		t.Errorf("expected the file, its major and v1 named, got %v", err)
 	}
 }
 
 // union-read-across-sources
 func union(t *testing.T, open opener) {
-	published := open(t, corpus(t, at(labels.TypeFile(dir, "deb"), label(libudv, "CVE-2020-13776", labels.FP))))
+	published := open(t, corpus(t, at(claimsv1.TypeFile(dir, "deb"), label(libudv, "CVE-2020-13776", claimsv1.FP))))
 	local := open(t, corpus(t,
-		at(labels.TypeFile(dir, "deb"), label(libudv, "CVE-2020-13776", labels.FP)),
-		at(labels.TypeFile(dir, "deb"), label(libudv, "CVE-2021-33910", labels.TP)),
+		at(claimsv1.TypeFile(dir, "deb"), label(libudv, "CVE-2020-13776", claimsv1.FP)),
+		at(claimsv1.TypeFile(dir, "deb"), label(libudv, "CVE-2021-33910", claimsv1.TP)),
 	))
 	got, err := setOf(t, published, local).Read(Subject{Name: "test-image", Dir: dir, Types: []string{"deb"}})
 	if err != nil {
@@ -210,8 +210,8 @@ func union(t *testing.T, open opener) {
 
 // cross-source-disagreement-reads-unlabeled
 func disagree(t *testing.T, open opener) {
-	published := open(t, corpus(t, at(labels.TypeFile(dir, "deb"), label(libudv, "CVE-2020-13776", labels.FP))))
-	local := open(t, corpus(t, at(labels.TypeFile(dir, "deb"), label(libudv, "CVE-2020-13776", labels.TP))))
+	published := open(t, corpus(t, at(claimsv1.TypeFile(dir, "deb"), label(libudv, "CVE-2020-13776", claimsv1.FP))))
+	local := open(t, corpus(t, at(claimsv1.TypeFile(dir, "deb"), label(libudv, "CVE-2020-13776", claimsv1.TP))))
 	for _, order := range [][]*Source{{published, local}, {local, published}} {
 		got, err := setOf(t, order...).Read(Subject{Name: "test-image", Dir: dir, Types: []string{"deb"}})
 		if err != nil {
@@ -230,8 +230,8 @@ func disagree(t *testing.T, open opener) {
 // each-source-has-a-snapshot-identity: it changes exactly when a file it read changes
 func snapshot(t *testing.T, open opener) {
 	root := corpus(t,
-		at(labels.TypeFile(dir, "deb"), label(libudv, "CVE-2020-13776", labels.FP)),
-		at(labels.TypeFile(otherDir, "deb"), label(libudv, "CVE-2021-33910", labels.TP)),
+		at(claimsv1.TypeFile(dir, "deb"), label(libudv, "CVE-2020-13776", claimsv1.FP)),
+		at(claimsv1.TypeFile(otherDir, "deb"), label(libudv, "CVE-2021-33910", claimsv1.TP)),
 	)
 	id := func() string {
 		src := open(t, root)
@@ -252,21 +252,21 @@ func snapshot(t *testing.T, open opener) {
 			t.Fatal(err)
 		}
 	}
-	edit(labels.TypeFile(otherDir, "deb"), `"verdict": "tp"`, `"verdict": "fp"`)
+	edit(claimsv1.TypeFile(otherDir, "deb"), `"verdict": "tp"`, `"verdict": "fp"`)
 	// a published snapshot is identified by the whole zip's digest, so any edit is a new one
 	if changed := id() != first; changed != remote {
 		t.Errorf("expected a file the gate did not read to change the identity only of a published snapshot, changed: %v", changed)
 	}
 	first = id()
-	edit(labels.TypeFile(dir, "deb"), `"author": "Alex Goodman"`, `"author": "Will Murphy"`)
+	edit(claimsv1.TypeFile(dir, "deb"), `"author": "Alex Goodman"`, `"author": "Will Murphy"`)
 	if id() == first {
 		t.Error("expected a change to a file the gate read to change the identity")
 	}
 }
 
 func advisory(t *testing.T, open opener) {
-	root := corpus(t, at(labels.TypeFile(dir, "deb"), label(libudv, "CVE-2020-13776", labels.FP)))
-	p := filepath.Join(root, filepath.FromSlash(labels.TypeFile(dir, "deb")))
+	root := corpus(t, at(claimsv1.TypeFile(dir, "deb"), label(libudv, "CVE-2020-13776", claimsv1.FP)))
+	p := filepath.Join(root, filepath.FromSlash(claimsv1.TypeFile(dir, "deb")))
 	data, _ := os.ReadFile(p)
 	if err := os.WriteFile(p, []byte(strings.Replace(string(data), "CVE-2020-13776", "RHSA-2023:1234", 1)), 0o600); err != nil {
 		t.Fatal(err)
@@ -292,10 +292,10 @@ func TestWritesGoToTheLastLocalSource(t *testing.T) {
 	if w.Dir != local || w.Vocab == nil {
 		t.Errorf("expected writes into %s checked against the published vocabulary, got %+v", local, w)
 	}
-	if err := w.Write([]labels.Placed{at(labels.TypeFile(dir, "deb"), label(libudv, "CVE-2020-13776", labels.TP))}); err != nil {
+	if err := w.Write([]claimsv1.Placed{at(claimsv1.TypeFile(dir, "deb"), label(libudv, "CVE-2020-13776", claimsv1.TP))}); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := os.Stat(filepath.Join(local, filepath.FromSlash(labels.TypeFile(dir, "deb")))); err != nil {
+	if _, err := os.Stat(filepath.Join(local, filepath.FromSlash(claimsv1.TypeFile(dir, "deb")))); err != nil {
 		t.Errorf("expected the label in the last source: %v", err)
 	}
 	if entries, _ := os.ReadDir(published); len(entries) != 1 {

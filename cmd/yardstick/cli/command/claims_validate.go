@@ -6,7 +6,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/anchore/clio"
-	"github.com/anchore/yardstick/cmd/yardstick/internal/labels"
+	claimsv1 "github.com/anchore/yardstick/cmd/yardstick/internal/claims/v1"
 	"github.com/anchore/yardstick/cmd/yardstick/internal/log"
 )
 
@@ -24,7 +24,7 @@ SBOM rebuild, are listed on stdout and fail nothing.`,
 		Args:    cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			log.Infof("validating the claims corpus %s", args[0])
-			problems, err := labels.ValidateCorpus(args[0])
+			problems, err := claimsv1.ValidateCorpus(args[0])
 			if err != nil {
 				return err
 			}
@@ -32,7 +32,7 @@ SBOM rebuild, are listed on stdout and fail nothing.`,
 				fmt.Fprintln(cmd.ErrOrStderr(), p)
 			}
 			// labels an SBOM rebuild left behind are listed for review, and fail nothing
-			unpaired, err := labels.NoLongerPairing(args[0])
+			unpaired, err := claimsv1.NoLongerPairing(args[0])
 			if err != nil {
 				return err
 			}

@@ -1,4 +1,4 @@
-package labels
+package v1
 
 import (
 	"errors"
@@ -202,10 +202,15 @@ func checkNotesAndTools(l Label) error {
 
 func (w Writer) writeFile(root *os.Root, rel string, placed []Placed) error {
 	target := filepath.FromSlash(rel)
-	f := &File{Schema: Major}
+	f := &File{Schema: Version}
 	if data, err := root.ReadFile(target); err == nil {
 		if f, err = Parse(rel, data); err != nil {
 			return err
+		}
+		// what this writes is Version, so an older file is raised to it; a newer one keeps its own,
+		// since its unknown fields are carried through untouched
+		if !newer(f.Schema) {
+			f.Schema = Version
 		}
 	} else if !errors.Is(err, os.ErrNotExist) {
 		return err

@@ -13,8 +13,8 @@ import (
 
 	"github.com/anchore/yardstick/cmd/yardstick/internal/agentstore"
 	"github.com/anchore/yardstick/cmd/yardstick/internal/analysis"
+	claimsv1 "github.com/anchore/yardstick/cmd/yardstick/internal/claims/v1"
 	"github.com/anchore/yardstick/cmd/yardstick/internal/gatefile"
-	"github.com/anchore/yardstick/cmd/yardstick/internal/labels"
 	"github.com/anchore/yardstick/cmd/yardstick/internal/labelserver"
 	"github.com/anchore/yardstick/cmd/yardstick/internal/labelwrite"
 	"github.com/anchore/yardstick/cmd/yardstick/internal/ref"
@@ -40,7 +40,7 @@ func newServed(t *testing.T) *served {
 func newServedWith(t *testing.T, adjust func(*labelserver.Options)) *served {
 	t.Helper()
 	w := newWorkspace(t)
-	writeFile(t, filepath.Join(w.dir, "claims", labels.VocabularyFile), vocabulary+policyRules)
+	writeFile(t, filepath.Join(w.dir, "claims", claimsv1.VocabularyFile), vocabulary+policyRules)
 	whole := w.grype("whole")
 	noTar := w.grype("no-tar", "CVE-2005-2541 tar")
 	w.label(libc, "CVE-2026-5450")
@@ -139,21 +139,21 @@ func (s *served) tarRow() row {
 }
 
 // debLabels are the labels written into the deb image's deb.json.
-func (s *served) debLabels() []labels.Label {
+func (s *served) debLabels() []claimsv1.Label {
 	s.t.Helper()
 	r, _ := ref.Parse(debImage)
-	data, err := os.ReadFile(filepath.Join(s.w.dir, "claims", labels.ImageDir(r), "deb.json"))
+	data, err := os.ReadFile(filepath.Join(s.w.dir, "claims", claimsv1.ImageDir(r), "deb.json"))
 	if err != nil {
 		s.t.Fatal(err)
 	}
-	f, err := labels.Parse("deb.json", data)
+	f, err := claimsv1.Parse("deb.json", data)
 	if err != nil {
 		s.t.Fatal(err)
 	}
 	return f.Labels
 }
 
-func (s *served) labelOf(vuln string) *labels.Label {
+func (s *served) labelOf(vuln string) *claimsv1.Label {
 	for _, l := range s.debLabels() {
 		if l.Vulnerability == vuln {
 			return &l
@@ -162,12 +162,12 @@ func (s *served) labelOf(vuln string) *labels.Label {
 	return nil
 }
 
-func (s *served) subject() labels.Subject {
+func (s *served) subject() claimsv1.Subject {
 	rec, err := runrecord.Load(runrecord.DefaultName, "deb")
 	if err != nil {
 		s.t.Fatal(err)
 	}
-	p, err := labelwrite.Place(&rec.Subjects[0], labels.Label{}, false)
+	p, err := labelwrite.Place(&rec.Subjects[0], claimsv1.Label{}, false)
 	if err != nil {
 		s.t.Fatal(err)
 	}
@@ -242,7 +242,7 @@ func TestServeLabelingWritesAndRescores(t *testing.T) {
 	}
 	l := s.labelOf("CVE-2005-2541")
 	// only the reference reported it, so seenIn names the reference's grype
-	if l == nil || l.Verdict != labels.FP || l.Justification != "fix-installed" || l.Author != "tester" || len(l.Notes) != 1 || l.Notes[0].Text != "fixed in the image" || l.SeenIn.Tool(labels.ToolGrype) != s.whole {
+	if l == nil || l.Verdict != claimsv1.FP || l.Justification != "fix-installed" || l.Author != "tester" || len(l.Notes) != 1 || l.Notes[0].Text != "fixed in the image" || l.SeenIn.Tool(claimsv1.ToolGrype) != s.whole {
 		t.Fatalf("unexpected label: %+v", l)
 	}
 	if got := s.tarRow(); got.Verdict != "fp" || got.Gate != nil {
@@ -277,8 +277,8 @@ func TestServeHintsPreviewAndAccept(t *testing.T) {
 	s := newServed(t)
 	tar := s.tarRow()
 	p := agentstore.Proposal{Schema: agentstore.Schema, ID: "p1", Gate: "deb", Subject: s.subject(), Package: tar.Package.Ref, Vulnerability: "CVE-2005-2541",
-		Verdict: labels.FP, Justification: "fix-installed", Confidence: "medium", Author: agentstore.Author{Kind: agentstore.Agent, Skill: "triage-deltas"},
-		Evidence:  []labels.Evidence{{Rule: "nvd/fixed", Facts: []labels.Fact{{Source: "nvd", About: map[string]string{"vulnerability": "CVE-2005-2541"}, Field: "status", Value: "fixed", ObservedAt: "2026-10-16T00:00:00Z"}}}},
+		Verdict: claimsv1.FP, Justification: "fix-installed", Confidence: "medium", Author: agentstore.Author{Kind: agentstore.Agent, Skill: "triage-deltas"},
+		Evidence:  []claimsv1.Evidence{{Rule: "nvd/fixed", Facts: []claimsv1.Fact{{Source: "nvd", About: map[string]string{"vulnerability": "CVE-2005-2541"}, Field: "status", Value: "fixed", ObservedAt: "2026-10-16T00:00:00Z"}}}},
 		Timestamp: time.Date(2026, 10, 16, 0, 0, 0, 0, time.UTC)}
 	if err := s.store.Proposals.Add(p); err != nil {
 		t.Fatal(err)
@@ -324,7 +324,7 @@ func TestServeHintsPreviewAndAccept(t *testing.T) {
 		t.Fatalf("expected the accept written, got %d %s", rec.Code, rec.Body)
 	}
 	l := s.labelOf("CVE-2005-2541")
-	if l == nil || l.Verdict != labels.FP || l.Author != "tester" || len(l.Evidence) != 1 || l.SeenIn == nil {
+	if l == nil || l.Verdict != claimsv1.FP || l.Author != "tester" || len(l.Evidence) != 1 || l.SeenIn == nil {
 		t.Fatalf("expected the proposal's label by the acceptor, got %+v", l)
 	}
 	if got := s.tarRow(); got.Verdict != "fp" || got.Hint == nil || got.Hint.Status != "agrees" {
@@ -336,7 +336,7 @@ func TestServeOverridingAHintIsRecorded(t *testing.T) {
 	s := newServed(t)
 	tar := s.tarRow()
 	p := agentstore.Proposal{Schema: agentstore.Schema, ID: "p1", Gate: "deb", Subject: s.subject(), Package: tar.Package.Ref, Vulnerability: "CVE-2005-2541",
-		Verdict: labels.FP, Justification: "fix-installed", Author: agentstore.Author{Kind: agentstore.Agent}, Timestamp: time.Now()}
+		Verdict: claimsv1.FP, Justification: "fix-installed", Author: agentstore.Author{Kind: agentstore.Agent}, Timestamp: time.Now()}
 	if err := s.store.Proposals.Add(p); err != nil {
 		t.Fatal(err)
 	}
@@ -348,7 +348,7 @@ func TestServeOverridingAHintIsRecorded(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(overrides) != 1 || overrides[0].Proposal != "p1" || overrides[0].Verdict != labels.TP || overrides[0].Reason.Kind != "stale-fact" {
+	if len(overrides) != 1 || overrides[0].Proposal != "p1" || overrides[0].Verdict != claimsv1.TP || overrides[0].Reason.Kind != "stale-fact" {
 		t.Errorf("expected one override record, got %+v", overrides)
 	}
 	if l := s.labelOf("CVE-2005-2541"); l == nil || len(l.Extra) != 0 {
@@ -361,7 +361,7 @@ func TestServeCausesAndExplanations(t *testing.T) {
 	tar := s.tarRow()
 	member := agentstore.Member{Row: tar.ID, Vulnerability: "CVE-2005-2541", Package: tar.Package.Ref}
 	c := agentstore.Cause{Schema: agentstore.Schema, ID: "c1", Gate: "deb", Title: "tar fixed in the image", SourcePackage: "tar", Direction: "dropped",
-		Members: []agentstore.Member{member}, Verdict: labels.FP, Justification: "fix-installed", Author: agentstore.Author{Kind: agentstore.Agent}, Timestamp: time.Now()}
+		Members: []agentstore.Member{member}, Verdict: claimsv1.FP, Justification: "fix-installed", Author: agentstore.Author{Kind: agentstore.Agent}, Timestamp: time.Now()}
 	if err := s.store.Causes.Add(c); err != nil {
 		t.Fatal(err)
 	}
@@ -384,7 +384,7 @@ func TestServeCausesAndExplanations(t *testing.T) {
 	if rec := s.post("/package-hints/c1/accept", `{"rows":["`+tar.ID+`"]}`); rec.Code != http.StatusOK || !strings.Contains(rec.Body.String(), `"written":1`) {
 		t.Fatalf("expected the cause accepted, got %d %s", rec.Code, rec.Body)
 	}
-	if l := s.labelOf("CVE-2005-2541"); l == nil || l.Verdict != labels.FP || len(l.Notes) > 0 && l.Notes[0].Text != c.Note {
+	if l := s.labelOf("CVE-2005-2541"); l == nil || l.Verdict != claimsv1.FP || len(l.Notes) > 0 && l.Notes[0].Text != c.Note {
 		t.Fatalf("expected the cause's label, got %+v", l)
 	}
 	// accepting again skips the labeled member

@@ -12,9 +12,9 @@ import (
 
 	"github.com/anchore/grype/grype/presenter/models"
 	"github.com/anchore/yardstick/cmd/yardstick/internal/claims"
+	claimsv1 "github.com/anchore/yardstick/cmd/yardstick/internal/claims/v1"
 	"github.com/anchore/yardstick/cmd/yardstick/internal/fixture"
 	"github.com/anchore/yardstick/cmd/yardstick/internal/gatefile"
-	"github.com/anchore/yardstick/cmd/yardstick/internal/labels"
 	"github.com/anchore/yardstick/cmd/yardstick/internal/purl"
 	"github.com/anchore/yardstick/cmd/yardstick/internal/ref"
 	"github.com/anchore/yardstick/cmd/yardstick/internal/subject"
@@ -23,7 +23,7 @@ import (
 var advisories = []string{"ALAS*", "ALSA", "ELSA", "RLSA", "RHSA"}
 
 func isAdvisory(id string) bool {
-	v := labels.Vocabulary{AdvisoryIDs: advisories}
+	v := claimsv1.Vocabulary{AdvisoryIDs: advisories}
 	return v.IsAdvisory(id)
 }
 
@@ -90,8 +90,8 @@ func packagesOf(t *testing.T, path string, keep ...string) []Package {
 }
 
 // label is a person's call, as a claims source holds it.
-func label(pkg, vuln string, v labels.Verdict) claims.Label {
-	l := claims.Label{Label: labels.Label{Package: pkg, Vulnerability: vuln, Verdict: v}, File: "deb.json"}
+func label(pkg, vuln string, v claimsv1.Verdict) claims.Label {
+	l := claims.Label{Label: claimsv1.Label{Package: pkg, Vulnerability: vuln, Verdict: v}, File: "deb.json"}
 	l.Held = []claims.SourceVerdict{{Source: "corpus", Verdict: v}}
 	return l
 }
@@ -154,7 +154,7 @@ func TestAliasGroups(t *testing.T) {
 				candidate.Matches[i].RelatedVulnerabilities = nil
 			}
 		}
-		r := pair(t, "java", candidate, label(log4j, "CVE-2021-44228", labels.TP))
+		r := pair(t, "java", candidate, label(log4j, "CVE-2021-44228", claimsv1.TP))
 		b := bound(t, r, "CVE-2021-44228")
 		if !b.PairedIn(Candidate) || !b.PairedIn(Reference) || len(b.Matches) != 2 {
 			t.Errorf("expected the label to pair GHSA-jfh8-c2jp-5v3q in both setups, paired %d matches", len(b.Matches))
@@ -164,7 +164,7 @@ func TestAliasGroups(t *testing.T) {
 		}
 	})
 	t.Run("an id neither setup reported", func(t *testing.T) {
-		r := pair(t, "java", nil, label(log4j, "CVE-2020-9999", labels.TP))
+		r := pair(t, "java", nil, label(log4j, "CVE-2020-9999", claimsv1.TP))
 		if b := bound(t, r, "CVE-2020-9999"); len(b.Matches) != 0 || r.aliases.Group("CVE-2020-9999") != "CVE-2020-9999" {
 			t.Errorf("expected a group of its own pairing nothing, paired %d", len(b.Matches))
 		}
@@ -193,7 +193,7 @@ func TestLabelPairsOnStatedFields(t *testing.T) {
 		{"epoch in the version", "rpm", "pkg:rpm/rocky/openssl-libs@1:3.5.5-2.el9_8", "CVE-2026-45447", []string{"openssl-libs"}},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			r := pair(t, tc.image, nil, label(tc.pkg, tc.vuln, labels.TP))
+			r := pair(t, tc.image, nil, label(tc.pkg, tc.vuln, claimsv1.TP))
 			var got []string
 			for _, m := range bound(t, r, tc.vuln).Matches {
 				got = append(got, m.Package.Name)
@@ -207,13 +207,13 @@ func TestLabelPairsOnStatedFields(t *testing.T) {
 
 func TestOneLabelSeveralMatches(t *testing.T) {
 	// log4j-core in two jars is two packages, and one versionless label pairs both
-	r := pair(t, "java", nil, label(log4j, "CVE-2021-44228", labels.TP))
+	r := pair(t, "java", nil, label(log4j, "CVE-2021-44228", claimsv1.TP))
 	b := bound(t, r, "CVE-2021-44228")
 	if len(b.Matches) != 2 || b.Matches[0].PackageID == b.Matches[1].PackageID {
 		t.Fatalf("expected the label to pair the match in both jars, paired %d", len(b.Matches))
 	}
 	for _, m := range b.Matches {
-		if m.Verdict != labels.TP {
+		if m.Verdict != claimsv1.TP {
 			t.Errorf("expected each match to take tp, got %q", m.Verdict)
 		}
 	}
@@ -224,17 +224,17 @@ func TestMostSpecificLabelWins(t *testing.T) {
 	for _, tc := range []struct {
 		name   string
 		labels []claims.Label
-		want   labels.Verdict
+		want   claimsv1.Verdict
 	}{
-		{"subject over global", []claims.Label{global(label(ncurses, "CVE-2023-50495", labels.FP)), label(ncurses, "CVE-2023-50495", labels.TP)}, labels.TP},
-		{"versioned over versionless", []claims.Label{label("pkg:deb/debian/ncurses-base", "CVE-2023-50495", labels.TP), label(ncurses, "CVE-2023-50495", labels.FP)}, labels.FP},
-		{"only unclear", []claims.Label{label(ncurses, "CVE-2023-50495", labels.Unclear)}, ""},
+		{"subject over global", []claims.Label{global(label(ncurses, "CVE-2023-50495", claimsv1.FP)), label(ncurses, "CVE-2023-50495", claimsv1.TP)}, claimsv1.TP},
+		{"versioned over versionless", []claims.Label{label("pkg:deb/debian/ncurses-base", "CVE-2023-50495", claimsv1.TP), label(ncurses, "CVE-2023-50495", claimsv1.FP)}, claimsv1.FP},
+		{"only unclear", []claims.Label{label(ncurses, "CVE-2023-50495", claimsv1.Unclear)}, ""},
 		{"two sources disagree", []claims.Label{func() claims.Label {
-			l := label(ncurses, "CVE-2023-50495", labels.TP)
-			l.Held = append(l.Held, claims.SourceVerdict{Source: "local", Verdict: labels.FP})
+			l := label(ncurses, "CVE-2023-50495", claimsv1.TP)
+			l.Held = append(l.Held, claims.SourceVerdict{Source: "local", Verdict: claimsv1.FP})
 			return l
 		}()}, ""},
-		{"equally specific labels disagree", []claims.Label{label("pkg:deb/debian/ncurses-base@6.4-4", "CVE-2023-50495", labels.TP), label("pkg:deb/debian/ncurses-base?arch=all", "CVE-2023-50495", labels.FP)}, ""},
+		{"equally specific labels disagree", []claims.Label{label("pkg:deb/debian/ncurses-base@6.4-4", "CVE-2023-50495", claimsv1.TP), label("pkg:deb/debian/ncurses-base?arch=all", "CVE-2023-50495", claimsv1.FP)}, ""},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			r := pair(t, "deb", nil, tc.labels...)
@@ -249,8 +249,8 @@ func TestAdvisoryKeyedMatches(t *testing.T) {
 	ol := func() *models.Document { return scan(t, fixture.Path("vml", "grype-oraclelinux.json")) }
 	sbom := sbomPath(t, "oracle")
 
-	r := pairScans(t, sbom, ol(), ol(), label("pkg:rpm/ol/openssl", "CVE-2022-0778", labels.TP))
-	if m := find(t, r, "ELSA-2022-9246", "openssl"); m.Verdict != labels.TP || len(m.Addresses) != 1 {
+	r := pairScans(t, sbom, ol(), ol(), label("pkg:rpm/ol/openssl", "CVE-2022-0778", claimsv1.TP))
+	if m := find(t, r, "ELSA-2022-9246", "openssl"); m.Verdict != claimsv1.TP || len(m.Addresses) != 1 {
 		t.Errorf("expected the one-CVE advisory to pair its CVE, got %q over %v", m.Verdict, m.Addresses)
 	}
 	for _, w := range r.Warnings {
@@ -260,10 +260,10 @@ func TestAdvisoryKeyedMatches(t *testing.T) {
 	}
 
 	r = pairScans(t, sbom, ol(), ol(),
-		label("pkg:rpm/ol/expat", "CVE-2022-25235", labels.TP),
-		label("pkg:rpm/ol/expat", "CVE-2022-25236", labels.TP))
+		label("pkg:rpm/ol/expat", "CVE-2022-25235", claimsv1.TP),
+		label("pkg:rpm/ol/expat", "CVE-2022-25236", claimsv1.TP))
 	m := find(t, r, "ELSA-2022-9359", "expat")
-	if len(m.Paired) != 2 || m.Verdict != labels.TP {
+	if len(m.Paired) != 2 || m.Verdict != claimsv1.TP {
 		t.Errorf("expected the three-CVE advisory to pair both labels, paired %d", len(m.Paired))
 	}
 	warned := false
@@ -309,9 +309,9 @@ func TestFilteredSubjectBindsItsPackages(t *testing.T) {
 	sbom := sbomPath(t, "oracle")
 	ol := scan(t, fixture.Path("vml", "grype-oraclelinux.json"))
 	ls := []claims.Label{
-		label("pkg:rpm/ol/expat", "CVE-2022-40674", labels.TP),
-		label("", "CVE-2022-0778", labels.TP),
-		label("pkg:pypi/pyopenssl", "CVE-2018-1000807", labels.TP),
+		label("pkg:rpm/ol/expat", "CVE-2022-40674", claimsv1.TP),
+		label("", "CVE-2022-0778", claimsv1.TP),
+		label("pkg:pypi/pyopenssl", "CVE-2018-1000807", claimsv1.TP),
 	}
 	a := NewAliases(isAdvisory)
 	a.AddScan(ol)
@@ -326,7 +326,7 @@ func TestFilteredSubjectBindsItsPackages(t *testing.T) {
 	}
 
 	// a global label applies only where its package is
-	r = pair(t, "deb", nil, global(label("pkg:deb/debian/libxml2@2.7.8.dfsg-2+squeeze1", "CVE-2016-1839", labels.TP)))
+	r = pair(t, "deb", nil, global(label("pkg:deb/debian/libxml2@2.7.8.dfsg-2+squeeze1", "CVE-2016-1839", claimsv1.TP)))
 	if len(r.Labels) != 0 {
 		t.Errorf("a global label on a package the subject lacks was bound")
 	}

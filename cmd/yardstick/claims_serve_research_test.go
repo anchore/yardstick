@@ -12,7 +12,7 @@ import (
 	"time"
 
 	"github.com/anchore/yardstick/cmd/yardstick/internal/agentstore"
-	"github.com/anchore/yardstick/cmd/yardstick/internal/labels"
+	claimsv1 "github.com/anchore/yardstick/cmd/yardstick/internal/claims/v1"
 	"github.com/anchore/yardstick/cmd/yardstick/internal/labelserver"
 	"github.com/anchore/yardstick/cmd/yardstick/internal/research"
 	"github.com/anchore/yardstick/cmd/yardstick/internal/runrecord"
@@ -129,7 +129,7 @@ func TestServeResearchRunsThePluginSkill(t *testing.T) {
 
 	// finished research counts, and a proposal the job recorded names it
 	p := agentstore.Proposal{Schema: agentstore.Schema, ID: "p1", Subject: s.subject(), Package: tar.Package.Ref, Vulnerability: "CVE-2005-2541",
-		Verdict: labels.FP, Justification: "fix-installed", Confidence: "high",
+		Verdict: claimsv1.FP, Justification: "fix-installed", Confidence: "high",
 		Author: agentstore.Author{Name: "agent", Kind: agentstore.Agent, Skill: "yardstick:research-vuln", ResearchJob: tar.ID}, Timestamp: time.Now(), Gate: "deb"}
 	if err := s.store.Proposals.Add(p); err != nil {
 		t.Fatal(err)
@@ -203,7 +203,7 @@ func TestServeCauseMembersMustBeTheirRows(t *testing.T) {
 	tar := s.tarRow()
 	add := func(id, gate string, m agentstore.Member) {
 		c := agentstore.Cause{Schema: agentstore.Schema, ID: id, Gate: gate, Title: "t", SourcePackage: "tar", Members: []agentstore.Member{m},
-			Verdict: labels.FP, Justification: "fix-installed", Author: agentstore.Author{Kind: agentstore.Agent}, Timestamp: time.Now()}
+			Verdict: claimsv1.FP, Justification: "fix-installed", Author: agentstore.Author{Kind: agentstore.Agent}, Timestamp: time.Now()}
 		if err := s.store.Causes.Add(c); err != nil {
 			t.Fatal(err)
 		}

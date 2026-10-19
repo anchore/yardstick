@@ -15,7 +15,7 @@ import (
 	"github.com/openvex/go-vex/pkg/vex"
 
 	"github.com/anchore/packageurl-go"
-	"github.com/anchore/yardstick/cmd/yardstick/internal/labels"
+	claimsv1 "github.com/anchore/yardstick/cmd/yardstick/internal/claims/v1"
 	"github.com/anchore/yardstick/cmd/yardstick/internal/log"
 )
 
@@ -37,7 +37,7 @@ func Export(corpus fs.FS, author string) ([]byte, error) {
 		if err != nil || d.IsDir() {
 			return err
 		}
-		loc, ok := labels.Locate(p)
+		loc, ok := claimsv1.Locate(p)
 		if !ok || !loc.IsLabelFile() {
 			return nil
 		}
@@ -45,7 +45,7 @@ func Export(corpus fs.FS, author string) ([]byte, error) {
 		if err != nil {
 			return err
 		}
-		f, err := labels.Parse(p, data)
+		f, err := claimsv1.Parse(p, data)
 		if err != nil {
 			return err
 		}
@@ -88,7 +88,7 @@ func Export(corpus fs.FS, author string) ([]byte, error) {
 	return encode(doc)
 }
 
-func statement(loc labels.Location, subject *labels.Subject, l labels.Label) (vex.Statement, error) {
+func statement(loc claimsv1.Location, subject *claimsv1.Subject, l claimsv1.Label) (vex.Statement, error) {
 	issued, err := time.Parse(time.RFC3339, l.LastUpdated)
 	if err != nil {
 		return vex.Statement{}, err
@@ -101,14 +101,14 @@ func statement(loc labels.Location, subject *labels.Subject, l labels.Label) (ve
 		Products:      []vex.Product{product},
 	}
 	switch {
-	case l.Verdict == labels.TP:
+	case l.Verdict == claimsv1.TP:
 		st.Status = vex.StatusAffected
 		st.ActionStatement = "no action recorded: the label says the match is right, not how to remediate it"
-	case l.Verdict == labels.FP && l.Justification == fixInstalled:
+	case l.Verdict == claimsv1.FP && l.Justification == fixInstalled:
 		st.Status = vex.StatusFixed
-	case l.Verdict == labels.FP && slices.Contains(vexJustifications, vex.Justification(l.Justification)):
+	case l.Verdict == claimsv1.FP && slices.Contains(vexJustifications, vex.Justification(l.Justification)):
 		st.Status, st.Justification = vex.StatusNotAffected, vex.Justification(l.Justification)
-	case l.Verdict == labels.FP:
+	case l.Verdict == claimsv1.FP:
 		// a justification with no VEX name travels in the impact statement
 		st.Status, st.Justification = vex.StatusNotAffected, vex.VulnerableCodeNotPresent
 		st.ImpactStatement = strings.TrimSpace(l.Justification + ": " + strings.Join(l.NoteTexts(), "; "))
@@ -120,13 +120,13 @@ func statement(loc labels.Location, subject *labels.Subject, l labels.Label) (ve
 
 // productOf is what a label is about: the image (with the package as a subcomponent), the SBOM
 // document by its digest, or the package itself for a global label.
-func productOf(loc labels.Location, subject *labels.Subject, l labels.Label) vex.Product {
+func productOf(loc claimsv1.Location, subject *claimsv1.Subject, l claimsv1.Label) vex.Product {
 	var p vex.Product
 	switch loc.Kind {
-	case labels.Global:
+	case claimsv1.Global:
 		p.ID = l.Package
 		return p
-	case labels.ImageSubject:
+	case claimsv1.ImageSubject:
 		qualifiers := packageurl.QualifiersFromMap(map[string]string{"repository_url": loc.Registry + "/" + loc.Repository})
 		if subject != nil && subject.Platform != "" {
 			os, arch, _ := strings.Cut(subject.Platform, "/")
@@ -134,7 +134,7 @@ func productOf(loc labels.Location, subject *labels.Subject, l labels.Label) vex
 		}
 		purl := packageurl.NewPackageURL("oci", "", path.Base(loc.Repository), loc.Digest, qualifiers, "")
 		p.ID = purl.ToString()
-	case labels.DocumentSubject:
+	case claimsv1.DocumentSubject:
 		hex := strings.TrimPrefix(loc.Digest, "sha256:")
 		p.ID = "urn:sha256:" + hex
 		p.Hashes = map[vex.Algorithm]vex.Hash{vex.SHA256: vex.Hash(hex)}

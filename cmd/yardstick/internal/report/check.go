@@ -10,7 +10,7 @@ import (
 	"unicode/utf8"
 
 	"github.com/anchore/yardstick/cmd/yardstick/internal/analysis"
-	"github.com/anchore/yardstick/cmd/yardstick/internal/labels"
+	claimsv1 "github.com/anchore/yardstick/cmd/yardstick/internal/claims/v1"
 )
 
 // byCheck is the check-first layout: each gate's outcome, then its checks in verdict order, each
@@ -218,7 +218,7 @@ var checkGateVerb = map[analysis.State]string{analysis.Pass: "passes", analysis.
 // checkEffect is what labeling one row does to the gate. It does not depend on the check, so a
 // group referred back to loses nothing.
 func checkEffect(e analysis.Effect) string {
-	tp, fp := e.Outcome[labels.TP], e.Outcome[labels.FP]
+	tp, fp := e.Outcome[claimsv1.TP], e.Outcome[claimsv1.FP]
 	if tp == fp {
 		return "the gate " + checkGateVerb[tp] + " however one is labeled"
 	}
@@ -231,7 +231,7 @@ func (cw checkWriter) unmet(g Gate, c analysis.Check) {
 	for _, x := range c.Unmet {
 		k := groupKey{state: string(x.Verdict), delta: "unmet on " + subjectName(x.Subject), pkg: basePURL(x.Package)}
 		lines := []string{"      " + cw.st.id(x.Vulnerability) + on(x.Package)}
-		if miss := g.subject(x.Subject).missOn(x.Package, x.Vulnerability); miss != nil && x.Verdict == labels.TP {
+		if miss := g.subject(x.Subject).missOn(x.Package, x.Vulnerability); miss != nil && x.Verdict == claimsv1.TP {
 			k.cause = causeSummary(*miss)
 			lines = append(lines, causeLine(*miss, cw.st))
 		}

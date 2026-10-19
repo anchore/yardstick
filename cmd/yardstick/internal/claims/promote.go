@@ -11,7 +11,7 @@ import (
 	"strings"
 
 	"github.com/anchore/yardstick/cmd/yardstick/internal/cache"
-	"github.com/anchore/yardstick/cmd/yardstick/internal/labels"
+	claimsv1 "github.com/anchore/yardstick/cmd/yardstick/internal/claims/v1"
 	"github.com/anchore/yardstick/cmd/yardstick/internal/log"
 )
 
@@ -44,13 +44,13 @@ func Promote(src, dst string) (*Promoted, error) {
 		return nil, err
 	}
 	defer dstRoot.Close()
-	vocab, err := labels.FindVocabulary(dstRoot.FS(), root.FS())
+	vocab, err := claimsv1.FindVocabulary(dstRoot.FS(), root.FS())
 	if err != nil {
 		return nil, err
 	}
-	w := labels.Writer{Dir: dst, Vocab: vocab}
+	w := claimsv1.Writer{Dir: dst, Vocab: vocab}
 
-	var batch []labels.Placed
+	var batch []claimsv1.Placed
 	copies := map[string][]byte{} // target path to the SBOM's bytes
 	endWalk := log.Timed("walking %s for label files", src)
 	err = fs.WalkDir(root.FS(), ".", func(p string, d fs.DirEntry, err error) error {
@@ -70,7 +70,7 @@ func Promote(src, dst string) (*Promoted, error) {
 	}
 	out := &Promoted{Labels: len(batch)}
 	for p, data := range copies {
-		if err := labels.WriteFile(dst, p, data); err != nil {
+		if err := claimsv1.WriteFile(dst, p, data); err != nil {
 			return nil, err
 		}
 		out.SBOMs = append(out.SBOMs, p)
@@ -81,8 +81,8 @@ func Promote(src, dst string) (*Promoted, error) {
 
 // promoted are one source file's labels, checked, with the SBOM each was written against found
 // when the target lacks it.
-func promoted(src, dst fs.FS, w labels.Writer, p string, copies map[string][]byte) ([]labels.Placed, error) {
-	loc, ok := labels.Locate(p)
+func promoted(src, dst fs.FS, w claimsv1.Writer, p string, copies map[string][]byte) ([]claimsv1.Placed, error) {
+	loc, ok := claimsv1.Locate(p)
 	if !ok || !loc.IsLabelFile() {
 		return nil, nil
 	}
@@ -90,19 +90,19 @@ func promoted(src, dst fs.FS, w labels.Writer, p string, copies map[string][]byt
 	if err != nil {
 		return nil, err
 	}
-	f, err := labels.Parse(p, data)
+	f, err := claimsv1.Parse(p, data)
 	if err != nil {
 		return nil, err
 	}
 	log.Debugf("promote read %s: %d labels", p, len(f.Labels))
-	var out []labels.Placed
+	var out []claimsv1.Placed
 	for _, l := range f.Labels {
-		placed := labels.Placed{File: p, Subject: f.Subject, Label: l}
+		placed := claimsv1.Placed{File: p, Subject: f.Subject, Label: l}
 		if err := w.Check(placed); err != nil {
 			return nil, err
 		}
 		out = append(out, placed)
-		if l.SeenIn == nil || l.SeenIn.SBOM == "" || loc.Kind == labels.Global {
+		if l.SeenIn == nil || l.SeenIn.SBOM == "" || loc.Kind == claimsv1.Global {
 			continue
 		}
 		if err := needSBOM(src, dst, loc, l, copies); err != nil {
@@ -114,10 +114,10 @@ func promoted(src, dst fs.FS, w labels.Writer, p string, copies map[string][]byt
 
 // needSBOM finds the SBOM a label was written against, when the target's subject directory holds
 // none: in the source's subject directory, else in the SBOM cache.
-func needSBOM(src, dst fs.FS, loc labels.Location, l labels.Label, copies map[string][]byte) error {
-	name := labels.ImageSBOMFile
-	if loc.Kind == labels.DocumentSubject {
-		name = labels.DocumentSBOMFile
+func needSBOM(src, dst fs.FS, loc claimsv1.Location, l claimsv1.Label, copies map[string][]byte) error {
+	name := claimsv1.ImageSBOMFile
+	if loc.Kind == claimsv1.DocumentSubject {
+		name = claimsv1.DocumentSBOMFile
 	}
 	target := path.Join(loc.Dir, name)
 	if _, ok := copies[target]; ok {
@@ -145,9 +145,9 @@ func needSBOM(src, dst fs.FS, loc labels.Location, l labels.Label, copies map[st
 
 // cached are the cache files that may hold an SBOM: read from a claims source by its digest, or
 // built for the image.
-func cached(loc labels.Location, want string) []string {
+func cached(loc claimsv1.Location, want string) []string {
 	out := []string{cache.Dir("sboms-read", strings.ReplaceAll(want, ":", "-")+".syft.json")}
-	if loc.Kind == labels.ImageSubject {
+	if loc.Kind == claimsv1.ImageSubject {
 		built, _ := filepath.Glob(filepath.Join(cache.Dir("sboms", loc.Digest), "*.syft.json"))
 		out = append(out, built...)
 	}
