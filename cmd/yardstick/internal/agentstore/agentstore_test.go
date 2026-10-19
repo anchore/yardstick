@@ -28,7 +28,7 @@ var (
 
 func proposal(id, vuln string, verdict claimsv1.Verdict, rule, confidence string) Proposal {
 	return Proposal{Schema: Schema, ID: id, Gate: "deb", Subject: image, Package: "pkg:deb/debian/zlib1g@1.2.13", Vulnerability: vuln,
-		Verdict: verdict, Justification: "fix-installed", Confidence: confidence,
+		Verdict: verdict, Justification: "fix-installed", Confidence: confidence, Note: "fixed in 1.2.13",
 		Evidence: []claimsv1.Evidence{{Rule: rule, Facts: []claimsv1.Fact{{Source: "debian-security-tracker", About: map[string]string{"vulnerability": vuln}, Field: "fixed", Value: "1.2.13", ObservedAt: "2026-10-16T09:00:00Z"}}}},
 		Author:   Author{Kind: Agent, Skill: "triage-deltas", Model: "opus"}, Timestamp: now}
 }

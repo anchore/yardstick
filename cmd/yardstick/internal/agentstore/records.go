@@ -308,6 +308,9 @@ func checkCall(l claimsv1.Label, a Author, confidence string) error {
 	}
 	// a proposal's author is in Author, which may carry no name; the label's is the acceptor's
 	l.Author = string(a.Kind)
+	for i := range l.Notes {
+		l.Notes[i].Author = l.Author
+	}
 	return claimsv1.CheckRequired(l, nil)
 }
 
