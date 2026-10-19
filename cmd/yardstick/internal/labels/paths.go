@@ -30,10 +30,10 @@ const (
 	globalRoot   = "global"
 )
 
-var typePattern = regexp.MustCompile(`^[a-z0-9][a-z0-9-]*$`)
+var typePattern = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9-]*$`)
 
-// ValidType says whether a package type can name a type file: syft's types are lowercase words
-// joined by '-', and a type never becomes more than one path segment.
+// ValidType says whether a package type can name a type file: syft's types are words joined by
+// '-', not always lowercase (R-package), and a type never becomes more than one path segment.
 func ValidType(t string) bool {
 	return typePattern.MatchString(t) && t+".json" != NoPackageFile && t+".json" != DocumentSBOMFile
 }

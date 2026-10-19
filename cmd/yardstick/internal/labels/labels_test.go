@@ -231,11 +231,17 @@ func TestPaths(t *testing.T) {
 			t.Errorf("%s: expected no place in the layout", p)
 		}
 	}
-	// a package name never becomes a path segment: scoped npm names and Python vs python are keys
-	// inside one file, and a type is one plain segment
-	for _, bad := range []string{"npm/@babel", "Python", "../deb", "image"} {
+	// a package name never becomes a path segment: scoped npm names are keys inside one file, and
+	// a type is one plain segment
+	for _, bad := range []string{"npm/@babel", "../deb", "image", "sbom.syft"} {
 		if ValidType(bad) {
 			t.Errorf("expected %q refused as a package type", bad)
+		}
+	}
+	// syft's types as syft spells them, R-package included
+	for _, good := range []string{"deb", "java-archive", "R-package"} {
+		if !ValidType(good) {
+			t.Errorf("expected %q accepted as a package type", good)
 		}
 	}
 }
