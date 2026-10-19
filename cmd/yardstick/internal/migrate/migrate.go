@@ -161,6 +161,7 @@ type input struct {
 	at       time.Time
 	author   string
 	note     string
+	grype    string // the tool the call was made against, when it was grype
 	image    ref.Ref
 	platform string
 	packages []pkgRef
@@ -322,6 +323,12 @@ func (m *migration) disclosures(aliases []string) []string {
 // cannot be migrated.
 func (m *migration) resolve(r record) (*input, Outcome, string) {
 	in := &input{author: r.User, note: r.Note}
+	// kept verbatim (git-describe suffixes, yardstick's [db] and +profile markers included), since
+	// nothing reads seenIn.grype back and each form says something about what the labeler saw.
+	// Other tools (anchorectl) are not grype, so they have no place in seenIn.
+	if r.Tool == "grype" || strings.HasPrefix(r.Tool, "grype@") || strings.HasPrefix(r.Tool, "grype[") {
+		in.grype = r.Tool
+	}
 	if in.author == "" {
 		// a few old labels have no user
 		in.author = "unknown"
@@ -483,8 +490,12 @@ func merge(k key, cs []contribution) labels.Label {
 	verdicts := map[labels.Verdict]bool{}
 	var authors, notes, calls []string
 	first, last := use[0].in.at, use[0].in.at
+	var seen *input // the latest call naming the grype it was made against
 	for _, c := range use {
 		e := c.in
+		if e.grype != "" && (seen == nil || e.at.After(seen.at)) {
+			seen = e
+		}
 		verdicts[e.verdict] = true
 		if e.at.Before(first) {
 			first = e.at
@@ -515,6 +526,9 @@ func merge(k key, cs []contribution) labels.Label {
 		}
 	}
 	l.Author = strings.Join(uniqueSorted(authors), ", ")
+	if seen != nil {
+		l.SeenIn = &labels.SeenIn{Grype: seen.grype}
+	}
 	l.FirstIssued = first.Format(time.RFC3339)
 	l.LastUpdated = last.Format(time.RFC3339)
 	l.Note = strings.Join(append(uniqueSorted(notes), uniqueSorted(vmlNotes(use))...), "\n")

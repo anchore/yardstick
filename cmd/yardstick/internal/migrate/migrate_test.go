@@ -222,8 +222,8 @@ func TestMigrate(t *testing.T) {
 
 	rpm := labelsIn(t, corpus, oracle, "rpm")
 	// ELSA-2022-9246 names only CVE-2022-0778: the verdict moves to the CVE
-	if l := label(t, rpm, "pkg:rpm/ol/openssl@1.0.1e-58.0.1.el6_10", "CVE-2022-0778"); l.Verdict != labels.TP {
-		t.Errorf("single-CVE advisory: expected tp on CVE-2022-0778, got %+v", l)
+	if l := label(t, rpm, "pkg:rpm/ol/openssl@1.0.1e-58.0.1.el6_10", "CVE-2022-0778"); l.Verdict != labels.TP || l.SeenIn == nil || l.SeenIn.Grype != "grype@v0.51.0" {
+		t.Errorf("single-CVE advisory: expected tp on CVE-2022-0778 seen in grype@v0.51.0, got %+v", l)
 	}
 	// the epoch the old label's version carried stays in the purl
 	label(t, rpm, "pkg:rpm/ol/dhclient@4.1.1-63.P1.0.1.el6_10?epoch=12", "CVE-2021-25217")
@@ -240,13 +240,19 @@ func TestMigrate(t *testing.T) {
 		}
 	}
 	// pyOpenSSL is pyopenssl in this SBOM's python package
-	label(t, labelsIn(t, corpus, oracle, "python"), "pkg:pypi/pyopenssl@0.13.1", "CVE-2018-1000807")
+	// a label that named no tool says nothing about what it was seen in
+	if l := label(t, labelsIn(t, corpus, oracle, "python"), "pkg:pypi/pyopenssl@0.13.1", "CVE-2018-1000807"); l.SeenIn != nil {
+		t.Errorf("no tool: expected no seenIn, got %+v", l.SeenIn)
+	}
 
 	// two labelers disagree on one match: one unclear label naming both
 	disagree := label(t, labelsIn(t, corpus, mustRef("oci:docker.io/anchore/test_images@sha256:7536ee345532f674ec9e448e3768db4e546c48220ba2b6ec9bc9cfbfb3b7b74a"), "go-module"),
 		"pkg:golang/github.com/opencontainers/image-spec@v1.0.1", "GHSA-77vh-xpmg-72qh")
 	if disagree.Verdict != labels.Unclear || disagree.Justification != LabelersDisagree || disagree.Author != "wagoodman, westonsteimel" {
 		t.Errorf("contradiction: expected one unclear labelers-disagree by both, got %+v", disagree)
+	}
+	if disagree.SeenIn == nil || disagree.SeenIn.Grype != "grype@v0.61.1" {
+		t.Errorf("contradiction: expected seenIn from the later call's grype, got %+v", disagree.SeenIn)
 	}
 	if disagree.FirstIssued != "2022-09-15T00:46:56Z" || disagree.LastUpdated != "2023-05-10T11:38:00Z" {
 		t.Errorf("contradiction: expected the earlier and later call's times, got %s and %s", disagree.FirstIssued, disagree.LastUpdated)
