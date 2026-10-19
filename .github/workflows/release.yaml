@@ -11,7 +11,7 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: tag the latest commit on main with the given version (prefixed with v)
+        description: tag the latest commit on the dispatched branch (python, for 0.16.x patches) with the given version (prefixed with v)
         required: true
 
 jobs:

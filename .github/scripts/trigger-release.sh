@@ -1,6 +1,13 @@
 #!/usr/bin/env bash
 set -eu
 
+# python yardstick is maintained on the python branch for 0.16.x patches only; main is the go rewrite (v0.17+)
+BRANCH=python
+if [[ "$(git rev-parse --abbrev-ref HEAD)" != "$BRANCH" ]]; then
+    echo "python releases are cut from the $BRANCH branch only. Exiting..."
+    exit 1
+fi
+
 bold=$(tput bold)
 normal=$(tput sgr0)
 
@@ -26,6 +33,11 @@ if [[ "$NEXT_VERSION" == "" ||  "${NEXT_VERSION}" == "(Unreleased)" ]]; then
     exit 1
 fi
 
+if [[ "$NEXT_VERSION" != v0.16.* ]]; then
+    echo "the python branch only cuts 0.16.x patches, not '${NEXT_VERSION}'. Exiting..."
+    exit 1
+fi
+
 while true; do
     read -p "${bold}Do you want to trigger a release for version '${NEXT_VERSION}'?${normal} [y/n] " yn
     case $yn in
@@ -37,7 +49,7 @@ done
 
 echo "${bold}Kicking off release for ${NEXT_VERSION}${normal}..."
 echo
-gh workflow run release.yaml -f version=${NEXT_VERSION}
+gh workflow run release.yaml --ref "$BRANCH" -f version=${NEXT_VERSION}
 
 echo
 echo "${bold}Waiting for release to start...${normal}"
@@ -45,6 +57,6 @@ sleep 10
 
 set +e
 
-echo "${bold}Head to the release workflow to monitor the release:${normal} $(gh run list --workflow=release.yaml --limit=1 --json url --jq '.[].url')"
-id=$(gh run list --workflow=release.yaml --limit=1 --json databaseId --jq '.[].databaseId')
+echo "${bold}Head to the release workflow to monitor the release:${normal} $(gh run list --workflow=release.yaml --branch "$BRANCH" --limit=1 --json url --jq '.[].url')"
+id=$(gh run list --workflow=release.yaml --branch "$BRANCH" --limit=1 --json databaseId --jq '.[].databaseId')
 gh run watch $id --exit-status || (echo ; echo "${bold}Logs of failed step:${normal}" && GH_PAGER="" gh run view $id --log-failed)
