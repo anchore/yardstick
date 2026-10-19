@@ -432,6 +432,22 @@ func TestLoadAppConfig(t *testing.T) {
 	if _, err := os.Stat(filepath.Join(dir, "outside")); err == nil {
 		t.Error("expected no directory created outside the config's directory")
 	}
+	// nor one reached through a symlink that leaves it
+	outside := t.TempDir()
+	if err := os.Symlink(outside, filepath.Join(dir, "config", "link")); err != nil {
+		t.Fatal(err)
+	}
+	write(t, dir, "config/yardstick.yaml", "claims: [./link/claims]\n")
+	app3, err := LoadAppConfig(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := Load(write(t, dir, "gates/g3.yaml", strings.Replace(validGate, "claims:\n  - ../claims\n", "", 1)), Options{Checks: registry, App: app3}); err == nil {
+		t.Error("expected a missing directory behind a symlink refused")
+	}
+	if _, err := os.Stat(filepath.Join(outside, "claims")); err == nil {
+		t.Error("expected no directory created through the symlink")
+	}
 	write(t, dir, "config/yardstick.yaml", "claims: [./claims]\n")
 
 	// a gate's own claims: replaces the app config's, and --claims appends after it

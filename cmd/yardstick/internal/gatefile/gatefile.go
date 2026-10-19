@@ -453,12 +453,9 @@ func claims(listed []string, opts Options, dir string, errs *problems) []Source 
 		}
 		p, err := canonical(resolve(base, s))
 		// a local directory the app config names is where labels are written by default, so a
-		// fresh checkout without one gets it rather than failing every command. Only one inside the
-		// config's own directory: the config comes with whatever repo yardstick runs in
-		if _, statErr := os.Stat(p); err == nil && from != "" && errors.Is(statErr, os.ErrNotExist) && within(base, p) {
-			if mkErr := os.MkdirAll(p, 0o755); mkErr == nil {
-				log.Infof("created claims directory %s%s", p, from)
-			}
+		// fresh checkout without one gets it rather than failing every command
+		if _, statErr := os.Stat(p); err == nil && from != "" && errors.Is(statErr, os.ErrNotExist) {
+			p = createWithin(base, p, from)
 		}
 		if info, statErr := os.Stat(p); err != nil || statErr != nil || !info.IsDir() {
 			errs.addf("claims source %q%s is neither an existing directory nor a reference like github.com/<owner>/<repo>@main", s, from)
@@ -696,6 +693,22 @@ func canonical(p string) (string, error) {
 		return resolved, nil
 	}
 	return abs, nil
+}
+
+// createWithin creates the one missing directory p when its parent exists and resolves inside
+// dir, and returns where it is. The config comes with whatever repo yardstick runs in, so nothing
+// is created through a symlink or outside dir; Mkdir never follows a symlink at p itself.
+func createWithin(dir, p, from string) string {
+	parent, err := filepath.EvalSymlinks(filepath.Dir(p))
+	if err != nil || !within(dir, parent) {
+		return p
+	}
+	created := filepath.Join(parent, filepath.Base(p))
+	if err := os.Mkdir(created, 0o755); err != nil {
+		return p
+	}
+	log.Infof("created claims directory %s%s", created, from)
+	return created
 }
 
 // within reports whether p is dir or below it, after resolving dir's symlinks as canonical does.
