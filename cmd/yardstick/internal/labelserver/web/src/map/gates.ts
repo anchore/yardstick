@@ -1,5 +1,3 @@
-"use strict";
-
 // yardstick · map · every gate, ported from delta. Labels are about a package in an image and a vulnerability, not about
 // a run, so one label counts in every gate whose newest run reports the finding. This page puts
 // the gates side by side and lists the open findings by how many gates one label decides: first
@@ -7,7 +5,8 @@
 // about the match (TP is the tool working), so each gate chip says what TP and FP would do there;
 // the same label can help one gate and hurt another.
 
-const { call, post } = window.delta;
+import { call, post } from "../shared/api";
+
 const $ = (s) => document.querySelector(s);
 
 const ui = {
@@ -89,7 +88,7 @@ function render() {
 function renderGates() {
   const st = ui.state;
   // the gates that need labels first; a passing gate shrinks to its name, as on the board
-  const order = [...st.gates].sort((a, b) => (a.outcome === "pass") - (b.outcome === "pass") || b.open - a.open);
+  const order = [...st.gates].sort((a, b) => Number(a.outcome === "pass") - Number(b.outcome === "pass") || b.open - a.open);
   $("#gates").replaceChildren(...order.map((g) => {
     const quiet = g.outcome === "pass" && ui.gate !== g.name;
     return el("div", { class: `gtile ${g.outcome}${ui.gate === g.name ? " on" : ""}${quiet ? " quiet" : ""}`, title: `${g.description || g.name}${g.note ? `\n${g.note}` : ""}\n\nclick: only the findings that bear on it`,
@@ -178,7 +177,7 @@ function hintChip(h) {
 
 function actions(findings) {
   const pending = findings.filter((f) => f.hint?.status === "pending");
-  const verdicts = new Set(pending.map((f) => f.hint.verdict));
+  const verdicts = new Set<string>(pending.map((f) => f.hint.verdict));
   const many = findings.length > 1 ? ` ${findings.length}` : "";
   return el("div", { class: "xacts", onclick: (e) => e.stopPropagation() },
     pending.length ? el("button", { class: "ghost", title: "endorse the agent's suggestions: your claims, with their reasons and facts", onclick: () => accept(pending) },
@@ -227,7 +226,7 @@ function byGate(findings) {
 }
 
 async function act(what, findings, send) {
-  const before = new Map(ui.state.gates.map((g) => [g.name, g]));
+  const before = new Map<string, any>(ui.state.gates.map((g) => [g.name, g]));
   const gates = new Set(findings.flatMap((f) => f.in.map((a) => a.gate)));
   ui.status = { text: `${what} ${plural(findings.length, "finding")}; they count in ${plural(gates.size, "gate")}. Rescoring every gate…`, busy: true };
   renderStatus();

@@ -82,3 +82,8 @@ __pycache__/
 
 # the scratch claims directory .yardstick.yaml writes new labels to
 /claims
+
+# the label UI's build output, npm packages and generated wire types (make generate)
+/cmd/yardstick/internal/labelserver/assets/dist/
+/cmd/yardstick/internal/labelserver/web/node_modules/
+/cmd/yardstick/internal/labelserver/web/src/gen/

@@ -1,11 +1,11 @@
-"use strict";
-
 // yardstick · map, ported from delta's map UI: look first, then label. The gate as range bars, the
 // images as small multiples, and the differences as a treemap (direction › reason › source
 // package) filled by label state. On a gate run the top level is a board of the checks; clicking a
-// group opens the Focus tile (shared/tile.js) on its findings, under a breadcrumb back to the board.
+// group opens the Focus tile (shared/tile.ts) on its findings, under a breadcrumb back to the board.
 
-const { where, get, post } = window.delta;
+import { where, get, post } from "../shared/api";
+import * as tile from "../shared/tile";
+
 const $ = (s) => document.querySelector(s);
 
 const ui = {
@@ -32,6 +32,7 @@ const ui = {
   preview: null,       // { key, what, result }: the gate if a hovered accept were clicked
   research: null,      // { counts: { "no-hint": n, "could-move-check": n }, scope }: dry-run counts
   last: null,
+  scrollTo: null,      // the board panel to scroll to on the next render, by check name
 };
 
 const labels = {
@@ -378,7 +379,7 @@ function endPreview() { if (ui.preview) { ui.preview = null; showPreview(); } }
 function showPreview() {
   renderGate();
   const checks = ui.state.gate?.result?.checks || [];
-  for (const n of document.querySelectorAll(".panel .gcheck[data-check]")) {
+  for (const n of document.querySelectorAll<HTMLElement>(".panel .gcheck[data-check]")) {
     const c = checks.find((k) => k.name === n.dataset.check);
     if (c) n.replaceWith(gateBar(c, { head: false }));
   }
@@ -577,7 +578,7 @@ function block(b, onclick) {
   let off = 0;
   const by = b.y + b.h - pad - barH, bw = b.w - 2 * pad;
   g.append(svg("rect", { x: b.x + pad, y: by, width: Math.max(0, bw), height: barH, class: "bar-track", "pointer-events": "none" }));
-  for (const [k, n] of [["tp", t.tp], ["fp", t.fp], ["unclear", t.unclear], ["hint", t.hinted]]) {
+  for (const [k, n] of [["tp", t.tp], ["fp", t.fp], ["unclear", t.unclear], ["hint", t.hinted]] as [string, number][]) {
     if (!n) continue;
     const w = (bw * n) / t.n;
     g.append(svg("rect", { x: b.x + pad + off, y: by, width: w, height: barH, class: `fill-${k}`, "pointer-events": "none" }));
@@ -593,7 +594,7 @@ function block(b, onclick) {
 }
 const clip = (s, n) => (s.length > n ? `${s.slice(0, Math.max(1, Math.floor(n) - 1))}…` : s);
 
-function hover(b, t) {
+function hover(b, t?) {
   const line = $("#hover");
   if (!line) return;
   if (!b) { line.textContent = ""; return; }
@@ -760,15 +761,15 @@ const acceptButton = (text, onclick, labelsOf, what) => el("button", { class: "g
 // Three levels (Will, 2026-10-13): none, triaged (a triage-deltas hint, no research-vuln output) and
 // researched (research-vuln output exists, from any source). Map decides through the tile's rules
 // (shared/tile.js), which read the server's row.researchLevel; a match shows only its highest level.
-const isResearched = (r) => window.deltaTile.h.isResearched(r);
-const researchLevel = (r) => window.deltaTile.h.researchLevel(r);
+const isResearched = (r) => tile.h.isResearched(r);
+const researchLevel = (r) => tile.h.researchLevel(r);
 
 // researchedText is a match's provenance, for a tooltip: which level, who had its say, who asked
 function researchedText(r) {
   const head = `${r.vulnerability} ${pkgOf(r.package.ref).name}`;
   if (!r.hint) return `${head}: ✦ researched, no hint${r.researchedBy?.length ? ` (${r.researchedBy.join(", ")})` : ""}`;
   const h = r.hint, extra = [h.model, h.researchJob ? `research ${h.researchJob}` : ""].filter(Boolean).join(" · ");
-  return `${head}: ${window.deltaTile.h.provenance(h)}${extra ? ` (${extra})` : ""}`;
+  return `${head}: ${tile.h.provenance(h)}${extra ? ` (${extra})` : ""}`;
 }
 
 // researchedMark is the neutral "✦ researched" / "✦ triaged" mark for a list of matches (one or
@@ -821,7 +822,7 @@ function allRows(si = ui.si) {
 function groupRows() {
   const c = ui.cards;
   return allRows().filter((x) => c.ids.has(x.r.id))
-    .sort((a, b) => (tier(a.r, a.dir) - tier(b.r, b.dir)) || (isOpen(b.r) - isOpen(a.r)) || srcPkg(a.r).localeCompare(srcPkg(b.r)) || a.r.vulnerability.localeCompare(b.r.vulnerability));
+    .sort((a, b) => (tier(a.r, a.dir) - tier(b.r, b.dir)) || (Number(isOpen(b.r)) - Number(isOpen(a.r))) || srcPkg(a.r).localeCompare(srcPkg(b.r)) || a.r.vulnerability.localeCompare(b.r.vulnerability));
 }
 
 // crumbs is the one way back from a match (Esc does the same): the board (or the delta map), the
@@ -885,7 +886,7 @@ function renderTile() {
     return;
   }
   const c = ui.cardsSpec?.check ? ui.state.gate?.result?.checks.find((k) => k.name === ui.cardsSpec.check) : null;
-  window.deltaTile.render(body, {
+  tile.render(body, {
     state: ui.state, gateName: ui.gateName, get,
     r: x.r, si: x.si, dir: x.dir, check: c, reexamine: ui.cardsSpec?.kind === "fails",
     tierName: x.r.gate ? tierNames[tierOf(tier(x.r, x.dir))] || null : null,
@@ -1043,7 +1044,7 @@ async function research(rows) {
 // on the labeled one when the reader turned the tile's "go to the next match" switch off. The
 // tile's standing receipt bar says what happened, so there's no toast.
 async function afterWrite(rows, text) {
-  const stay = !window.deltaTile.autoAdvance();
+  const stay = !tile.autoAdvance();
   ui.last = ui.selected;
   ui.note = ""; ui.why = false;
   const i = ui.rows.findIndex((x) => x.r.id === ui.selected);
@@ -1053,7 +1054,7 @@ async function afterWrite(rows, text) {
   ui.pin = stay ? ui.selected : null; // a labeled match leaves its group: keep it there to stay on it
   await load();
   if (!ui.cards) return;
-  ui.selected = window.deltaTile.autoAdvance() ? (next?.r.id || null) : ui.selected;
+  ui.selected = tile.autoAdvance() ? (next?.r.id || null) : ui.selected;
   ui.evidence = false;
   history.replaceState(null, "", urlFor());
   renderTile();
@@ -1078,7 +1079,8 @@ const currentRow = () => ui.rows.find((x) => x.r.id === ui.selected) || null;
 // ---------- keys ----------
 
 document.addEventListener("keydown", (e) => {
-  if (["INPUT", "TEXTAREA", "SELECT"].includes(e.target.tagName)) { if (e.key === "Escape") e.target.blur(); return; }
+  const target = e.target as HTMLElement;
+  if (["INPUT", "TEXTAREA", "SELECT"].includes(target.tagName)) { if (e.key === "Escape") target.blur(); return; }
   if (e.metaKey || e.ctrlKey || e.altKey) return;
   const help = $("#help");
   if (!help.hidden) { if (e.key === "Escape" || e.key === "?") help.hidden = true; return; }

@@ -6,6 +6,11 @@ release:
   # If set to true, will not auto-publish the release. This is done to allow us to review the changelog before publishing.
   draft: false
 
+before:
+  hooks:
+    # the label UI is built, not committed: bun install, tygo, tsc, then esbuild into labelserver/assets/dist
+    - make generate
+
 builds:
   - id: linux-build
     binary: &name yardstick

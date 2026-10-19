@@ -1,0 +1,6 @@
+{
+  "name": "yardstick-label-ui",
+  "private": true,
+  "type": "module",
+  "trustedDependencies": []
+}

@@ -11,9 +11,9 @@ import (
 	"github.com/anchore/yardstick/cmd/yardstick/internal/runrecord"
 )
 
-// matchesResponse is what each setup's grype said about a row, and the SBOM artifact matched,
+// MatchesResponse is what each setup's grype said about a row, and the SBOM artifact matched,
 // verbatim: the tile draws the match path from it and shows it as raw JSON.
-type matchesResponse struct {
+type MatchesResponse struct {
 	Candidate   []json.RawMessage `json:"candidate"`
 	Reference   []json.RawMessage `json:"reference"`
 	Artifact    json.RawMessage   `json:"artifact,omitempty"`
@@ -32,7 +32,7 @@ func (s *Server) handleMatches(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 	sub := e.rec.Subjects[r.si]
-	resp := matchesResponse{Candidate: []json.RawMessage{}, Reference: []json.RawMessage{}}
+	resp := MatchesResponse{Candidate: []json.RawMessage{}, Reference: []json.RawMessage{}}
 	for setup, out := range map[string]*[]json.RawMessage{pairing.Candidate: &resp.Candidate, pairing.Reference: &resp.Reference} {
 		if len(r.pm.Rows[setup]) == 0 {
 			continue

@@ -45,17 +45,17 @@ func direction(m *report.Match) string {
 	return "neither"
 }
 
-type state struct {
-	Scans        runSummary         `json:"scans"`
+type State struct {
+	Scans        RunSummary         `json:"scans"`
 	Author       string             `json:"author"`
-	Subjects     []stateSubject     `json:"subjects"`
-	Causes       []stateCause       `json:"causes"`
-	Gate         *gateStatus        `json:"gate"`
-	Explanations []stateExplanation `json:"explanations"`
+	Subjects     []StateSubject     `json:"subjects"`
+	Causes       []StateCause       `json:"causes"`
+	Gate         *GateStatus        `json:"gate"`
+	Explanations []StateExplanation `json:"explanations"`
 	// Candidate and Reference are each setup as resolved, for the header.
 	Candidate  *setup.Prepared `json:"candidate,omitempty"`
 	Reference  *setup.Prepared `json:"reference,omitempty"`
-	Vocabulary *vocabulary     `json:"vocabulary,omitempty"`
+	Vocabulary *Vocabulary     `json:"vocabulary,omitempty"`
 	Warnings   []string        `json:"warnings,omitempty"`
 	// ResearchConcurrency is how many research jobs run at once, absent when research cannot
 	// start, which hides the UI's research controls; Research says why.
@@ -64,65 +64,65 @@ type state struct {
 }
 
 // vocabulary is what the UI needs of vocabulary.yaml: the justifications by verdict.
-type vocabulary struct {
+type Vocabulary struct {
 	Justifications map[claimsv1.Verdict]map[string]string `json:"justifications"`
 }
 
-func vocabOf(v *claimsv1.Vocabulary) *vocabulary {
+func vocabOf(v *claimsv1.Vocabulary) *Vocabulary {
 	if v == nil {
 		return nil
 	}
-	return &vocabulary{Justifications: v.Justifications}
+	return &Vocabulary{Justifications: v.Justifications}
 }
 
-type stateSubject struct {
+type StateSubject struct {
 	Name string     `json:"name"`
 	Slug string     `json:"slug"`
-	Rows []stateRow `json:"rows"`
+	Rows []StateRow `json:"rows"`
 }
 
-// stateRow is a report row in delta's row shape: the fields named the same pass through, and
+// StateRow is a report row in delta's row shape: the fields named the same pass through, and
 // these shadow the ones that differ.
-type stateRow struct {
-	report.Match
-	ID          string       `json:"id"`
-	MatchID     string       `json:"match"`
-	Package     pkgRef       `json:"package"`
-	Verdict     string       `json:"verdict"`
-	Hint        *hintSummary `json:"hint,omitempty"`
-	Causes      []string     `json:"causes,omitempty"`
-	Explanation string       `json:"explanation,omitempty"`
-	Gate        *rowEffect   `json:"gate,omitempty"`
+type StateRow struct {
+	report.Match `tstype:",extends"`
+	ID           string       `json:"id"`
+	MatchID      string       `json:"match"`
+	Package      PkgRef       `json:"package"`
+	Verdict      string       `json:"verdict"`
+	Hint         *HintSummary `json:"hint,omitempty"`
+	Causes       []string     `json:"causes,omitempty"`
+	Explanation  string       `json:"explanation,omitempty"`
+	Gate         *RowEffect   `json:"gate,omitempty"`
 	// ResearchLevel is "", "triaged" or "researched"; Researched is it being "researched".
 	ResearchLevel string           `json:"researchLevel,omitempty"`
 	Researched    bool             `json:"researched,omitempty"`
 	ResearchedBy  []string         `json:"researchedBy,omitempty"`
-	Research      *researchSummary `json:"research,omitempty"` // the newest job covering the row
+	Research      *ResearchSummary `json:"research,omitempty"` // the newest job covering the row
 }
 
-type pkgRef struct {
+type PkgRef struct {
 	Ref string `json:"ref"`
 }
 
-// rowEffect is what labeling an open row does to the gate.
-type rowEffect struct {
+// RowEffect is what labeling an open row does to the gate.
+type RowEffect struct {
 	Bears     []string      `json:"bears,omitempty"`
 	CouldFlip []string      `json:"couldFlip,omitempty"`
-	IfTP      outcomeEffect `json:"ifTP"`
-	IfFP      outcomeEffect `json:"ifFP"`
+	IfTP      OutcomeEffect `json:"ifTP"`
+	IfFP      OutcomeEffect `json:"ifFP"`
 }
 
-type outcomeEffect struct {
+type OutcomeEffect struct {
 	Outcome analysis.State `json:"outcome"`
 }
 
 // effectOf is a row's effect when its label bears on some check, else nil.
-func (v *view) effectOf(id string) *rowEffect {
+func (v *view) effectOf(id string) *RowEffect {
 	eff, ok := v.effects[id]
 	if !ok {
 		return nil
 	}
-	out := &rowEffect{Bears: eff.Narrows, IfTP: outcomeEffect{eff.Outcome[claimsv1.TP]}, IfFP: outcomeEffect{eff.Outcome[claimsv1.FP]}}
+	out := &RowEffect{Bears: eff.Narrows, IfTP: OutcomeEffect{eff.Outcome[claimsv1.TP]}, IfFP: OutcomeEffect{eff.Outcome[claimsv1.FP]}}
 	for _, c := range v.verdict.Checks {
 		if eff.States[claimsv1.TP][c.Name] != c.State || eff.States[claimsv1.FP][c.Name] != c.State {
 			out.CouldFlip = append(out.CouldFlip, c.Name)
@@ -134,8 +134,8 @@ func (v *view) effectOf(id string) *rowEffect {
 	return out
 }
 
-// hintSummary is what lists show of a hint.
-type hintSummary struct {
+// HintSummary is what lists show of a hint.
+type HintSummary struct {
 	ID            string           `json:"id"`
 	Verdict       claimsv1.Verdict `json:"verdict"`
 	Justification string           `json:"justification,omitempty"`
@@ -152,9 +152,9 @@ type hintSummary struct {
 	Origin        string           `json:"origin,omitempty"` // label-ui, research-job or skill-run
 }
 
-func (h *hint) summary() *hintSummary {
+func (h *Hint) summary() *HintSummary {
 	p := h.Proposal
-	out := &hintSummary{ID: p.ID, Verdict: p.Verdict, Justification: p.Justification, Confidence: p.Confidence, Skill: p.Author.Skill,
+	out := &HintSummary{ID: p.ID, Verdict: p.Verdict, Justification: p.Justification, Confidence: p.Confidence, Skill: p.Author.Skill,
 		Model: p.Author.Model, ResearchJob: p.Author.ResearchJob, Problems: len(h.Policy.Problems), Status: h.Status, Written: p.Timestamp}
 	if r := h.Policy.Rule; r != nil {
 		out.Rule, out.Decision, out.Title = r.Name, r.Decision, r.Title
@@ -163,10 +163,10 @@ func (h *hint) summary() *hintSummary {
 }
 
 // listRow is a row as lists show it, with its research from idx.
-func (v *view) listRow(r *rowRef, idx *researchIndex) stateRow {
+func (v *view) listRow(r *rowRef, idx *researchIndex) StateRow {
 	m := r.match
 	lvl := v.rowResearchLevel(idx, m.Row)
-	sr := stateRow{Match: *m, ID: m.Row, MatchID: m.ID, Package: pkgRef{m.Package}, Verdict: verdictOf(r),
+	sr := StateRow{Match: *m, ID: m.Row, MatchID: m.ID, Package: PkgRef{m.Package}, Verdict: verdictOf(r),
 		ResearchLevel: lvl, Researched: lvl == LevelResearched, ResearchedBy: v.researchedBy(m.Row), Research: idx.newest[m.Row]}
 	if r.open() {
 		sr.Gate = v.effectOf(m.Row)
@@ -184,24 +184,24 @@ func (v *view) listRow(r *rowRef, idx *researchIndex) stateRow {
 	return sr
 }
 
-// gateStatus is a gate and its result, as delta's gate.Status.
-type gateStatus struct {
+// GateStatus is a gate and its result, as delta's gate.Status.
+type GateStatus struct {
 	Name        string      `json:"name"`
 	Locator     string      `json:"locator"`
 	Description string      `json:"description,omitempty"`
 	Note        string      `json:"note,omitempty"`
 	Rerun       bool        `json:"rerun,omitempty"`
-	Result      *gateResult `json:"result,omitempty"`
+	Result      *GateResult `json:"result,omitempty"`
 }
 
-type gateResult struct {
+type GateResult struct {
 	Outcome analysis.State `json:"outcome"`
 	// CI is what CI reads the outcome as under the gate's undecided policy.
 	CI     analysis.State `json:"ci"`
-	Checks []checkResult  `json:"checks"`
+	Checks []CheckResult  `json:"checks"`
 }
 
-type checkResult struct {
+type CheckResult struct {
 	Name        string             `json:"name"`
 	Description string             `json:"description"`
 	ValueMeans  string             `json:"valueMeans"`
@@ -232,9 +232,9 @@ var checkWords = map[string]struct{ means, counts, direction string }{
 	analysis.NoNewMisses:            {"expectations the candidate newly misses", "", atMost},
 }
 
-func (v *view) gateStatus(e *entry) *gateStatus {
+func (v *view) gateStatus(e *entry) *GateStatus {
 	g := v.verdict
-	st := &gateStatus{Name: e.name, Locator: e.gate.Path, Description: e.gate.Description}
+	st := &GateStatus{Name: e.name, Locator: e.gate.Path, Description: e.gate.Description}
 	if v.stale != "" {
 		st.Note, st.Rerun = v.stale, true
 		return st
@@ -244,14 +244,14 @@ func (v *view) gateStatus(e *entry) *gateStatus {
 }
 
 // result is a gate's evaluation in delta's result shape.
-func (v *view) result(g *gatefile.Gate, outcome analysis.State, checks []analysis.Check) *gateResult {
-	res := &gateResult{Outcome: outcome, CI: analysis.Fail}
+func (v *view) result(g *gatefile.Gate, outcome analysis.State, checks []analysis.Check) *GateResult {
+	res := &GateResult{Outcome: outcome, CI: analysis.Fail}
 	if outcome == analysis.Pass || (outcome == analysis.Undecided && g.Undecided == gatefile.UndecidedPass) {
 		res.CI = analysis.Pass
 	}
 	for _, c := range checks {
 		w := checkWords[c.Name]
-		cr := checkResult{Name: c.Name, Description: analysis.Registry[c.Name].Description, ValueMeans: w.means, Counts: w.counts,
+		cr := CheckResult{Name: c.Name, Description: analysis.Registry[c.Name].Description, ValueMeans: w.means, Counts: w.counts,
 			Direction: w.direction, Params: c.Params, Threshold: c.Threshold, Value: c.Value, State: c.State}
 		if c.Message != "" {
 			cr.Description += "; " + c.Message
@@ -276,7 +276,7 @@ func (s *Server) handleState(w http.ResponseWriter, req *http.Request) {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	st := state{Scans: summarize(e, v), Author: s.opts.Author, Gate: v.gateStatus(e), Vocabulary: vocabOf(v.vocab), Warnings: v.verdict.Warnings,
+	st := State{Scans: summarize(e, v), Author: s.opts.Author, Gate: v.gateStatus(e), Vocabulary: vocabOf(v.vocab), Warnings: v.verdict.Warnings,
 		Causes: v.stateCauses(), Explanations: v.stateExplanations()}
 	if s.opts.Research != nil {
 		a := s.opts.ResearchAvailability
@@ -292,7 +292,7 @@ func (s *Server) handleState(w http.ResponseWriter, req *http.Request) {
 		st.Reference = &r
 	}
 	for si, sub := range v.verdict.Subjects {
-		ss := stateSubject{Name: st.Scans.Subjects[si].Name, Slug: st.Scans.Subjects[si].Slug, Rows: []stateRow{}}
+		ss := StateSubject{Name: st.Scans.Subjects[si].Name, Slug: st.Scans.Subjects[si].Slug, Rows: []StateRow{}}
 		for j := range sub.Matches {
 			ss.Rows = append(ss.Rows, v.listRow(v.rows[sub.Matches[j].Row], idx))
 		}
@@ -301,23 +301,23 @@ func (s *Server) handleState(w http.ResponseWriter, req *http.Request) {
 	writeJSON(w, st)
 }
 
-// runSummary is a gate's scans as the gate list and every page's header show them.
-type runSummary struct {
+// RunSummary is a gate's scans as the gate list and every page's header show them.
+type RunSummary struct {
 	ID       string        `json:"id"` // the gate's name
 	Created  string        `json:"created"`
 	Gate     string        `json:"gate"` // the gate file
 	Label    string        `json:"label"`
 	Compared string        `json:"compared"`
-	Subjects []subjectInfo `json:"subjects"`
+	Subjects []SubjectInfo `json:"subjects"`
 }
 
-type subjectInfo struct {
+type SubjectInfo struct {
 	Name string `json:"name"` // what a person calls it, e.g. wolfi-base
 	Slug string `json:"slug"` // unique within the gate, for URLs
 }
 
-func summarize(e *entry, v *view) runSummary {
-	sum := runSummary{ID: e.name, Created: e.rec.Created, Gate: e.gate.Path, Compared: compared(v.verdict.Header)}
+func summarize(e *entry, v *view) RunSummary {
+	sum := RunSummary{ID: e.name, Created: e.rec.Created, Gate: e.gate.Path, Compared: compared(v.verdict.Header)}
 	seen := map[string]int{}
 	var names []string
 	for _, s := range e.rec.Subjects {
@@ -326,7 +326,7 @@ func summarize(e *entry, v *view) runSummary {
 		if seen[slug]++; seen[slug] > 1 {
 			slug = fmt.Sprintf("%s-%d", slug, seen[slug])
 		}
-		sum.Subjects = append(sum.Subjects, subjectInfo{Name: name, Slug: slug})
+		sum.Subjects = append(sum.Subjects, SubjectInfo{Name: name, Slug: slug})
 		names = append(names, name)
 	}
 	switch len(names) {
@@ -387,18 +387,18 @@ func short(input, s string) string {
 	return s
 }
 
-// rowResponse is one row with everything the tile shows of it.
-type rowResponse struct {
-	Row         stateRow                `json:"row"`
+// RowResponse is one row with everything the tile shows of it.
+type RowResponse struct {
+	Row         StateRow                `json:"row"`
 	Subject     string                  `json:"subject"`
 	Links       []Link                  `json:"links"`
-	Label       *labelView              `json:"label,omitempty"`
-	Hint        *hint                   `json:"hint,omitempty"`
+	Label       *LabelView              `json:"label,omitempty"`
+	Hint        *Hint                   `json:"hint,omitempty"`
 	Explanation *agentstore.Explanation `json:"explanation,omitempty"`
 }
 
-// labelView is the label deciding a row, as its file holds it, and every source holding its key.
-type labelView struct {
+// LabelView is the label deciding a row, as its file holds it, and every source holding its key.
+type LabelView struct {
 	Label   claimsv1.Label `json:"label"`
 	File    string         `json:"file"`
 	Global  bool           `json:"global,omitempty"`
@@ -420,9 +420,9 @@ func (s *Server) handleRow(w http.ResponseWriter, req *http.Request) {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	resp := rowResponse{Row: v.listRow(r, idx), Subject: e.rec.Subjects[r.si].Name, Links: Links(r.match), Hint: v.hints[r.match.Row]}
+	resp := RowResponse{Row: v.listRow(r, idx), Subject: e.rec.Subjects[r.si].Name, Links: Links(r.match), Hint: v.hints[r.match.Row]}
 	if b := r.pm.Label; b != nil {
-		lv := &labelView{Label: b.Label.Label, File: b.File, Global: b.Global}
+		lv := &LabelView{Label: b.Label.Label, File: b.File, Global: b.Global}
 		for _, h := range b.Held {
 			lv.Sources = append(lv.Sources, h.Source+": "+string(h.Verdict))
 		}
@@ -441,30 +441,35 @@ func (s *Server) handleGateList(w http.ResponseWriter, _ *http.Request) {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	type listed struct {
-		runSummary
-		GateOutcome analysis.State `json:"gateOutcome,omitempty"`
-		GateNote    string         `json:"gateNote,omitempty"`
-		Error       string         `json:"error,omitempty"`
-	}
-	out := struct {
-		Open  string   `json:"open"`
-		Gates []listed `json:"gates"`
-	}{Open: s.opts.Open, Gates: []listed{}}
+	out := GateList{Open: s.opts.Open, Gates: []GateListItem{}}
 	for _, e := range all {
 		v, err := s.view(e)
 		if err != nil {
-			out.Gates = append(out.Gates, listed{runSummary: runSummary{ID: e.name, Created: e.rec.Created, Gate: e.gate.Path}, Error: err.Error()})
+			out.Gates = append(out.Gates, GateListItem{RunSummary: RunSummary{ID: e.name, Created: e.rec.Created, Gate: e.gate.Path}, Error: err.Error()})
 			continue
 		}
 		if out.Open == "" {
 			out.Open = e.name // the gate scanned last that can be scored, as / opens
 		}
-		l := listed{runSummary: summarize(e, v), GateOutcome: analysis.Undecided, GateNote: v.stale}
+		l := GateListItem{RunSummary: summarize(e, v), GateOutcome: analysis.Undecided, GateNote: v.stale}
 		if v.stale == "" {
 			l.GateOutcome = v.verdict.Outcome
 		}
 		out.Gates = append(out.Gates, l)
 	}
 	writeJSON(w, out)
+}
+
+// GateListItem is one gate of GET /api/gates.
+type GateListItem struct {
+	RunSummary  `tstype:",extends"`
+	GateOutcome analysis.State `json:"gateOutcome,omitempty"`
+	GateNote    string         `json:"gateNote,omitempty"`
+	Error       string         `json:"error,omitempty"`
+}
+
+// GateList is GET /api/gates: every gate scanned under the run, and the one "/" opens.
+type GateList struct {
+	Open  string         `json:"open"`
+	Gates []GateListItem `json:"gates"`
 }

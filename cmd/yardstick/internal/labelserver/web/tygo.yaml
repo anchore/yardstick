@@ -1,0 +1,197 @@
+# Generates the TypeScript declarations of everything the label server's HTTP responses and
+# request bodies serialize. Run from the repo root:
+#
+#   go run github.com/gzuidhof/tygo@v0.2.21 generate --config cmd/yardstick/internal/labelserver/web/tygo.yaml
+#
+# labelserver writes wire.ts, the one file the UI imports. Every other package writes its own
+# file, which wire.ts re-exports as a namespace (wire.report.Match), because tygo does not link
+# types across packages: the cross-package type_mappings below do that by hand.
+#
+# Hand mappings, where tygo's guess is wrong:
+#   time.Time        encoded as an RFC 3339 string
+#   time.Duration    encoded as integer nanoseconds
+#   json.RawMessage  grype's raw matches and SBOM artifacts, passed through verbatim
+#   claimsv1.Label   has a custom MarshalJSON, but it emits the struct's own fields (labelFields)
+#                    plus the unknown keys of a newer file (Extra), so the generated interface is
+#                    right for every key the UI reads. The unknown keys are deliberately untyped.
+#   unexported-name types from other packages that never reach the wire (see unknown below)
+type_mappings:
+  time.Time: string
+  time.Duration: number
+  json.RawMessage: unknown
+  claimsv1.Label: claimsv1.Label
+  claimsv1.Verdict: claimsv1.Verdict
+  claimsv1.Subject: claimsv1.Subject
+  claimsv1.Evidence: claimsv1.Evidence
+  claimsv1.Fact: claimsv1.Fact
+  claimsv1.Rule: claimsv1.Rule
+  analysis.State: analysis.State
+  analysis.Value: analysis.Value
+  analysis.Effect: analysis.Effect
+  analysis.Check: analysis.Check
+  agentstore.Explanation: agentstore.Explanation
+  agentstore.Cause: agentstore.Cause
+  agentstore.Author: agentstore.Author
+  agentstore.Reason: agentstore.Reason
+  agentstore.Proposal: agentstore.Proposal
+  agentstore.Member: agentstore.Member
+  research.Availability: research.Availability
+  research.Status: research.Status
+  # only StateRow embeds it, and StateRow redefines package as {ref}, which an interface cannot
+  # do over an inherited property
+  report.Match: Omit<report.Match, "package">
+  setup.Prepared: setup.Prepared
+  pairing.Detail: pairing.Detail
+  lookup.Affected: lookup.Affected
+  install.Tool: install.Tool
+  # reachable only through server-side fields, never serialized
+  pairing.Result: unknown
+  pairing.Match: unknown
+  claims.Label: unknown
+  subject.Resolved: unknown
+  subject.Package: unknown
+  purl.Fields: unknown
+  models.Document: unknown
+  lookup.File: unknown
+  install.Resolver: unknown
+  gatefile.CheckDef: unknown
+  execute.Runner: unknown
+  agentstore.Store: unknown
+  research.Runner: unknown
+
+packages:
+  - path: github.com/anchore/yardstick/cmd/yardstick/internal/labelserver
+    output_path: cmd/yardstick/internal/labelserver/web/src/gen/wire.ts
+    frontmatter: |
+      import type * as claimsv1 from "./claims-v1";
+      import type * as analysis from "./analysis";
+      import type * as agentstore from "./agentstore";
+      import type * as research from "./research";
+      import type * as report from "./report";
+      import type * as setup from "./setup";
+      import type * as pairing from "./pairing";
+      import type * as lookup from "./lookup";
+      import type * as install from "./install";
+      export type { claimsv1, analysis, agentstore, research, report, setup, pairing, lookup, install };
+  - path: github.com/anchore/yardstick/cmd/yardstick/internal/report
+    output_path: cmd/yardstick/internal/labelserver/web/src/gen/report.ts
+    frontmatter: |
+      import type * as claimsv1 from "./claims-v1";
+      import type * as analysis from "./analysis";
+      import type * as agentstore from "./agentstore";
+      import type * as research from "./research";
+      import type * as report from "./report";
+      import type * as setup from "./setup";
+      import type * as pairing from "./pairing";
+      import type * as lookup from "./lookup";
+      import type * as install from "./install";
+  - path: github.com/anchore/yardstick/cmd/yardstick/internal/analysis
+    output_path: cmd/yardstick/internal/labelserver/web/src/gen/analysis.ts
+    frontmatter: |
+      import type * as claimsv1 from "./claims-v1";
+      import type * as analysis from "./analysis";
+      import type * as agentstore from "./agentstore";
+      import type * as research from "./research";
+      import type * as report from "./report";
+      import type * as setup from "./setup";
+      import type * as pairing from "./pairing";
+      import type * as lookup from "./lookup";
+      import type * as install from "./install";
+  - path: github.com/anchore/yardstick/cmd/yardstick/internal/claims/v1
+    output_path: cmd/yardstick/internal/labelserver/web/src/gen/claims-v1.ts
+    frontmatter: |
+      import type * as claimsv1 from "./claims-v1";
+      import type * as analysis from "./analysis";
+      import type * as agentstore from "./agentstore";
+      import type * as research from "./research";
+      import type * as report from "./report";
+      import type * as setup from "./setup";
+      import type * as pairing from "./pairing";
+      import type * as lookup from "./lookup";
+      import type * as install from "./install";
+  - path: github.com/anchore/yardstick/cmd/yardstick/internal/agentstore
+    output_path: cmd/yardstick/internal/labelserver/web/src/gen/agentstore.ts
+    # agentstore.go holds Store and the generic Log, neither of which is serialized
+    exclude_files: [agentstore.go]
+    frontmatter: |
+      import type * as claimsv1 from "./claims-v1";
+      import type * as analysis from "./analysis";
+      import type * as agentstore from "./agentstore";
+      import type * as research from "./research";
+      import type * as report from "./report";
+      import type * as setup from "./setup";
+      import type * as pairing from "./pairing";
+      import type * as lookup from "./lookup";
+      import type * as install from "./install";
+  - path: github.com/anchore/yardstick/cmd/yardstick/internal/research
+    output_path: cmd/yardstick/internal/labelserver/web/src/gen/research.ts
+    frontmatter: |
+      import type * as claimsv1 from "./claims-v1";
+      import type * as analysis from "./analysis";
+      import type * as agentstore from "./agentstore";
+      import type * as research from "./research";
+      import type * as report from "./report";
+      import type * as setup from "./setup";
+      import type * as pairing from "./pairing";
+      import type * as lookup from "./lookup";
+      import type * as install from "./install";
+  - path: github.com/anchore/yardstick/cmd/yardstick/internal/setup
+    output_path: cmd/yardstick/internal/labelserver/web/src/gen/setup.ts
+    frontmatter: |
+      import type * as claimsv1 from "./claims-v1";
+      import type * as analysis from "./analysis";
+      import type * as agentstore from "./agentstore";
+      import type * as research from "./research";
+      import type * as report from "./report";
+      import type * as setup from "./setup";
+      import type * as pairing from "./pairing";
+      import type * as lookup from "./lookup";
+      import type * as install from "./install";
+  - path: github.com/anchore/yardstick/cmd/yardstick/internal/runrecord
+    output_path: cmd/yardstick/internal/labelserver/web/src/gen/runrecord.ts
+    frontmatter: |
+      import type * as claimsv1 from "./claims-v1";
+      import type * as analysis from "./analysis";
+      import type * as agentstore from "./agentstore";
+      import type * as research from "./research";
+      import type * as report from "./report";
+      import type * as setup from "./setup";
+      import type * as pairing from "./pairing";
+      import type * as lookup from "./lookup";
+      import type * as install from "./install";
+  - path: github.com/anchore/yardstick/cmd/yardstick/internal/pairing
+    output_path: cmd/yardstick/internal/labelserver/web/src/gen/pairing.ts
+    frontmatter: |
+      import type * as claimsv1 from "./claims-v1";
+      import type * as analysis from "./analysis";
+      import type * as agentstore from "./agentstore";
+      import type * as research from "./research";
+      import type * as report from "./report";
+      import type * as setup from "./setup";
+      import type * as pairing from "./pairing";
+      import type * as lookup from "./lookup";
+      import type * as install from "./install";
+  - path: github.com/anchore/yardstick/cmd/yardstick/internal/lookup
+    output_path: cmd/yardstick/internal/labelserver/web/src/gen/lookup.ts
+    frontmatter: |
+      import type * as claimsv1 from "./claims-v1";
+      import type * as analysis from "./analysis";
+      import type * as agentstore from "./agentstore";
+      import type * as research from "./research";
+      import type * as report from "./report";
+      import type * as setup from "./setup";
+      import type * as pairing from "./pairing";
+      import type * as lookup from "./lookup";
+      import type * as install from "./install";
+  - path: github.com/anchore/yardstick/cmd/yardstick/internal/install
+    output_path: cmd/yardstick/internal/labelserver/web/src/gen/install.ts
+    frontmatter: |
+      import type * as claimsv1 from "./claims-v1";
+      import type * as analysis from "./analysis";
+      import type * as agentstore from "./agentstore";
+      import type * as research from "./research";
+      import type * as report from "./report";
+      import type * as setup from "./setup";
+      import type * as pairing from "./pairing";
+      import type * as lookup from "./lookup";
+      import type * as install from "./install";

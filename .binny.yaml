@@ -12,3 +12,21 @@ tools:
     method: github-release
     with:
       repo: golangci/golangci-lint
+
+  # installs and test-runs the label UI's packages (cmd/yardstick/internal/labelserver/web)
+  - name: bun
+    version:
+      want: bun-v1.4.3
+    method: github-release
+    with:
+      repo: oven-sh/bun
+      # the plain build: no -profile, -baseline, -musl or -android variants
+      assets: '^bun-[a-z]+-(aarch64|x64)\.zip$'
+
+  # generates the label UI's wire types from the Go response types
+  - name: tygo
+    version:
+      want: v0.2.21
+    method: go-install
+    with:
+      module: github.com/gzuidhof/tygo

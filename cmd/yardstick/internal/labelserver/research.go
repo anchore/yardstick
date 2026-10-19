@@ -27,8 +27,8 @@ const (
 	LevelResearched = "researched" // research-vuln output exists, however it was started
 )
 
-// researchSummary is the newest research job covering a row.
-type researchSummary struct {
+// ResearchSummary is the newest research job covering a row.
+type ResearchSummary struct {
 	Job      string          `json:"job"`
 	Status   research.Status `json:"status"`
 	Error    string          `json:"error,omitempty"`
@@ -45,7 +45,7 @@ type researchSummary struct {
 
 // researchIndex is every research job, by what the state API says about rows.
 type researchIndex struct {
-	newest   map[string]*researchSummary
+	newest   map[string]*ResearchSummary
 	finished map[string]bool // a job finished on the row, now or before, with or without a hint
 	byRow    map[string][]research.Job
 	byID     map[string]research.Job
@@ -53,7 +53,7 @@ type researchIndex struct {
 
 // researchIndex reads the jobs; it is empty when there is no runner.
 func (s *Server) researchIndex() (*researchIndex, error) {
-	idx := &researchIndex{newest: map[string]*researchSummary{}, finished: map[string]bool{},
+	idx := &researchIndex{newest: map[string]*ResearchSummary{}, finished: map[string]bool{},
 		byRow: map[string][]research.Job{}, byID: map[string]research.Job{}}
 	if s.opts.Research == nil {
 		return idx, nil
@@ -70,7 +70,7 @@ func (s *Server) researchIndex() (*researchIndex, error) {
 				idx.finished[id] = true
 			}
 			if _, seen := idx.newest[id]; !seen {
-				idx.newest[id] = &researchSummary{Job: j.ID, Status: j.Status, Error: j.Error, Started: j.Started, Finished: j.Finished,
+				idx.newest[id] = &ResearchSummary{Job: j.ID, Status: j.Status, Error: j.Error, Started: j.Started, Finished: j.Finished,
 					Queued: j.Queued, LastDone: j.LastDone, Model: j.Model, Source: j.Source,
 					Cancellable: j.Status.Active() && s.opts.Research.Cancellable(j.ID), SurvivingGroup: j.SurvivingGroup}
 			}
@@ -152,7 +152,7 @@ func hintOrigin(idx *researchIndex, rowID string, p agentstore.Proposal) (origin
 	return OriginResearchJob, j.ID
 }
 
-// researchRequest is the body of POST .../research (and, rows only, of .../research/cancel): rows,
+// ResearchRequest is the body of POST .../research (and, rows only, of .../research/cancel): rows,
 // or a selection the server resolves, as in delta:
 //
 //	{"rows": ["<row id>", ...]}
@@ -161,7 +161,7 @@ func hintOrigin(idx *researchIndex, rowID string, p agentstore.Proposal) (origin
 //
 // A selection takes only open rows not yet researched with nothing queued or running; there is
 // deliberately no "all". Sibling packages (same alias group and source package) share a job.
-type researchRequest struct {
+type ResearchRequest struct {
 	Rows    []string `json:"rows"`
 	Select  string   `json:"select,omitempty"`
 	Subject string   `json:"subject,omitempty"`
@@ -169,7 +169,7 @@ type researchRequest struct {
 	DryRun  bool     `json:"dryRun,omitempty"`
 }
 
-type researchResponse struct {
+type ResearchResponse struct {
 	Jobs    []string `json:"jobs"`
 	Matches int      `json:"matches"`
 	Queued  int      `json:"queued"`
@@ -201,7 +201,7 @@ func (s *Server) handleResearch(w http.ResponseWriter, req *http.Request) {
 	if !s.researchReady(w) {
 		return
 	}
-	var body researchRequest
+	var body ResearchRequest
 	if !decode(w, req, &body) {
 		return
 	}
@@ -230,7 +230,7 @@ func (s *Server) handleResearch(w http.ResponseWriter, req *http.Request) {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-	out := researchResponse{Jobs: []string{}, Matches: len(rows), Queued: len(requests)}
+	out := ResearchResponse{Jobs: []string{}, Matches: len(rows), Queued: len(requests)}
 	if body.DryRun {
 		writeJSON(w, out)
 		return
@@ -248,7 +248,7 @@ func (s *Server) handleResearch(w http.ResponseWriter, req *http.Request) {
 }
 
 // selectForResearch resolves a selection to row ids, with the status to answer with when it can't.
-func (s *Server) selectForResearch(e *entry, v *view, body researchRequest) ([]string, int, error) {
+func (s *Server) selectForResearch(e *entry, v *view, body ResearchRequest) ([]string, int, error) {
 	if body.Select != selectNoHint && body.Select != selectCouldMoveCheck {
 		return nil, http.StatusBadRequest, fmt.Errorf("select must be %q or %q, got %q", selectNoHint, selectCouldMoveCheck, body.Select)
 	}
@@ -265,7 +265,7 @@ func (s *Server) selectForResearch(e *entry, v *view, body researchRequest) ([]s
 	}
 	si := -1 // every subject
 	if body.Subject != "" {
-		if si = slices.IndexFunc(summarize(e, v).Subjects, func(sub subjectInfo) bool { return sub.Slug == body.Subject }); si < 0 {
+		if si = slices.IndexFunc(summarize(e, v).Subjects, func(sub SubjectInfo) bool { return sub.Slug == body.Subject }); si < 0 {
 			return nil, http.StatusNotFound, fmt.Errorf("no subject %q in gate %s", body.Subject, e.name)
 		}
 	}
@@ -297,7 +297,7 @@ func (s *Server) selectForResearch(e *entry, v *view, body researchRequest) ([]s
 	return ids, http.StatusOK, nil
 }
 
-type notCancelled struct {
+type NotCancelled struct {
 	Job string `json:"job"`
 	Why string `json:"why"`
 }
@@ -309,7 +309,7 @@ func (s *Server) handleCancelResearch(w http.ResponseWriter, req *http.Request) 
 		http.Error(w, "research isn't configured", http.StatusNotImplemented)
 		return
 	}
-	var body researchRequest
+	var body ResearchRequest
 	if !decode(w, req, &body) {
 		return
 	}
@@ -321,30 +321,27 @@ func (s *Server) handleCancelResearch(w http.ResponseWriter, req *http.Request) 
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	cancelled, refused := []string{}, []notCancelled{}
+	cancelled, refused := []string{}, []NotCancelled{}
 	seen := map[string]bool{}
 	for _, row := range body.Rows {
 		i := slices.IndexFunc(all, func(j research.Job) bool { return slices.Contains(j.Rows, row) })
 		switch {
 		case i < 0:
-			refused = append(refused, notCancelled{row, "no research for this row"})
+			refused = append(refused, NotCancelled{row, "no research for this row"})
 		case seen[all[i].ID]:
 		case !all[i].Status.Active():
 			seen[all[i].ID] = true
-			refused = append(refused, notCancelled{all[i].ID, fmt.Sprintf("not running (%s)", all[i].Status)})
+			refused = append(refused, NotCancelled{all[i].ID, fmt.Sprintf("not running (%s)", all[i].Status)})
 		default:
 			seen[all[i].ID] = true
 			if err := s.opts.Research.Cancel(all[i].ID); err != nil {
-				refused = append(refused, notCancelled{all[i].ID, err.Error()})
+				refused = append(refused, NotCancelled{all[i].ID, err.Error()})
 			} else {
 				cancelled = append(cancelled, all[i].ID)
 			}
 		}
 	}
-	writeJSON(w, struct {
-		Cancelled    []string       `json:"cancelled"`
-		NotCancelled []notCancelled `json:"notCancelled"`
-	}{cancelled, refused})
+	writeJSON(w, CancelResponse{cancelled, refused})
 }
 
 // handleResearchLog serves the end of a job's log.
@@ -377,4 +374,10 @@ func (s *Server) handleResearchLog(w http.ResponseWriter, req *http.Request) {
 	w.Header().Set("X-Content-Type-Options", "nosniff")
 	w.Header().Set("Cache-Control", "no-store")
 	_, _ = w.Write(data)
+}
+
+// CancelResponse is the answer to cancelling research: the jobs cancelled, and why others were not.
+type CancelResponse struct {
+	Cancelled    []string       `json:"cancelled"`
+	NotCancelled []NotCancelled `json:"notCancelled"`
 }

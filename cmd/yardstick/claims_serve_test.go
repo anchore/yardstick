@@ -7,6 +7,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"testing"
 	"time"
@@ -194,12 +195,22 @@ func TestServePages(t *testing.T) {
 			t.Errorf("GET %s: expected the page with its token and a content security policy", tc.path)
 		}
 	}
-	for _, p := range []string{"/assets/theme.js", "/assets/shared/tile.js", "/assets/map/app.js", "/assets/map/gates.js"} {
-		if rec := s.do(http.MethodGet, p, "", ""); rec.Code != http.StatusOK {
-			t.Errorf("GET %s: %d", p, rec.Code)
+	// every asset the pages load; the built ones only when make generate has run
+	for _, page := range []string{"/ui/map/gates/deb/", "/ui/map/gates/"} {
+		for _, m := range assetRef.FindAllStringSubmatch(s.do(http.MethodGet, page, "", "").Body.String(), -1) {
+			p := m[1]
+			if strings.HasPrefix(p, "/assets/dist/") && !labelserver.HasUI() {
+				t.Logf("GET %s: skipped, no assets/dist (run make generate)", p)
+				continue
+			}
+			if rec := s.do(http.MethodGet, p, "", ""); rec.Code != http.StatusOK || rec.Body.Len() == 0 {
+				t.Errorf("GET %s (from %s): %d, %d bytes", p, page, rec.Code, rec.Body.Len())
+			}
 		}
 	}
 }
+
+var assetRef = regexp.MustCompile(`(?:src|href)="(/assets/[^"]+)"`)
 
 func TestServeLabelingWritesAndRescores(t *testing.T) {
 	s := newServed(t)

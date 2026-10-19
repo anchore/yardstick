@@ -145,12 +145,12 @@ type view struct {
 	rows    map[string]*rowRef // by row id
 	effects map[string]analysis.Effect
 
-	hints          map[string]*hint
-	causes         map[string]*causeView
-	causeOrder     []*causeView
-	rowCauses      map[string][]*causeView
-	explanations   []*explanationView
-	rowExplanation map[string]*explanationView
+	hints          map[string]*Hint
+	causes         map[string]*CauseView
+	causeOrder     []*CauseView
+	rowCauses      map[string][]*CauseView
+	explanations   []*ExplanationView
+	rowExplanation map[string]*ExplanationView
 }
 
 // rowRef is one row: its subject's index in the run and the verdict, and the match both ways.
@@ -273,31 +273,31 @@ func (v *view) orderedRows() []*rowRef {
 }
 
 // hint is the newest proposal on a row and where it stands against the row's label and the policy.
-type hint struct {
+type Hint struct {
 	Proposal agentstore.Proposal `json:"proposal"`
-	Policy   policyCheck         `json:"policy"`
+	Policy   PolicyCheck         `json:"policy"`
 	// Status is pending (the row is open), agrees or disagrees (someone labeled it).
 	Status string `json:"status"`
 }
 
-type policyCheck struct {
-	Rule     *namedRule `json:"rule,omitempty"`
-	Problems []string   `json:"problems"`
+type PolicyCheck struct {
+	Rule     *NamedRule `json:"rule,omitempty"`
+	Problems []string   `json:"problems" tstype:"string[] | null"`
 }
 
-// namedRule is a vocabulary rule with its name, as delta's policy rule was served.
-type namedRule struct {
-	Name string `json:"rule"`
-	claimsv1.Rule
+// NamedRule is a vocabulary rule with its name, as delta's policy rule was served.
+type NamedRule struct {
+	Name          string `json:"rule"`
+	claimsv1.Rule `tstype:",extends"`
 }
 
 // ruleOf is the first rule a call's evidence cites, from the vocabulary.
-func ruleOf(vocab *claimsv1.Vocabulary, evidence []claimsv1.Evidence) *namedRule {
+func ruleOf(vocab *claimsv1.Vocabulary, evidence []claimsv1.Evidence) *NamedRule {
 	for _, e := range evidence {
 		if e.Rule == "" {
 			continue
 		}
-		r := &namedRule{Name: e.Rule}
+		r := &NamedRule{Name: e.Rule}
 		if vocab != nil {
 			r.Rule = vocab.Rules[e.Rule]
 		}
@@ -322,7 +322,7 @@ func (s *Server) attachHints(e *entry, v *view) error {
 	for i := range e.rec.Subjects {
 		subjects[i] = subjectKey(&e.rec.Subjects[i])
 	}
-	v.hints = map[string]*hint{}
+	v.hints = map[string]*Hint{}
 	for id, r := range v.rows {
 		var found *agentstore.Proposal
 		for _, vuln := range append([]string{r.match.Vulnerability, r.match.Group}, r.match.Aliases...) {
@@ -333,7 +333,7 @@ func (s *Server) attachHints(e *entry, v *view) error {
 		if found == nil {
 			continue
 		}
-		h := &hint{Proposal: *found, Policy: policyCheck{Rule: ruleOf(v.vocab, found.Evidence), Problems: found.Problems(v.vocab)}, Status: "pending"}
+		h := &Hint{Proposal: *found, Policy: PolicyCheck{Rule: ruleOf(v.vocab, found.Evidence), Problems: found.Problems(v.vocab)}, Status: "pending"}
 		switch {
 		case r.open():
 		case verdictOf(r) == string(found.Verdict):

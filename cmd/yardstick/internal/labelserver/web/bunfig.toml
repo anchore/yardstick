@@ -1,0 +1,3 @@
+[install]
+# only versions published at least a week ago, matching binny's and Dependabot's 7-day cooldown
+minimumReleaseAge = 604800

@@ -55,6 +55,9 @@ explanations under .yardstick/ show as hints; none counts until a person accepts
 		Example: `  yardstick claims serve gates/deb.yaml --claims ./.claims --open`,
 		Args:    cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if !labelserver.HasUI() {
+				return errors.New("this yardstick was built without the label UI, as go install builds are: install a release (curl -sSfL https://get.anchore.io/yardstick | sh), or run make generate in a clone before building")
+			}
 			if err := runrecord.CheckName(cfg.Name); err != nil {
 				return err
 			}

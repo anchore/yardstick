@@ -9,12 +9,12 @@ import (
 	claimsv1 "github.com/anchore/yardstick/cmd/yardstick/internal/claims/v1"
 )
 
-// causeView is a cause as it applies to one gate: its member rows present, and the policy check.
-type causeView struct {
-	agentstore.Cause
-	Policy  policyCheck
-	Rows    []string // member rows in this gate, in report order
-	Missing int      // members this gate does not have
+// CauseView is a cause as it applies to one gate: its member rows present, and the policy check.
+type CauseView struct {
+	agentstore.Cause `tstype:",extends"`
+	Policy           PolicyCheck
+	Rows             []string // member rows in this gate, in report order
+	Missing          int      // members this gate does not have
 }
 
 // attachCauses matches each of this gate's causes' members to the gate's rows, by row id. A cause
@@ -25,13 +25,13 @@ func (s *Server) attachCauses(e *entry, v *view) error {
 	if err != nil {
 		return err
 	}
-	v.causes, v.rowCauses = map[string]*causeView{}, map[string][]*causeView{}
-	members := map[string][]*causeView{}
+	v.causes, v.rowCauses = map[string]*CauseView{}, map[string][]*CauseView{}
+	members := map[string][]*CauseView{}
 	for _, c := range causes {
 		if c.Gate != e.name {
 			continue
 		}
-		cv := &causeView{Cause: c, Policy: policyCheck{Rule: ruleOf(v.vocab, c.Evidence), Problems: c.Problems(v.vocab)}}
+		cv := &CauseView{Cause: c, Policy: PolicyCheck{Rule: ruleOf(v.vocab, c.Evidence), Problems: c.Problems(v.vocab)}}
 		v.causes[c.ID] = cv
 		v.causeOrder = append(v.causeOrder, cv)
 		for _, m := range c.Members {
@@ -66,7 +66,7 @@ const (
 	memberAccepted = "accepted" // labeled with the cause's verdict (a label carries no basedOn, so this is agreement)
 )
 
-func (v *view) memberState(cv *causeView, id string) string {
+func (v *view) memberState(cv *CauseView, id string) string {
 	r := v.rows[id]
 	switch {
 	case !r.open() && verdictOf(r) == string(cv.Verdict):
@@ -79,8 +79,8 @@ func (v *view) memberState(cv *causeView, id string) string {
 	return memberPending
 }
 
-// stateCause is what the map shows of a cause on its package.
-type stateCause struct {
+// StateCause is what the map shows of a cause on its package.
+type StateCause struct {
 	ID            string            `json:"id"`
 	Title         string            `json:"title"`
 	Verdict       claimsv1.Verdict  `json:"verdict"`
@@ -100,13 +100,13 @@ type stateCause struct {
 	Missing       int               `json:"missing,omitempty"`
 }
 
-func (v *view) stateCauses() []stateCause {
-	out := []stateCause{}
+func (v *view) stateCauses() []StateCause {
+	out := []StateCause{}
 	for _, cv := range v.causeOrder {
 		if len(cv.Rows) == 0 {
 			continue // not about this gate
 		}
-		sc := stateCause{ID: cv.ID, Title: cv.Title, Verdict: cv.Verdict, Justification: cv.Justification, Confidence: cv.Confidence, Author: cv.Author,
+		sc := StateCause{ID: cv.ID, Title: cv.Title, Verdict: cv.Verdict, Justification: cv.Justification, Confidence: cv.Confidence, Author: cv.Author,
 			Problems: len(cv.Policy.Problems), SourcePackage: cv.SourcePackage, Direction: cv.Direction, Rows: cv.Rows, Missing: cv.Missing,
 			Pending: []string{}, Conflicts: []string{}}
 		if r := cv.Policy.Rule; r != nil {
@@ -129,11 +129,11 @@ func (v *view) stateCauses() []stateCause {
 	return out
 }
 
-type causeMember struct {
-	agentstore.Member
-	State   string       `json:"state"` // pending, conflict, labeled, accepted, or missing
-	Verdict string       `json:"verdict,omitempty"`
-	Hint    *hintSummary `json:"hint,omitempty"`
+type CauseMember struct {
+	agentstore.Member `tstype:",extends"`
+	State             string       `json:"state"` // pending, conflict, labeled, accepted, or missing
+	Verdict           string       `json:"verdict,omitempty"`
+	Hint              *HintSummary `json:"hint,omitempty"`
 }
 
 func (s *Server) handleCause(w http.ResponseWriter, req *http.Request) {
@@ -146,13 +146,9 @@ func (s *Server) handleCause(w http.ResponseWriter, req *http.Request) {
 		http.Error(w, "no such cause", http.StatusNotFound)
 		return
 	}
-	resp := struct {
-		Cause   agentstore.Cause `json:"cause"`
-		Policy  policyCheck      `json:"policy"`
-		Members []causeMember    `json:"members"`
-	}{cv.Cause, cv.Policy, []causeMember{}}
+	resp := CauseResponse{cv.Cause, cv.Policy, []CauseMember{}}
 	for _, m := range cv.Members {
-		cm := causeMember{Member: m, State: "missing"}
+		cm := CauseMember{Member: m, State: "missing"}
 		if r := v.rows[m.Row]; r != nil && slices.Contains(cv.Rows, m.Row) {
 			cm.State, cm.Verdict = v.memberState(cv, m.Row), verdictOf(r)
 			if h := v.hints[m.Row]; h != nil {
@@ -164,11 +160,11 @@ func (s *Server) handleCause(w http.ResponseWriter, req *http.Request) {
 	writeJSON(w, resp)
 }
 
-// explanationView is an explanation of this gate's run, with the member rows the gate has.
-type explanationView struct {
-	agentstore.Explanation
-	Rows    []string
-	Missing int
+// ExplanationView is an explanation of this gate's run, with the member rows the gate has.
+type ExplanationView struct {
+	agentstore.Explanation `tstype:",extends"`
+	Rows                   []string
+	Missing                int
 }
 
 // attachExplanations matches the run's explanations of this gate to its rows. Explanations never
@@ -178,13 +174,13 @@ func (s *Server) attachExplanations(e *entry, v *view) error {
 	if err != nil {
 		return err
 	}
-	v.rowExplanation = map[string]*explanationView{}
-	byRow := map[string]*explanationView{}
+	v.rowExplanation = map[string]*ExplanationView{}
+	byRow := map[string]*ExplanationView{}
 	for _, x := range all {
 		if x.Gate != e.name || x.Run != s.opts.Run {
 			continue
 		}
-		ev := &explanationView{Explanation: x}
+		ev := &ExplanationView{Explanation: x}
 		v.explanations = append(v.explanations, ev)
 		for _, m := range x.Members {
 			byRow[m.Row] = ev // the newest explanation listing a row wins
@@ -202,8 +198,8 @@ func (s *Server) attachExplanations(e *entry, v *view) error {
 	return nil
 }
 
-// stateExplanation is what the map shows of an explanation; the row endpoint serves it whole.
-type stateExplanation struct {
+// StateExplanation is what the map shows of an explanation; the row endpoint serves it whole.
+type StateExplanation struct {
 	ID          string            `json:"id"`
 	Title       string            `json:"title"`
 	Reason      string            `json:"reason,omitempty"` // the computed why key it refines
@@ -215,14 +211,21 @@ type stateExplanation struct {
 	LogExcerpts int               `json:"logExcerpts"`
 }
 
-func (v *view) stateExplanations() []stateExplanation {
-	out := []stateExplanation{}
+func (v *view) stateExplanations() []StateExplanation {
+	out := []StateExplanation{}
 	for _, ev := range v.explanations {
 		if len(ev.Rows) == 0 {
 			continue
 		}
-		out = append(out, stateExplanation{ID: ev.ID, Title: ev.Title, Reason: ev.Reason, Rows: slices.Clip(ev.Rows), Missing: ev.Missing,
+		out = append(out, StateExplanation{ID: ev.ID, Title: ev.Title, Reason: ev.Reason, Rows: slices.Clip(ev.Rows), Missing: ev.Missing,
 			Author: ev.Author, Timestamp: ev.Timestamp, Facts: len(ev.Facts), LogExcerpts: len(ev.LogExcerpts)})
 	}
 	return out
+}
+
+// CauseResponse is GET causes/{id}: the cause as it applies to this gate.
+type CauseResponse struct {
+	Cause   agentstore.Cause `json:"cause"`
+	Policy  PolicyCheck      `json:"policy"`
+	Members []CauseMember    `json:"members"`
 }

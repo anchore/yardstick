@@ -2,6 +2,9 @@ module github.com/anchore/yardstick
 
 go 1.26.8
 
+// the label UI's npm packages, so ./... never walks them
+ignore ./cmd/yardstick/internal/labelserver/web/node_modules
+
 require (
 	github.com/Masterminds/semver/v3 v3.5.0
 	github.com/adrg/xdg v0.5.3
@@ -16,6 +19,7 @@ require (
 	github.com/charmbracelet/bubbletea v1.3.10
 	github.com/charmbracelet/lipgloss v1.1.0
 	github.com/dustin/go-humanize v1.1.0
+	github.com/evanw/esbuild v0.28.2
 	github.com/gkampitakis/go-snaps v0.5.23
 	github.com/google/uuid v1.6.0
 	github.com/muesli/termenv v0.16.0

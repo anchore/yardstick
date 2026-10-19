@@ -4,6 +4,13 @@
 //
 // The wire contract is delta's: /state, /rows/{id} and /api/gates* keep delta's response shapes
 // wherever yardstick has the data, so the map and tile JS change only where a concept differs.
+//
+// The machine-checked record of the contract is the Go types this package serializes, exported
+// so tygo can see them, with web/tygo.yaml turning them into web/src/gen/wire.ts for the UI to
+// type its calls against. Add a field there and the UI sees it; the table below only says where
+// each field comes from. Embedded structs carry a tstype:",extends" tag so the TypeScript
+// extends them, and a field the JSON can hold null in says so with a tstype tag.
+//
 // The mapping, delta field ← yardstick source:
 //
 //	row.id                    ← report.Match.Row (pairing.RowID: 16 hex of subject + match id)
@@ -70,8 +77,16 @@ import (
 	"github.com/anchore/yardstick/cmd/yardstick/internal/research"
 )
 
+// assets/dist/ is the built UI (make generate), gitignored, so a go install binary has none.
+//
 //go:embed assets
 var assets embed.FS
+
+// HasUI says whether this binary was built with the UI in assets/dist/.
+func HasUI() bool {
+	_, err := fs.Stat(assets, "assets/dist")
+	return err == nil
+}
 
 // TokenHeader carries the per-start write token on every POST.
 const TokenHeader = "X-Yardstick-Token" //nolint:gosec // a header name, not a credential

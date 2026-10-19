@@ -92,7 +92,7 @@ func labelVulnerability(v *view, r *rowRef) string {
 	return id
 }
 
-type labelsRequest struct {
+type LabelsRequest struct {
 	Rows          []string `json:"rows"`
 	Verdict       string   `json:"verdict"`
 	Justification string   `json:"justification"`
@@ -107,7 +107,7 @@ type labelsRequest struct {
 // handleLabels writes a person's verdict on each row. A verdict differing from a row's pending
 // hint, or a cause listing it, is recorded as an override.
 func (s *Server) handleLabels(w http.ResponseWriter, req *http.Request) {
-	var body labelsRequest
+	var body LabelsRequest
 	if !decode(w, req, &body) {
 		return
 	}
@@ -163,10 +163,7 @@ func (s *Server) handleLabels(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 	log.Infof("wrote %d %s label(s), %d overriding an agent", len(batch.placed), verdict, len(overridden))
-	writeJSON(w, struct {
-		Written    int      `json:"written"`
-		Overridden []string `json:"overridden"`
-	}{len(batch.placed), overridden})
+	writeJSON(w, LabelsResponse{len(batch.placed), overridden})
 }
 
 // overrides are the records a person's label on a row makes against the row's pending hint and
@@ -230,12 +227,10 @@ func (s *Server) handleAccept(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 	log.Infof("accepted %d proposal(s)", len(batch.placed))
-	writeJSON(w, struct {
-		Written int `json:"written"`
-	}{len(batch.placed)})
+	writeJSON(w, AcceptResponse{len(batch.placed)})
 }
 
-type skippedRow struct {
+type SkippedRow struct {
 	Row string `json:"row"`
 	Why string `json:"why"`
 }
@@ -268,7 +263,7 @@ func (s *Server) handleAcceptCause(w http.ResponseWriter, req *http.Request) {
 	}
 	now := time.Now().UTC()
 	var batch pending
-	skipped := []skippedRow{}
+	skipped := []SkippedRow{}
 	for _, id := range body.Rows {
 		r := v.rows[id]
 		switch {
@@ -276,7 +271,7 @@ func (s *Server) handleAcceptCause(w http.ResponseWriter, req *http.Request) {
 			http.Error(w, fmt.Sprintf("row %s is not a member of cause %s in this gate", id, cv.ID), http.StatusBadRequest)
 			return
 		case !r.open():
-			skipped = append(skipped, skippedRow{id, "already labeled " + verdictOf(r)})
+			skipped = append(skipped, SkippedRow{id, "already labeled " + verdictOf(r)})
 			continue
 		}
 		// the package and vulnerability come from the row, never from the stored member
@@ -290,10 +285,7 @@ func (s *Server) handleAcceptCause(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 	log.Infof("accepted cause %s for %d row(s)", cv.ID, len(batch.placed))
-	writeJSON(w, struct {
-		Written int          `json:"written"`
-		Skipped []skippedRow `json:"skipped"`
-	}{len(batch.placed), skipped})
+	writeJSON(w, AcceptCauseResponse{len(batch.placed), skipped})
 }
 
 // handlePreview answers with the gate's result as if the given rows were labeled so, e.g.
@@ -330,4 +322,21 @@ func (s *Server) handlePreview(w http.ResponseWriter, req *http.Request) {
 	}
 	g := analysis.EvaluateAs(e.gate.Checks, v.paired.Subjects, hyp)
 	writeJSON(w, v.result(e.gate, g.Outcome, g.Checks))
+}
+
+// LabelsResponse is the answer to POST labels: the rows written, and those that overrode a hint.
+type LabelsResponse struct {
+	Written    int      `json:"written"`
+	Overridden []string `json:"overridden"`
+}
+
+// AcceptResponse is the answer to accepting a hint.
+type AcceptResponse struct {
+	Written int `json:"written"`
+}
+
+// AcceptCauseResponse is the answer to accepting a cause.
+type AcceptCauseResponse struct {
+	Written int          `json:"written"`
+	Skipped []SkippedRow `json:"skipped"`
 }

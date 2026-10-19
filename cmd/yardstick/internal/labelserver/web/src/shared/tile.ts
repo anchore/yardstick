@@ -1,7 +1,5 @@
-"use strict";
-
-// tile.js is the Focus tile: everything that renders one finding, ported from delta. The page keeps its own layout, ordering, URLs and
-// keys and calls window.deltaTile.render(container, ctx). ctx carries the run's state, the row,
+// tile.ts is the Focus tile: everything that renders one finding, ported from delta. The page keeps its own layout, ordering, URLs and
+// keys and calls render(container, ctx). ctx carries the run's state, the row,
 // the check being worked on, the page's toggles and caches, and the actions the buttons call.
 //
 // ctx: { state, run, get, r, si, dir, check, reexamine, tierName, counter, receipt, backKey,
@@ -10,9 +8,9 @@
 //              toggleWhy(), toggleMore(), note(text), skip() } }
 //
 // receipt is { text, plain?, from? }: set it once per label and keep the same object across
-// re-renders. canStay says the page honours deltaTile.autoAdvance() (false: stay on the labeled
+// re-renders. canStay says the page honours autoAdvance() (false: stay on the labeled
 // match after a label), and shows the switch for it.
-window.deltaTile = (() => {
+const tile = (() => {
   const $ = (s) => document.querySelector(s);
 
   const labels = {
@@ -156,7 +154,7 @@ window.deltaTile = (() => {
   // match, the lane stops where the row's data says it diverged.
   function steps(r, dir, side, raw, rel) {
     const pk = pkgOf(r.package.ref), d = side === "candidate" ? r.candidate : r.reference;
-    const out = [{ k: "package", t: `${pk.name} ${pk.version}`, sub: pk.type || "" }];
+    const out: any[] = [{ k: "package", t: `${pk.name} ${pk.version}`, sub: pk.type || "" }];
     const md = raw?.matchDetails?.[0];
     if (d) {
       const sb = md?.searchedBy || {}, fd = md?.found || {};
@@ -224,7 +222,7 @@ window.deltaTile = (() => {
   function records(r, dir, rel) {
     const recs = otherRecords(r);
     if (!recs.length) return null;
-    const sorted = [...recs].sort((a, b) => sameRelease(b.namespace, rel) - sameRelease(a.namespace, rel));
+    const sorted = [...recs].sort((a, b) => Number(sameRelease(b.namespace, rel)) - Number(sameRelease(a.namespace, rel)));
     const cons = (list) => (list || []).map((c) => c.replace(/\s*\((\w[\w-]*)\)$/, "")).join(" ‖ ");
     return el("div", { class: "records" }, el("span", { class: "k" }, `the ${dir === "added" ? "reference" : "candidate"} DB also has, for ${r.sourcePackage || pkgOf(r.package.ref).name}:`),
       sorted.map((rec) => el("div", { class: `rec${sameRelease(rec.namespace, rel) ? " same" : " other"}` }, nsChip(rec.namespace),
@@ -513,3 +511,4 @@ window.deltaTile = (() => {
     whyText, justWords, ruleWords, firstSentence, isResearched, researchLevel, provenance, nsParse, nsHuman, nsChip, imageRelease, sameRelease, releaseHuman, endsGate, regressionRisk };
   return { render, h, autoAdvance, setAutoAdvance };
 })();
+export const { render, h, autoAdvance, setAutoAdvance } = tile;
