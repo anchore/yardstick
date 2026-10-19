@@ -52,6 +52,10 @@ yardstick = "yardstick.cli.cli:cli"
 build-backend = "hatchling.build"
 requires = ["hatchling", "uv-dynamic-versioning"]
 
+# note: test fixtures are not shipped; some have ':' in their names (image digests), which uv >= 0.13 rejects in an sdist
+[tool.hatch.build.targets.sdist]
+exclude = ["tests"]
+
 [tool.hatch.version]
 source = "uv-dynamic-versioning"
 
