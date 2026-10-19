@@ -15,7 +15,7 @@ cmd/yardstick/
 ├── cli/          # the clio application and its commands
 ├── internal/     # everything else; nothing here is a public API
 └── main.go       # entrypoint and target for ldflags (version info)
-config/           # example gate files and app config
+demo/             # the walkthrough, with the gates and grype config it runs
 plugin/           # the yardstick Claude Code plugin (triage, research, explain skills)
 ```
 

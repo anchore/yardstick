@@ -80,5 +80,5 @@ __pycache__/
 # yardstick's scans and run records, per gate, in the directory it runs from
 /.yardstick
 
-# a local claims corpus checkout (or a symlink to one) that config/yardstick.yaml reads
+# the scratch claims directory .yardstick.yaml writes new labels to
 /claims

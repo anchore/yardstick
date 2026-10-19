@@ -1,0 +1,12 @@
+# the Go image only, with the candidate told to keep matching the Go stdlib by CPE: expected to pass
+schema: v1
+candidate: {grype: grype@latest, db: latest, config: ../grype/stdlib-cpe.yaml}
+reference: {grype: grype@v0.100.0, db: latest}
+subjects:
+  - oci:ghcr.io/anchore/test-images/grype-quality-golang:d89207b@sha256:7536ee345532f674ec9e448e3768db4e546c48220ba2b6ec9bc9cfbfb3b7b74a
+checks:
+  - name: f1NotWorse
+  - name: noNewFalseNegatives
+  - name: noNewFalsePositives
+  - name: unjudgedChangesAtMost
+    params: {max: 0}

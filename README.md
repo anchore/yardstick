@@ -9,7 +9,7 @@ yardstick score ...          # re-score the last scans against the current label
 yardstick claims ...         # write, move and check labels in a claims corpus (`claims serve` is the label UI)
 ```
 
-See [cmd/yardstick/DEMO.md](cmd/yardstick/DEMO.md) for a walkthrough and [config/gates](config/gates) for example gates.
+See [demo/](demo/README.md) for a walkthrough of the whole local workflow: run a gate, label what changed, get the labels into the claims corpus.
 
 ## Installation
 

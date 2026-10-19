@@ -1,3 +1,0 @@
-# yardstick's app config: the claims sources every gate without its own claims: reads.
-# relative paths resolve against this directory
-claims: [../claims]
