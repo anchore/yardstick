@@ -16,7 +16,7 @@ import { activeResearch } from "./research";
 import { st, ui } from "./state";
 import { renderTile } from "./tileview";
 
-window.addEventListener("popstate", () => { if (ui.state) { Object.assign(ui, readURL()); render(); } });
+window.addEventListener("popstate", () => { if (ui.state) { ui.pin = null; Object.assign(ui, readURL()); render(); } });
 
 // while research runs, reload now and then so its agent hints show up (not on a match: a reload
 // there would redraw the tile under the reader)
@@ -29,7 +29,9 @@ document.addEventListener("keydown", (e) => {
     helpOpen: !help.hidden, cards: !!ui.cards, selected: !!ui.selected, row: !!x,
     away: !!(ui.cardsSpec || ui.zoom || ui.delta), last: !!ui.last, images: ui.state?.subjects.length ?? 0,
   });
-  if (a) act(a, e, target, help);
+  // handled keys do nothing else: "f" focuses the reason picker, and the same keystroke would
+  // otherwise land in it and pick the FP option, labeling the match
+  if (a) { e.preventDefault(); act(a, e, target, help); }
 });
 
 // act carries out a key's action on the current card, when there is one

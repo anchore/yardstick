@@ -312,10 +312,15 @@ func (e evaluator) stats(r *pairing.Result, setup string, x extreme) Stats {
 	return s
 }
 
-// hasLabels says whether any tp or fp label applies to the subject.
-func hasLabels(r *pairing.Result) bool {
+// hasLabels says whether any tp or fp label applies to the subject, or a hypothesis would give it one.
+func (e evaluator) hasLabels(r *pairing.Result) bool {
 	for _, b := range r.Labels {
 		if (b.Verdict == claimsv1.TP || b.Verdict == claimsv1.FP) && !b.Disagrees() {
+			return true
+		}
+	}
+	for _, m := range r.Matches {
+		if v := e.hyp[m]; v == claimsv1.TP || v == claimsv1.FP {
 			return true
 		}
 	}
@@ -330,7 +335,7 @@ func (e evaluator) subjectCheck(c gatefile.Check, s Subject) SubjectCheck {
 	r := s.Result
 	sc := SubjectCheck{Subject: s.Name}
 	readsLabels := c.Name == F1NotWorse || c.Name == NoNewFalseNegatives || c.Name == NoNewFalsePositives
-	if readsLabels && !hasLabels(r) {
+	if readsLabels && !e.hasLabels(r) {
 		sc.State, sc.Message = Fail, "no tp or fp label applies to this subject"
 		return sc
 	}

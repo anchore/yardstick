@@ -62,6 +62,6 @@ export function gateBar(c: CheckResult, { head = true } = {}) {
   const to = b.flips && ghost ? ghost.state : null;
   if (to && !head && s.lastChild) s.lastChild.textContent += `  → ${to}`;
   const state = to ? [el("span", { class: "st", "data-testid": "check-state" }, c.state), el("span", { class: `st to ${to}`, "data-testid": "preview-flip", "data-state": to }, ` → ${to}`)] : el("span", { class: "st", "data-testid": "check-state" }, c.state);
-  return el("div", { class: `gcheck ${c.state}${b.ghost ? " previewing" : ""}`, title: c.description, "data-testid": head ? "check-bar" : "panel-bar", "data-check": c.name, "data-state": c.state, "data-worst": c.value.worst, "data-best": c.value.best, "data-threshold": c.threshold },
+  return el("div", { class: `gcheck ${c.state}${b.ghost ? " previewing" : ""}`, title: c.description, "data-testid": head ? "check-bar" : "panel-bar", "data-check": c.name, "data-state": c.state, "data-worst": c.value.worst, "data-best": c.value.best, "data-threshold": c.threshold, "data-flips-to": to },
     head ? el("div", { class: "nm" }, c.name, " ", state) : null, s);
 }

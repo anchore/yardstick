@@ -395,6 +395,31 @@ func TestNoLabels(t *testing.T) {
 	}
 }
 
+func TestAHypotheticalLabelCountsAsALabelOnTheSubject(t *testing.T) {
+	// a subject with no label fails the checks that read labels; previewing a tp or fp on one of its
+	// matches must lift that, since writing the label would
+	s := pairOne(t, "deb", "deb", without(grype(t, "deb"), "CVE-2026-5450", "libc6"), grype(t, "deb"))
+	checks := []gatefile.Check{check(NoNewFalseNegatives, nil)}
+	if c := evaluate(checks, s).Checks[0]; c.State != Fail || !strings.Contains(c.Subjects[0].Message, "no tp or fp label applies") {
+		t.Fatalf("expected the unlabeled subject to fail, got %+v", c)
+	}
+	m := anyDelta(t, s)
+	if c := EvaluateAs(checks, []Subject{s}, map[*pairing.Match]claimsv1.Verdict{m: claimsv1.FP}).Checks[0]; strings.Contains(c.Subjects[0].Message, "no tp or fp label applies") {
+		t.Errorf("a hypothetical fp should count as a label, got %+v", c)
+	}
+}
+
+func anyDelta(t *testing.T, s Subject) *pairing.Match {
+	t.Helper()
+	for _, m := range s.Result.Matches {
+		if m.In(pairing.Candidate) != m.In(pairing.Reference) {
+			return m
+		}
+	}
+	t.Fatal("no delta")
+	return nil
+}
+
 func TestLabelingEffect(t *testing.T) {
 	// the only unlabeled match is one the reference reports
 	s := pairOne(t, "deb", "deb", without(grype(t, "deb"), "CVE-2026-5450", "libc6"), grype(t, "deb"))

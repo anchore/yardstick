@@ -28,9 +28,18 @@ export async function load() {
   countForResearch();
 }
 
+// cardsTitle is the open group's title when it last had rows
+let cardsTitle = "";
+
 export function render() {
   ui.cards = cardsFor(st(), ui.si, ui.cardsSpec);
-  if (ui.cards && ui.pin) ui.cards.ids.add(ui.pin); // staying on a match just labeled (afterWrite)
+  // the match labeled last stays in its group (afterWrite), even when its label emptied the group:
+  // then the tile says the group is done and offers the next
+  if (ui.cardsSpec && ui.pin) {
+    if (ui.cards) ui.cards.ids.add(ui.pin);
+    else if (cardsTitle) ui.cards = { title: cardsTitle, ids: new Set([ui.pin]) };
+  }
+  if (ui.cards) cardsTitle = ui.cards.title;
   if (ui.cardsSpec && !ui.cards?.ids.size) { ui.cardsSpec = null; ui.cards = null; replaceURL(); }
   renderHeader();
   renderGate();

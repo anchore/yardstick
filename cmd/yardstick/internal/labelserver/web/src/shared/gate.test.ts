@@ -45,10 +45,13 @@ describe("barLayout", () => {
     expect(moved.ghost?.width).toBeLessThan(moved.range.width);
     expect(moved.flips).toBe(false);
   });
-  test("a preview flips the check only when the range moves and the state changes", () => {
+  test("a preview flips the check when its state changes, whether or not the range moves", () => {
     const c = check({ value: { worst: 3, best: 0 }, state: "undecided" });
     expect(barLayout(c, check({ value: { worst: 0, best: 0 }, state: "pass" })).flips).toBe(true);
-    expect(barLayout(c, check({ value: { worst: 3, best: 0 }, state: "pass" })).flips).toBe(false);
+    expect(barLayout(c, check({ value: { worst: 3, best: 0 }, state: "undecided" })).flips).toBe(false);
+    // a check that fails for want of a label has no range to move
+    const bare = check({ value: { worst: 0, best: 0 }, state: "fail" });
+    expect(barLayout(bare, check({ value: { worst: 0, best: 0 }, state: "pass" })).flips).toBe(true);
   });
 });
 

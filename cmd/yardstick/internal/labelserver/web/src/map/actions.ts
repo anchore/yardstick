@@ -8,7 +8,7 @@ import { autoAdvance } from "../shared/tile";
 import { labels, plural } from "../shared/words";
 import { replaceURL, select } from "./nav";
 import { load } from "./render";
-import { researchOff } from "./research";
+import { activeResearch, researchOff } from "./research";
 import { gate, ui } from "./state";
 import { renderTile } from "./tileview";
 
@@ -62,7 +62,17 @@ export async function acceptCause(cause: StateCause, ids: string[]) {
 export async function research(rows: string[]) {
   const off = researchOff();
   if (off) return toast(`research disabled: ${off.reason}${off.command ? `; run ${off.command}` : ""}`, true);
-  try { await api.research(gate(), { rows }); toast("research started; what it finds arrives as an agent hint"); load(); } catch (e) { toast((e as Error).message, true); }
+  try { await api.research(gate(), { rows }); toast("research started; what it finds arrives as an agent hint"); await load(); } catch (e) { toast((e as Error).message, true); return; }
+  await untilResearched(rows);
+}
+
+// untilResearched reloads while research on these rows is queued or running, so the hint shows up
+// on a tile too (app.ts's slower reload leaves the tile alone)
+async function untilResearched(rows: string[]) {
+  for (let i = 0; i < 90 && activeResearch().some((x) => rows.includes(x.r.id)); i++) {
+    await new Promise((done) => setTimeout(done, 2000));
+    await load();
+  }
 }
 
 // afterWrite moves on to the next unlabeled match of the group (replacing the entry: the labeled
@@ -77,7 +87,8 @@ async function afterWrite(rows: string[], text: string) {
   const todo = (x: { r: Row }) => !rows.includes(x.r.id) && (ui.cardsSpec?.kind === "fails" || isOpen(x.r));
   const next = ui.rows.slice(i + 1).find(todo) || ui.rows.slice(0, i).find(todo);
   ui.receipt = { text };
-  ui.pin = stay ? ui.selected : null; // a labeled match leaves its group: keep it there to stay on it
+  // a labeled match leaves its group; keep it there, so staying on it and z (back to it) work
+  ui.pin = ui.selected;
   await load();
   if (!ui.cards) return;
   ui.selected = autoAdvance() ? (next?.r.id || null) : ui.selected;

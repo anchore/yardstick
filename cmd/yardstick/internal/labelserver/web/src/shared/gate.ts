@@ -62,6 +62,7 @@ export function barLayout(c: CheckResult, ghost?: CheckResult): BarLayout {
     rangeTextX: centered(rangeText, (a + b) / 2, 6),
     thrText,
     thrTextX: centered(thrText, t, 5.2),
-    flips: moved && !!ghost && ghost.state !== c.state,
+    // a state can change with the range where it stands: a check that fails for want of a label
+    flips: !!ghost && ghost.state !== c.state,
   };
 }

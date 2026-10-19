@@ -22,14 +22,14 @@ export function navigate(changes: Partial<View>, { replace = false } = {}) {
 // back is Esc: the browser's back through what this page pushed, else the view's parent
 export function back() {
   if (ui.pushes > 0) { ui.pushes--; history.back(); return; }
-  const s = ui.cardsSpec;
-  if (s) navigate({ cardsSpec: null, selected: null, evidence: false, delta: s.kind === "delta", zoom: s.kind === "delta" ? { dir: s.dir, why: s.why } : null });
-  else if (ui.zoom) navigate({ zoom: null });
-  else if (ui.delta) navigate({ delta: false });
+  // the parent replaces the entry: pushing one would make the next Esc go "back" to the view just left
+  const s = ui.cardsSpec, here = { replace: true };
+  if (s) navigate({ cardsSpec: null, selected: null, evidence: false, delta: s.kind === "delta", zoom: s.kind === "delta" ? { dir: s.dir, why: s.why } : null }, here);
+  else if (ui.zoom) navigate({ zoom: null }, here);
+  else if (ui.delta) navigate({ delta: false }, here);
 }
 // select is the selected card and whether its evidence is open: the same history entry
 export function select(id: string | null | undefined, evidence = ui.evidence) {
-  if (id !== ui.pin) ui.pin = null;
   ui.selected = id ?? null; ui.evidence = evidence; ui.why = false; ui.receipt = null;
   replaceURL();
   renderTile();

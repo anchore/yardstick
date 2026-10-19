@@ -47,7 +47,7 @@ Select with `getByTestId("<testid>")`, narrow with the `data-*` identity attribu
 | `gate-summary` | "gate X · N checks: ..." line | |
 | `gate-footer` | last ribbon line (open/decisive counts) | |
 | `gate-view-toggle` | "scan delta map" / "gate board" button | `data-goes-to` = map / board |
-| `check-bar` | one check's bar in the ribbon (only off the board: delta map and tile views) | `data-check`, `data-state`, `data-worst`, `data-best`, `data-threshold` |
+| `check-bar` | one check's bar in the ribbon (only off the board: delta map and tile views) | `data-check`, `data-state`, `data-worst`, `data-best`, `data-threshold`, `data-flips-to` (absent unless a hovered accept flips the check; the new state) |
 | `check-state` | state word inside a `check-bar` | |
 | `preview-note` | ribbon line while an accept is hovered | |
 | `preview-range` | dashed preview range (inside a `check-bar` or `panel-bar`, only during hover) | `data-check` |
@@ -69,7 +69,7 @@ Select with `getByTestId("<testid>")`, narrow with the `data-*` identity attribu
 | `panel-head` | its head (clicking folds a passing check) | |
 | `panel-fold` | fold caret on a passing check | `aria-label` = folded / open |
 | `panel-description`, `panel-decides` | description and the "what decides it" line | |
-| `panel-bar` | the panel's bar | same as `check-bar` |
+| `panel-bar` | the panel's bar | same as `check-bar`; `preview-flip` is not drawn here, `data-flips-to` says it |
 | `failing-claims` | list on a failed check | |
 | `failing-claim` | one claim button | `data-vulnerability`, `data-package`, `data-verdict`, `data-count` |
 | `reexamine-all` | "re-examine all N" | `data-count` |

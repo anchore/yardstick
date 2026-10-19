@@ -30,7 +30,7 @@ export interface UI extends View {
   matches: Map<string, MatchesResponse>;
   note: string;
   receipt: Receipt | null;
-  pin: string | null;          // a match just labeled that stays on screen though it left its group
+  pin: string | null;          // the match labeled last, kept in its group though it left it (until another view opens)
   preview: Preview | null;
   research: Research | null;
   last: string | null;         // the card labeled last (z goes back to it)

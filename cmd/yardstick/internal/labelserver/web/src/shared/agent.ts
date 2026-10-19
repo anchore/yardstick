@@ -36,8 +36,10 @@ export function agent(ctx: TileCtx, h: HintSummary | undefined, cause: StateCaus
   const line = researchLine(r);
   const off = ctx.state?.research && !ctx.state.research.available ? ctx.state.research : null;
   const foot = el("div", { class: "foot", "data-testid": "research-foot" }, line ? el("span", { "data-testid": "research-status", "data-state": r.research?.status }, line) : null, el("button", { class: "ghost", "data-testid": "research-button", "data-researched": isResearched(r), onclick: () => on.research([r.id]), disabled: !!off, title: off ? `research disabled: ${off.reason}${off.command ? `; run ${off.command}` : ""}` : null }, isResearched(r) ? "research again" : "research"), el("kbd", {}, "R"));
+  // the offer to accept a package hint's pending members, which a match may have without a hint of its own
+  const offer = (c: StateCause) => el("div", { class: "group", "data-testid": "cause-offer", "data-count": c.pending.length }, `✦ same reasoning on ${plural(c.pending.length, "unlabeled match", "unlabeled matches")} (${c.sourcePackage}): `, el("button", { class: "ghost", "data-testid": "accept-all", "data-count": c.pending.length, "data-verdict": c.verdict, onclick: () => on.acceptCause(c) }, `accept all ${c.pending.length} as ${labels[c.verdict].glyph} ${labels[c.verdict].word}`), " ", el("kbd", {}, "A"));
   if (!h) {
-    return el("div", { class: "agent none", "data-testid": "hint-card", "data-status": "none" }, isResearched(r) ? el("span", { class: "researched", "data-testid": "researched-mark" }, "✦ researched, no hint") : el("span", {}, "✦ no agent hint"), foot);
+    return el("div", { class: "agent none", "data-testid": "hint-card", "data-status": "none" }, isResearched(r) ? el("span", { class: "researched", "data-testid": "researched-mark" }, "✦ researched, no hint") : el("span", {}, "✦ no agent hint"), isOpen(r) && cause ? offer(cause) : null, foot);
   }
   return el("div", { class: `agent${pending ? "" : " settled"}${ctx.why ? " open" : ""}`, "data-testid": "hint-card", "data-status": h.status, "data-verdict": h.verdict, "data-confidence": h.confidence ?? "", "data-open": !!ctx.why },
     el("h2", {}, "Agent hint"),
@@ -54,6 +56,6 @@ export function agent(ctx: TileCtx, h: HintSummary | undefined, cause: StateCaus
     ctx.why ? el("div", { class: "note", id: "hint-note", "data-testid": "hint-note" }, "…") : null,
     ctx.why ? el("ul", { class: "facts", id: "hint-facts", "data-testid": "hint-facts" }) : null,
     ctx.why ? el("div", { class: "rule", id: "hint-rule", "data-testid": "hint-rule" }, h.rule ? `rule: ${ruleWords(h.rule)}${h.decision ? ` · policy ${h.decision}` : ""}` : "") : null,
-    pending && cause ? el("div", { class: "group", "data-testid": "cause-offer", "data-count": cause.pending.length }, `✦ same reasoning on ${plural(cause.pending.length, "unlabeled match", "unlabeled matches")} (${cause.sourcePackage}): `, el("button", { class: "ghost", "data-testid": "accept-all", "data-count": cause.pending.length, "data-verdict": cause.verdict, onclick: () => on.acceptCause(cause) }, `accept all ${cause.pending.length} as ${labels[cause.verdict].glyph} ${labels[cause.verdict].word}`), " ", el("kbd", {}, "A")) : null,
+    pending && cause ? offer(cause) : null,
     foot);
 }
