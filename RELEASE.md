@@ -1,21 +1,39 @@
-## Releasing
+# Release
 
-Yardstick is published as a git tag in the repo, not to PyPI or elsewhere.
+A release of yardstick comprises:
+- a new semver git tag from the current tip of the main branch
+- a new [github release](https://github.com/anchore/yardstick/releases) with a changelog and archived binary assets
 
-## Creating a new release
+Ideally releasing should be done often with small increments when possible. Unless a
+breaking change is blocking the release, or no fixes/features have been merged, a good
+target release cadence is between every 1 or 2 weeks.
 
-You can release Yardstick by running `make release` (if you have the appropriate repo permissions).
 
-You do **not** need to use this local trigger script. You can always kick off the release from the GitHub actions UI as a workflow_dispatch, inputting the desired new version for the release. This approach acts as a manual override for the version if `chronicle` is non-functional or the issue/PR labels are not ready but a release is urgently needed. Remember, if you go this approach you will need to check the release notes afterwards and manually tailor as-needed.
+## Creating a release
 
-## Managing release versions
+This release process itself should be as automated as possible, and has only a few steps:
 
-This project uses [`chronicle`](https://github.com/anchore/chronicle) to determine the next release from the current set of issues closed and PRs merged since the last release. The kind of change is determined by the set of issue labels, for example the `enhancement` label applied to a closed issue will bump the minor version and the label `bug` applied to a closed issue will bump the patch version. See the [default chronicle change definitions](https://github.com/anchore/chronicle#default-github-change-definitions) for more guidance on how labels affect the changelog. PRs can also be directly included, however, they are superseded by any closed issues that are also linked.
+1. **Trigger a new release with `make release`**. At this point you'll see a preview
+   changelog in the terminal. If you're happy with the changelog, press `y` to continue, otherwise
+   you can abort and adjust the labels on the PRs and issues to be included in the release and
+   re-run the release trigger command.
 
-The changelog is also generated with chronicle, collecting changes of particular kinds together with the issue/PR title acting as the changelog entry summary.
+1. A release admin must approve the release on the GitHub Actions [release pipeline](https://github.com/anchore/yardstick/actions/workflows/release.yaml) run page.
+   Once approved, the release pipeline will generate all assets and publish a GitHub Release.
 
-If you close an issue with the label `wont-fix` or `changelog-ignore` then the issue will be excluded from consideration while creating the version and changelog.
 
-Why go this approach? The basic idea is that **if you keep issues and PRs well organized and linked (as should be done anyway) then you get version management and changelogs for free**!
+## Retracting a release
 
-The python package version is managed by [`dunamai`](https://github.com/mtkennerly/dunamai) and derives the answer from a single-source of truth (the git tag) but additionally manages how that version propagates to the `pyproject.toml` and other places in the final build. The version within the `pyproject.toml` in the git repo should remain as `v0.0.0`.
+If a release is found to be problematic, it can be retracted with the following steps:
+
+- Deleting the GitHub Release
+- Add a new `retract` entry in the go.mod for the versioned release
+
+**Note**: do not delete release tags from the git repository since there may already be references to the release
+in the go proxy, which will cause confusion when trying to reuse the tag later (the H1 hash will not match and there
+will be a warning when users try to pull the new release).
+
+
+## Python patch releases
+
+The Python implementation (0.16.x and earlier) lives on the `python` branch, which cuts 0.16.x patch releases only. Releases from `main` are the Go tool, starting at v0.17.0. To cut a Python patch, check out `python` and run `make release` there; it dispatches the release workflow against that branch, which tags and publishes to PyPI.

@@ -1,0 +1,11 @@
+{
+  "name": "yardstick",
+  "version": "0.17.0",
+  "description": "Skills that triage, research and explain the differences in a yardstick gate's scans, and record proposals, causes and explanations through the yardstick CLI for a person to accept in `yardstick claims serve`.",
+  "author": {
+    "name": "Anchore"
+  },
+  "repository": "https://github.com/anchore/yardstick",
+  "license": "Apache-2.0",
+  "keywords": ["grype", "yardstick", "vulnerability", "labeling"]
+}

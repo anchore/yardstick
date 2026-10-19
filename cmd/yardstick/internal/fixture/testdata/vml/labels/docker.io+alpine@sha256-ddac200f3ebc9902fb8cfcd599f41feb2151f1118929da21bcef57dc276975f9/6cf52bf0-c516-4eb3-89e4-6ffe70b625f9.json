@@ -1,0 +1,1 @@
+{"ID": "6cf52bf0-c516-4eb3-89e4-6ffe70b625f9", "effective_cve": "CVE-2016-9841", "image": {"exact": "docker.io/alpine@sha256:ddac200f3ebc9902fb8cfcd599f41feb2151f1118929da21bcef57dc276975f9"}, "label": "TP", "package": {"name": "zlib", "version": "1.2.8-r1"}, "timestamp": "2022-09-15T14:56:25-04:00", "user": "wagoodman", "vulnerability_id": "CVE-2016-9841"}

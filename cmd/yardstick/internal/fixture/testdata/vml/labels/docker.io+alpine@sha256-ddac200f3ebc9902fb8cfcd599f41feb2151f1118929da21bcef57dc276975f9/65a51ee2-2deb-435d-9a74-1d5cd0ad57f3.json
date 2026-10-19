@@ -1,0 +1,1 @@
+{"ID": "65a51ee2-2deb-435d-9a74-1d5cd0ad57f3", "effective_cve": "CVE-2017-3736", "image": {"exact": "docker.io/alpine@sha256:ddac200f3ebc9902fb8cfcd599f41feb2151f1118929da21bcef57dc276975f9"}, "label": "TP", "package": {"name": "libssl1.0", "version": "1.0.2k-r0"}, "timestamp": "2022-09-15T14:56:02-04:00", "user": "wagoodman", "vulnerability_id": "CVE-2017-3736"}

@@ -1,0 +1,1 @@
+{"ID": "aefbd97a-f670-4e1a-8683-8b34d29db61e", "effective_cve": "CVE-2016-6301", "image": {"exact": "docker.io/alpine@sha256:ddac200f3ebc9902fb8cfcd599f41feb2151f1118929da21bcef57dc276975f9"}, "label": "TP", "package": {"name": "busybox", "version": "1.23.2-r3"}, "timestamp": "2022-09-15T14:48:00-04:00", "user": "wagoodman", "vulnerability_id": "CVE-2016-6301"}

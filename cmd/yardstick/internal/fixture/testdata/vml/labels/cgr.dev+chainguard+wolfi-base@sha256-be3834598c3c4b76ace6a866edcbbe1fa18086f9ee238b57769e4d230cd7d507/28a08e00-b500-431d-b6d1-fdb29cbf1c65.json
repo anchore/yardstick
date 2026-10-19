@@ -1,0 +1,1 @@
+{"ID": "28a08e00-b500-431d-b6d1-fdb29cbf1c65", "image": {"exact": "cgr.dev/chainguard/wolfi-base@sha256:be3834598c3c4b76ace6a866edcbbe1fa18086f9ee238b57769e4d230cd7d507"}, "label": "TP", "package": {"name": "glibc", "version": "2.36-r0"}, "timestamp": "2024-02-09T21:02:09.049816+00:00", "tool": "grype@v0.74.5", "user": "westonsteimel", "vulnerability_id": "GHSA-jjr8-97p7-vmmg"}

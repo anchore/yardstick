@@ -1,0 +1,442 @@
+[
+ {
+  "id": "ELSA-2021-9137",
+  "description": "[1.0.1e-59.0.1]\n- Backport fixes for CVE-2020-1971 [Orabug: 32654738]",
+  "refs": [
+   {
+    "url": "https://linux.oracle.com/errata/ELSA-2021-9137.html"
+   },
+   {
+    "url": "https://linux.oracle.com/cve/CVE-2020-1971.html"
+   }
+  ],
+  "aliases": [
+   "CVE-2020-1971"
+  ],
+  "severities": [
+   {
+    "scheme": "CHMLN",
+    "value": "high",
+    "rank": 1
+   }
+  ],
+  "severity": "high",
+  "provider": "oracle",
+  "status": "active",
+  "published_date": "2021-03-26T00:00:00Z",
+  "modified_date": "2021-03-26T00:00:00Z",
+  "epss": [
+   {
+    "cve": "CVE-2020-1971",
+    "epss": 0.07051,
+    "percentile": 0.94071,
+    "date": "2026-10-13"
+   }
+  ],
+  "operating_systems": [
+   {
+    "name": "oraclelinux",
+    "version": "6"
+   }
+  ],
+  "affected_packages": 4
+ },
+ {
+  "id": "ELSA-2021-9314",
+  "description": "[12:4.1.1-63.P1.0.2]\n- Added dhcp-4.1.1-P1-CVE-2021-25217.patch [Orabug: 33005948]",
+  "refs": [
+   {
+    "url": "https://linux.oracle.com/errata/ELSA-2021-9314.html"
+   },
+   {
+    "url": "https://linux.oracle.com/cve/CVE-2021-25217.html"
+   }
+  ],
+  "aliases": [
+   "CVE-2021-25217"
+  ],
+  "severities": [
+   {
+    "scheme": "CHMLN",
+    "value": "high",
+    "rank": 1
+   }
+  ],
+  "severity": "high",
+  "provider": "oracle",
+  "status": "active",
+  "published_date": "2021-06-17T00:00:00Z",
+  "modified_date": "2021-06-17T00:00:00Z",
+  "epss": [
+   {
+    "cve": "CVE-2021-25217",
+    "epss": 0.06118,
+    "percentile": 0.93288,
+    "date": "2026-10-13"
+   }
+  ],
+  "operating_systems": [
+   {
+    "name": "oraclelinux",
+    "version": "6"
+   }
+  ],
+  "affected_packages": 4
+ },
+ {
+  "id": "ELSA-2021-9318",
+  "description": "[2.28.8-10.0.1]\n- Backport fixes for CVE-2021-27219 [Orabug: 33017896]",
+  "refs": [
+   {
+    "url": "https://linux.oracle.com/errata/ELSA-2021-9318.html"
+   },
+   {
+    "url": "https://linux.oracle.com/cve/CVE-2021-27219.html"
+   }
+  ],
+  "aliases": [
+   "CVE-2021-27219"
+  ],
+  "severities": [
+   {
+    "scheme": "CHMLN",
+    "value": "high",
+    "rank": 1
+   }
+  ],
+  "severity": "high",
+  "provider": "oracle",
+  "status": "active",
+  "published_date": "2021-06-21T00:00:00Z",
+  "modified_date": "2021-06-21T00:00:00Z",
+  "epss": [
+   {
+    "cve": "CVE-2021-27219",
+    "epss": 0.02993,
+    "percentile": 0.87008,
+    "date": "2026-10-13"
+   }
+  ],
+  "operating_systems": [
+   {
+    "name": "oraclelinux",
+    "version": "6"
+   }
+  ],
+  "affected_packages": 4
+ },
+ {
+  "id": "ELSA-2021-9591",
+  "description": "[3.44.0-7.0.2]\n- Fix CVE-2021-43527 [Orabug: 33627334]",
+  "refs": [
+   {
+    "url": "https://linux.oracle.com/errata/ELSA-2021-9591.html"
+   },
+   {
+    "url": "https://linux.oracle.com/cve/CVE-2021-43527.html"
+   }
+  ],
+  "aliases": [
+   "CVE-2021-43527"
+  ],
+  "severities": [
+   {
+    "scheme": "CHMLN",
+    "value": "critical",
+    "rank": 1
+   }
+  ],
+  "severity": "critical",
+  "provider": "oracle",
+  "status": "active",
+  "published_date": "2021-12-07T00:00:00Z",
+  "modified_date": "2021-12-07T00:00:00Z",
+  "epss": [
+   {
+    "cve": "CVE-2021-43527",
+    "epss": 0.17563,
+    "percentile": 0.97084,
+    "date": "2026-10-13"
+   }
+  ],
+  "operating_systems": [
+   {
+    "name": "oraclelinux",
+    "version": "6"
+   }
+  ],
+  "affected_packages": 5
+ },
+ {
+  "id": "ELSA-2022-9239",
+  "description": "[2.1.23-15.0.1.2]\n- Escape password for SQL insert/update commands [CVE-2022-24407][Orabug: 33936121]",
+  "refs": [
+   {
+    "url": "https://linux.oracle.com/errata/ELSA-2022-9239.html"
+   },
+   {
+    "url": "https://linux.oracle.com/cve/CVE-2022-24407.html"
+   }
+  ],
+  "aliases": [
+   "CVE-2022-24407"
+  ],
+  "severities": [
+   {
+    "scheme": "CHMLN",
+    "value": "high",
+    "rank": 1
+   }
+  ],
+  "severity": "high",
+  "provider": "oracle",
+  "status": "active",
+  "published_date": "2022-03-21T00:00:00Z",
+  "modified_date": "2022-03-21T00:00:00Z",
+  "epss": [
+   {
+    "cve": "CVE-2022-24407",
+    "epss": 0.04123,
+    "percentile": 0.90582,
+    "date": "2026-10-13"
+   }
+  ],
+  "operating_systems": [
+   {
+    "name": "oraclelinux",
+    "version": "6"
+   }
+  ],
+  "affected_packages": 9
+ },
+ {
+  "id": "ELSA-2022-9246",
+  "description": "[1.0.1e-59.0.3]\n- Fix possible infinite loop in BN_mod_sqrt() [CVE-2022-0778][Orabug: 33969800]",
+  "refs": [
+   {
+    "url": "https://linux.oracle.com/errata/ELSA-2022-9246.html"
+   },
+   {
+    "url": "https://linux.oracle.com/cve/CVE-2022-0778.html"
+   }
+  ],
+  "aliases": [
+   "CVE-2022-0778"
+  ],
+  "severities": [
+   {
+    "scheme": "CHMLN",
+    "value": "high",
+    "rank": 1
+   }
+  ],
+  "severity": "high",
+  "provider": "oracle",
+  "status": "active",
+  "published_date": "2022-03-24T00:00:00Z",
+  "modified_date": "2022-03-24T00:00:00Z",
+  "epss": [
+   {
+    "cve": "CVE-2022-0778",
+    "epss": 0.73188,
+    "percentile": 0.9945,
+    "date": "2026-10-13"
+   }
+  ],
+  "operating_systems": [
+   {
+    "name": "oraclelinux",
+    "version": "6"
+   }
+  ],
+  "affected_packages": 4
+ },
+ {
+  "id": "ELSA-2022-9359",
+  "description": "[2.0.1-13.0.1]\n- Prevent integer overflow in storeRawNames [CVE-2022-25315][Orabug: 34059442]\n- Add missing validation of encoding [CVE-2022-25235][Orabug: 34059442]\n- Protect against malicious namespace declarations [CVE-2022-25236][Orabug: 34059442]",
+  "refs": [
+   {
+    "url": "https://linux.oracle.com/errata/ELSA-2022-9359.html"
+   },
+   {
+    "url": "https://linux.oracle.com/cve/CVE-2022-25236.html"
+   },
+   {
+    "url": "https://linux.oracle.com/cve/CVE-2022-25235.html"
+   },
+   {
+    "url": "https://linux.oracle.com/cve/CVE-2022-25315.html"
+   }
+  ],
+  "aliases": [
+   "CVE-2022-25236",
+   "CVE-2022-25235",
+   "CVE-2022-25315"
+  ],
+  "severities": [
+   {
+    "scheme": "CHMLN",
+    "value": "high",
+    "rank": 1
+   }
+  ],
+  "severity": "high",
+  "provider": "oracle",
+  "status": "active",
+  "published_date": "2022-05-06T00:00:00Z",
+  "modified_date": "2022-05-06T00:00:00Z",
+  "epss": [
+   {
+    "cve": "CVE-2022-25236",
+    "epss": 0.34174,
+    "percentile": 0.98376,
+    "date": "2026-10-13"
+   },
+   {
+    "cve": "CVE-2022-25235",
+    "epss": 0.04955,
+    "percentile": 0.91995,
+    "date": "2026-10-13"
+   },
+   {
+    "cve": "CVE-2022-25315",
+    "epss": 0.04821,
+    "percentile": 0.91787,
+    "date": "2026-10-13"
+   }
+  ],
+  "operating_systems": [
+   {
+    "name": "oraclelinux",
+    "version": "6"
+   }
+  ],
+  "affected_packages": 2
+ },
+ {
+  "id": "ELSA-2022-9565",
+  "description": "[1.2.3-29.0.1]\n- Fix a bug that can crash deflate when using Z_FIXED [CVE-2018-25032][Orabug: 34161396]",
+  "refs": [
+   {
+    "url": "https://linux.oracle.com/errata/ELSA-2022-9565.html"
+   },
+   {
+    "url": "https://linux.oracle.com/cve/CVE-2018-25032.html"
+   }
+  ],
+  "aliases": [
+   "CVE-2018-25032"
+  ],
+  "severities": [
+   {
+    "scheme": "CHMLN",
+    "value": "high",
+    "rank": 1
+   }
+  ],
+  "severity": "high",
+  "provider": "oracle",
+  "status": "active",
+  "published_date": "2022-07-07T00:00:00Z",
+  "modified_date": "2022-07-07T00:00:00Z",
+  "epss": [
+   {
+    "cve": "CVE-2018-25032",
+    "epss": 0.51733,
+    "percentile": 0.98928,
+    "date": "2026-10-13"
+   }
+  ],
+  "operating_systems": [
+   {
+    "name": "oraclelinux",
+    "version": "6"
+   }
+  ],
+  "affected_packages": 5
+ },
+ {
+  "id": "ELSA-2022-9783",
+  "description": "rsyslog\n[5.8.10-12.0.2]\n- Back port fix for heap-based overflow in TCP syslog server\n- Resolves CVE-2022-24903 [Orabug: 34226447]\n\nrsyslog7\n[7.4.10-7.0.1]\n- Back port fix for heap-based overflow in TCP syslog server\n- Resolves CVE-2022-24903 [Orabug: 34226447]",
+  "refs": [
+   {
+    "url": "https://linux.oracle.com/errata/ELSA-2022-9783.html"
+   },
+   {
+    "url": "https://linux.oracle.com/cve/CVE-2022-24903.html"
+   }
+  ],
+  "aliases": [
+   "CVE-2022-24903"
+  ],
+  "severities": [
+   {
+    "scheme": "CHMLN",
+    "value": "high",
+    "rank": 1
+   }
+  ],
+  "severity": "high",
+  "provider": "oracle",
+  "status": "active",
+  "published_date": "2022-09-14T00:00:00Z",
+  "modified_date": "2022-09-14T00:00:00Z",
+  "epss": [
+   {
+    "cve": "CVE-2022-24903",
+    "epss": 0.03949,
+    "percentile": 0.90192,
+    "date": "2026-10-13"
+   }
+  ],
+  "operating_systems": [
+   {
+    "name": "oraclelinux",
+    "version": "6"
+   }
+  ],
+  "affected_packages": 15
+ },
+ {
+  "id": "ELSA-2022-9962",
+  "description": "[2.0.1-13.0.2]\n- Ensure raw tagnames are safe exiting internalEntityParser [CVE-2022-40674][Orabug: 34694174]",
+  "refs": [
+   {
+    "url": "https://linux.oracle.com/errata/ELSA-2022-9962.html"
+   },
+   {
+    "url": "https://linux.oracle.com/cve/CVE-2022-40674.html"
+   }
+  ],
+  "aliases": [
+   "CVE-2022-40674"
+  ],
+  "severities": [
+   {
+    "scheme": "CHMLN",
+    "value": "high",
+    "rank": 1
+   }
+  ],
+  "severity": "high",
+  "provider": "oracle",
+  "status": "active",
+  "published_date": "2022-10-29T00:00:00Z",
+  "modified_date": "2022-10-29T00:00:00Z",
+  "epss": [
+   {
+    "cve": "CVE-2022-40674",
+    "epss": 0.02223,
+    "percentile": 0.82247,
+    "date": "2026-10-13"
+   }
+  ],
+  "operating_systems": [
+   {
+    "name": "oraclelinux",
+    "version": "6"
+   }
+  ],
+  "affected_packages": 2
+ }
+]

@@ -1,0 +1,37 @@
+# Dependabot configuration
+
+version: 2
+
+updates:
+
+  - package-ecosystem: gomod
+    directories:
+      - "/"
+      - "/.make"
+    cooldown:
+      default-days: 7
+    schedule:
+      interval: "weekly"
+      day: "friday"
+    open-pull-requests-limit: 10
+    labels:
+      - "dependencies"
+    ignore:
+      # go-make module and action refs are bumped together by automation
+      - dependency-name: "github.com/anchore/go-make"
+
+  - package-ecosystem: "github-actions"
+    directories:
+      - "/"
+      - "/.github/actions/*"
+    cooldown:
+      default-days: 7
+    schedule:
+      interval: "weekly"
+      day: "friday"
+    open-pull-requests-limit: 10
+    labels:
+      - "dependencies"
+    ignore:
+      # go-make module and action refs are bumped together by automation
+      - dependency-name: "anchore/go-make/*"

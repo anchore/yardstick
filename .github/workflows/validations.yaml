@@ -1,39 +1,82 @@
 name: "Validations"
 on:
   workflow_dispatch:
-  pull_request:
   push:
     branches:
       - main
+  pull_request:
 
 permissions: {}
 
 jobs:
 
-  # note: changing the job name requires a quality gate reference change in .github/workflows/release.yaml
-  validations:
+  Static-Analysis:
+    # Note: changing this job name requires making the same update in the .github/workflows/release.yaml pipeline
+    name: "Static analysis"
     runs-on: ubuntu-24.04
     permissions:
       contents: read
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 #v7.0.1
         with:
           persist-credentials: false
 
       - name: Bootstrap environment
-        uses: ./.github/actions/bootstrap
+        uses: anchore/go-make/.github/actions/setup@abf41688f36f2cbec13105747abbe8e60f5c56ca # v0.9.3
 
       - name: Run static analysis
         run: make static-analysis
 
+  Unit-Test:
+    # Note: changing this job name requires making the same update in the .github/workflows/release.yaml pipeline
+    name: "Unit tests"
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 #v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Bootstrap environment
+        uses: anchore/go-make/.github/actions/setup@abf41688f36f2cbec13105747abbe8e60f5c56ca # v0.9.3
+
       - name: Run unit tests
         run: make unit
 
-      - name: Run integration tests
-        run: make integration
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 #v7.0.2
+        with:
+          name: unit-test-results
+          path: test/results/**/*
 
-      - name: Build test
-        run: make build
+  Build-Snapshot-Artifacts:
+    # Note: changing this job name requires making the same update in the .github/workflows/release.yaml pipeline
+    name: "Build snapshot artifacts"
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 #v7.0.1
+        with:
+          persist-credentials: false
 
-      - name: Run CLI tests
-        run: make cli
+      - name: Bootstrap environment
+        uses: anchore/go-make/.github/actions/setup@abf41688f36f2cbec13105747abbe8e60f5c56ca # v0.9.3
+        with:
+          # why have another build cache key? We don't want unit/integration/etc test build caches to replace
+          # the snapshot build cache, which includes builds for all OSs and architectures. As long as this key is
+          # unique from the build-cache-key-prefix in other CI jobs, we should be fine.
+          #
+          # note: ideally this value should match what is used in release (just to help with build times).
+          cache-key-prefix: "snapshot"
+
+      - name: Build snapshot artifacts
+        run: make snapshot
+
+      # why not use actions/upload-artifact? It is very slow (3 minutes to upload ~600MB of data, vs 10 seconds with this approach).
+      # see https://github.com/actions/upload-artifact/issues/199 for more info
+      - name: Upload snapshot artifacts
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 #v6.1.0
+        with:
+          path: snapshot
+          key: snapshot-build-${{ github.run_id }}

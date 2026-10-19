@@ -1,0 +1,1 @@
+{"ID": "b7a12575-cd86-4eb0-8a49-cc9b13c84b17", "effective_cve": "CVE-2019-1559", "image": {"exact": "docker.io/alpine@sha256:ddac200f3ebc9902fb8cfcd599f41feb2151f1118929da21bcef57dc276975f9"}, "label": "TP", "package": {"name": "libcrypto1.0", "version": "1.0.2k-r0"}, "timestamp": "2022-09-15T14:55:28-04:00", "user": "wagoodman", "vulnerability_id": "CVE-2019-1559"}

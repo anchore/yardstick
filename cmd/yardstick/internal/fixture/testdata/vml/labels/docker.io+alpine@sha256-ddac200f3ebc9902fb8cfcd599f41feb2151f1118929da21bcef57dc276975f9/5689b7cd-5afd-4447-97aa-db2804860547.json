@@ -1,0 +1,1 @@
+{"ID": "5689b7cd-5afd-4447-97aa-db2804860547", "effective_cve": "CVE-2020-1971", "image": {"exact": "docker.io/alpine@sha256:ddac200f3ebc9902fb8cfcd599f41feb2151f1118929da21bcef57dc276975f9"}, "label": "TP", "package": {"name": "libssl1.0", "version": "1.0.2k-r0"}, "timestamp": "2022-09-15T14:56:06-04:00", "user": "wagoodman", "vulnerability_id": "CVE-2020-1971"}

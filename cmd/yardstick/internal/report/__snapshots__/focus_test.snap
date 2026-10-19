@@ -1,0 +1,98 @@
+
+[TestFocusLayouts/cause - 1]
+rpm-coverage  gates/rpm-coverage.yaml, scanned 2026-10-14 10:00Z
+  varied   env  none (reference) -> GRYPE_MATCH_RPM_USING_CPES=true (candidate)
+  held     grype v0.120.1, DB sha256:30d8bcd3, config none
+  claims   github.com/anchore/delta-prototype@main at sha256:7df20f57, commit 77aa0000
+  built    rpm with syft 1.54.1
+
+rpm-cpes  gates/rpm-cpes.yaml, scanned 2026-10-14 10:00Z
+  varied   env  none (reference) -> GRYPE_MATCH_RPM_USING_CPES=true (candidate)
+  held     grype v0.120.1, DB sha256:30d8bcd3, config none
+  claims   github.com/anchore/delta-prototype@main at sha256:7df20f57, commit 77aa0000
+  built    rpm with syft 1.54.1
+
+focus  rows of CVE-2020-12762; counts, values and outcomes are the whole gate's
+
+FAIL rpm-cpes  1 check fails, 1 undecided, 1 passes
+                                           worst subject
+  FAIL       noNewFalsePositives    max 0  1..34  change 1
+  UNDECIDED  unjudgedChangesAtMost  max 0  0..33  no change
+
+what changed in focus  1 of 1 matches: 0 dropped by the candidate, 1 added
+
+1 rpm-matcher started reporting nvd:cpe cpe-match on rpm/rocky/json-c
+    1 match, 1 CVE, 1 package, on rpm
+    introduced: 1 fp, newly reported
+      CVE-2020-12762 on json-c@0.14-11.el9
+      fails noNewFalsePositives
+
+PASS rpm-coverage  1 check passes
+FAILED 1 of 2 gates
+
+---
+
+[TestFocusLayouts/check - 1]
+rpm-coverage  gates/rpm-coverage.yaml, scanned 2026-10-14 10:00Z
+  varied   env  none (reference) -> GRYPE_MATCH_RPM_USING_CPES=true (candidate)
+  held     grype v0.120.1, DB sha256:30d8bcd3, config none
+  claims   github.com/anchore/delta-prototype@main at sha256:7df20f57, commit 77aa0000
+  built    rpm with syft 1.54.1
+
+rpm-cpes  gates/rpm-cpes.yaml, scanned 2026-10-14 10:00Z
+  varied   env  none (reference) -> GRYPE_MATCH_RPM_USING_CPES=true (candidate)
+  held     grype v0.120.1, DB sha256:30d8bcd3, config none
+  claims   github.com/anchore/delta-prototype@main at sha256:7df20f57, commit 77aa0000
+  built    rpm with syft 1.54.1
+
+focus  rows of CVE-2020-12762; counts, values and outcomes are the whole gate's
+
+FAIL gate rpm-cpes  1 check fails, 1 undecided, 1 passes
+
+FAIL noNewFalsePositives  max 0          worst subject 1..34 fp added
+  FAIL       1..34  rpm
+    1 fp, added by the candidate
+      CVE-2020-12762 on pkg:rpm/rocky/json-c@0.14-11.el9
+      nvd:cpe cpe-match
+
+UNDECIDED unjudgedChangesAtMost  max 0   worst subject 0..33 unjudged
+  UNDECIDED  0..33  rpm
+
+PASS gate rpm-coverage  1 check passes
+
+FAILED 1 of 2 gates
+
+---
+
+[TestFocusLayouts/subject - 1]
+rpm-coverage  gates/rpm-coverage.yaml, scanned 2026-10-14 10:00Z
+  varied   env  none (reference) -> GRYPE_MATCH_RPM_USING_CPES=true (candidate)
+  held     grype v0.120.1, DB sha256:30d8bcd3, config none
+  claims   github.com/anchore/delta-prototype@main at sha256:7df20f57, commit 77aa0000
+  built    rpm with syft 1.54.1
+
+rpm-cpes  gates/rpm-cpes.yaml, scanned 2026-10-14 10:00Z
+  varied   env  none (reference) -> GRYPE_MATCH_RPM_USING_CPES=true (candidate)
+  held     grype v0.120.1, DB sha256:30d8bcd3, config none
+  claims   github.com/anchore/delta-prototype@main at sha256:7df20f57, commit 77aa0000
+  built    rpm with syft 1.54.1
+
+focus  rows of CVE-2020-12762; counts, values and outcomes are the whole gate's
+
+FAIL rpm-cpes  1 check fails, 1 undecided, 1 passes
+  FAIL       noNewFalsePositives    max 0  on 1 subject
+  UNDECIDED  unjudgedChangesAtMost  max 0  on 1 subject
+
+FAIL rpm
+  F1 0.00 -> 0.33   tp 0 -> 1   fp 0 -> 1   unlabeled 453 -> 486
+  FAIL       noNewFalsePositives    1..34
+  UNDECIDED  unjudgedChangesAtMost  0..33
+  1 match only the candidate reports, all nvd:cpe cpe-match
+    1 fp: CVE-2020-12762
+      on json-c@0.14-11.el9
+
+PASS rpm-coverage  1 check passes
+
+FAILED 1 of 2 gates
+
+---

@@ -1,0 +1,209 @@
+// Package labels is the claims corpus's file format: one JSON file per subject and package type,
+// each label one person's call (tp, fp or unclear) on one vulnerability on one package, carrying
+// the evidence it rests on. yardstick owns the format; the corpus owns the vocabulary.
+package labels
+
+import (
+	"bytes"
+	"encoding/json"
+	"fmt"
+	"sort"
+	"strings"
+)
+
+// Major is the label format major this yardstick reads and writes. It is not yardstick's
+// version: a new optional field or vocabulary value is not a bump; a change to what a label
+// means or how it pairs is.
+const Major = "v1"
+
+// Verdict is a call on a match.
+type Verdict string
+
+const (
+	TP      Verdict = "tp"
+	FP      Verdict = "fp"
+	Unclear Verdict = "unclear"
+)
+
+// Verdicts are the three calls, in the order they are listed.
+var Verdicts = []Verdict{TP, FP, Unclear}
+
+// File is one label file.
+type File struct {
+	Schema  string   `json:"schema"`
+	Subject *Subject `json:"subject,omitempty"` // absent in global/ files
+	Labels  []Label  `json:"labels"`
+}
+
+// Subject says what a file's labels are about: an image, or an SBOM document by digest.
+type Subject struct {
+	Image    string `json:"image,omitempty"` // <registry>/<repository>[:tag]@sha256:<digest>
+	SBOM     string `json:"sbom,omitempty"`  // sha256:<digest> of the document's bytes
+	Platform string `json:"platform,omitempty"`
+}
+
+// Label is one call on one match.
+type Label struct {
+	Package       string     `json:"package,omitempty"` // a purl; a field it does not state matches anything
+	Vulnerability string     `json:"vulnerability"`
+	Verdict       Verdict    `json:"verdict"`
+	Justification string     `json:"justification,omitempty"`
+	Author        string     `json:"author"`
+	Evidence      []Evidence `json:"evidence,omitempty"`
+	Note          string     `json:"note,omitempty"`
+	SeenIn        *SeenIn    `json:"seenIn,omitempty"`
+	FirstIssued   string     `json:"firstIssued"`
+	LastUpdated   string     `json:"lastUpdated"`
+	// Extra holds fields this yardstick does not know, so rewriting a file written by a newer
+	// one keeps them. ponytail: only a label's own fields; unknown fields nested in evidence or
+	// seenIn are dropped on rewrite, add the same capture there when a format adds one.
+	Extra map[string]json.RawMessage `json:"-"`
+}
+
+// Evidence is what a call rests on: the raw observations, the policy rule (vocabulary.yaml's
+// rules) they satisfy when one does, and what they mean for this call.
+type Evidence struct {
+	Rule           string `json:"rule,omitempty"`
+	Facts          []Fact `json:"facts"`
+	Interpretation string `json:"interpretation,omitempty"`
+}
+
+// Fact is a raw observation someone can check again.
+type Fact struct {
+	Source     string            `json:"source"`
+	URL        string            `json:"url,omitempty"`
+	About      map[string]string `json:"about"`
+	Field      string            `json:"field"`
+	Value      string            `json:"value"`
+	ObservedAt string            `json:"observedAt"`
+}
+
+// SeenIn is what a label was written against.
+type SeenIn struct {
+	SBOM  string `json:"sbom,omitempty"`
+	Syft  string `json:"syft,omitempty"`
+	Grype string `json:"grype,omitempty"`
+	DB    string `json:"db,omitempty"`
+}
+
+// Key identifies a label within one file: at most one label per key.
+type Key struct {
+	Package       string
+	Vulnerability string
+}
+
+func (l Label) Key() Key {
+	return Key{Package: l.Package, Vulnerability: l.Vulnerability}
+}
+
+// Less orders keys by package then vulnerability, package-less first.
+func (k Key) Less(o Key) bool {
+	if k.Package != o.Package {
+		return k.Package < o.Package
+	}
+	return k.Vulnerability < o.Vulnerability
+}
+
+func (k Key) String() string {
+	if k.Package == "" {
+		return k.Vulnerability
+	}
+	return k.Vulnerability + " on " + k.Package
+}
+
+// labelFields is Label without its methods, for encoding/json.
+type labelFields Label
+
+var knownLabelKeys = []string{"package", "vulnerability", "verdict", "justification", "author", "evidence", "note", "seenIn", "firstIssued", "lastUpdated"}
+
+func (l *Label) UnmarshalJSON(data []byte) error {
+	var f labelFields
+	if err := json.Unmarshal(data, &f); err != nil {
+		return err
+	}
+	var all map[string]json.RawMessage
+	if err := json.Unmarshal(data, &all); err != nil {
+		return err
+	}
+	for _, k := range knownLabelKeys {
+		delete(all, k)
+	}
+	*l = Label(f)
+	l.Extra = nil
+	if len(all) > 0 {
+		l.Extra = all
+	}
+	return nil
+}
+
+func (l Label) MarshalJSON() ([]byte, error) {
+	b, err := marshal(labelFields(l))
+	if err != nil || len(l.Extra) == 0 {
+		return b, err
+	}
+	keys := make([]string, 0, len(l.Extra))
+	for k := range l.Extra {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+	var buf bytes.Buffer
+	buf.Write(bytes.TrimSuffix(b, []byte("}")))
+	for _, k := range keys {
+		name, _ := marshal(k)
+		buf.WriteByte(',')
+		buf.Write(name)
+		buf.WriteByte(':')
+		buf.Write(l.Extra[k])
+	}
+	buf.WriteByte('}')
+	return buf.Bytes(), nil
+}
+
+// marshal is json.Marshal without HTML escaping, so a purl's & stays an &.
+func marshal(v any) ([]byte, error) {
+	var buf bytes.Buffer
+	enc := json.NewEncoder(&buf)
+	enc.SetEscapeHTML(false)
+	if err := enc.Encode(v); err != nil {
+		return nil, err
+	}
+	return bytes.TrimSuffix(buf.Bytes(), []byte("\n")), nil
+}
+
+// Marshal encodes a file the one way the writer writes every file: two-space indent, fields in
+// a fixed order, no HTML escaping, a trailing newline. The same labels give the same bytes.
+func Marshal(f *File) ([]byte, error) {
+	var buf bytes.Buffer
+	enc := json.NewEncoder(&buf)
+	enc.SetEscapeHTML(false)
+	enc.SetIndent("", "  ")
+	if err := enc.Encode(f); err != nil {
+		return nil, err
+	}
+	return buf.Bytes(), nil
+}
+
+// MajorOf is a schema value's major: v1 for v1 and v1.2.
+func MajorOf(schema string) string {
+	major, _, _ := strings.Cut(schema, ".")
+	return major
+}
+
+// Parse reads a label file, refusing a format major this yardstick does not read before
+// anything else about it is trusted. name is used in errors.
+func Parse(name string, data []byte) (*File, error) {
+	var head struct {
+		Schema string `json:"schema"`
+	}
+	if err := json.Unmarshal(data, &head); err != nil {
+		return nil, fmt.Errorf("%s: %w", name, err)
+	}
+	if MajorOf(head.Schema) != Major {
+		return nil, fmt.Errorf("%s: label format %q; this yardstick reads %s, so a newer yardstick is needed", name, head.Schema, Major)
+	}
+	var f File
+	if err := json.Unmarshal(data, &f); err != nil {
+		return nil, fmt.Errorf("%s: %w", name, err)
+	}
+	return &f, nil
+}

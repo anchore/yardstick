@@ -1,0 +1,1 @@
+{"ID": "50f116ec-2cef-4830-898b-1e6908832f2a", "image": {"exact": "docker.io/anchore/test_images@sha256:7536ee345532f674ec9e448e3768db4e546c48220ba2b6ec9bc9cfbfb3b7b74a"}, "label": "TP", "package": {"name": "github.com/opencontainers/image-spec", "version": "v1.0.1"}, "timestamp": "2022-09-14T20:46:56-04:00", "user": "wagoodman", "vulnerability_id": "GHSA-77vh-xpmg-72qh"}

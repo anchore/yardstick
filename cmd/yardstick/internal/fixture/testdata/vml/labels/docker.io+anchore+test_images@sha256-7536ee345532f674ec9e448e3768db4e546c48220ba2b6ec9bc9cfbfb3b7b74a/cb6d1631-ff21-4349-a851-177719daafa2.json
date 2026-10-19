@@ -1,0 +1,1 @@
+{"ID": "cb6d1631-ff21-4349-a851-177719daafa2", "image": {"exact": "docker.io/anchore/test_images@sha256:7536ee345532f674ec9e448e3768db4e546c48220ba2b6ec9bc9cfbfb3b7b74a"}, "label": "TP", "package": {"name": "github.com/docker/distribution", "version": "v2.7.1+incompatible"}, "timestamp": "2022-09-14T20:46:35-04:00", "user": "wagoodman", "vulnerability_id": "GHSA-qq97-vm5h-rrhg"}

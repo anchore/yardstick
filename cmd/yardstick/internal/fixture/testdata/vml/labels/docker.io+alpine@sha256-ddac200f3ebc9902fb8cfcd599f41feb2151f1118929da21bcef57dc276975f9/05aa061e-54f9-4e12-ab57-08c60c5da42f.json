@@ -1,0 +1,1 @@
+{"ID": "05aa061e-54f9-4e12-ab57-08c60c5da42f", "effective_cve": "CVE-2018-20679", "image": {"exact": "docker.io/alpine@sha256:ddac200f3ebc9902fb8cfcd599f41feb2151f1118929da21bcef57dc276975f9"}, "label": "TP", "package": {"name": "busybox", "version": "1.23.2-r3"}, "timestamp": "2022-09-15T14:48:35-04:00", "user": "wagoodman", "vulnerability_id": "CVE-2018-20679"}

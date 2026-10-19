@@ -1,52 +1,24 @@
 # Developing
 
-## Getting Started
+After cloning, run `make` to run linting, tests, and other verifications. Helper tools are installed on demand into `.tool/` by [go-make](https://github.com/anchore/go-make) the first time they are needed.
 
-This project requires:
-- python (>= 3.11)
-- uv (>= 0.5): see [installation instructions](https://docs.astral.sh/uv/getting-started/installation/)
+The main tasks are `lint`, `format`, `lint-fix`, `unit` and `snapshot`. `make help` lists the rest.
 
-Once you have python and uv installed, get the project bootstrapped:
+## Test fixtures
 
-```bash
-# get basic project tooling
-make tools
+Fixtures under `cmd/yardstick/internal/fixture` are produced by the real, pinned syft, grype, vexctl and oras, never written by hand. `make fixtures` regenerates them and needs docker.
 
-# install project dependencies
-uv sync
+## Layout
+
+```
+cmd/yardstick/
+├── cli/          # the clio application and its commands
+├── internal/     # everything else; nothing here is a public API
+└── main.go       # entrypoint and target for ldflags (version info)
+config/           # example gate files and app config
+plugin/           # the yardstick Claude Code plugin (triage, research, explain skills)
 ```
 
-[Pre-commit](https://pre-commit.com/) is used to help enforce static analysis checks with git hooks:
+The claims corpus is not in this repo. A gate names its claims source (a local directory or a published corpus), and yardstick reads it from there.
 
-```bash
-uv run pre-commit install --hook-type pre-push
-```
-
-## Developing
-
-If you want to use a locally-editable copy of yardstick while you develop:
-
-```bash
-uv pip uninstall yardstick  #... if you already have yardstick installed in this virtual env
-uv pip install -e .
-```
-
-To run all static-analysis and tests:
-
-```bash
-make
-```
-
-Or run them individually:
-
-```bash
-make static-analysis
-make unit
-make cli
-```
-
-If you want to see all of the things you can do:
-
-```bash
-make help
-```
+The Python implementation is on the `python` branch, see [RELEASE.md](RELEASE.md).

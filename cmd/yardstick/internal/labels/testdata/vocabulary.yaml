@@ -1,0 +1,368 @@
+# The corpus's categories. A new value is one pull request that adds it here with its first use.
+justifications:
+  fp:
+    fix-installed: Installed version has the fix
+    introduced-later: Installed version predates the vulnerable code
+    vulnerable_code_not_present: Vulnerable code is not in this package
+    component_not_present: The package was misidentified
+    other-platform: Bug only affects another platform
+    not-a-vulnerability: CVE rejected, withdrawn or disputed by its CNA
+    different-product: CVE is about a different product with this name
+    vendor-not-affected: Vendor marks it not affected without saying why
+    not-recorded: Migrated from vulnerability-match-labels, which recorded no reason
+  tp:
+    fix-newer: Fix is in a newer version than installed
+    no-fix: Vulnerable code present, no fix for this version
+    in-affected-range: Installed version is inside the affected range
+  unclear:
+    not-assessed: Nobody has assessed this version
+    no-range: No usable affected range
+    sources-disagree: Sources disagree about the affected versions
+    not-recorded: Migrated from vulnerability-match-labels, which recorded no reason
+    labelers-disagree: Labelers of vulnerability-match-labels gave this match different verdicts
+fact-sources:
+  - ubuntu-cve-tracker
+  - ubuntu-cve-tracker-pocket
+  - debian-security-tracker
+  - redhat-csaf-vex
+  - redhat-security-data
+  - alpine-secdb
+  - nvd
+  - ghsa
+  - osv
+  - openvex
+  - sbom
+  - cve.org
+  - euvd
+# advisories, not disclosures: a label names each CVE an advisory addresses instead
+advisory-ids: ["ALAS*", ALSA, ELSA, RLSA, RHSA, RHBA, RHEA, AVG, FEDORA, BIT, DSA, DLA, USN, "ADV*"]
+# disclosure namespaces a label may name; an id in neither list is refused
+vulnerability-namespaces: [CVE, GHSA, GO, PYSEC, RUSTSEC, BDSA, RSEC]
+
+# the labeling policy's rules: every evidence[].rule a label or proposal may cite, the verdict it
+# supports (any: either), the justification its labels carry (*: depends on the vendor's stated
+# reason, so each label says), the strongest confidence a proposal citing it may carry, the decision
+# in labeling-policy.md that allows it, what it rests on in plain words, and a title for a group of
+# findings sharing it
+rules:
+  cna/rejected:
+    verdict: fp
+    justification: not-a-vulnerability
+    ceiling: high
+    decision: P-5
+    basis: "the CNA rejected the CVE"
+    title: "the CVEs were rejected by their CNA"
+  sbom/code-not-in-binary:
+    verdict: fp
+    justification: vulnerable_code_not_present
+    ceiling: high
+    decision: P-10
+    basis: "the file the CVE names is absent from this binary's file list"
+    title: "the vulnerable code is not in this binary (per the SBOM file list)"
+  sbom/sibling-ships-program:
+    verdict: fp
+    justification: vulnerable_code_not_present
+    ceiling: medium
+    decision: P-10
+    basis: "a sibling package from the same source ships the program the CVE names, and this one doesn't"
+  ubuntu/not-affected:
+    verdict: fp
+    justification: "*"
+    ceiling: high
+    decision: P-3
+    basis: "Ubuntu says not-affected and gives a reason"
+    title: "Ubuntu marks the source package not affected"
+  ubuntu/not-affected-no-reason:
+    verdict: fp
+    justification: vendor-not-affected
+    ceiling: medium
+    decision: P-3
+    basis: "Ubuntu says not-affected without a reason"
+  ubuntu/installed-has-fix:
+    verdict: fp
+    justification: fix-installed
+    ceiling: high
+    decision: P-5
+    basis: "the installed version is at or past the version Ubuntu fixed it in"
+  ubuntu/released-newer-than-installed:
+    verdict: tp
+    justification: fix-newer
+    ceiling: high
+    decision: P-5
+    basis: "Ubuntu fixed it in a newer version than the installed one"
+    title: "fixed in a newer Ubuntu build than the image has (ESM-only fixes show as wont-fix)"
+  ubuntu/released-no-version:
+    verdict: tp
+    justification: fix-newer
+    ceiling: medium
+    decision: P-4
+    basis: "Ubuntu says released but gives no fix version"
+  ubuntu/needed:
+    verdict: tp
+    justification: no-fix
+    ceiling: high
+    decision: P-6
+    basis: "Ubuntu assessed the code as affected (needed)"
+    title: "Ubuntu assessed the source package as affected, no fix in this release"
+  ubuntu/ignored-wont-fix:
+    verdict: tp
+    justification: no-fix
+    ceiling: high
+    decision: P-6
+    basis: "Ubuntu assessed the code as affected and won't fix it"
+    title: "Ubuntu assessed it as affected and will not fix it"
+  ubuntu/ignored-not-applicable:
+    verdict: fp
+    justification: "*"
+    ceiling: medium
+    decision: P-3
+    basis: "a triager's bracketed ignore reason says the code doesn't apply"
+  ubuntu/unassessed-upstream-fix-older-than-installed:
+    verdict: fp
+    justification: fix-installed
+    ceiling: medium
+    decision: P-4
+    basis: "Ubuntu hasn't assessed it; the upstream fix version is older than the installed version"
+    title: "fixed upstream before the installed version; Ubuntu has not assessed this release"
+  ubuntu/unassessed-upstream-fix-newer-than-installed:
+    verdict: tp
+    justification: fix-newer
+    ceiling: medium
+    decision: P-4
+    basis: "Ubuntu hasn't assessed it; the upstream fix version is newer than the installed version"
+    title: "fixed upstream after the installed version; Ubuntu has not assessed this release"
+  ubuntu/unassessed-upstream-not-affected:
+    verdict: fp
+    justification: "*"
+    ceiling: medium
+    decision: P-3
+    basis: "Ubuntu hasn't assessed it; upstream says not affected"
+  ubuntu/unassessed-cna-range-includes-installed:
+    verdict: tp
+    justification: in-affected-range
+    ceiling: medium
+    decision: P-4
+    basis: "Ubuntu hasn't assessed it; the CNA's affected range includes the installed version"
+    title: "the CNA's affected range includes the installed version; Ubuntu has not assessed this release"
+  cna/introduced-after-installed:
+    verdict: fp
+    justification: introduced-later
+    ceiling: medium
+    decision: P-4
+    basis: "the CNA range says the bug came in after the installed version"
+  ghsa/introduced-after-installed:
+    verdict: fp
+    justification: introduced-later
+    ceiling: medium
+    decision: P-4
+    basis: "the GitHub advisory range says the bug came in after the installed version"
+  cna/disagrees-with-upstream-fix:
+    verdict: unclear
+    justification: sources-disagree
+    ceiling: low
+    decision: P-2
+    basis: "the CNA range and the upstream fix version disagree"
+  ubuntu/unassessed:
+    verdict: unclear
+    justification: not-assessed
+    ceiling: low
+    decision: P-2
+    basis: "Ubuntu hasn't assessed it"
+    title: "nobody has assessed these for this release"
+  ubuntu/not-listed:
+    verdict: unclear
+    justification: not-assessed
+    ceiling: low
+    decision: P-2
+    basis: "Ubuntu's tracker doesn't list it"
+  debian/fixed-newer-than-installed:
+    verdict: tp
+    justification: fix-newer
+    ceiling: high
+    decision: P-5
+    basis: "Debian fixed it in a newer version than the installed one"
+  debian/installed-has-fix:
+    verdict: fp
+    justification: fix-installed
+    ceiling: high
+    decision: P-5
+    basis: "the installed version is at or past the version Debian fixed it in"
+  debian/affected-unfixed:
+    verdict: tp
+    justification: no-fix
+    ceiling: medium
+    decision: P-4
+    basis: "Debian lists it as affected with no fix"
+  debian/no-record:
+    verdict: unclear
+    justification: not-assessed
+    ceiling: low
+    decision: P-2
+    basis: "Debian has no record of it"
+  ghsa/version-in-affected-range:
+    verdict: tp
+    justification: in-affected-range
+    ceiling: high
+    decision: P-8
+    basis: "a reviewed GitHub advisory names this package and its range includes the installed version"
+    title: "a GitHub-reviewed advisory lists the installed version as affected"
+  ghsa/installed-at-or-past-fix:
+    verdict: fp
+    justification: fix-installed
+    ceiling: high
+    decision: P-5
+    basis: "the installed version is at or past the GitHub advisory's fixed version"
+  ghsa/withdrawn:
+    verdict: fp
+    justification: not-a-vulnerability
+    ceiling: high
+    decision: P-5
+    basis: "the GitHub advisory was withdrawn"
+  ghsa/range-unknown:
+    verdict: unclear
+    justification: no-range
+    ceiling: low
+    decision: P-2
+    basis: "the GitHub advisory gives no usable range"
+  ghsa/package-not-listed:
+    verdict: unclear
+    justification: not-assessed
+    ceiling: low
+    decision: P-2
+    basis: "the GitHub advisory doesn't list this package"
+  cpe/advisory-lists-other-packages:
+    verdict: fp
+    justification: different-product
+    ceiling: medium
+    decision: P-9
+    basis: "a CPE match, and the ecosystem advisory lists other packages, not this one"
+    title: "CPE matches on a name collision; the ecosystem advisory names other packages"
+  cpe/no-ecosystem-advisory:
+    verdict: fp
+    justification: different-product
+    ceiling: medium
+    decision: P-9
+    basis: "a CPE match, and no ecosystem advisory exists for the CVE"
+    title: "CPE matches on a name collision; no ecosystem advisory names this package"
+  cpe/no-advisory-source:
+    verdict: unclear
+    justification: not-assessed
+    ceiling: low
+    decision: P-2
+    basis: "a CPE match with no advisory source to check"
+  cpe/advisory-without-packages:
+    verdict: unclear
+    justification: not-assessed
+    ceiling: low
+    decision: P-2
+    basis: "a CPE match, and the advisory lists no packages"
+  alpine/not-affected-no-reason:
+    verdict: fp
+    justification: vendor-not-affected
+    ceiling: medium
+    decision: P-3
+    basis: "Alpine lists it under version 0 (never affected) without a reason"
+  alpine/installed-has-fix:
+    verdict: fp
+    justification: fix-installed
+    ceiling: high
+    decision: P-5
+    basis: "the installed version is at or past the version Alpine fixed it in"
+  alpine/fixed-newer-than-installed:
+    verdict: tp
+    justification: fix-newer
+    ceiling: high
+    decision: P-5
+    basis: "Alpine fixed it in a newer version than the installed one"
+  cna/range-includes-installed:
+    verdict: tp
+    justification: in-affected-range
+    ceiling: medium
+    decision: P-4
+    basis: "the CNA's affected range includes the installed version"
+  cna/installed-past-range:
+    verdict: fp
+    justification: fix-installed
+    ceiling: medium
+    decision: P-4
+    basis: "the installed version is past the CNA's affected range"
+  cna/no-range:
+    verdict: unclear
+    justification: no-range
+    ceiling: low
+    decision: P-2
+    basis: "the CNA gives no affected range"
+  rhel/not-affected:
+    verdict: fp
+    justification: "*"
+    ceiling: high
+    decision: P-3
+    basis: "Red Hat says not affected and gives a reason"
+    title: "Red Hat's VEX marks this binary not affected"
+  rhel/not-affected-no-reason:
+    verdict: fp
+    justification: vendor-not-affected
+    ceiling: medium
+    decision: P-3
+    basis: "Red Hat says not affected without a reason"
+  rhel/installed-has-fix:
+    verdict: fp
+    justification: fix-installed
+    ceiling: high
+    decision: P-5
+    basis: "the installed version is at or past the build Red Hat fixed it in"
+  rhel/fixed-newer-than-installed:
+    verdict: tp
+    justification: fix-newer
+    ceiling: high
+    decision: P-5
+    basis: "Red Hat fixed it in a newer build than the installed one"
+    title: "fixed in a newer Red Hat build than the image has"
+  rhel/affected:
+    verdict: tp
+    justification: no-fix
+    ceiling: high
+    decision: P-6
+    basis: "Red Hat assessed the source package as affected"
+    title: "Red Hat assessed the source package as affected, no fix shipped"
+  rhel/unassessed:
+    verdict: unclear
+    justification: not-assessed
+    ceiling: low
+    decision: P-2
+    basis: "Red Hat hasn't assessed it"
+  rhel/not-listed:
+    verdict: unclear
+    justification: not-assessed
+    ceiling: low
+    decision: P-2
+    basis: "Red Hat doesn't list it"
+  none/no-evidence:
+    verdict: unclear
+    justification: not-assessed
+    ceiling: low
+    decision: P-2
+    basis: "no source says anything about it"
+  judgement/code-not-installed:
+    verdict: fp
+    justification: vulnerable_code_not_present
+    ceiling: high
+    decision: P-5
+    basis: "inspection shows the vulnerable code isn't installed"
+  judgement/linked-system-library:
+    verdict: fp
+    justification: vulnerable_code_not_present
+    ceiling: medium
+    decision: P-10
+    basis: "the code is in a system library the binary links, and that library has its own finding"
+  judgement/prior-claims-pattern:
+    verdict: any
+    ceiling: medium
+    decision: P-4
+    basis: "prior claims on the same package and kind of bug"
+  judgement/introduced-after-installed:
+    verdict: fp
+    justification: introduced-later
+    ceiling: medium
+    decision: P-4
+    basis: "the bug came in after the installed version"

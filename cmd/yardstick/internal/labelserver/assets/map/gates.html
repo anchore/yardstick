@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="yardstick-token" content="{{TOKEN}}">
+  <title>yardstick · map · every gate</title>
+  <link rel="stylesheet" href="/assets/map/app.css">
+  <link rel="stylesheet" href="/assets/map/gates.css">
+  <script src="/assets/theme.js"></script>
+  <script src="/assets/shared/api.js"></script>
+  <script src="/assets/map/gates.js" defer></script>
+</head>
+<body>
+  <header>
+    <div class="brand">yardstick <span>map · every gate</span></div>
+    <div class="compared muted">a label is about a package in an image, not a gate: it counts in every gate that reports the match</div>
+    <div class="spacer"></div>
+  </header>
+
+  <section id="gates" class="gates"></section>
+  <div id="status" class="status" hidden></div>
+  <main id="list" class="xlist"></main>
+</body>
+</html>

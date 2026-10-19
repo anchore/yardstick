@@ -1,0 +1,81 @@
+release:
+  # If set to auto, will mark the release as not ready for production in case there is an indicator for this in the
+  # tag e.g. v1.0.0-rc1 .If set to true, will mark the release as not ready for production.
+  prerelease: auto
+
+  # If set to true, will not auto-publish the release. This is done to allow us to review the changelog before publishing.
+  draft: false
+
+builds:
+  - id: linux-build
+    binary: &name yardstick
+    dir: &dir ./cmd/yardstick
+    env: &build-env
+      - CGO_ENABLED=0
+    goos:
+      - linux
+    goarch:
+      - amd64
+      - arm64
+      - ppc64le
+      - s390x
+    mod_timestamp: &build-timestamp '{{ .CommitTimestamp }}'
+    ldflags: &build-ldflags |
+      -w
+      -s
+      -extldflags '-static'
+      -X main.version={{.Version}}
+      -X main.gitCommit={{.Commit}}
+      -X main.buildDate={{.Date}}
+      -X main.gitDescription={{.Summary}}
+
+  - id: darwin-build
+    dir: *dir
+    binary: *name
+    goos:
+      - darwin
+    goarch:
+      - amd64
+      - arm64
+    mod_timestamp: *build-timestamp
+    env: *build-env
+    ldflags: *build-ldflags
+    hooks:
+      post:
+        - cmd: .tool/quill sign-and-notarize "{{ .Path }}" --dry-run={{ .IsSnapshot }} --ad-hoc={{ .IsSnapshot }} -vv
+          env:
+            - QUILL_LOG_FILE=/tmp/quill-{{ .Target }}.log
+
+  - id: windows-build
+    dir: *dir
+    binary: *name
+    goos:
+      - windows
+    goarch:
+      - amd64
+    mod_timestamp: *build-timestamp
+    env: *build-env
+    ldflags: *build-ldflags
+
+nfpms:
+  - license: "Apache 2.0"
+    maintainer: "Anchore, Inc"
+    homepage: &website "https://github.com/anchore/yardstick"
+    description: &description "Measure scanner quality changes against labeled claims, and gate releases on them."
+    formats:
+      - rpm
+      - deb
+
+archives:
+  - id: linux-archives
+    builds:
+      - linux-build
+
+  - id: darwin-archives
+    builds:
+      - darwin-build
+
+  - id: windows-archives
+    format: zip
+    builds:
+      - windows-build

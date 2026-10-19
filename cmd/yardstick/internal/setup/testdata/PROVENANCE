@@ -1,0 +1,2 @@
+grype-db-list.txt: stdout of `grype db list -o text` from grype v0.120.1 (darwin/arm64 release
+archive), GRYPE_CHECK_FOR_APP_UPDATE=false, run on 2026-10-14. Copied as it was printed.

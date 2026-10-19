@@ -1,0 +1,196 @@
+package claims
+
+import (
+	"archive/zip"
+	"crypto/sha256"
+	"encoding/hex"
+	"encoding/json"
+	"fmt"
+	"io"
+	"net/http"
+	"os"
+	"path/filepath"
+	"regexp"
+	"strings"
+	"time"
+
+	"github.com/anchore/yardstick/cmd/yardstick/internal/cache"
+	"github.com/anchore/yardstick/cmd/yardstick/internal/gatefile"
+	"github.com/anchore/yardstick/cmd/yardstick/internal/labels"
+	"github.com/anchore/yardstick/cmd/yardstick/internal/log"
+	"github.com/anchore/yardstick/cmd/yardstick/internal/ref"
+)
+
+// URLVar names the base URL published snapshots are read from: the public address of the bucket
+// the publish workflow writes claims/latest-v<major>.json, claims/commits/<sha>.json and
+// claims/snapshots/<hex>.zip into.
+const URLVar = "YARDSTICK_CLAIMS_URL"
+
+var (
+	commitPattern = regexp.MustCompile(`^[0-9a-f]{40}$`)
+	httpClient    = &http.Client{Timeout: 2 * time.Minute}
+)
+
+// pointer is a published JSON object naming a snapshot.
+type pointer struct {
+	Digest string `json:"digest"`
+	Commit string `json:"commit,omitempty"`
+}
+
+// openRemote resolves a published reference to its snapshot and opens the snapshot's zip in
+// place, once it is downloaded whole and verified: @main through the latest pointer for the format major this yardstick reads, @<commit>
+// through that commit's record, and @sha256:<hex> directly.
+func openRemote(s gatefile.Source) (*Source, error) {
+	base := strings.TrimSuffix(os.Getenv(URLVar), "/")
+	if base == "" {
+		return nil, fmt.Errorf("claims source %s: no publication host to read it from; set %s to the base URL snapshots are published under", s.Locator, URLVar)
+	}
+	p, err := resolve(base, s.Remote.Ref)
+	if err != nil {
+		return nil, fmt.Errorf("claims source %s: %w", s.Locator, err)
+	}
+	log.Infof("opening remote claims source %s, resolved to snapshot %s", s.Locator, p.Digest)
+	// resolve accepts only sha256:<64 lowercase hex>, so the digest is safe in a path and a URL
+	hexDigest := strings.TrimPrefix(p.Digest, "sha256:")
+	f, size, err := openSnapshot(base+"/claims/snapshots/"+hexDigest+".zip", p.Digest)
+	if err != nil {
+		return nil, fmt.Errorf("claims source %s: snapshot %s: %w", s.Locator, p.Digest, err)
+	}
+	// read in place, never extracted; the file stays open for the life of the process
+	zr, err := zip.NewReader(f, size)
+	if err != nil {
+		return nil, fmt.Errorf("claims source %s: snapshot %s: %w", s.Locator, p.Digest, err)
+	}
+	return &Source{Locator: s.Locator, Kind: Remote, FS: zr, Digest: p.Digest, Commit: p.Commit, read: map[string]string{}}, nil
+}
+
+// resolve turns a reference into the snapshot it names. A digest or commit becomes part of a
+// cache path and a URL, so each is checked to be lowercase hex of its length wherever it comes
+// from: the gate file or a pointer the host serves.
+func resolve(base, r string) (pointer, error) {
+	var p pointer
+	switch {
+	case strings.HasPrefix(r, "sha256:"):
+		p.Digest = r
+	case r == "main":
+		u := base + "/claims/latest-" + labels.Major + ".json"
+		if err := getJSON(u, &p); err != nil {
+			return p, fmt.Errorf("no published snapshot of label format %s: %w", labels.Major, err)
+		}
+	case commitPattern.MatchString(r):
+		if err := getJSON(base+"/claims/commits/"+r+".json", &p); err != nil {
+			return p, fmt.Errorf("no snapshot was published for commit %s: %w", r, err)
+		}
+		p.Commit = r
+	default:
+		return p, fmt.Errorf("%q names no snapshot: use @main, the full 40-character commit sha, or @sha256:<snapshot digest>", r)
+	}
+	if !ref.ValidDigest(p.Digest) {
+		return pointer{}, fmt.Errorf("snapshot digest %q is not sha256:<64 lowercase hex>", p.Digest)
+	}
+	if p.Commit != "" && !commitPattern.MatchString(p.Commit) {
+		return pointer{}, fmt.Errorf("commit %q is not a 40-character lowercase hex sha", p.Commit)
+	}
+	switch {
+	case r == "main":
+		log.Debugf("latest-%s.json named snapshot %s", labels.Major, p.Digest)
+	case p.Commit != "":
+		log.Debugf("commit record %s named snapshot %s", p.Commit, p.Digest)
+	}
+	return p, nil
+}
+
+func getJSON(u string, v any) error {
+	// the host is the user's own YARDSTICK_CLAIMS_URL and the path a validated reference
+	resp, err := httpClient.Get(u) //nolint:noctx,gosec // a short pointer read; the client has a timeout
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("GET %s: %s", u, resp.Status)
+	}
+	if err := json.NewDecoder(io.LimitReader(resp.Body, 1<<20)).Decode(v); err != nil {
+		return fmt.Errorf("GET %s: %w", u, err)
+	}
+	return nil
+}
+
+// openSnapshot opens a snapshot's zip from the cache, downloading it first when it is not there.
+// No byte of a snapshot is read before the whole zip is on disk and its sha256 is the digest it was
+// published under.
+func openSnapshot(url, digest string) (*os.File, int64, error) {
+	dir := cache.Dir("claims")
+	final := filepath.Join(dir, strings.TrimPrefix(digest, "sha256:")+".zip")
+	if _, err := os.Stat(final); err != nil {
+		log.Infof("downloading claims snapshot %s", digest)
+		if err := download(url, digest, dir, final); err != nil {
+			return nil, 0, err
+		}
+	} else {
+		log.Infof("using cached claims snapshot %s", digest)
+		cache.Touch(final)
+	}
+	f, err := os.Open(final)
+	if err != nil {
+		return nil, 0, err
+	}
+	info, err := f.Stat()
+	if err != nil {
+		f.Close()
+		return nil, 0, err
+	}
+	return f, info.Size(), nil
+}
+
+// staleDownload is how old a download left by a killed run must be before another run removes it.
+const staleDownload = time.Hour
+
+// download fetches the whole zip into a temp file beside final, hashing it as it is written, and
+// renames it into place only when the digest matches. A failed, cut off or mismatched download is
+// deleted, so nothing of it stays in the cache.
+func download(url, digest, dir, final string) error {
+	defer log.Timed("downloading and verifying %s", url)()
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		return err
+	}
+	removeStale(dir)
+	tmp, err := os.CreateTemp(dir, ".download-*")
+	if err != nil {
+		return err
+	}
+	defer os.Remove(tmp.Name())
+	defer tmp.Close()
+	resp, err := httpClient.Get(url) //nolint:noctx,gosec // the host is the user's YARDSTICK_CLAIMS_URL and the path a checked digest
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("GET %s: %s", url, resp.Status)
+	}
+	h := sha256.New()
+	n, err := io.Copy(io.MultiWriter(tmp, h), resp.Body)
+	if err != nil {
+		return fmt.Errorf("GET %s: %w", url, err)
+	}
+	log.Tracef("downloaded %d bytes from %s", n, url)
+	if err := tmp.Close(); err != nil {
+		return err
+	}
+	if got := "sha256:" + hex.EncodeToString(h.Sum(nil)); got != digest {
+		return fmt.Errorf("the download's digest is %s, not %s as published; it was deleted", got, digest)
+	}
+	log.Infof("verified claims snapshot %s, %d bytes", digest, n)
+	return os.Rename(tmp.Name(), final)
+}
+
+// removeStale deletes downloads a killed run left behind.
+func removeStale(dir string) {
+	entries, _ := os.ReadDir(dir)
+	for _, e := range entries {
+		if info, err := e.Info(); err == nil && strings.HasPrefix(e.Name(), ".download-") && time.Since(info.ModTime()) > staleDownload {
+			_ = os.Remove(filepath.Join(dir, e.Name()))
+		}
+	}
+}

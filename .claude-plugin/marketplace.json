@@ -1,0 +1,14 @@
+{
+  "name": "yardstick",
+  "description": "Claude Code plugins for the yardstick grype quality gate",
+  "owner": {
+    "name": "Anchore"
+  },
+  "plugins": [
+    {
+      "name": "yardstick",
+      "source": "./plugin",
+      "description": "Skills that triage, research and explain a yardstick gate's differences through the yardstick CLI."
+    }
+  ]
+}

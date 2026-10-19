@@ -1,0 +1,1 @@
+{"ID": "e95856ea-6a81-4a53-8f86-953e450dd17b", "effective_cve": "CVE-2018-0739", "image": {"exact": "docker.io/alpine@sha256:ddac200f3ebc9902fb8cfcd599f41feb2151f1118929da21bcef57dc276975f9"}, "label": "TP", "package": {"name": "libcrypto1.0", "version": "1.0.2k-r0"}, "timestamp": "2022-09-15T14:53:32-04:00", "user": "wagoodman", "vulnerability_id": "CVE-2018-0739"}

@@ -1,0 +1,129 @@
+
+[TestScanStatesAndProgress/preparing - 1]
+yardstick › grype-upgrade                                                   1.5s
+  grype latest vs v0.100.0   same DB latest
+  setup ⠋   SBOMs · 0/3   scans · 0/6
+    ⠋ install grype@latest                                            1.5s
+                                 candidate        reference           Δ
+  chainguard/wolfi-base@be38345  · queued         · queued       
+  alpine@ddac200                 · queued         · queued       
+  deb                            · queued         · queued       
+  ─────────────────────────────────────────────────────────────── 0/6 · 6 queued
+---
+
+[TestScanStatesAndProgress/importing_a_DB - 1]
+yardstick › grype-upgrade                                                    21s
+  grype latest vs v0.100.0   same DB latest
+  setup ⠋   SBOMs · 0/3   scans · 0/6
+    ✔ install grype@latest                                            1.5s
+    ⠋ import DB 2f1597f                                               20s
+                                 candidate        reference           Δ
+  chainguard/wolfi-base@be38345  · queued         · queued       
+  alpine@ddac200                 · queued         · queued       
+  deb                            · queued         · queued       
+  ─────────────────────────────────────────────────────────────── 0/6 · 6 queued
+---
+
+[TestScanStatesAndProgress/building_an_SBOM - 1]
+yardstick › grype-upgrade                                                    25s
+  grype v0.120.1 vs v0.100.0   same DB latest 2f1597f
+  setup ✔ 21s   SBOMs ⠋ 2/3   scans · 0/6
+    ⠋ build SBOM deb                                                  4.0s
+                                 candidate        reference           Δ
+  chainguard/wolfi-base@be38345  · queued         · queued       
+  alpine@ddac200                 · queued         · queued       
+  deb                            ⠋ building SBOM 4.0s
+  ─────────────────────────────────────────────────────────────── 0/6 · 6 queued
+---
+
+[TestScanStatesAndProgress/scanning - 1]
+yardstick › grype-upgrade                                                    31s
+  grype v0.120.1 vs v0.100.0   same DB latest 2f1597f
+  setup ✔ 21s   SBOMs ✔ 3 (2 claims, 1 built)   scans ⠋ 3/6
+                                 candidate        reference           Δ
+  chainguard/wolfi-base@be38345  ✔    95 2.0s     ✔    97 2.0s       -2
+  alpine@ddac200                 ✔     4 1.0s     ⠋ 1.2s         
+  deb                            ⠋ 1.2s           · queued       
+  ━━━━━━━━━━━━━━━━━━━━───────────────────── 3/6 · 2 running · 1 queued · eta ~6s
+---
+
+[TestScanStatesAndProgress/a_failed_scan - 1]
+yardstick › grype-upgrade                                                    31s
+  grype v0.120.1 vs v0.100.0   same DB latest 2f1597f
+  setup ✔ 21s   SBOMs ✔ 3 (2 claims, 1 built)   scans ✘ 1 failed
+                                 candidate        reference           Δ
+  chainguard/wolfi-base@be38345  ✔    95 2.0s     ✔    97 2.0s       -2
+  alpine@ddac200                 ✔     4 1.0s     ✔     4 1.2s        =
+  deb                            ✘ failed         – stopped      
+  ✘ deb · candidate: failed to load vulnerability db: no such file
+  ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 6/6
+---
+
+[TestScanStatesAndProgress/settled - 1]
+✘ grype-upgrade  1 of 6 scans failed after 31s
+  ✘ deb · candidate: failed to load vulnerability db: no such file
+
+---
+
+[TestRowsCollapseToFit - 1]
+yardstick › grype-upgrade                                                    12s
+  grype v0.120.1 vs v0.100.0   same DB latest 2f1597f
+  setup ✔ 0.3s   SBOMs ✔ 14 (14 claims)   scans ⠋ 12/28
+                               candidate        reference           Δ
+  ✔ 6 subjects scanned by every setup
+  anchore/test_images@0000006  ⠋ 0.0s           ⠋ 0.0s         
+  anchore/test_images@0000007  ⠋ 0.0s           ⠋ 0.0s         
+  anchore/test_images@0000008  · queued         · queued       
+  anchore/test_images@0000009  · queued         · queued       
+  anchore/test_images@0000010  · queued         · queued       
+  · 3 more queued
+  ━━━━━━━━━━━━━━━────────────────────── 12/28 · 4 running · 12 queued · eta ~16s
+---
+
+[TestGatesInOneRun/live - 1]
+os-packages  scanned 2 in 2.3s · candidate 4 · reference 5 matches
+yardstick › grype-upgrade                                                   1.3s
+  grype v0.120.1 vs v0.100.0   same DB latest 2f1597f
+  setup ✔ 0.3s   SBOMs ⠋ 0/1   scans ⠋ 0/2
+                                 candidate        reference           Δ
+  chainguard/wolfi-base@be38345  ⠋ 1.0s           · queued       
+  ─────────────────────────────────────────────────── 0/2 · 1 running · 1 queued
+---
+
+[TestGatesInOneRun/settled - 1]
+os-packages  scanned 2 in 2.3s · candidate 4 · reference 5 matches
+– grype-upgrade  stopped after 0 of 2 scans, 1.3s
+
+---
+
+[TestTasksOutsideAGate - 1]
+yardstick
+    ⠋ install syft@v1.54.1                                            1.0s
+---
+
+[TestReusedScansShowAsCached/one_still_running - 1]
+yardstick › grype-upgrade                                                   2.3s
+  grype v0.120.1 vs v0.100.0   same DB latest 2f1597f
+  setup ✔ 0.3s   SBOMs ⠋ 0/3   scans ⠋ 4/6
+                                 candidate        reference           Δ
+  chainguard/wolfi-base@be38345  ✔    12 cached   ✔    14 cached     -2
+  alpine@ddac200                 ✔    12 cached   ✔    14 cached     -2
+  deb                            ⠋ 2.0s           · queued       
+  ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━───────────────── 4/6 · 1 running · 1 queued
+---
+
+[TestReusedScansShowAsCached/done - 1]
+yardstick › grype-upgrade                                                   5.3s
+  grype v0.120.1 vs v0.100.0   same DB latest 2f1597f
+  setup ✔ 0.3s   SBOMs ⠋ 0/3   scans ✔ 6 (4 cached)
+                                 candidate        reference           Δ
+  chainguard/wolfi-base@be38345  ✔    12 cached   ✔    14 cached     -2
+  alpine@ddac200                 ✔    12 cached   ✔    14 cached     -2
+  deb                            ✔     3 2.0s     ✔     4 3.0s       -1
+  ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 6/6
+---
+
+[TestReusedScansShowAsCached/settled - 1]
+grype-upgrade  scanned 6 in 5.3s (4 cached) · candidate 27 · reference 32 matches
+
+---

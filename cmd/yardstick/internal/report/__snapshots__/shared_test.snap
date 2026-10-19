@@ -1,0 +1,23 @@
+
+[TestRunHeaderLayout/two_setups - 1]
+rpm-cpes  gates/rpm-cpes.yaml, scanned 2026-10-14 10:00Z
+  varied   env  none (reference) -> GRYPE_MATCH_RPM_USING_CPES=true (candidate)
+  held     grype v0.120.1, DB sha256:30d8bcd3, config none
+  claims   github.com/anchore/delta-prototype@main at sha256:7df20f57, commit 77aa0000
+  built    rpm with syft 1.54.1
+  frozen   anchore/test_images@7536ee345532 can no longer be pulled; its SBOM from a claims source was scanned
+  env      inherited GRYPE_DB_AUTO_UPDATE
+  warning  cbl-mariner/base/core@51101e635f56: its label files record linux/arm64, and this run catalogs linux/amd64
+
+---
+
+[TestRunHeaderLayout/one_setup - 1]
+rpm-cpes  gates/rpm-cpes.yaml, scanned 2026-10-14 10:00Z
+  setup    one setup scanned, so nothing is compared: grype v0.120.1, DB sha256:30d8bcd3, config none, env GRYPE_MATCH_RPM_USING_CPES=true
+  claims   github.com/anchore/delta-prototype@main at sha256:7df20f57, commit 77aa0000
+  built    rpm with syft 1.54.1
+  frozen   anchore/test_images@7536ee345532 can no longer be pulled; its SBOM from a claims source was scanned
+  env      inherited GRYPE_DB_AUTO_UPDATE
+  warning  cbl-mariner/base/core@51101e635f56: its label files record linux/arm64, and this run catalogs linux/amd64
+
+---

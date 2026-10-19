@@ -1,0 +1,20 @@
+permit:
+  - BSD.*
+  - CC0.*
+  - MIT.*
+  - Apache.*
+  - MPL.*
+  - ISC
+  - WTFPL
+
+ignore-packages:
+  # https://github.com/sorairolake/lzip-go/blob/34a2615d2abf740175c6b0a835baa08364e09430/go.sum.license#L3
+  # has `SPDX-License-Identifier: Apache-2.0 OR MIT`, both of which are acceptable (pulled in by binny's archive extraction)
+  - github.com/sorairolake/lzip-go
+  # crypto/internal/boring is released under the openSSL license as a part of the Golang Standard Libary
+  - crypto/internal/boring
+  # from: https://github.com/xi2/xz/blob/master/LICENSE
+  # All these files have been put into the public domain.
+  # You can do whatever you want with these files.
+  # (pulled in by syft and grype, which yardstick decodes SBOMs and scan results with)
+  - github.com/xi2/xz
