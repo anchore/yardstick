@@ -1,7 +1,7 @@
-# the Go image only, with the candidate told to keep matching the Go stdlib by CPE: expected to pass
+# the Go image only, with both setups told to keep matching the Go stdlib by CPE: expected to pass
 schema: v1
-candidate: {grype: grype@latest, db: latest, config: ../grype/stdlib-cpe.yaml}
-reference: {grype: grype@v0.100.0, db: latest}
+candidate: {grype: grype@v0.120.1, db: latest, config: ../grype/stdlib-cpe.yaml}
+reference: {grype: grype@v0.100.0, db: latest, config: ../grype/stdlib-cpe.yaml}
 subjects:
   - oci:ghcr.io/anchore/test-images/grype-quality-golang:d89207b@sha256:7536ee345532f674ec9e448e3768db4e546c48220ba2b6ec9bc9cfbfb3b7b74a
 checks:

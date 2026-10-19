@@ -6,9 +6,9 @@ Run everything from the repository root. The first gate run downloads two grype 
 
 What's in `demo/`:
 
-- `gates/grype-upgrade.yaml` compares grype v0.100.0 with the latest grype over 14 images, on the same DB.
-- `gates/grype-upgrade-stdlib-cpe.yaml` is the same gate with a grype config on the candidate (`grype/stdlib-cpe.yaml`).
-- `gates/go-stdlib-cpe.yaml` is that config on the Go image alone.
+- `gates/grype-upgrade.yaml` compares grype v0.100.0 (the reference) with v0.120.1 (the candidate) over 14 images. Only grype varies: both setups use the same DB and the same config.
+- `gates/grype-upgrade-stdlib-cpe.yaml` is the same gate with one grype config, `grype/stdlib-cpe.yaml`, on both setups.
+- `gates/go-stdlib-cpe.yaml` is that gate on the Go image alone.
 
 None of the gates names its claims. They all read the app config, `.yardstick.yaml` at the repo root:
 
@@ -81,7 +81,7 @@ The two changes need different fixes:
 
 ## 3. Fix the regression
 
-grype v0.115.0 changed the default of `match.golang.always-use-cpe-for-stdlib` to false. `demo/grype/stdlib-cpe.yaml` sets it back, and a gate's setup points `config:` at it. On the Go image alone, that fixes the gate:
+grype v0.115.0 changed the default of `match.golang.always-use-cpe-for-stdlib` to false. `demo/grype/stdlib-cpe.yaml` sets it back to true, which is v0.100.0's default too, and both setups point `config:` at it. The config is held like the DB, so grype is still the only input that varies. On the Go image alone, that fixes the gate:
 
 ```bash
 bin/yardstick demo/gates/go-stdlib-cpe.yaml
@@ -106,26 +106,16 @@ UNDECIDED grype-upgrade-stdlib-cpe  3 checks undecided, 1 passes (undecided coun
   UNDECIDED  unjudgedChangesAtMost  max 0        0..21    change 1
 ```
 
-The header now says `more than one input varied`: the candidate changes both grype and its config, so no delta can be pinned on the grype version alone.
+## 4. Label in the UI, with an agent's help
 
-## 4. Draft labels with an agent
-
-This step is optional; you can label everything by hand in step 5. The `triage-deltas` skill in `plugin/` reads every unlabeled row, gathers evidence (the CVE record, OSV, distro trackers, the SBOM's file list) and records a **proposal** for each: a verdict, a justification and the facts behind it. A proposal is not a label and counts for nothing until a person accepts it.
+The label UI can send an agent to research each unlabeled match. It runs the `research-vuln` skill from the yardstick Claude Code plugin in `plugin/`, so install that once, from this checkout:
 
 ```bash
-PATH=$PWD/bin:$PATH claude -p "/yardstick:triage-deltas $PWD grype-upgrade-stdlib-cpe" \
-  --plugin-dir $PWD/plugin --allowedTools "Bash Read Write Edit Grep Glob Agent"
-wc -l .yardstick/proposals.jsonl .yardstick/causes.jsonl
+claude plugin marketplace add ./
+claude plugin install yardstick@yardstick
 ```
 
-```
-      21 .yardstick/proposals.jsonl
-       2 .yardstick/causes.jsonl
-```
-
-Here it proposed 16 of the glibc rows as tp (medium confidence: the CNA's affected range includes 2.42) and 5 as fp (high: the vulnerable code isn't in the image, such as iconv modules that aren't installed, or a Power8-only bug on x86_64). It grouped them into two **causes**, so each group can be accepted at once. The reasoning per row is in `.yardstick/triage/default/grype-upgrade-stdlib-cpe/proposals.md` and `evidence.md`. Everything under `.yardstick/` is gitignored.
-
-## 5. Review and label in the UI
+A plugin from a local marketplace loads in place, so it always matches the yardstick built here. Then open the gate in the UI:
 
 ```bash
 bin/yardstick claims serve grype-upgrade-stdlib-cpe --open
@@ -135,53 +125,56 @@ bin/yardstick claims serve grype-upgrade-stdlib-cpe --open
 labeling at http://127.0.0.1:7655/ (ctrl-c to stop)
 ```
 
-The gate's board shows its checks as range bars and the changed matches as a map, grouped by direction, reason and source package. Open a match to label it:
+Without the plugin, serve says so as it starts, with the command to install it, and everything but research still works.
 
-- `t`, `f` and `u` label it tp, fp or unclear. fp and unclear need a justification, picked from the list under the buttons.
-- With a proposal, the tile shows its verdict, its evidence and what accepting it does to each check. `a` accepts it, and `A` accepts a whole cause.
+The gate's board shows its checks as range bars and the changed matches as a map, grouped by direction, reason and source package.
 
-Each label is written to `./claims` as you go, with `seenIn` filled from the run, and the board re-scores at once. Read a proposal's evidence before you accept it: here the tp proposals don't check whether secureos backported fixes into 2.42-r4.
+- **Research.** `research 20 of 21 matches that could move a check` on the board sends an agent to each of those matches, two at a time, and `R` in a match's tile researches just that one. Each agent reads the CVE record, the advisories, the distro's security data and the image's SBOM, and records a **proposal**: a verdict, a justification and a note on what decided it. A proposal is not a label and counts for nothing until a person accepts it.
+- **Label.** Open a match to see its proposal and what accepting it would do to each check. `a` accepts it. `t`, `f` and `u` label it tp, fp or unclear yourself; fp and unclear need a justification, picked from the list under the buttons.
 
-`claims add` writes the same label from the command line:
+Here the 21 matches took about 10 minutes. The agents found that the secureos security data lists every one of these CVEs as not affecting `glibc-2.42` (fixed at version "0", with no reason given), so they proposed 16 as fp. For the other 5 they proposed `unclear`, because upstream 2.42 still has the vulnerable code and nobody checked what the apk patches. Read a proposal's note before you accept it: it is an agent's claim, and you are the one vouching for it.
+
+Each label is written to `./claims` as you go, with `seenIn` filled from the run, and the board re-scores at once. `claims add` writes the same label from the command line:
 
 ```bash
 bin/yardstick claims add --gate demo/gates/grype-upgrade-stdlib-cpe.yaml \
   --subject oci:registry.replicated.com/library/grype-test@sha256:3339bcd874d21fa3ca5bd20636e793c0c33bd71ace3a18a9a3b3d147b91dd000 \
   --package 'pkg:apk/secureos/glibc-2.42@2.42-r4?arch=x86_64&distro=secureos-2025.09.09' \
-  --vulnerability CVE-2026-4046 --verdict fp --justification vulnerable_code_not_present
+  --vulnerability CVE-2026-5928 --verdict <tp|fp|unclear> --justification <one listed under that verdict>
 ```
 
-## 6. Re-score
+## 5. Re-score
 
-`score` re-reads the last scans against the current labels. It runs neither syft nor grype:
+With all 21 proposals accepted, `score` re-reads the last scans against the new labels. It runs neither syft nor grype:
 
 ```bash
 bin/yardstick score demo/gates/grype-upgrade-stdlib-cpe.yaml
 ```
 
 ```
-FAIL grype-upgrade-stdlib-cpe  2 checks fail, 2 pass
-                                            worst subject
-  FAIL  f1NotWorse             tolerance 0  0.76..0.76  change 1
-  FAIL  noNewFalseNegatives    max 0        16..16      change 1
+UNDECIDED grype-upgrade-stdlib-cpe  3 checks undecided, 1 passes (undecided counts as fail)
+                                                 worst subject
+  UNDECIDED  f1NotWorse             tolerance 0  0..0.32  change 1
+  UNDECIDED  noNewFalseNegatives    max 0        0..5     change 1
+  UNDECIDED  unjudgedChangesAtMost  max 0        0..5     change 1
 
 what changed  26 of 2709 matches: 26 dropped by the candidate, 0 added
 
 1 apk-matcher stopped reporting nvd:cpe cpe-match on apk/secureos/glibc-2.42
     26 matches, 26 CVEs, 1 package, on library/grype-test@3339bcd874d2
-    introduced: 16 tp, now missed
-      16 CVEs on glibc-2.42@2.42-r4
-      fails f1NotWorse, noNewFalseNegatives; NO CAUSE
-    fixed: 10 fp, no longer reported
-      10 CVEs on glibc-2.42@2.42-r4
-      fails f1NotWorse
+    fixed: 21 fp, no longer reported
+      21 CVEs on glibc-2.42@2.42-r4
+    review: 5 unlabeled
+      CVE-2025-15281, CVE-2026-5928, CVE-2026-6368, CVE-2026-77117,
+      CVE-2026-95818 on glibc-2.42@2.42-r4
+      one labeled tp: f1NotWorse FAIL, noNewFalseNegatives FAIL; fp: no change
 ```
 
-The gate is no longer undecided. Both ends of every range agree, and the answer is FAIL: the newer grype misses 16 glibc vulnerabilities on secureos that the older one found, and no grype setting brings them back. That is a grype regression to fix or to accept on purpose. It was there before labeling too; the labels are what made the gate able to say so.
+An `unclear` label counts as unjudged, so the gate stays undecided until a person settles those 5. The report says what each answer does: if all 5 are fp, every check reaches 0 and the gate passes, which means the newer grype was right to drop all 26. If even one is tp, `noNewFalseNegatives` fails, and grype v0.120.1 misses a real glibc vulnerability on secureos. Settling them means reading the secureos glibc package's patches, and the board previews either answer before anything is written.
 
-The labels are worth keeping either way, since every gate that scans this image reads them.
+The labels are worth keeping whatever the gate says, since every gate that scans this image reads them.
 
-## 7. Get the labels into the corpus
+## 6. Get the labels into the corpus
 
 `claims promote` moves the scratch labels into a checkout of [anchore/match-claims](https://github.com/anchore/match-claims):
 
@@ -211,7 +204,7 @@ SBOMs for syft 1.14.0: 1 have
 
 The SBOM `promote` copied in is gitignored there: SBOMs live in R2, and the publish workflow uploads any new one. Push the branch and open the pull request.
 
-## 8. After the pull request merges
+## 7. After the pull request merges
 
 The publish workflow bundles the corpus, uploads the snapshot and moves `claims/latest-v1.json` to it. Back in this repository:
 
@@ -221,7 +214,7 @@ rm -rf claims                 # the scratch labels are published now; yardstick 
 bin/yardstick score demo/gates/grype-upgrade-stdlib-cpe.yaml
 ```
 
-The verdict is the same as in step 6, now read from the published labels alone, so everyone running these gates gets it.
+The verdict is the same as in step 5, now read from the published labels alone, so everyone running these gates gets it.
 
 ## More
 

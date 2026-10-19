@@ -1,6 +1,6 @@
-# does the newest grype match at least as well as an older release, on the same DB?
+# does grype v0.120.1 match at least as well as v0.100.0, on the same DB?
 schema: v1
-candidate: {grype: grype@latest, db: latest}
+candidate: {grype: grype@v0.120.1, db: latest}
 reference: {grype: grype@v0.100.0, db: latest}
 subjects:
   - oci:cgr.dev/chainguard/wolfi-base@sha256:be3834598c3c4b76ace6a866edcbbe1fa18086f9ee238b57769e4d230cd7d507

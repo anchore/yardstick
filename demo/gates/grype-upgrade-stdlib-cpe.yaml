@@ -1,7 +1,7 @@
-# grype-upgrade, with the candidate told to keep matching the Go stdlib by CPE
+# grype-upgrade, with both setups told to keep matching the Go stdlib by CPE
 schema: v1
-candidate: {grype: grype@latest, db: latest, config: ../grype/stdlib-cpe.yaml}
-reference: {grype: grype@v0.100.0, db: latest}
+candidate: {grype: grype@v0.120.1, db: latest, config: ../grype/stdlib-cpe.yaml}
+reference: {grype: grype@v0.100.0, db: latest, config: ../grype/stdlib-cpe.yaml}
 subjects:
   - oci:cgr.dev/chainguard/wolfi-base@sha256:be3834598c3c4b76ace6a866edcbbe1fa18086f9ee238b57769e4d230cd7d507
   - oci:ghcr.io/anchore/test-images/java:56d52bc@sha256:10008791acbc5866de04108746a02a0c4029ce3a4400a9b3dad45d7f2245f9da
