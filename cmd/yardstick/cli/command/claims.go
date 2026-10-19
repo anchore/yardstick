@@ -20,7 +20,6 @@ func Claims(app clio.Application) *cobra.Command {
 		ClaimsValidate(app),
 		ClaimsImport(app),
 		ClaimsExport(app),
-		ClaimsMigrate(app),
 		ClaimsPropose(app),
 		ClaimsProposeCause(app),
 		ClaimsExplain(app),

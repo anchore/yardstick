@@ -6949,7 +6949,7 @@
         "enable-eol-distro-warnings": true
       },
       "db": {
-        "cache-dir": "/var/folders/c0/4y79v5k56bz8v34chcmvq2k80000gp/T/tmp.8fp8yFiooV/db",
+        "cache-dir": "/var/folders/c0/4y79v5k56bz8v34chcmvq2k80000gp/T/tmp.jypqI0qdus/db",
         "update-url": "https://grype.anchore.io/databases",
         "ca-cert": "",
         "auto-update": false,
@@ -6973,7 +6973,7 @@
         "schemaVersion": "v6.1.10",
         "from": "https://grype.anchore.io/databases/v6/vulnerability-db_v6.1.10_2026-10-14T00:28:57Z_1791959434.tar.zst?checksum=sha256:30d8bcd3c09e03c9f734c522e104c1387e285e3f6e33da2ee7b55f521daadb3f",
         "built": "2026-10-14T06:30:34Z",
-        "path": "/var/folders/c0/4y79v5k56bz8v34chcmvq2k80000gp/T/tmp.8fp8yFiooV/db/6/vulnerability.db",
+        "path": "/var/folders/c0/4y79v5k56bz8v34chcmvq2k80000gp/T/tmp.jypqI0qdus/db/6/vulnerability.db",
         "valid": true
       },
       "providers": {
@@ -7083,6 +7083,6 @@
         }
       }
     },
-    "timestamp": "2026-10-14T17:03:21.496903-04:00"
+    "timestamp": "2026-10-19T09:50:54.955058-04:00"
   }
 }
