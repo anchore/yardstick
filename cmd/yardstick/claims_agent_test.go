@@ -63,12 +63,12 @@ func TestClaimsAgentCommands(t *testing.T) {
 
 	// a confidence above the rule's ceiling is refused, and nothing is recorded
 	call := `{"row":"` + tarRow + `","verdict":"fp","justification":"fix-installed","confidence":"%s","evidence":[{"rule":"nvd/fixed","facts":[` + fact + `]}],"author":{"skill":"triage-deltas"}}`
-	_, stderr, code := propose(strings.Replace(call, "%s", "high", 1), "claims", "propose", "--gate", "gates/deb.yaml")
+	_, stderr, code := propose(strings.Replace(call, "%s", "high", 1), "claims", "agent", "propose", "--gate", "gates/deb.yaml")
 	if code != 2 || !strings.Contains(stderr, "above the medium ceiling for nvd/fixed") {
 		t.Fatalf("expected the high confidence refused, got %d: %s", code, stderr)
 	}
 	// an unknown field is refused
-	if _, stderr, code := propose(`{"row":"`+tarRow+`","verdict":"tp","bogus":1}`, "claims", "propose", "--gate", "deb"); code != 2 || !strings.Contains(stderr, "bogus") {
+	if _, stderr, code := propose(`{"row":"`+tarRow+`","verdict":"tp","bogus":1}`, "claims", "agent", "propose", "--gate", "deb"); code != 2 || !strings.Contains(stderr, "bogus") {
 		t.Fatalf("expected the unknown field refused, got %d: %s", code, stderr)
 	}
 	if got, _ := store.Proposals.Current(); len(got) != 0 {
@@ -78,7 +78,7 @@ func TestClaimsAgentCommands(t *testing.T) {
 	// by row, the gate named by YARDSTICK_GATE: subject, package and vulnerability come from the row
 	t.Setenv("YARDSTICK_GATE", "deb")
 	t.Setenv("YARDSTICK_RESEARCH_JOB", "job-1")
-	stdout, stderr, code := propose(strings.Replace(call, "%s", "medium", 1), "claims", "propose")
+	stdout, stderr, code := propose(strings.Replace(call, "%s", "medium", 1), "claims", "agent", "propose")
 	if code != 0 || !strings.Contains(stdout, "\tfp\tCVE-2005-2541\tpkg:deb/debian/tar@") {
 		t.Fatalf("expected the proposal recorded, got %d: %s %s", code, stdout, stderr)
 	}
@@ -92,7 +92,7 @@ func TestClaimsAgentCommands(t *testing.T) {
 	}
 
 	// a cause by rows: members, source package and direction filled in
-	stdout, stderr, code = propose(`{"rows":["`+tarRow+`"],"title":"tar is fixed","verdict":"fp","justification":"fix-installed","confidence":"medium"}`, "claims", "propose-cause")
+	stdout, stderr, code = propose(`{"rows":["`+tarRow+`"],"title":"tar is fixed","verdict":"fp","justification":"fix-installed","confidence":"medium"}`, "claims", "agent", "propose-cause")
 	if code != 0 || !strings.Contains(stdout, "\tfp\ttar\t1 members\ttar is fixed") {
 		t.Fatalf("expected the cause recorded, got %d: %s %s", code, stdout, stderr)
 	}
@@ -101,7 +101,7 @@ func TestClaimsAgentCommands(t *testing.T) {
 		t.Errorf("expected the cause filled in from its row, got %+v", causes)
 	}
 	// a member naming another row's vulnerability is refused
-	if _, stderr, code := propose(`{"members":[{"row":"`+tarRow+`","vulnerability":"CVE-1999-0001"}],"title":"x","verdict":"tp"}`, "claims", "propose-cause"); code != 2 || !strings.Contains(stderr, "not CVE-1999-0001") {
+	if _, stderr, code := propose(`{"members":[{"row":"`+tarRow+`","vulnerability":"CVE-1999-0001"}],"title":"x","verdict":"tp"}`, "claims", "agent", "propose-cause"); code != 2 || !strings.Contains(stderr, "not CVE-1999-0001") {
 		t.Fatalf("expected the mismatched member refused, got %d: %s", code, stderr)
 	}
 
@@ -111,25 +111,25 @@ func TestClaimsAgentCommands(t *testing.T) {
 		return `{"id":"` + id + `","title":"the candidate DB has no tar record","reason":"record/absent-in-candidate","members":[{"row":"` + tarRow + `"}],` +
 			`"logExcerpts":[{"side":"candidate","file":"` + logged.Path + `","lines":[1,2],"text":"` + text + `","sha256":"` + logged.SHA256 + `"}]}`
 	}
-	if _, stderr, code := propose(explanation("e1", "searching tar\\nsomething else"), "claims", "explain", "propose"); code != 2 || !strings.Contains(stderr, "copy them exactly") {
+	if _, stderr, code := propose(explanation("e1", "searching tar\\nsomething else"), "claims", "agent", "explain", "propose"); code != 2 || !strings.Contains(stderr, "copy them exactly") {
 		t.Fatalf("expected a misquoted excerpt refused, got %d: %s", code, stderr)
 	}
-	if stdout, stderr, code := propose(explanation("e1", "searching tar\\nno record for tar"), "claims", "explain", "propose"); code != 0 || !strings.Contains(stdout, "e1\tdeb\t1 members") {
+	if stdout, stderr, code := propose(explanation("e1", "searching tar\\nno record for tar"), "claims", "agent", "explain", "propose"); code != 0 || !strings.Contains(stdout, "e1\tdeb\t1 members") {
 		t.Fatalf("expected the explanation recorded, got %d: %s %s", code, stdout, stderr)
 	}
-	if _, stderr, code := propose(explanation("e2", "searching tar\\nno record for tar"), "claims", "explain", "propose"); code != 2 || !strings.Contains(stderr, "already in explanation e1") {
+	if _, stderr, code := propose(explanation("e2", "searching tar\\nno record for tar"), "claims", "agent", "explain", "propose"); code != 2 || !strings.Contains(stderr, "already in explanation e1") {
 		t.Fatalf("expected a second explanation of the row refused, got %d: %s", code, stderr)
 	}
-	stdout, _, _ = yardstick(t, w.dir, "claims", "explain", "ls", "--gate", "deb", "-o", "json")
+	stdout, _, _ = yardstick(t, w.dir, "claims", "agent", "explain", "list", "--gate", "deb", "-o", "json")
 	var listed []agentstore.Explanation
 	if err := json.Unmarshal([]byte(stdout), &listed); err != nil || len(listed) != 1 || listed[0].Run != runrecord.DefaultName || listed[0].Members[0].Package == "" {
 		t.Errorf("expected the one explanation listed, got %v %s", err, stdout)
 	}
 	// --name filters by run name, as --gate does by gate
-	if stdout, _, _ := yardstick(t, w.dir, "claims", "explain", "ls", "--gate", "deb", "--name", "other", "-o", "json"); strings.TrimSpace(stdout) != "[]" {
+	if stdout, _, _ := yardstick(t, w.dir, "claims", "agent", "explain", "list", "--gate", "deb", "--name", "other", "-o", "json"); strings.TrimSpace(stdout) != "[]" {
 		t.Errorf("expected no explanation of another run, got %s", stdout)
 	}
-	if stdout, _, _ := yardstick(t, w.dir, "claims", "explain", "ls", "--name", runrecord.DefaultName, "-o", "json"); !strings.Contains(stdout, `"e1"`) {
+	if stdout, _, _ := yardstick(t, w.dir, "claims", "agent", "explain", "list", "--name", runrecord.DefaultName, "-o", "json"); !strings.Contains(stdout, `"e1"`) {
 		t.Errorf("expected the run's explanation listed by name, got %s", stdout)
 	}
 
@@ -138,7 +138,7 @@ func TestClaimsAgentCommands(t *testing.T) {
 		Vulnerability: p.Vulnerability, Verdict: claimsv1.TP, Reason: &agentstore.Reason{Kind: "stale-fact", Text: "NVD moved"}, Author: "alex", Timestamp: time.Now()}); err != nil {
 		t.Fatal(err)
 	}
-	stdout, _, _ = yardstick(t, w.dir, "claims", "overrides", "-o", "json")
+	stdout, _, _ = yardstick(t, w.dir, "claims", "agent", "overrides", "-o", "json")
 	var groups []struct {
 		Rule      string
 		Count     int
@@ -152,7 +152,7 @@ func TestClaimsAgentCommands(t *testing.T) {
 	}
 
 	// ls and policy read the claims sources named by --claims, with no gate
-	stdout, _, _ = yardstick(t, w.dir, "claims", "ls", "--claims", "claims", "-s", "libc6", "-o", "json")
+	stdout, _, _ = yardstick(t, w.dir, "claims", "list", "--claims", "claims", "-s", "libc6", "-o", "json")
 	var ls []struct{ Label claimsv1.Label }
 	if err := json.Unmarshal([]byte(stdout), &ls); err != nil || len(ls) != 1 || ls[0].Label.Vulnerability != "CVE-2026-5450" {
 		t.Errorf("expected the libc6 label listed, got %v %s", err, stdout)

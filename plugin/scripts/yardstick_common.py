@@ -73,7 +73,7 @@ def score(ys: str, store: Path, name: str, run: dict) -> dict:
 def load_labels(ys: str, store: Path) -> list[dict]:
     """Every label in the workspace's claims sources ({source, file, subject, label}), through the CLI:
     skills never read the corpus's files, so it can change how it keeps them."""
-    return run_json([ys, "claims", "ls", "-o", "json"], store) or []
+    return run_json([ys, "claims", "list", "-o", "json"], store) or []
 
 
 def load_policy(ys: str, store: Path | None = None, claims: str | None = None) -> dict:
@@ -83,15 +83,16 @@ def load_policy(ys: str, store: Path | None = None, claims: str | None = None) -
 
 
 def checkout_policy() -> dict:
-    """For the tests: the policy of the yardstick checkout these scripts sit in (<repo>/claims), read with
-    $YARDSTICK_BIN, else with a yardstick built from the checkout now (a bin/yardstick may be stale)."""
+    """For the tests: the policy the yardstick checkout these scripts sit in reads through its app config
+    (the published corpus first), read with $YARDSTICK_BIN, else with a yardstick built from the checkout
+    now (a bin/yardstick may be stale)."""
     import tempfile
     repo = Path(__file__).resolve().parents[2]
     ys = os.environ.get("YARDSTICK_BIN")
     if not ys:
         ys = str(Path(tempfile.mkdtemp()) / "yardstick")
         subprocess.run(["go", "build", "-o", ys, "./cmd/yardstick"], cwd=repo, check=True)
-    return load_policy(ys, claims=str(repo / "claims"))
+    return load_policy(ys, store=repo)
 
 
 def subject_logs(run: dict) -> dict[str, dict]:
@@ -650,7 +651,7 @@ def shell_quote(s: str) -> str:
 
 
 # ---------------------------------------------------------------------------
-# facts, in the shape `yardstick claims propose` accepts (evidence[].facts)
+# facts, in the shape `yardstick claims agent propose` accepts (evidence[].facts)
 # ---------------------------------------------------------------------------
 
 def now_iso() -> str:

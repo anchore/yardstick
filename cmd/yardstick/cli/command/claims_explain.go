@@ -228,8 +228,8 @@ func (o *explainListOptions) AddFlags(flags clio.FlagSet) {
 func ClaimsExplainList(app clio.Application) *cobra.Command {
 	cfg := &explainListOptions{textOrJSON: newTextOrJSON()}
 	return app.SetupCommand(&cobra.Command{
-		Use:     "ls",
-		Aliases: []string{"list"},
+		Use:     "list",
+		Aliases: []string{"ls"},
 		Short:   "List the current explanations (the newest line per id)",
 		Args:    cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {

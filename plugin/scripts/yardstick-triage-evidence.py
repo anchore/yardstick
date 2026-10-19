@@ -3,7 +3,7 @@
 
     yardstick-triage-evidence.py [--store DIR] [--name RUN] [--gate NAME] [--side cand|ref|both] [--model ID] [--out DIR] [--workers N]
 
-Reads `yardstick score <gate> -o json` (rows carry the grype detail), `yardstick claims ls` and
+Reads `yardstick score <gate> -o json` (rows carry the grype detail), `yardstick claims list` and
 `yardstick claims policy`, and (cached under ~/.cache/yardstick-skills/) cve.org, the Ubuntu tracker, OSV and
 the upstream project's GitHub repository advisory for unassessed distro rows (set GITHUB_TOKEN to lift the
 60/hour limit). Writes to <out> (default <store>/.yardstick/triage/<run>/<gate>/):
@@ -11,11 +11,11 @@ the upstream project's GitHub repository advisory for unassessed distro rows (se
     evidence.md       one section per group (vulnerability x source package), for review
     evidence.json     the same, machine-readable, with the row ids
     groups.json       group number -> row ids (for yardstick-triage-edit.py)
-    proposals.jsonl   `yardstick claims propose` input: one line per row, with justification, rule, facts, note
+    proposals.jsonl   `yardstick claims agent propose` input: one line per row, with justification, rule, facts, note
     proposals.md      the proposals numbered by group, in three confidence sections
-    causes.jsonl      `yardstick claims propose-cause` input
+    causes.jsonl      `yardstick claims agent propose-cause` input
 
-Nothing is recorded until someone runs `yardstick claims propose proposals.jsonl --gate <gate>`.
+Nothing is recorded until someone runs `yardstick claims agent propose proposals.jsonl --gate <gate>`.
 
 Confidence: high = the tracker states it; medium = inferred from version ranges, a human should look;
 low = nobody has assessed it, proposed as `unclear`. Rules are named `<source>/<inference>` in evidence[].rule;
@@ -93,7 +93,7 @@ def why_from_text(text: str) -> str:
 def why_for(rule: str, verdict: str, kind: str | None = None, text: str = "") -> dict | None:
     """The proposal's justification as {kind, text?}: the kind given, else the rule's from the policy (per-row
     rules read the vendor's text). The text is the specific, which goes in the evidence's interpretation.
-    Raises when the kind doesn't support the verdict, so a drift fails here rather than in `yardstick claims propose`."""
+    Raises when the kind doesn't support the verdict, so a drift fails here rather than in `yardstick claims agent propose`."""
     rule_kind = (POLICY.get(rule) or {}).get("justification", "")
     if not kind:
         kind = why_from_text(text) if rule_kind == PER_LABEL else rule_kind
@@ -763,7 +763,7 @@ def main() -> None:
     for k in sorted(gsum):
         print(f"{k[0]:10} {k[1]:8} {k[2]:7} {gsum[k]:6} {rsum[k]:6}")
     print(f"{n_causes} package-level causes drafted in causes.jsonl (one per source package, rule and verdict spanning several findings)")
-    print(f"next: review evidence.md, adjust with yardstick-triage-edit.py, then (in {store}) `yardstick claims propose {out / 'proposals.jsonl'} --name {name} --gate {run_id}` and `yardstick claims propose-cause {out / 'causes.jsonl'} --name {name} --gate {run_id}`")
+    print(f"next: review evidence.md, adjust with yardstick-triage-edit.py, then (in {store}) `yardstick claims agent propose {out / 'proposals.jsonl'} --name {name} --gate {run_id}` and `yardstick claims agent propose-cause {out / 'causes.jsonl'} --name {name} --gate {run_id}`")
 
 
 VERSION_INFERRED_TP = {"ubuntu/unassessed-upstream-fix-newer-than-installed", "ubuntu/unassessed-cna-range-includes-installed", "debian/affected-unfixed"}
@@ -815,9 +815,10 @@ def write_causes(out: Path, rows: list[dict], props: dict[str, dict], model: str
         rule = rule_of(p)
         if not p.get("evidence") and p["verdict"] == r["suggestion"]["verdict"]:
             rule = r["suggestion"]["rule"]  # a rule nothing was observed for has no evidence entry to sit in
-        buckets.setdefault((r["within"], r["side"], r["source_pkg"], rule, p["verdict"], p.get("confidence", "")), []).append((r, p))
+        # members share a justification too: a cause states one truth about the code
+        buckets.setdefault((r["within"], r["side"], r["source_pkg"], rule, p["verdict"], p.get("confidence", ""), p.get("justification", "")), []).append((r, p))
     causes = []
-    for (within, side, src, rule, verdict, conf), members in buckets.items():
+    for (within, side, src, rule, verdict, conf, why), members in buckets.items():
         vulns = {r["vulnerability"] for r, _ in members}
         if len(vulns) < 2 and len(members) < 3:
             continue
@@ -831,8 +832,9 @@ def write_causes(out: Path, rows: list[dict], props: dict[str, dict], model: str
         notes = collections.Counter(p["note"] for _, p in members)
         common, n = notes.most_common(1)[0]
         pkgs = sorted({r["name"] for r, _ in members})
-        slug = re.sub(r"[^a-z0-9]+", "-", f"{src}-{rule}-{verdict}-{conf}-{side}".lower()).strip("-")
         pr = POLICY.get(rule) or {}
+        # the rule's own justification keeps the id it always had, so reruns still supersede
+        slug = re.sub(r"[^a-z0-9]+", "-", (f"{src}-{rule}-{verdict}-{conf}-{side}" + (f"-{why}" if why and why != pr.get("justification") else "")).lower()).strip("-")
         title = (pr.get("title") or pr.get("basis") or rule or "reviewer judgement") + f": {len(vulns)} {'vulnerability' if len(vulns) == 1 else 'vulnerabilities'} on {src}"
         note = (f"{len(members)} findings ({len(vulns)} vulnerabilities across {', '.join(pkgs[:6])}{'…' if len(pkgs) > 6 else ''}) share rule {rule or 'judgement'}: "
                 f"{common}" + (f" ({n} of {len(members)} members carry this exact note; the rest differ only in versions)" if n < len(members) else ""))
@@ -844,9 +846,8 @@ def write_causes(out: Path, rows: list[dict], props: dict[str, dict], model: str
             c["evidence"] = ev
         if conf:
             c["confidence"] = conf
-        kinds = {p.get("justification") for _, p in members}
-        if len(kinds) == 1 and (kind := kinds.pop()):
-            c["justification"] = kind  # every member's truth about the code; the specifics stay per row
+        if why:
+            c["justification"] = why  # every member's truth about the code; the specifics stay per row
         # the subject is filled in by propose-cause from the rows, since a bucket is within one subject
         qs = [q for _, p in members for q in p.get("openQuestions", [])]
         if verdict == "unclear" and qs:
@@ -864,7 +865,7 @@ def write_proposals_md(out: Path, rows: list[dict], groups: dict) -> None:
             p = json.loads(line)
             props[p["row"]] = p
     md = ["# Proposed labels", "", f"{len(props)} proposals in {len(groups)} groups. Record them, in the workspace, with:", "",
-          "```", f"yardstick claims propose {out / 'proposals.jsonl'} --gate <gate>", "```", ""]
+          "```", f"yardstick claims agent propose {out / 'proposals.jsonl'} --gate <gate>", "```", ""]
     sections = [("high", "## Ready (the tracker states it)"), ("medium", "## Look before accepting (inferred from versions or prior labels)"),
                 ("low", "## Nobody has assessed these (proposed as unclear; candidates for /yardstick:research-vuln)")]
     for conf, title in sections:

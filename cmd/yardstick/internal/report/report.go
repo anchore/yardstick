@@ -77,7 +77,7 @@ type Counts struct {
 type Match struct {
 	ID string `json:"id"`
 	// Row names the match across the gate, stable across re-scoring the same scans: what the
-	// label UI, claims propose and research jobs refer to it by.
+	// label UI, claims agent propose and research jobs refer to it by.
 	Row           string `json:"row"`
 	Vulnerability string `json:"vulnerability"`
 	// Group is the alias group the match is on, and Aliases every id either setup reported for it.

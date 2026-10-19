@@ -250,7 +250,7 @@ ceiling, or a low-confidence tp or fp is refused. A proposal about the same matc
 one supersedes it. Each recorded proposal prints as id, verdict, vulnerability, package and
 subject, tab separated.`,
 		Example: `  echo '{"row":"12f096fe9f1d02ba","verdict":"fp","justification":"fix-installed","confidence":"high",
-    "author":{"skill":"triage-deltas","model":"claude-opus-5-5"}}' | yardstick claims propose --gate deb`,
+    "author":{"skill":"triage-deltas","model":"claude-opus-5-5"}}' | yardstick claims agent propose --gate deb`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			in, err := openInput(cmd, args)

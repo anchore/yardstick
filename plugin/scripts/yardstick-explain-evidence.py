@@ -7,18 +7,18 @@
     yardstick-explain-evidence.py releases --from vX --to vY [--repo anchore/grype] [--grep WORD ...] [--pr N ...] [--facts-out FILE]
 
 load reads `yardstick score <gate> -o json`, the run record (.yardstick/runs/<run>/<gate>/yardstick-run.json)
-and `yardstick claims explain ls`, decompresses each side's grype log (checking the sha256 the run record
+and `yardstick claims agent explain list`, decompresses each side's grype log (checking the sha256 the run record
 holds, which is of the decompressed text), and writes <store>/.yardstick/explain/<run>/<gate>/:
 
     gate.md          what varied between the sides, the reason nodes with counts and priority, and per
                      node the rows with their records and, when logs exist, where each row's package is
                      in both logs (line numbers, CPE searches, found counts, the vulnerability's lines)
     nodes.json       the same, machine-readable
-    skeletons.jsonl  one `yardstick claims explain propose` line per node with gate, run, author, reason and
+    skeletons.jsonl  one `yardstick claims agent explain propose` line per node with gate, run, author, reason and
                      members filled in; title and note are empty, so propose refuses a line you forgot to write
     logs/<side>/NN.log   the decompressed logs; line numbers in gate.md refer to these
 
-excerpt prints one log excerpt object per --lines range, in the shape `yardstick claims explain propose`
+excerpt prints one log excerpt object per --lines range, in the shape `yardstick claims agent explain propose`
 checks ({side, file, lines, text, sha256}), copied from the decompressed log and refused above 8 KiB.
 NN is the subject's index in the run record.
 
@@ -86,7 +86,7 @@ def store_root(arg: str | None) -> Path:
 
 def explanations(ys: str, store: Path, gate: str, name: str) -> list[dict]:
     try:
-        return dc.run_json([ys, "claims", "explain", "ls", "--gate", gate, "--name", name, "-o", "json"], store) or []
+        return dc.run_json([ys, "claims", "agent", "explain", "list", "--gate", gate, "--name", name, "-o", "json"], store) or []
     except (subprocess.CalledProcessError, json.JSONDecodeError):
         return []
 

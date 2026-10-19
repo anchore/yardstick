@@ -452,6 +452,13 @@ func claims(listed []string, opts Options, dir string, errs *problems) []Source 
 			return
 		}
 		p, err := canonical(resolve(base, s))
+		// a local directory the app config names is where labels are written by default, so a
+		// fresh checkout without one gets it rather than failing every command
+		if _, statErr := os.Stat(p); err == nil && from != "" && errors.Is(statErr, os.ErrNotExist) {
+			if mkErr := os.MkdirAll(p, 0o755); mkErr == nil {
+				log.Infof("created claims directory %s%s", p, from)
+			}
+		}
 		if info, statErr := os.Stat(p); err != nil || statErr != nil || !info.IsDir() {
 			errs.addf("claims source %q%s is neither an existing directory nor a reference like github.com/<owner>/<repo>@main", s, from)
 			return

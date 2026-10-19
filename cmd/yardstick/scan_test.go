@@ -206,6 +206,8 @@ func TestRunOpensRemoteSourceOnce(t *testing.T) {
 	}))
 	defer srv.Close()
 	t.Setenv("YARDSTICK_CLAIMS_URL", srv.URL)
+	// one cache for the run and the pull after it
+	t.Setenv("YARDSTICK_CACHE_DIR", t.TempDir())
 
 	gate := filepath.Join(dir, "gates/deb.yaml")
 	data, err := os.ReadFile(gate)
@@ -217,6 +219,11 @@ func TestRunOpensRemoteSourceOnce(t *testing.T) {
 	_, stderr, _ := yardstick(t, dir, "-v", "gates/deb.yaml")
 	if _, err := os.Stat(filepath.Join(dir, ".yardstick", "runs", "default", "deb", "yardstick-run.json")); err != nil {
 		t.Fatalf("expected the run to scan, got %v: %s", err, stderr)
+	}
+	// pull reads the pointer again and finds the snapshot already cached
+	stdout, pullErr, code := yardstick(t, dir, "claims", "pull", "github.com/anchore/match-claims@main")
+	if code != 0 || strings.TrimSpace(stdout) != "github.com/anchore/match-claims@main at "+digest {
+		t.Errorf("expected pull to name the snapshot, got %d %q: %s", code, stdout, pullErr)
 	}
 	mu.Lock()
 	defer mu.Unlock()

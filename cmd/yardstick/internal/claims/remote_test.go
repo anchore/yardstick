@@ -184,9 +184,13 @@ func TestRemoteReferenceResolution(t *testing.T) {
 	if _, err := openRemoteAt(t, "deadbeef00000000000000000000000000000000"); err == nil || !strings.Contains(err.Error(), "deadbeef00000000000000000000000000000000") {
 		t.Errorf("expected an unpublished commit to fail naming it, got %v", err)
 	}
+	// unset, the default host is read
 	t.Setenv(URLVar, "")
-	if _, err := openRemoteAt(t, "main"); err == nil || !strings.Contains(err.Error(), URLVar) {
-		t.Errorf("expected no host to fail naming %s, got %v", URLVar, err)
+	orig := defaultURL
+	defaultURL = h.URL
+	t.Cleanup(func() { defaultURL = orig })
+	if s, err := openRemoteAt(t, "main"); err != nil || s.Digest != newer {
+		t.Errorf("expected no %s to read the default host, got %v", URLVar, err)
 	}
 }
 

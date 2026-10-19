@@ -1,6 +1,6 @@
 // Package research runs an agent in the background to investigate a gate's rows (by default,
 // the yardstick plugin's /yardstick:research-vuln skill), ported from delta's. An agent reports
-// back by recording a proposal with `yardstick claims propose`; yardstick only starts the command
+// back by recording a proposal with `yardstick claims agent propose`; yardstick only starts the command
 // and tracks the job.
 //
 // Jobs live on disk under .yardstick/research/jobs/<id>/ (job.json and log.txt).
@@ -316,7 +316,7 @@ func KillCommand(groups ...int) string {
 }
 
 // env is what the command gets to work with. YARDSTICK_GATE and YARDSTICK_NAME are what the CLI's
-// --gate and --name read, so `yardstick claims propose` resolves the job's rows with no flags; the
+// --gate and --name read, so `yardstick claims agent propose` resolves the job's rows with no flags; the
 // vulnerability and package go under RESEARCH_ names because clio would read YARDSTICK_PACKAGE and
 // YARDSTICK_VULNERABILITY as `claims add` flags. The binary's directory leads PATH, so `yardstick`
 // is this binary.
@@ -330,7 +330,7 @@ func (j Job) env(cfg Config) []string {
 		"YARDSTICK_NAME=" + cmp.Or(j.Run, cfg.Run),
 		"YARDSTICK_ROOT=" + cfg.Dir,
 		"YARDSTICK_BIN=" + cfg.Bin,
-		"YARDSTICK_RESEARCH_JOB=" + j.ID, // `yardstick claims propose` stamps it on the proposals the job records
+		"YARDSTICK_RESEARCH_JOB=" + j.ID, // `yardstick claims agent propose` stamps it on the proposals the job records
 		"YARDSTICK_MODEL=" + cmp.Or(j.Model, cfg.Model),
 	}
 	if cfg.Bin != "" {

@@ -86,15 +86,15 @@ type listedLabel struct {
 func ClaimsList(app clio.Application) *cobra.Command {
 	cfg := &claimsListOptions{textOrJSON: newTextOrJSON()}
 	return app.SetupCommand(&cobra.Command{
-		Use:     "ls",
-		Aliases: []string{"list"},
+		Use:     "list",
+		Aliases: []string{"ls"},
 		Short:   "List the labels in the claims sources",
-		Long: `ls lists every label in the app config's claims sources and --claims, in source order, each with
+		Long: `list lists every label in the app config's claims sources and --claims, in source order, each with
 its source, file and subject. Each source's labels are listed as written: when two sources
 disagree both show, and scoring reads that match as unlabeled. A label's history is the claims
 repository's git history.`,
-		Example: `  yardstick claims ls -s pkg:deb/debian/tar -o json
-  yardstick claims ls -V CVE-2005-2541`,
+		Example: `  yardstick claims list -s pkg:deb/debian/tar -o json
+  yardstick claims list -V CVE-2005-2541`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			if err := cfg.check(); err != nil {

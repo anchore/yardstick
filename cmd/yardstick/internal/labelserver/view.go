@@ -312,7 +312,7 @@ func (s *Server) attachHints(e *entry, v *view) error {
 	if err != nil {
 		return err
 	}
-	// ponytail: a proposal pairs a row by its exact package purl, as claims propose resolves it
+	// ponytail: a proposal pairs a row by its exact package purl, as claims agent propose resolves it
 	// from the row; a hand-written proposal stating fewer purl fields shows no hint
 	byKey := map[string]agentstore.Proposal{}
 	for _, p := range proposals {

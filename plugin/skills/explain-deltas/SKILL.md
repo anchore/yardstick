@@ -1,6 +1,6 @@
 ---
 name: explain-deltas
-description: For one yardstick gate, explain why its two setups' scans differ, one computed reason node at a time — from both sides' grype logs, the grype release notes and the two DBs' records — and record plain-language reasons with log excerpts and facts through `yardstick claims explain propose`. No labels, no evidence about whether a match is real.
+description: For one yardstick gate, explain why its two setups' scans differ, one computed reason node at a time — from both sides' grype logs, the grype release notes and the two DBs' records — and record plain-language reasons with log excerpts and facts through `yardstick claims agent explain propose`. No labels, no evidence about whether a match is real.
 argument-hint: [workspace dir] [gate]
 allowed-tools: Bash, Read, Write, Edit, Grep, Glob, WebFetch, WebSearch, Agent
 ---
@@ -17,7 +17,7 @@ so pass `--store`. Every `yardstick` command below runs in the workspace. The ya
 # What this does
 
 `yardstick score <gate> -o json` gives every row one setup reported a computed reason,
-`why: {key, from?, to?, secondary?}` (`yardstick claims explain propose` lists the keys, in the order
+`why: {key, from?, to?, secondary?}` (`yardstick claims agent explain propose` lists the keys, in the order
 they are tried, when given one it doesn't know). Rows with the
 same key + from + to form a **reason node** in the label UI. A computed reason says *what* differs
 ("same record, not matched (by CPE)"); you find out **why**, and write it down as a **reason**: a short
@@ -47,7 +47,7 @@ What the gate varies decides where to look:
 4. **Split by real cause, not by computed key.** One node may need several reasons (dpkg rows
    changed by one PR, rpm rows by another), and rows with no excerpt or fact stay unexplained. A row is
    in at most one reason per gate.
-5. **Never write to a workspace you were not given.** Reasons go into `<store>/.yardstick/explanations.jsonl` through `yardstick claims explain propose`; never write that file directly.
+5. **Never write to a workspace you were not given.** Reasons go into `<store>/.yardstick/explanations.jsonl` through `yardstick claims agent explain propose`; never write that file directly.
 
 # Phase 1: load the gate (seconds)
 
@@ -60,7 +60,7 @@ python3 -I ${CLAUDE_PLUGIN_ROOT}/scripts/yardstick-explain-evidence.py load --st
 ```
 
 It reads `yardstick score <gate> -o json`, the run record (`.yardstick/runs/<run>/<gate>/yardstick-run.json`)
-and `yardstick claims explain ls --name <run> --gate <gate> -o json`, decompresses every log the run kept (checking
+and `yardstick claims agent explain list --name <run> --gate <gate> -o json`, decompresses every log the run kept (checking
 the sha256 the run record holds, which is of the decompressed text) and writes
 `<store>/.yardstick/explain/<run>/<gate>/`:
 
@@ -79,7 +79,7 @@ the sha256 the run record holds, which is of the decompressed text) and writes
     record counts, the line where the vulnerability was matched with its namespace, or dropped with
     grype's reason, or "not mentioned").
 - `nodes.json`: the same, machine-readable.
-- `skeletons.jsonl`: one `yardstick claims explain propose` line per node, with `id`, `gate`, `run`
+- `skeletons.jsonl`: one `yardstick claims agent explain propose` line per node, with `id`, `gate`, `run`
   (the run name), `reason`, `author` and the not-yet-explained `members` filled in, and `title` and
   `note` empty.
 - `logs/<side>/NN.log`: the decompressed logs. The line numbers in `gate.md` are theirs, and they
@@ -273,8 +273,8 @@ excerpts; its reasons rest on facts alone.
 # Phase 5: propose
 
 ```bash
-yardstick claims explain propose --name <run> --gate <gate> <store>/.yardstick/explain/<run>/<gate>/explanations.jsonl
-yardstick claims explain ls --name <run> --gate <gate>
+yardstick claims agent explain propose --name <run> --gate <gate> <store>/.yardstick/explain/<run>/<gate>/explanations.jsonl
+yardstick claims agent explain list --name <run> --gate <gate>
 ```
 
 Nothing is written unless every line is valid. Fix what it reports (a member row not in the gate's scans, a

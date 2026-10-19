@@ -23,10 +23,15 @@ import (
 
 // URLVar names the base URL published snapshots are read from: the public address of the bucket
 // the publish workflow writes claims/latest-v<major>.json, claims/commits/<sha>.json and
-// claims/snapshots/<hex>.zip into.
+// claims/snapshots/<hex>.zip into. Unset, snapshots are read from DefaultURL.
 const URLVar = "YARDSTICK_CLAIMS_URL"
 
+// DefaultURL is where anchore/match-claims publishes its snapshots.
+const DefaultURL = "https://yardstick.anchore.io"
+
 var (
+	// defaultURL is DefaultURL, a variable so a test never reaches the real host
+	defaultURL    = DefaultURL
 	commitPattern = regexp.MustCompile(`^[0-9a-f]{40}$`)
 	httpClient    = &http.Client{Timeout: 2 * time.Minute}
 )
@@ -43,7 +48,7 @@ type pointer struct {
 func openRemote(s gatefile.Source) (*Source, error) {
 	base := strings.TrimSuffix(os.Getenv(URLVar), "/")
 	if base == "" {
-		return nil, fmt.Errorf("claims source %s: no publication host to read it from; set %s to the base URL snapshots are published under", s.Locator, URLVar)
+		base = defaultURL
 	}
 	p, err := resolve(base, s.Remote.Ref)
 	if err != nil {
@@ -101,7 +106,7 @@ func resolve(base, r string) (pointer, error) {
 }
 
 func getJSON(u string, v any) error {
-	// the host is the user's own YARDSTICK_CLAIMS_URL and the path a validated reference
+	// the host is YARDSTICK_CLAIMS_URL or DefaultURL and the path a validated reference
 	resp, err := httpClient.Get(u) //nolint:noctx,gosec // a short pointer read; the client has a timeout
 	if err != nil {
 		return err
@@ -161,7 +166,7 @@ func download(url, digest, dir, final string) error {
 	}
 	defer os.Remove(tmp.Name())
 	defer tmp.Close()
-	resp, err := httpClient.Get(url) //nolint:noctx,gosec // the host is the user's YARDSTICK_CLAIMS_URL and the path a checked digest
+	resp, err := httpClient.Get(url) //nolint:noctx,gosec // the host is YARDSTICK_CLAIMS_URL or DefaultURL and the path a checked digest
 	if err != nil {
 		return err
 	}

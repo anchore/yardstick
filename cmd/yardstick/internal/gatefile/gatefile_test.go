@@ -404,11 +404,8 @@ func TestLoadAppConfig(t *testing.T) {
 		t.Fatalf("expected no app config and no error, got %v, %v", app, err)
 	}
 
-	// relative sources resolve against the config file's directory
+	// relative sources resolve against the config file's directory, and a missing one is created
 	write(t, dir, "config/yardstick.yaml", "claims: [./claims]\n")
-	if err := os.MkdirAll(filepath.Join(dir, "config", "claims"), 0o755); err != nil {
-		t.Fatal(err)
-	}
 	app, err := LoadAppConfig(dir)
 	if err != nil {
 		t.Fatal(err)
@@ -419,6 +416,9 @@ func TestLoadAppConfig(t *testing.T) {
 	}
 	if len(g.Claims) != 1 || g.Claims[0].Locator != filepath.Join(dir, "config", "claims") {
 		t.Errorf("expected config/claims from the app config, got %+v", g.Claims)
+	}
+	if info, err := os.Stat(filepath.Join(dir, "config", "claims")); err != nil || !info.IsDir() {
+		t.Errorf("expected the app config's missing claims directory created, got %v", err)
 	}
 
 	// a gate's own claims: replaces the app config's, and --claims appends after it

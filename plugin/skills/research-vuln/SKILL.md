@@ -1,6 +1,6 @@
 ---
 name: research-vuln
-description: Deep-dive one vulnerability finding from a yardstick gate — what the bug is, when upstream fixed it, whether the distro shipped or declined the fix, why the two grype DBs disagree — and record a verdict with justification, confidence, reasoning, facts, open questions and a report as a `yardstick claims propose` proposal.
+description: Deep-dive one vulnerability finding from a yardstick gate — what the bug is, when upstream fixed it, whether the distro shipped or declined the fix, why the two grype DBs disagree — and record a verdict with justification, confidence, reasoning, facts, open questions and a report as a `yardstick claims agent propose` proposal.
 argument-hint: <CVE or GHSA id | row:<row id>> [workspace dir] [package name]
 allowed-tools: Bash, Read, Write, Edit, Grep, Glob, WebFetch, WebSearch, Agent
 ---
@@ -27,7 +27,7 @@ the vulnerable code without the fix?** That decides `tp` (yes) or `fp` (no). The
 the severity, and whether anyone will ever fix it are context, not the answer. If you cannot get to
 yes or no with evidence, the answer is `unclear`, with the open questions written down.
 
-You end with exactly one `yardstick claims propose` call. That is the completion signal when this skill
+You end with exactly one `yardstick claims agent propose` call. That is the completion signal when this skill
 runs headless from `yardstick claims serve`. You never run `yardstick claims add`.
 
 # Phase 1: collect the record (under a minute)
@@ -53,7 +53,7 @@ It writes `<workspace>/.yardstick/research/<VULN>/<package>/`:
   URLs, Launchpad publishing dates, installed and newest changelogs with the lines that mention the
   CVE, `debian/patches/series` on the security branch), Debian's tracker table and unstable changelog,
   and a link list. One file per source sits next to it.
-- `proposal.json`: the `yardstick claims propose` skeleton with `row`, `author` and
+- `proposal.json`: the `yardstick claims agent propose` skeleton with `row`, `author` and
   `evidence[0].facts` (the facts it observed) filled, and `evidence[0].interpretation` ending with the
   report's path; `verdict`, `justification`, `confidence`, `note`, the rest of the interpretation and
   `openQuestions` are yours.
@@ -109,7 +109,7 @@ justifications are in `vocabulary.yaml`, which `yardstick claims policy` prints)
 listed under the verdict in `vocabulary.yaml`, naming the truth about the code (`introduced-later`).
 The specific, in a few words (the module, file or version: "pdfi, added in 9.55.0"), opens the
 evidence's `interpretation`. The UI shows the justification's line as the headline, so the note no
-longer has to carry the deciding sentence alone. `yardstick claims propose` refuses a justification
+longer has to carry the deciding sentence alone. `yardstick claims agent propose` refuses a justification
 that isn't listed under the verdict.
 
 - tp: `fix-newer` (Fix is in a newer version than installed), `no-fix` (Vulnerable code present, no fix
@@ -154,7 +154,7 @@ the interpretation instead. An evidence entry needs at least one fact; with none
 and put the reasoning in the note. Then, once, in the workspace:
 
 ```bash
-jq -c . <dir>/proposal.json | yardstick claims propose --name "${YARDSTICK_NAME:-default}" --gate <gate>
+jq -c . <dir>/proposal.json | yardstick claims agent propose --name "${YARDSTICK_NAME:-default}" --gate <gate>
 ```
 
 (`--gate` reads `$YARDSTICK_GATE` when the flag is left off, so a research job may omit it.)

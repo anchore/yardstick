@@ -419,10 +419,11 @@ func TestServeSharedJoinsGates(t *testing.T) {
 	}
 }
 
-// a gate scanned later that cannot be scored (a remote claims source with no publication host) is
+// a gate scanned later that cannot be scored (a remote claims source whose host is unreachable) is
 // skipped for the default gate and leaves the others' routes working
 func TestServeSkipsAGateThatCannotBeScored(t *testing.T) {
-	t.Setenv("YARDSTICK_CLAIMS_URL", "")
+	// nothing listens on port 1, so the pointer read fails without leaving the machine
+	t.Setenv("YARDSTICK_CLAIMS_URL", "http://127.0.0.1:1")
 	s := newServed(t)
 	s.w.gate("aaa", s.whole, s.whole, "", "  - name: noNewFalseNegatives\n")
 	if _, stderr, code := yardstick(t, s.w.dir, "gates/aaa.yaml"); code == 2 {

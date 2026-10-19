@@ -184,7 +184,7 @@ func TestScoreNeverRunsGrype(t *testing.T) {
 	if stdout, stderr, code := yardstick(t, w.dir, "score", "gates/deb.yaml"); code != 0 || !strings.Contains(stdout, "PASSED 1 of 1 gates") {
 		t.Errorf("expected the edited check to be scored and pass, got %d: %s %s", code, stdout, stderr)
 	}
-	// a gate scanned under the run is also found by its name, as claims propose --gate does
+	// a gate scanned under the run is also found by its name, as claims agent propose --gate does
 	if stdout, stderr, code := yardstick(t, w.dir, "score", "deb"); code != 0 || !strings.Contains(stdout, "PASSED 1 of 1 gates") {
 		t.Errorf("expected the gate scored by name, got %d: %s %s", code, stdout, stderr)
 	}

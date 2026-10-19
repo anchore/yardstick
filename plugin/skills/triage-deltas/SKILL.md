@@ -14,7 +14,7 @@ else, so pass `--store` explicitly. Every `yardstick` command below runs in the 
 # What this does
 
 A yardstick gate scans its subjects with a candidate and a reference grype setup and scores both
-against the labels in its claims sources (`yardstick claims ls`). Rows that only one setup reports and
+against the labels in its claims sources (`yardstick claims list`). Rows that only one setup reports and
 that no label covers are the **unlabeled differences**; they are what moves when the world moves, and
 what a person has to label. You turn each one into a **proposal**: a label authored by an agent that
 nobody has vouched for yet, with the rule that decided it and the facts it rests on. The label UI
@@ -64,7 +64,7 @@ they ever differ.
 When people have labeled against earlier hints, their reasons are the feedback on the rules:
 
 ```bash
-yardstick claims overrides -o json \
+yardstick claims agent overrides -o json \
   | jq -r '.[] | "\(.rule)\t\(.count)\t\([.overrides[].reason // empty | .kind + ": " + .text] | join("; "))"'
 ```
 
@@ -86,7 +86,7 @@ Without `--gate` it takes `$YARDSTICK_GATE`, else the gate scanned last; `--name
 (`$YARDSTICK_NAME`, else `default`).
 
 It reads `yardstick score <gate> -o json` (rows carry row ids, source package, fix state, namespace,
-advisory status per DB and the package's location), `yardstick claims ls`, `yardstick claims policy`
+advisory status per DB and the package's location), `yardstick claims list`, `yardstick claims policy`
 and, cached under
 `~/.cache/yardstick-skills/`, cve.org, the Ubuntu tracker, OSV and, for unassessed distro rows, the
 upstream project's GitHub advisory (the one the CNA record links under
@@ -103,17 +103,17 @@ evidence line and a fact only. See `scripts/yardstick_euvd.py` for what was meas
   tracker's per-pocket statuses, upstream status, priority, notes, CNA ranges, the CNA's description, prior
   labels on the package, the suggestion with its rule and confidence, open questions, row ids.
 - `evidence.json`, `groups.json`: the same, machine-readable; group number → row ids.
-- `proposals.jsonl`: `yardstick claims propose` input, one line per row: `row`, `verdict`,
+- `proposals.jsonl`: `yardstick claims agent propose` input, one line per row: `row`, `verdict`,
   `justification`, `confidence`, `note`, `author{skill,model}`, `evidence[{rule,facts,interpretation}]`,
   `openQuestions`. Facts from `ubuntu-cve-tracker` carry status per package/release and priority;
   per-pocket statuses that ubuntu.com collapses go in as `ubuntu-cve-tracker-pocket`. A fact's source
   must be listed under `fact-sources` in `vocabulary.yaml`, or propose refuses the line.
 - `proposals.md`: the proposals numbered by group, in three confidence sections.
-- `causes.jsonl`: `yardstick claims propose-cause` input, one **cause** per source package, rule, verdict and
+- `causes.jsonl`: `yardstick claims agent propose-cause` input, one **cause** per source package, rule, verdict and
   direction that spans several findings (two or more vulnerabilities, or three or more rows): a
   title, a note, explicit member row ids, the rule and the members' facts, deduplicated. A person
   accepts a cause once on the package header; the per-row proposals stay, and the UI flags any
-  member whose own hint disagrees. Format: `yardstick claims propose-cause --help`. Ids are stable
+  member whose own hint disagrees. Format: `yardstick claims agent propose-cause --help`. Ids are stable
   (`cause-<package>-<rule>-<direction>`), so a rerun supersedes rather than duplicates.
 
 The rules, the verdict and justification each proposes, its confidence ceiling, the policy decision
@@ -156,7 +156,7 @@ sample of ten **high** groups, decide whether to keep, change or downgrade the s
    Ignore the CNA-range note when the products differ, and say why in the note.
 2. **Prior labels on the same package are lopsided** (the evidence says so, e.g. "18 of 21 prior labels
    on this package are fp"). Read two of those labels' notes with
-   `yardstick claims ls -s <package> -o json`. If the new CVE is the same kind of
+   `yardstick claims list -s <package> -o json`. If the new CVE is the same kind of
    bug in the same embedded or absent code, propose the same verdict at medium confidence with rule
    `judgement/prior-claims-pattern`; otherwise leave it `unclear`.
 3. **Code that is not in the matched binary.** The script catches `Foo::Bar` Perl modules by file
@@ -239,8 +239,8 @@ python3 -I ${CLAUDE_PLUGIN_ROOT}/scripts/yardstick-triage-edit.py <dir> 13 --que
 # Phase 3: record the proposals
 
 ```bash
-yardstick claims propose .yardstick/triage/<run>/<gate>/proposals.jsonl --name <run> --gate <gate>
-yardstick claims propose-cause .yardstick/triage/<run>/<gate>/causes.jsonl --name <run> --gate <gate>
+yardstick claims agent propose .yardstick/triage/<run>/<gate>/proposals.jsonl --name <run> --gate <gate>
+yardstick claims agent propose-cause .yardstick/triage/<run>/<gate>/causes.jsonl --name <run> --gate <gate>
 ```
 
 Run them in the workspace. `--gate` is required (or `$YARDSTICK_GATE`): row ids are only unique

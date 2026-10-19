@@ -5,10 +5,10 @@
 
 Writes one file per source under <out> (default <store>/.yardstick/research/<VULN>/<pkg>/) plus SUMMARY.md,
 which lists what was found, the key facts, and a link for every source, and proposal.json: a
-`yardstick claims propose` skeleton (row, author, the facts it observed) with verdict, justification,
+`yardstick claims agent propose` skeleton (row, author, the facts it observed) with verdict, justification,
 confidence, note, the evidence's interpretation and openQuestions left for you. Nothing here decides a
 verdict; read SUMMARY.md and the files, reason, fill proposal.json, then, in the workspace,
-`jq -c . proposal.json | yardstick claims propose --gate <gate>`.
+`jq -c . proposal.json | yardstick claims agent propose --gate <gate>`.
 
 Sources: the gate's scored rows (both grype outputs, both cached DBs, existing labels), cve.org (CNA record),
 NVD, OSV (the CVE, Ubuntu's and Debian's records), GitHub advisories, Ubuntu's tracker (JSON + raw
