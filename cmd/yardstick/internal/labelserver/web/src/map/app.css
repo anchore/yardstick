@@ -163,6 +163,8 @@ header { display: flex; align-items: center; gap: 12px; padding: 7px 14px; borde
 .tier { color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: .04em; padding-top: 6px; }
 .group { display: grid; grid-template-columns: 110px 1fr auto auto auto auto; gap: 8px; align-items: center; }
 .researched { color: var(--research); font-weight: 600; white-space: nowrap; }
+/* the help card names the marks in their colour (a class: the CSP blocks style attributes) */
+.research-word { color: var(--research); }
 .group .bar { height: 10px; border-radius: 5px; background: color-mix(in srgb, var(--ink) 8%, transparent); overflow: hidden; }
 .group .bar .fill { display: block; height: 100%; background: var(--muted); }
 .group .bar .fill.v-tp { background: var(--tp); } .group .bar .fill.v-fp { background: var(--fp); }

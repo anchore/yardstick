@@ -4,9 +4,10 @@
     "module": "esnext",
     "moduleResolution": "bundler",
     "lib": ["es2022", "dom"],
+    "types": ["bun"],
     "verbatimModuleSyntax": true,
     "noEmit": true,
-    "strict": false
+    "strict": true
   },
   "include": ["src"]
 }
