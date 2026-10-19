@@ -1,0 +1,37 @@
+{
+  "schema": "1.0.0",
+  "subject": {
+    "image": "docker.io/anchore/yardstick-fixture-java@sha256:e363e4447342edd5320a67f79c6980a1ab26f5a9af3e9fdee5bf14e86b2a4c65"
+  },
+  "labels": [
+    {
+      "package": "pkg:maven/org.apache.logging.log4j/log4j-core",
+      "vulnerability": "GHSA-vc5p-v9hr-52mj",
+      "verdict": "unclear",
+      "justification": "not-assessed",
+      "author": "e2e",
+      "notes": [
+        {
+          "text": "needs a look at the JNDI lookup config",
+          "author": "e2e",
+          "at": "2026-10-19T22:24:43Z"
+        }
+      ],
+      "seenIn": {
+        "sbom": "sha256:ce0bf632e5610aef65a4344daab0ee7f4f10cf67c0c4bdc0ed4c3bc260a0b588",
+        "tools": [
+          {
+            "name": "syft",
+            "version": "1.54.1"
+          },
+          {
+            "name": "grype",
+            "version": "tools/candidate-a"
+          }
+        ]
+      },
+      "firstIssued": "2026-10-19T22:24:43Z",
+      "lastUpdated": "2026-10-19T22:24:43Z"
+    }
+  ]
+}

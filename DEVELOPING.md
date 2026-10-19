@@ -15,7 +15,7 @@ The label UI (`claims serve`) is TypeScript under `cmd/yardstick/internal/labels
 - `make generate` builds the UI (bun install, tygo, tsc, esbuild)
 - `make dev` runs a live-reload dev server beside `tsc --watch`: save a `.ts` file and the page reloads, save CSS and it swaps in place. It serves the workspace in the repo root (which needs a run under `.yardstick/runs/`) unless `YARDSTICK_DEV_DIR` points at another, and `ARGS` adds `claims serve` flags. A type error shows in the `tsc` output and never stops the server
 - `make unit` runs the Go tests and `bun test`
-- `make e2e` runs the Playwright tests in docker (needs docker). Traces and the report land in `web/test-results/` and `web/playwright-report/`
+- `make e2e` runs the Playwright tests in docker (needs docker). Traces and the report land in `web/test-results/` and `web/playwright-report/`. The workspace it serves, two real gates with labels and agent hints, is described in `cmd/yardstick/internal/testkit/testdata/e2e/SCENARIO.md`; `go test ./cmd/yardstick/internal/testkit` checks that description without a browser
 - `make e2e-ui` starts Playwright UI mode at http://127.0.0.1:8080
 
 When e2e fails in CI, download the `playwright-results` artifact and drop its `trace.zip` on https://trace.playwright.dev. The trace loads locally in the browser and nothing is uploaded.

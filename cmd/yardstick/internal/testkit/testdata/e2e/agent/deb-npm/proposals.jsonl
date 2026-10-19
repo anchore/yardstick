@@ -1,0 +1,1 @@
+{"row":"deb CVE-2026-41992 gzip","verdict":"fp","justification":"fix-installed","confidence":"medium","note":"fixed in the gzip build installed in the image","author":{"skill":"triage-deltas","model":"e2e"}}

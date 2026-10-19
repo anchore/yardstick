@@ -1,0 +1,9 @@
+justifications:
+  fp: {fix-installed: Installed version has the fix}
+  tp: {no-fix: "Vulnerable code present, no fix for this version"}
+  unclear: {not-assessed: Nobody has assessed this version}
+fact-sources: [nvd]
+advisory-ids: [ELSA, ALSA]
+vulnerability-namespaces: [CVE, GHSA]
+rules:
+  nvd/fixed: {verdict: fp, justification: fix-installed, ceiling: medium, decision: P-1, basis: nvd range, title: Fixed per NVD}

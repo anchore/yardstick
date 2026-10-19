@@ -1,0 +1,11 @@
+# the second e2e gate: shares the deb image's tar change with deb-java, so labeling it there moves this gate too
+schema: v1
+claims: [../claims]
+candidate: {grype: ../tools/candidate-b, db: "dir:../tools"}
+reference: {grype: ../tools/reference-b, db: "dir:../tools"}
+subjects:
+  - {ref: "oci:docker.io/anchore/yardstick-fixture-deb@sha256:617d48dd2601779266746a9a382bfb9f3fee2744fba698733b320366f41718b0", name: deb}
+  - {ref: "oci:docker.io/anchore/yardstick-fixture-npm@sha256:8e253b5f2e69608b377cc3dc279b11d41b15068b13b4dfaa279ea5ddda577154", name: npm}
+checks:
+  - name: unjudgedChangesAtMost
+    params: {max: 1}
