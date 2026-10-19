@@ -50,7 +50,7 @@ func TestAccept(t *testing.T) {
 		Verdict: labels.FP, Justification: "fix-installed", Confidence: "high", Note: "fixed in 1.2.13",
 		Evidence: []labels.Evidence{{Rule: "debian/installed-has-fix", Facts: []labels.Fact{{Source: "debian-security-tracker", About: map[string]string{"vulnerability": "CVE-2022-37434"}, Field: "fixed", Value: "1.2.13", ObservedAt: "2026-10-16T09:00:00Z"}}}},
 		Author:   agentstore.Author{Kind: agentstore.Agent}}
-	seen := &labels.SeenIn{SBOM: "sha256:" + strings.Repeat("b", 64), Grype: "grype@v0.120.1", DB: "sha256:db"}
+	seen := &labels.SeenIn{SBOM: "sha256:" + strings.Repeat("b", 64), Tools: []labels.Tool{{Name: labels.ToolGrype, Version: "v0.120.1"}, {Name: labels.ToolGrypeDB, Version: "sha256:db"}}}
 	path, err := Accept(set, runSubject(t), p, "Alex Goodman", seen, time.Date(2026, 10, 16, 9, 0, 0, 0, time.UTC))
 	if err != nil {
 		t.Fatal(err)
@@ -64,8 +64,8 @@ func TestAccept(t *testing.T) {
 		t.Fatalf("expected one label in %s, got %v %v", path, f, err)
 	}
 	l := f.Labels[0]
-	if l.Author != "Alex Goodman" || l.Verdict != labels.FP || l.Justification != "fix-installed" || l.Note != "fixed in 1.2.13" ||
-		len(l.Evidence) != 1 || l.Evidence[0].Rule != "debian/installed-has-fix" || l.SeenIn == nil || l.SeenIn.Grype != "grype@v0.120.1" || l.FirstIssued != "2026-10-16T09:00:00Z" {
+	if l.Author != "Alex Goodman" || l.Verdict != labels.FP || l.Justification != "fix-installed" || len(l.Notes) != 1 || l.Notes[0].Text != "fixed in 1.2.13" || l.Notes[0].Author != "Alex Goodman" ||
+		len(l.Evidence) != 1 || l.Evidence[0].Rule != "debian/installed-has-fix" || l.SeenIn.Tool(labels.ToolGrype) != "v0.120.1" || l.FirstIssued != "2026-10-16T09:00:00Z" {
 		t.Errorf("expected the proposal's call, by the acceptor, with the run's seenIn, got %+v", l)
 	}
 	if strings.Contains(string(data), "confidence") || f.Subject.Platform != "linux/arm64" || !strings.HasSuffix(path, "/deb.json") {
@@ -75,7 +75,7 @@ func TestAccept(t *testing.T) {
 
 func TestPlace(t *testing.T) {
 	sub := runSubject(t)
-	l := labels.Label{Package: "pkg:deb/debian/zlib1g", Vulnerability: "CVE-1", SeenIn: &labels.SeenIn{Grype: "grype@v0.120.1"}}
+	l := labels.Label{Package: "pkg:deb/debian/zlib1g", Vulnerability: "CVE-1", SeenIn: &labels.SeenIn{Tools: []labels.Tool{{Name: labels.ToolGrype, Version: "v0.120.1"}}}}
 	if p, err := Place(sub, l, true); err != nil || p.File != labels.GlobalFile("deb") || p.Subject != nil || p.Label.SeenIn != nil {
 		t.Errorf("expected a global label in global/deb.json with no subject or seenIn, got %+v %v", p, err)
 	}

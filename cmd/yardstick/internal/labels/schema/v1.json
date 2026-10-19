@@ -31,14 +31,33 @@
         "justification": {"type": "string", "minLength": 1},
         "author": {"type": "string", "minLength": 1},
         "evidence": {"type": "array", "items": {"$ref": "#/$defs/evidence"}},
-        "note": {"type": "string"},
+        "notes": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["text", "author", "at"],
+            "properties": {
+              "text": {"type": "string", "minLength": 1},
+              "author": {"type": "string", "minLength": 1},
+              "at": {"type": "string", "format": "date-time"}
+            }
+          }
+        },
         "seenIn": {
           "type": "object",
           "properties": {
             "sbom": {"$ref": "#/$defs/digest"},
-            "syft": {"type": "string"},
-            "grype": {"type": "string"},
-            "db": {"type": "string"}
+            "tools": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "required": ["name", "version"],
+                "properties": {
+                  "name": {"type": "string", "minLength": 1},
+                  "version": {"type": "string", "minLength": 1}
+                }
+              }
+            }
           }
         },
         "firstIssued": {"type": "string", "format": "date-time"},

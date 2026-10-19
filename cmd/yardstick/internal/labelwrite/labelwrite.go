@@ -35,7 +35,21 @@ func SeenIn(rec *runrecord.Record, dir string, sub *runrecord.Subject, l labels.
 // server does from its paired rows.
 func SeenInFor(rec *runrecord.Record, sub *runrecord.Subject, setup string) *labels.SeenIn {
 	seen := rec.Setups[setup]
-	return &labels.SeenIn{SBOM: sub.UnfilteredDigest, Syft: sub.Syft, Grype: seen.Grype.Spec.String(), DB: seen.DB.Checksum}
+	out := &labels.SeenIn{SBOM: sub.UnfilteredDigest}
+	add := func(name, version string) {
+		if version != "" {
+			out.Tools = append(out.Tools, labels.Tool{Name: name, Version: version})
+		}
+	}
+	add(labels.ToolSyft, sub.Syft)
+	// a grype run from a local binary has no version but its path
+	grype := seen.Grype.Spec.Version
+	if grype == "" {
+		grype = seen.Grype.Spec.Path
+	}
+	add(labels.ToolGrype, grype)
+	add(labels.ToolGrypeDB, seen.DB.Checksum)
+	return out
 }
 
 // Write places a label about a subject (or, when global, in global/<type>.json, dropping its

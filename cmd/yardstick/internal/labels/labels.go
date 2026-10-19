@@ -50,7 +50,7 @@ type Label struct {
 	Justification string     `json:"justification,omitempty"`
 	Author        string     `json:"author"`
 	Evidence      []Evidence `json:"evidence,omitempty"`
-	Note          string     `json:"note,omitempty"`
+	Notes         []Note     `json:"notes,omitempty"`
 	SeenIn        *SeenIn    `json:"seenIn,omitempty"`
 	FirstIssued   string     `json:"firstIssued"`
 	LastUpdated   string     `json:"lastUpdated"`
@@ -78,12 +78,63 @@ type Fact struct {
 	ObservedAt string            `json:"observedAt"`
 }
 
-// SeenIn is what a label was written against.
+// Note is something a person (or a migration on their behalf) said about a label, and when.
+type Note struct {
+	Text   string `json:"text"`
+	Author string `json:"author"`
+	At     string `json:"at"`
+}
+
+// SeenIn is what a label was written against: the SBOM scanned, and the tools that cataloged and
+// matched it.
 type SeenIn struct {
 	SBOM  string `json:"sbom,omitempty"`
-	Syft  string `json:"syft,omitempty"`
-	Grype string `json:"grype,omitempty"`
-	DB    string `json:"db,omitempty"`
+	Tools []Tool `json:"tools,omitempty"`
+}
+
+// Tool is one tool a label was written against, by name and version. The grype DB is a tool here
+// too (grype-db), with its checksum as the version.
+type Tool struct {
+	Name    string `json:"name"`
+	Version string `json:"version"`
+}
+
+// Tool names yardstick itself records in seenIn.
+const (
+	ToolSyft    = "syft"
+	ToolGrype   = "grype"
+	ToolGrypeDB = "grype-db"
+)
+
+// Tool is the version of the named tool, empty when the label was not written against it.
+func (s *SeenIn) Tool(name string) string {
+	if s == nil {
+		return ""
+	}
+	for _, t := range s.Tools {
+		if t.Name == name {
+			return t.Version
+		}
+	}
+	return ""
+}
+
+// NotesOf is one note by author at a time, or none when text is empty: how a label written with
+// a single note (claims add, the label UI, an accepted proposal) carries it.
+func NotesOf(text, author, at string) []Note {
+	if text == "" {
+		return nil
+	}
+	return []Note{{Text: text, Author: author, At: at}}
+}
+
+// NoteTexts are a label's notes' texts in order, for places that show a label in one line.
+func (l Label) NoteTexts() []string {
+	out := make([]string, 0, len(l.Notes))
+	for _, n := range l.Notes {
+		out = append(out, n.Text)
+	}
+	return out
 }
 
 // Key identifies a label within one file: at most one label per key.
@@ -114,7 +165,7 @@ func (k Key) String() string {
 // labelFields is Label without its methods, for encoding/json.
 type labelFields Label
 
-var knownLabelKeys = []string{"package", "vulnerability", "verdict", "justification", "author", "evidence", "note", "seenIn", "firstIssued", "lastUpdated"}
+var knownLabelKeys = []string{"package", "vulnerability", "verdict", "justification", "author", "evidence", "notes", "seenIn", "firstIssued", "lastUpdated"}
 
 func (l *Label) UnmarshalJSON(data []byte) error {
 	var f labelFields

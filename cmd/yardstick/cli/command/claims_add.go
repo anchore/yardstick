@@ -100,7 +100,7 @@ neither did), so a label that later stops pairing can say why.`,
 			}
 			now := time.Now().UTC().Format(time.RFC3339)
 			l := labels.Label{Package: cfg.Package, Vulnerability: cfg.Vulnerability, Verdict: labels.Verdict(cfg.Verdict), Justification: cfg.Justification,
-				Author: author, Note: cfg.Note, FirstIssued: now, LastUpdated: now}
+				Author: author, Notes: labels.NotesOf(cfg.Note, author, now), FirstIssued: now, LastUpdated: now}
 			if l.SeenIn, err = labelwrite.SeenIn(rec, runrecord.Dir(cfg.Name, g.Name), sub, l, set.Vocabulary()); err != nil {
 				return err
 			}

@@ -148,18 +148,22 @@ def main() -> None:
     vuln_ids = {vuln, *(a for r in rows for a in r.get("aliases", []))}
     on_vuln = [c for c in all_labels if c["vulnerability"] in vuln_ids]
     on_pkg = [c for c in all_labels if args.pkg and dc.parse_purl(c.get("package") or "")["name"] == args.pkg and c not in on_vuln]
+    def notes(c):
+        # a label's notes, oldest first, as one line
+        return "; ".join(n.get("text", "") for n in c.get("notes") or [])
+
     if on_vuln or on_pkg:
         save(out, "labels.json", {"on_vuln": on_vuln, "on_pkg": on_pkg})
         S.append("## Existing labels")
         for c in sorted(on_vuln, key=lambda c: c.get("lastUpdated", "")):
             p = dc.parse_purl(c.get("package") or "")
-            S.append(f"- {c.get('lastUpdated', '')[:10]} {c['verdict']}{' (' + c['justification'] + ')' if c.get('justification') else ''} {c['vulnerability']} on {p['name']}@{p['version']} by {c.get('author')} ({c['file']}): {c.get('note', '')[:200] or 'no note'}")
+            S.append(f"- {c.get('lastUpdated', '')[:10]} {c['verdict']}{' (' + c['justification'] + ')' if c.get('justification') else ''} {c['vulnerability']} on {p['name']}@{p['version']} by {c.get('author')} ({c['file']}): {notes(c)[:200] or 'no note'}")
         if on_pkg:
             import collections
             counts = collections.Counter(c["verdict"] for c in on_pkg)
             S.append(f"- other labels on {args.pkg}: {dict(counts)}; most recent with notes:")
-            for c in sorted((c for c in on_pkg if c.get("note")), key=lambda c: c.get("lastUpdated", ""), reverse=True)[:3]:
-                S.append(f"  - {c['verdict']} {c['vulnerability']}: {c['note'][:200]}")
+            for c in sorted((c for c in on_pkg if c.get("notes")), key=lambda c: c.get("lastUpdated", ""), reverse=True)[:3]:
+                S.append(f"  - {c['verdict']} {c['vulnerability']}: {notes(c)[:200]}")
         S.append("")
 
     pkg_names = {args.pkg} if args.pkg else set()

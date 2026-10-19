@@ -102,7 +102,7 @@ func ImportOpenVEX(name string, data []byte, opts Options) (*Imported, error) {
 				Verdict:       verdict,
 				Justification: justification,
 				Author:        opts.Author,
-				Note:          firstOf(st.ImpactStatement, st.ActionStatement, st.StatusNotes),
+				Notes:         labels.NotesOf(firstOf(st.ImpactStatement, st.ActionStatement, st.StatusNotes), opts.Author, opts.Now.UTC().Format(time.RFC3339)),
 				FirstIssued:   opts.Now.UTC().Format(time.RFC3339),
 				LastUpdated:   opts.Now.UTC().Format(time.RFC3339),
 				Evidence: []labels.Evidence{{Facts: []labels.Fact{fact}, Interpretation: fmt.Sprintf(

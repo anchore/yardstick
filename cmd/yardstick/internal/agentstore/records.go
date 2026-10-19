@@ -60,7 +60,7 @@ func (p Proposal) schema() string { return p.Schema }
 func (p Proposal) Label(author string, now time.Time) labels.Label {
 	ts := now.UTC().Format(time.RFC3339)
 	return labels.Label{Package: p.Package, Vulnerability: p.Vulnerability, Verdict: p.Verdict, Justification: p.Justification,
-		Author: author, Evidence: p.Evidence, Note: p.Note, FirstIssued: ts, LastUpdated: ts}
+		Author: author, Evidence: p.Evidence, Notes: labels.NotesOf(p.Note, author, ts), FirstIssued: ts, LastUpdated: ts}
 }
 
 // Validate checks the proposal's shape. Problems checks it against the vocabulary and the policy.
@@ -127,7 +127,7 @@ func (c Cause) schema() string { return c.Schema }
 func (c Cause) Label(m Member, author string, now time.Time) labels.Label {
 	ts := now.UTC().Format(time.RFC3339)
 	return labels.Label{Package: m.Package, Vulnerability: m.Vulnerability, Verdict: c.Verdict, Justification: c.Justification,
-		Author: author, Evidence: c.Evidence, Note: c.Note, FirstIssued: ts, LastUpdated: ts}
+		Author: author, Evidence: c.Evidence, Notes: labels.NotesOf(c.Note, author, ts), FirstIssued: ts, LastUpdated: ts}
 }
 
 func (c Cause) Validate() error {

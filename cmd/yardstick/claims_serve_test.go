@@ -242,7 +242,7 @@ func TestServeLabelingWritesAndRescores(t *testing.T) {
 	}
 	l := s.labelOf("CVE-2005-2541")
 	// only the reference reported it, so seenIn names the reference's grype
-	if l == nil || l.Verdict != labels.FP || l.Justification != "fix-installed" || l.Author != "tester" || l.Note != "fixed in the image" || l.SeenIn == nil || l.SeenIn.Grype != s.whole {
+	if l == nil || l.Verdict != labels.FP || l.Justification != "fix-installed" || l.Author != "tester" || len(l.Notes) != 1 || l.Notes[0].Text != "fixed in the image" || l.SeenIn.Tool(labels.ToolGrype) != s.whole {
 		t.Fatalf("unexpected label: %+v", l)
 	}
 	if got := s.tarRow(); got.Verdict != "fp" || got.Gate != nil {
@@ -384,7 +384,7 @@ func TestServeCausesAndExplanations(t *testing.T) {
 	if rec := s.post("/package-hints/c1/accept", `{"rows":["`+tar.ID+`"]}`); rec.Code != http.StatusOK || !strings.Contains(rec.Body.String(), `"written":1`) {
 		t.Fatalf("expected the cause accepted, got %d %s", rec.Code, rec.Body)
 	}
-	if l := s.labelOf("CVE-2005-2541"); l == nil || l.Verdict != labels.FP || l.Note != "" && l.Note != c.Note {
+	if l := s.labelOf("CVE-2005-2541"); l == nil || l.Verdict != labels.FP || len(l.Notes) > 0 && l.Notes[0].Text != c.Note {
 		t.Fatalf("expected the cause's label, got %+v", l)
 	}
 	// accepting again skips the labeled member

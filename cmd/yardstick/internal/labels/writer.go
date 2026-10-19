@@ -160,6 +160,9 @@ func CheckRequired(l Label, v *Vocabulary) error {
 			return fmt.Errorf("%s must be an RFC 3339 time, got %q", name, t)
 		}
 	}
+	if err := checkNotesAndTools(l); err != nil {
+		return err
+	}
 	for i, e := range l.Evidence {
 		if len(e.Facts) == 0 {
 			return fmt.Errorf("evidence[%d] needs at least one fact", i)
@@ -170,6 +173,27 @@ func CheckRequired(l Label, v *Vocabulary) error {
 			}
 			if _, err := time.Parse(time.RFC3339, f.ObservedAt); err != nil {
 				return fmt.Errorf("evidence[%d].facts[%d].observedAt must be an RFC 3339 time, got %q", i, j, f.ObservedAt)
+			}
+		}
+	}
+	return nil
+}
+
+// checkNotesAndTools refuses a note without text, author or an RFC 3339 time, and a seenIn tool
+// without a name or version.
+func checkNotesAndTools(l Label) error {
+	for i, n := range l.Notes {
+		if n.Text == "" || n.Author == "" {
+			return fmt.Errorf("notes[%d] needs text and author", i)
+		}
+		if _, err := time.Parse(time.RFC3339, n.At); err != nil {
+			return fmt.Errorf("notes[%d].at must be an RFC 3339 time, got %q", i, n.At)
+		}
+	}
+	if l.SeenIn != nil {
+		for i, t := range l.SeenIn.Tools {
+			if t.Name == "" || t.Version == "" {
+				return fmt.Errorf("seenIn.tools[%d] needs name and version", i)
 			}
 		}
 	}

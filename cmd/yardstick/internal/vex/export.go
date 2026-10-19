@@ -111,7 +111,7 @@ func statement(loc labels.Location, subject *labels.Subject, l labels.Label) (ve
 	case l.Verdict == labels.FP:
 		// a justification with no VEX name travels in the impact statement
 		st.Status, st.Justification = vex.StatusNotAffected, vex.VulnerableCodeNotPresent
-		st.ImpactStatement = strings.TrimSpace(l.Justification + ": " + l.Note)
+		st.ImpactStatement = strings.TrimSpace(l.Justification + ": " + strings.Join(l.NoteTexts(), "; "))
 	default:
 		st.Status = vex.StatusUnderInvestigation
 	}

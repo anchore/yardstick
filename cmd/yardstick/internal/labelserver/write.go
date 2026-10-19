@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 	"slices"
+	"strings"
 	"time"
 
 	"github.com/anchore/yardstick/cmd/yardstick/internal/agentstore"
@@ -144,7 +145,7 @@ func (s *Server) handleLabels(w http.ResponseWriter, req *http.Request) {
 			return
 		}
 		l := labels.Label{Package: r.match.Package, Vulnerability: labelVulnerability(v, r), Verdict: verdict, Justification: body.Justification,
-			Author: s.opts.Author, Note: body.Note, FirstIssued: ts, LastUpdated: ts}
+			Author: s.opts.Author, Notes: labels.NotesOf(body.Note, s.opts.Author, ts), FirstIssued: ts, LastUpdated: ts}
 		if err := batch.add(e, r, l, glob); err != nil {
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
@@ -187,7 +188,7 @@ func (s *Server) overrides(e *entry, v *view, r *rowRef, l labels.Label, reason 
 	var out []agentstore.Override
 	for _, p := range against {
 		out = append(out, agentstore.Override{Schema: agentstore.Schema, Proposal: p, Gate: e.name, Subject: *subj.Subject, Package: l.Package,
-			Vulnerability: l.Vulnerability, Verdict: l.Verdict, Justification: l.Justification, Reason: reason, Note: l.Note, Author: s.opts.Author, Timestamp: now})
+			Vulnerability: l.Vulnerability, Verdict: l.Verdict, Justification: l.Justification, Reason: reason, Note: strings.Join(l.NoteTexts(), "\n"), Author: s.opts.Author, Timestamp: now})
 	}
 	return out
 }

@@ -310,7 +310,7 @@ func TestNamedRunsStayApart(t *testing.T) {
 		t.Fatalf("expected the label written, got %d: %s", code, stderr)
 	}
 	r, _ := ref.Parse(debImage)
-	if seen := labelFile(t, filepath.Join(w.dir, "local", labels.ImageDir(r), "deb.json")).Labels[0].SeenIn; seen == nil || seen.Grype != reference {
+	if seen := labelFile(t, filepath.Join(w.dir, "local", labels.ImageDir(r), "deb.json")).Labels[0].SeenIn; seen.Tool(labels.ToolGrype) != reference {
 		t.Errorf("expected seenIn from run a's reference grype, got %+v", seen)
 	}
 

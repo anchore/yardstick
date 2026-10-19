@@ -99,7 +99,7 @@ func TestImportOpenVEX(t *testing.T) {
 	}
 	// an image with no subcomponent is about the image: image.json, tp, the action as its note
 	aff := find(got.Placed, "CVE-2023-4911")
-	if len(aff) != 1 || aff[0].File != debDir+"/image.json" || aff[0].Label.Verdict != labels.TP || aff[0].Label.Package != "" || aff[0].Label.Note != "upgrade libc6" {
+	if len(aff) != 1 || aff[0].File != debDir+"/image.json" || aff[0].Label.Verdict != labels.TP || aff[0].Label.Package != "" || len(aff[0].Label.Notes) != 1 || aff[0].Label.Notes[0].Text != "upgrade libc6" {
 		t.Errorf("expected a tp in image.json, got %+v", aff)
 	}
 	ui := find(got.Placed, "CVE-2023-50495")
@@ -174,9 +174,9 @@ func TestImportOSV(t *testing.T) {
 func TestExport(t *testing.T) {
 	dir, w := corpusDir(t)
 	label := func(pkg, vuln string, v labels.Verdict, just, note string) labels.Label {
-		return labels.Label{Package: pkg, Vulnerability: vuln, Verdict: v, Justification: just, Note: note, Author: "Alex Goodman",
+		return labels.Label{Package: pkg, Vulnerability: vuln, Verdict: v, Justification: just, Notes: labels.NotesOf(note, "Alex Goodman", "2026-10-14T10:00:00Z"), Author: "Alex Goodman",
 			FirstIssued: "2026-10-14T10:00:00Z", LastUpdated: "2026-10-14T11:00:00Z",
-			SeenIn: &labels.SeenIn{SBOM: debDigest, Syft: "v1.54.1"},
+			SeenIn: &labels.SeenIn{SBOM: debDigest, Tools: []labels.Tool{{Name: labels.ToolSyft, Version: "v1.54.1"}}},
 			Evidence: []labels.Evidence{{Facts: []labels.Fact{{Source: "sbom", About: map[string]string{"package": "x"}, Field: "name", Value: "x", ObservedAt: "2026-10-14T10:00:00Z"}},
 				Interpretation: "a reason"}}}
 	}

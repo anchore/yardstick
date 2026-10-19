@@ -64,7 +64,7 @@ checks: [{name: unlabeledPercentAtMost, params: {max: 100}}]
 	}
 	// only the reference reported the tar match, so seenIn names the reference's grype
 	seen := f.Labels[0].SeenIn
-	if seen == nil || seen.SBOM != rec.Subjects[0].UnfilteredDigest || seen.Syft != "1.54.1" || seen.Grype != whole {
+	if seen == nil || seen.SBOM != rec.Subjects[0].UnfilteredDigest || seen.Tool(labels.ToolSyft) != "1.54.1" || seen.Tool(labels.ToolGrype) != whole {
 		t.Errorf("expected seenIn from the scan, with the reference's grype, got %+v", seen)
 	}
 	// a match both setups report names the candidate's
@@ -76,7 +76,7 @@ checks: [{name: unlabeledPercentAtMost, params: {max: 100}}]
 		t.Fatal(err)
 	}
 	for _, l := range both.Labels {
-		if l.Vulnerability == "CVE-2026-5450" && (l.SeenIn == nil || l.SeenIn.Grype != noTar) {
+		if l.Vulnerability == "CVE-2026-5450" && l.SeenIn.Tool(labels.ToolGrype) != noTar {
 			t.Errorf("expected seenIn with the candidate's grype for a match both report, got %+v", l.SeenIn)
 		}
 	}

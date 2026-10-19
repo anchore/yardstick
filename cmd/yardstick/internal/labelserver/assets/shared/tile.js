@@ -486,13 +486,15 @@ window.deltaTile = (() => {
     }
   }
 
-  // labelLine is a label as its file holds it: verdict, reason, who and when, and the note
+  // labelLine is a label as its file holds it: verdict, reason, who and when, and its notes. A note
+  // says who and when only where that is not the label's own author, or there are several.
   function labelLine(state, lv) {
-    const l = lv.label;
+    const l = lv.label, notes = l.notes || [];
+    const whoWhen = (n) => notes.length > 1 || n.author !== l.author ? `${n.author} · ${new Date(n.at).toLocaleDateString()}: ` : "";
     return el("div", { class: "who" },
       el("span", { class: `v-${l.verdict}` }, `${labels[l.verdict]?.glyph || ""} ${labels[l.verdict]?.word || l.verdict}`),
       `${l.justification ? ` · ${justWords(state, l.verdict, l.justification)}` : ""} by ${l.author || "?"} · ${new Date(l.lastUpdated).toLocaleDateString()}${l.evidence?.[0]?.rule ? ` · rule: ${ruleWords(l.evidence[0].rule)}` : ""}`,
-      l.note ? el("div", { class: "lnote" }, l.note) : null);
+      ...notes.map((n) => el("div", { class: "lnote" }, whoWhen(n) + n.text)));
   }
 
   // picker is the justification picker: FP and unclear need one, from the claims vocabulary, and
