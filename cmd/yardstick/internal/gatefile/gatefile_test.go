@@ -420,6 +420,19 @@ func TestLoadAppConfig(t *testing.T) {
 	if info, err := os.Stat(filepath.Join(dir, "config", "claims")); err != nil || !info.IsDir() {
 		t.Errorf("expected the app config's missing claims directory created, got %v", err)
 	}
+	// one outside the config's directory is not created, and fails as any missing directory does
+	write(t, dir, "config/yardstick.yaml", "claims: [../outside]\n")
+	app2, err := LoadAppConfig(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := Load(write(t, dir, "gates/g2.yaml", strings.Replace(validGate, "claims:\n  - ../claims\n", "", 1)), Options{Checks: registry, App: app2}); err == nil || !strings.Contains(err.Error(), "neither an existing directory") {
+		t.Errorf("expected a missing directory outside the config's refused, got %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(dir, "outside")); err == nil {
+		t.Error("expected no directory created outside the config's directory")
+	}
+	write(t, dir, "config/yardstick.yaml", "claims: [./claims]\n")
 
 	// a gate's own claims: replaces the app config's, and --claims appends after it
 	t.Chdir(dir)

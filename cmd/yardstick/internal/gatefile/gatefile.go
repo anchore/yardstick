@@ -453,8 +453,9 @@ func claims(listed []string, opts Options, dir string, errs *problems) []Source 
 		}
 		p, err := canonical(resolve(base, s))
 		// a local directory the app config names is where labels are written by default, so a
-		// fresh checkout without one gets it rather than failing every command
-		if _, statErr := os.Stat(p); err == nil && from != "" && errors.Is(statErr, os.ErrNotExist) {
+		// fresh checkout without one gets it rather than failing every command. Only one inside the
+		// config's own directory: the config comes with whatever repo yardstick runs in
+		if _, statErr := os.Stat(p); err == nil && from != "" && errors.Is(statErr, os.ErrNotExist) && within(base, p) {
 			if mkErr := os.MkdirAll(p, 0o755); mkErr == nil {
 				log.Infof("created claims directory %s%s", p, from)
 			}
@@ -695,6 +696,16 @@ func canonical(p string) (string, error) {
 		return resolved, nil
 	}
 	return abs, nil
+}
+
+// within reports whether p is dir or below it, after resolving dir's symlinks as canonical does.
+func within(dir, p string) bool {
+	d, err := canonical(dir)
+	if err != nil {
+		return false
+	}
+	rel, err := filepath.Rel(d, p)
+	return err == nil && rel != ".." && !strings.HasPrefix(rel, ".."+string(filepath.Separator))
 }
 
 func resolve(dir, p string) string {
