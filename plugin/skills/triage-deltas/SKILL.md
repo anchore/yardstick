@@ -24,7 +24,7 @@ You propose; a person confirms. This skill never runs `yardstick claims add`.
 
 # Ground rules
 
-These restate the labeling policy (`claims/labeling-policy.md` in the claims corpus, with its rules
+These restate the labeling policy ([labeling-policy.md](https://github.com/anchore/match-claims/blob/main/labeling-policy.md) in the claims corpus, with its rules
 and justifications in `vocabulary.yaml`, which `yardstick claims policy` prints); the policy wins if
 they ever differ.
 
@@ -118,13 +118,13 @@ evidence line and a fact only. See `scripts/yardstick_euvd.py` for what was meas
 
 The rules, the verdict and justification each proposes, its confidence ceiling, the policy decision
 behind it and its title are `rules:` in the corpus's `vocabulary.yaml` (`yardstick claims policy -o json`);
-the decisions themselves are `claims/labeling-policy.md`. Sources by package type, then namespace: language packages (pypi, maven, npm, …) always go to the
+the decisions themselves are in [labeling-policy.md](https://github.com/anchore/match-claims/blob/main/labeling-policy.md). Sources by package type, then namespace: language packages (pypi, maven, npm, …) always go to the
 ecosystem advisory via OSV (`ghsa/*`, `cpe/*`), wherever the image is from; deb on Ubuntu to Ubuntu's
 tracker (`ubuntu/*`); rpm on RHEL to Red Hat's CSAF VEX and Hydra (`rhel/*`, per binary RPM and
 stream; `scripts/yardstick_redhat.py`); deb on Debian via OSV (`debian/*`); apk on Alpine to the secdb
 (`alpine/*`, `scripts/yardstick_alpine.py`), falling back to the CNA's own range (`cna/*`) when the
 branch does not list the CVE, as EOL branches never do; anything no tracker covers (built from
-source, CPE-matched) to the CNA range (`cna/*`). Read `labeling-policy.md` before reviewing: it says what a
+source, CPE-matched) to the CNA range (`cna/*`). Read [labeling-policy.md](https://github.com/anchore/match-claims/blob/main/labeling-policy.md) before reviewing: it says what a
 label means (the truth of the match, never a business rule, P-1), which tracker statuses are signals
 and which are noise (needs-triage, under investigation and end-of-support "ignored" support only
 `unclear`, P-2), and what each confidence level requires (P-3 to P-6). The script clamps every

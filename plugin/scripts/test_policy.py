@@ -5,13 +5,14 @@
 
 Reads the policy through `yardstick claims policy -o json` in the checkout and checks that
 every rule id the evidence script can emit is a listed rule whose verdict matches, that every rule names
-a decision in claims/labeling-policy.md and says what it rests on, that every rule's justification is
+a decision in match-claims' labeling-policy.md and says what it rests on, that every rule's justification is
 listed under its verdict, that the justifications why_from_text derives are fp ones, and that every fact
 source the scripts write is listed under fact-sources.
 """
 import os
 import re
 import sys
+import urllib.request
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
@@ -25,12 +26,19 @@ ev = importlib.import_module("yardstick-triage-evidence")
 policy = dc.checkout_policy()
 ev.set_policy(policy)
 rules, reasons = ev.POLICY, ev.REASONS
-# labeling-policy.md did not come along when the corpus moved to anchore/match-claims, so the decisions
-# check runs only against a copy given in $LABELING_POLICY
+# the policy's decisions are in match-claims beside the vocabulary: $LABELING_POLICY names a local copy,
+# else main's is read
+POLICY_URL = "https://raw.githubusercontent.com/anchore/match-claims/main/labeling-policy.md"
 doc_path = os.environ.get("LABELING_POLICY")
-decisions = set(re.findall(r"^\| (P-\d+) \|", Path(doc_path).read_text(), re.M)) if doc_path else None
-if decisions is None:
-    print("skipped: the decisions check (set LABELING_POLICY to a labeling-policy.md)")
+if doc_path:
+    doc = Path(doc_path).read_text()
+else:
+    try:
+        with urllib.request.urlopen(POLICY_URL, timeout=30) as resp:
+            doc = resp.read().decode()
+    except OSError as e:
+        sys.exit(f"reading {POLICY_URL}: {e}; set LABELING_POLICY to a match-claims checkout's labeling-policy.md")
+decisions = set(re.findall(r"^\| (P-\d+) \|", doc, re.M))
 src = Path(ev.__file__).read_text()
 emitted = set(re.findall(r"Verdict\(\s*\"(tp|fp|unclear)\",\s*\"(?:high|medium|low)\",\s*\"([a-z]+/[a-z0-9-]+)\"", src, re.S))
 
@@ -43,8 +51,8 @@ for verdict, rule in emitted:
 NO_JUSTIFICATION_YET = {"judgement/prior-claims-pattern"}  # proposes either verdict; the reviewer states the justification
 for rule, r in rules.items():
     verdict, why = r.get("verdict"), r.get("justification", "")
-    if decisions is not None and r.get("decision") not in decisions:
-        errors.append(f"rule {rule} cites {r.get('decision')}, which is not in the Decisions table of claims/labeling-policy.md")
+    if r.get("decision") not in decisions:
+        errors.append(f"rule {rule} cites {r.get('decision')}, which is not in the Decisions table of labeling-policy.md")
     if not r.get("basis"):
         errors.append(f"rule {rule} has no basis")
     if why in ("", ev.PER_LABEL):
@@ -70,4 +78,4 @@ for f in HERE.glob("yardstick*.py"):
 if errors:
     print("\n".join(errors))
     sys.exit(1)
-print(f"ok: {len(emitted)} emitted rules, {len(rules)} policy rules, {len(decisions or ())} decisions, {len(reasons)} justifications")
+print(f"ok: {len(emitted)} emitted rules, {len(rules)} policy rules, {len(decisions)} decisions, {len(reasons)} justifications")

@@ -97,7 +97,7 @@ the open questions rather than keep digging past roughly twenty fetches.
 
 # Phase 3: verdict, justification and confidence
 
-The labeling policy defines these (`claims/labeling-policy.md` in the claims corpus; its rules and
+The labeling policy defines these ([labeling-policy.md](https://github.com/anchore/match-claims/blob/main/labeling-policy.md) in the claims corpus; its rules and
 justifications are in `vocabulary.yaml`, which `yardstick claims policy` prints); in short:
 
 - `tp`: the vulnerable code is present at the installed version and no fix is applied.
