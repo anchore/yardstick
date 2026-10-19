@@ -13,20 +13,14 @@ import (
 	"github.com/anchore/yardstick/cmd/yardstick/internal/fixture"
 	"github.com/anchore/yardstick/cmd/yardstick/internal/ref"
 	"github.com/anchore/yardstick/cmd/yardstick/internal/report"
+	"github.com/anchore/yardstick/cmd/yardstick/internal/testkit"
 )
 
-const vocabulary = `justifications:
-  fp: {fix-installed: Installed version has the fix}
-  tp: {no-fix: Vulnerable code present, no fix for this version}
-  unclear: {not-assessed: Nobody has assessed this version}
-fact-sources: [nvd]
-advisory-ids: [ELSA, ALSA]
-vulnerability-namespaces: [CVE, GHSA]
-`
+const vocabulary = testkit.Vocabulary
 
-// workspace is a directory with a claims corpus holding the deb image's SBOM and labels, and
-// stub grypes printing the fixture deb output, whole or with matches dropped.
+// workspace is testkit's, under the names these tests use.
 type workspace struct {
+	*testkit.Workspace
 	t     *testing.T
 	dir   string
 	tools string
@@ -34,83 +28,21 @@ type workspace struct {
 
 func newWorkspace(t *testing.T) *workspace {
 	t.Helper()
-	w := &workspace{t: t, dir: t.TempDir(), tools: t.TempDir()}
-	r, _ := ref.Parse(debImage)
-	sbom, _ := os.ReadFile(fixture.SBOM("deb", "syft"))
-	writeFile(t, filepath.Join(w.dir, "claims", claimsv1.ImageDir(r), claimsv1.ImageSBOMFile), string(sbom))
-	writeFile(t, filepath.Join(w.dir, "claims", claimsv1.VocabularyFile), vocabulary)
-	return w
+	w := testkit.NewWorkspace(t, t.TempDir(), t.TempDir())
+	return &workspace{Workspace: w, t: t, dir: w.Dir, tools: w.Tools}
 }
 
-// grype is a stub printing the fixture deb output without the named vulnerability-on-package
-// matches: a setup that does not report them.
-func (w *workspace) grype(name string, drop ...string) string {
-	w.t.Helper()
-	data, err := os.ReadFile(fixture.Grype("v0.120.1", "deb"))
-	if err != nil {
-		w.t.Fatal(err)
-	}
-	var doc map[string]any
-	if err := json.Unmarshal(data, &doc); err != nil {
-		w.t.Fatal(err)
-	}
-	var kept []any
-	for _, m := range doc["matches"].([]any) {
-		mm := m.(map[string]any)
-		key := mm["vulnerability"].(map[string]any)["id"].(string) + " " + mm["artifact"].(map[string]any)["name"].(string)
-		if !contains(drop, key) {
-			kept = append(kept, m)
-		}
-	}
-	doc["matches"] = kept
-	out, _ := json.Marshal(doc)
-	output := filepath.Join(w.tools, name+".json")
-	writeFile(w.t, output, string(out))
-	return stubTool(w.t, w.tools, name, "#!/bin/sh\ncat \""+output+"\"\n")
-}
+func (w *workspace) grype(name string, drop ...string) string { return w.Grype(name, drop...) }
 
-func contains(s []string, v string) bool {
-	for _, x := range s {
-		if x == v {
-			return true
-		}
-	}
-	return false
-}
-
-// label writes a tp label into the deb image's deb.json.
-func (w *workspace) label(pkg, vuln string) {
-	w.t.Helper()
-	r, _ := ref.Parse(debImage)
-	f := claimsv1.TypeFile(claimsv1.ImageDir(r), "deb")
-	p := filepath.Join(w.dir, "claims", filepath.FromSlash(f))
-	file := claimsv1.File{Schema: claimsv1.Version, Subject: &claimsv1.Subject{Image: r.Image()}}
-	if data, err := os.ReadFile(p); err == nil {
-		parsed, err := claimsv1.Parse(f, data)
-		if err != nil {
-			w.t.Fatal(err)
-		}
-		file = *parsed
-	}
-	file.Labels = append(file.Labels, claimsv1.Label{Package: pkg, Vulnerability: vuln, Verdict: claimsv1.TP, Author: "e2e", FirstIssued: "2026-10-14T10:00:00Z", LastUpdated: "2026-10-14T10:00:00Z"})
-	data, _ := claimsv1.Marshal(&file)
-	writeFile(w.t, p, string(data))
-}
+func (w *workspace) label(pkg, vuln string) { w.Label(pkg, vuln) }
 
 func (w *workspace) gate(name, candidate, reference, extra string, checks string) {
-	w.t.Helper()
-	writeFile(w.t, filepath.Join(w.dir, "gates", name+".yaml"), `schema: v1
-claims: [../claims]
-candidate: {grype: `+candidate+`, db: "dir:`+w.tools+`"}
-reference: {grype: `+reference+`, db: "dir:`+w.tools+`"}
-subjects: [{ref: "`+debImage+`", name: deb}`+extra+`]
-checks:
-`+checks)
+	w.Gate(name, candidate, reference, extra, checks)
 }
 
 const (
 	tar  = "pkg:deb/debian/tar"
-	libc = "pkg:deb/debian/libc6"
+	libc = testkit.Libc
 )
 
 // summary-line-and-exit-code, and the score half of gate-and-score-commands

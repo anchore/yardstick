@@ -82,10 +82,16 @@ import (
 //go:embed assets
 var assets embed.FS
 
+// a dev build (dev.go) sets these: ui to the source tree on disk, dev to add live reload
+var (
+	ui  fs.FS = assets
+	dev func(ctx context.Context, mux *http.ServeMux) http.Handler
+)
+
 // HasUI says whether this binary was built with the UI in assets/dist/.
 func HasUI() bool {
-	_, err := fs.Stat(assets, "assets/dist")
-	return err == nil
+	_, err := fs.Stat(ui, "assets/dist")
+	return err == nil || dev != nil
 }
 
 // TokenHeader carries the per-start write token on every POST.
@@ -128,7 +134,7 @@ func New(ctx context.Context, opts Options) (*Server, error) {
 func (s *Server) Token() string { return s.token }
 
 func (s *Server) Handler() http.Handler {
-	static, _ := fs.Sub(assets, "assets")
+	static, _ := fs.Sub(ui, "assets")
 	mux := http.NewServeMux()
 	mux.Handle("GET /assets/", http.StripPrefix("/assets/", http.FileServerFS(static)))
 	mux.HandleFunc("GET /{$}", s.handleRoot)
@@ -153,6 +159,9 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("POST "+g+"/research", s.authorized(s.handleResearch))
 	mux.HandleFunc("POST "+g+"/research/cancel", s.authorized(s.handleCancelResearch))
 	mux.HandleFunc("GET /api/research/{id}/log", s.handleResearchLog)
+	if dev != nil {
+		return dev(s.ctx, mux)
+	}
 	return mux
 }
 
@@ -180,9 +189,9 @@ func (s *Server) handleRoot(w http.ResponseWriter, req *http.Request) {
 	http.Redirect(w, req, "/ui/map/gates/"+url.PathEscape(name)+"/", http.StatusFound)
 }
 
-// servePage serves an embedded page with the write token filled in.
+// servePage serves a page with the write token filled in.
 func (s *Server) servePage(w http.ResponseWriter, path string) {
-	page, err := assets.ReadFile(path)
+	page, err := fs.ReadFile(ui, path)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return

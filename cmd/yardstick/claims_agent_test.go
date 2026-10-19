@@ -12,11 +12,10 @@ import (
 	claimsv1 "github.com/anchore/yardstick/cmd/yardstick/internal/claims/v1"
 	"github.com/anchore/yardstick/cmd/yardstick/internal/runrecord"
 	"github.com/anchore/yardstick/cmd/yardstick/internal/score"
+	"github.com/anchore/yardstick/cmd/yardstick/internal/testkit"
 )
 
-const policyRules = `rules:
-  nvd/fixed: {verdict: fp, justification: fix-installed, ceiling: medium, decision: P-1, basis: nvd range, title: Fixed per NVD}
-`
+const policyRules = testkit.PolicyRules
 
 const fact = `{"source":"nvd","about":{"vulnerability":"CVE-2005-2541"},"field":"status","value":"fixed","observedAt":"2026-10-16T00:00:00Z"}`
 

@@ -41,11 +41,7 @@ func newServed(t *testing.T) *served {
 func newServedWith(t *testing.T, adjust func(*labelserver.Options)) *served {
 	t.Helper()
 	w := newWorkspace(t)
-	writeFile(t, filepath.Join(w.dir, "claims", claimsv1.VocabularyFile), vocabulary+policyRules)
-	whole := w.grype("whole")
-	noTar := w.grype("no-tar", "CVE-2005-2541 tar")
-	w.label(libc, "CVE-2026-5450")
-	w.gate("deb", noTar, whole, "", "  - name: unjudgedChangesAtMost\n    params: {max: 0}\n")
+	whole := w.DebGate()
 	if _, stderr, code := yardstick(t, w.dir, "gates/deb.yaml"); code == 2 {
 		t.Fatalf("scan failed: %s", stderr)
 	}

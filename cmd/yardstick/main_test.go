@@ -8,6 +8,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/anchore/yardstick/cmd/yardstick/internal/testkit"
 )
 
 // bin is the yardstick binary the end to end tests run, built once.
@@ -53,12 +55,7 @@ func yardstick(t *testing.T, dir string, args ...string) (string, string, int) {
 
 func writeFile(t *testing.T, path, content string) {
 	t.Helper()
-	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.WriteFile(path, []byte(content), 0o600); err != nil {
-		t.Fatal(err)
-	}
+	testkit.WriteFile(t, path, content)
 }
 
 func TestNoArgumentsPrintsHelpAndFails(t *testing.T) {

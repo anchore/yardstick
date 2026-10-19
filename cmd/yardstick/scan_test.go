@@ -20,19 +20,15 @@ import (
 	claimsv1 "github.com/anchore/yardstick/cmd/yardstick/internal/claims/v1"
 	"github.com/anchore/yardstick/cmd/yardstick/internal/fixture"
 	"github.com/anchore/yardstick/cmd/yardstick/internal/ref"
+	"github.com/anchore/yardstick/cmd/yardstick/internal/testkit"
 )
 
 func stubTool(t *testing.T, dir, name, script string) string {
 	t.Helper()
-	p := filepath.Join(dir, name)
-	writeFile(t, p, script)
-	if err := os.Chmod(p, 0o755); err != nil {
-		t.Fatal(err)
-	}
-	return p
+	return testkit.StubTool(t, dir, name, script)
 }
 
-const debImage = "oci:docker.io/anchore/yardstick-fixture-deb@sha256:617d48dd2601779266746a9a382bfb9f3fee2744fba698733b320366f41718b0"
+const debImage = testkit.DebImage
 
 // collect-builds-an-sbom-from-a-catalog, the refusals; the build itself runs the real syft in
 // TestCollectIntoACorpus (-tags integration)
