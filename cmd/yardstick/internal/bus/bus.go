@@ -66,7 +66,11 @@ func StartTask(kind event.TaskKind, format string, args ...any) *Task {
 	return t
 }
 
+// Done finishes the task; a nil task, one never started, does nothing.
 func (t *Task) Done(err error) {
+	if t == nil {
+		return
+	}
 	done := t.t
 	done.Err = err
 	Publish(event.TaskFinished, done)

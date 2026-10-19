@@ -16,7 +16,8 @@ const (
 	GateStarted partybus.EventType = prefix + "gate-started"
 	// SetupPrepared carries a Setup with its grype version and DB resolved.
 	SetupPrepared partybus.EventType = prefix + "setup-prepared"
-	// TaskStarted and TaskFinished carry a Task: an install, a DB resolved or imported, an SBOM built.
+	// TaskStarted and TaskFinished carry a Task: an install, a DB resolved or imported, an SBOM built,
+	// a claims snapshot resolved or downloaded.
 	TaskStarted  partybus.EventType = prefix + "task-started"
 	TaskFinished partybus.EventType = prefix + "task-finished"
 	// SBOMResolved carries an SBOM: where a subject's SBOM came from.
@@ -57,6 +58,9 @@ const (
 	ResolveDB TaskKind = "resolve DB"
 	ImportDB  TaskKind = "import DB"
 	BuildSBOM TaskKind = "build SBOM"
+	// ResolveClaims and DownloadClaims are a published claims source's network reads.
+	ResolveClaims  TaskKind = "resolve claims"
+	DownloadClaims TaskKind = "download claims"
 )
 
 // Task is one piece of preparation. ID pairs a finish with its start; Err is set on a failed finish.

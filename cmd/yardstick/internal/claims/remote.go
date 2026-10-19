@@ -14,8 +14,10 @@ import (
 	"strings"
 	"time"
 
+	"github.com/anchore/yardstick/cmd/yardstick/internal/bus"
 	"github.com/anchore/yardstick/cmd/yardstick/internal/cache"
 	claimsv1 "github.com/anchore/yardstick/cmd/yardstick/internal/claims/v1"
+	"github.com/anchore/yardstick/cmd/yardstick/internal/event"
 	"github.com/anchore/yardstick/cmd/yardstick/internal/gatefile"
 	"github.com/anchore/yardstick/cmd/yardstick/internal/log"
 	"github.com/anchore/yardstick/cmd/yardstick/internal/ref"
@@ -50,7 +52,13 @@ func openRemote(s gatefile.Source) (*Source, error) {
 	if base == "" {
 		base = defaultURL
 	}
+	// a digest names its snapshot already; anything else is read from the host
+	var resolving *bus.Task
+	if !strings.HasPrefix(s.Remote.Ref, "sha256:") {
+		resolving = bus.StartTask(event.ResolveClaims, "%s", s.Locator)
+	}
 	p, err := resolve(base, s.Remote.Ref)
+	resolving.Done(err)
 	if err != nil {
 		return nil, fmt.Errorf("claims source %s: %w", s.Locator, err)
 	}
@@ -129,7 +137,10 @@ func openSnapshot(url, digest string) (*os.File, int64, error) {
 	final := filepath.Join(dir, strings.TrimPrefix(digest, "sha256:")+".zip")
 	if _, err := os.Stat(final); err != nil {
 		log.Infof("downloading claims snapshot %s", digest)
-		if err := download(url, digest, dir, final); err != nil {
+		task := bus.StartTask(event.DownloadClaims, "%s", digest)
+		err := download(url, digest, dir, final)
+		task.Done(err)
+		if err != nil {
 			return nil, 0, err
 		}
 	} else {
