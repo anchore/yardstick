@@ -20,6 +20,24 @@ updates:
       # go-make module and action refs are bumped together by automation
       - dependency-name: "github.com/anchore/go-make"
 
+  # the Playwright docker image tag follows @playwright/test's version automatically (make e2e reads it from package.json)
+  - package-ecosystem: bun
+    directory: "/cmd/yardstick/internal/labelserver/web"
+    cooldown:
+      default-days: 7
+    schedule:
+      interval: "weekly"
+      day: "friday"
+    open-pull-requests-limit: 10
+    labels:
+      - "dependencies"
+    groups:
+      playwright:
+        patterns:
+          - "@playwright/*"
+          - "playwright"
+          - "playwright-core"
+
   - package-ecosystem: "github-actions"
     directories:
       - "/"

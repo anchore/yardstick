@@ -17,7 +17,7 @@ See [demo/](demo/README.md) for a walkthrough of the whole local workflow: run a
 curl -sSfL https://get.anchore.io/yardstick | sudo sh -s -- -b /usr/local/bin
 ```
 
-or `go install github.com/anchore/yardstick/cmd/yardstick@latest`.
+or `go install github.com/anchore/yardstick/cmd/yardstick@latest`. A `go install` build has the full CLI but no label UI (`claims serve` refuses to start), so use the installer for labeling.
 
 ## Python yardstick (0.16.x)
 
