@@ -89,7 +89,7 @@ export function matchPath(r: Row, m: MatchesResponse | undefined, rel: Release |
     el("span", { class: "t" }, s.t), s.sub ? el("span", { class: "sub" }, s.sub) : null, s.same ? el("span", { class: "mine" }, "this image's release") : null);
   const kinds = stepKinds.filter((k) => ls.some((l) => byKind(l, k)));
   // one grid row per lane: the side's name, then a cell per kind with an arrow before it
-  return el("div", { class: `path k${kinds.length}` }, ls.flatMap((l) => [
+  return el("div", { class: `path k${kinds.length}`, "data-testid": "match-lanes" }, ls.flatMap((l) => [
     el("span", { class: "lane-k" }, l.side),
     kinds.flatMap((k, i) => { const s = byKind(l, k);
       return [i ? el("span", { class: `arrow${s ? "" : " none"}` }, s ? "→" : "") : null, s ? chip(s) : el("span", { class: "slot", title: `no ${k} step on the ${l.side} side` })]; }),
@@ -103,7 +103,7 @@ export function records(r: Row, dir: string, rel: Release | null) {
   if (!recs.length) return null;
   const sorted = [...recs].sort((a, b) => Number(sameRelease(b.namespace, rel)) - Number(sameRelease(a.namespace, rel)));
   const cons = (list: string[] | undefined) => (list || []).map((c) => c.replace(/\s*\((\w[\w-]*)\)$/, "")).join(" ‖ ");
-  return el("div", { class: "records" }, el("span", { class: "k" }, `the ${dir === "added" ? "reference" : "candidate"} DB also has, for ${r.sourcePackage || pkgOf(r.package.ref).name}:`),
+  return el("div", { class: "records", "data-testid": "other-records" }, el("span", { class: "k" }, `the ${dir === "added" ? "reference" : "candidate"} DB also has, for ${r.sourcePackage || pkgOf(r.package.ref).name}:`),
     sorted.map((rec) => el("div", { class: `rec${sameRelease(rec.namespace, rel) ? " same" : " other"}` }, nsChip(rec.namespace),
       ` · ${rec.constraints?.length ? `affected ${cons(rec.constraints)}` : "every version"}${rec.fixVersions?.length ? ` · fixed in ${rec.fixVersions.join(", ")}` : rec.fixStates?.length ? ` · ${rec.fixStates.join("/").replace(/-/g, " ")}` : ""}`)));
 }

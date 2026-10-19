@@ -18,22 +18,22 @@ const firstOpen = () => (ui.rows.find((x) => isOpen(x.r)) || ui.rows[0])?.r.id;
 // check (its panel), the group. Testers found three ways back confusing, so there are no others.
 function crumbs() {
   const s = ui.cardsSpec, out: HTMLElement[] = [];
-  const crumb = (text: string, go: () => void, cls = "", title: string | null = null) => el("button", { class: `crumb ${cls}`, onclick: go, title }, text);
+  const crumb = (kind: string, text: string, go: () => void, cls = "", title: string | null = null) => el("button", { class: `crumb ${cls}`, "data-testid": "crumb", "data-kind": kind, onclick: go, title }, text);
   if (s?.kind === "delta") {
     const rows = diffRows(st(), ui.si).filter((x) => x.dir === s.dir && whyKey(x.r.why) === s.why);
-    out.push(crumb("← scan delta map", () => navigate({ cardsSpec: null, selected: null, evidence: false, delta: true, zoom: null }), "home", "back to the scan delta map (Esc)"));
-    out.push(crumb(`${dirTitle[s.dir] || s.dir} › ${reasonTitle(st(), rows, s.dir)}`, () => navigate({ cardsSpec: null, selected: null, evidence: false, delta: true, zoom: { dir: s.dir, why: s.why } })));
-    if (s.pkg) out.push(crumb(s.pkg, () => select(firstOpen()), "here"));
+    out.push(crumb("home", "← scan delta map", () => navigate({ cardsSpec: null, selected: null, evidence: false, delta: true, zoom: null }), "home", "back to the scan delta map (Esc)"));
+    out.push(crumb("reason", `${dirTitle[s.dir] || s.dir} › ${reasonTitle(st(), rows, s.dir)}`, () => navigate({ cardsSpec: null, selected: null, evidence: false, delta: true, zoom: { dir: s.dir, why: s.why } })));
+    if (s.pkg) out.push(crumb("here", s.pkg, () => select(firstOpen()), "here"));
     return out;
   }
   const c = s && st().gate?.result?.checks.find((k) => k.name === s.check);
-  out.push(crumb("← gate board", () => navigate({ cardsSpec: null, selected: null, evidence: false, delta: false, zoom: null }), "home", "back to the gate board (Esc)"));
+  out.push(crumb("home", "← gate board", () => navigate({ cardsSpec: null, selected: null, evidence: false, delta: false, zoom: null }), "home", "back to the gate board (Esc)"));
   if (c) {
     const what = c.state === "fail" ? ` · fails on ${plural((c.failsOn || []).length, "claim")}` : "";
-    out.push(crumb(`${c.name} ${c.state}${what}`, () => { ui.scrollTo = c.name; navigate({ cardsSpec: null, selected: null, evidence: false, delta: false, zoom: null }); }, c.state));
+    out.push(crumb("check", `${c.name} ${c.state}${what}`, () => { ui.scrollTo = c.name; navigate({ cardsSpec: null, selected: null, evidence: false, delta: false, zoom: null }); }, c.state));
   }
   const title = (ui.cards?.title ?? "").replace(/^[^›]*› /, "");
-  out.push(crumb(title, () => select(firstOpen()), "here"));
+  out.push(crumb("here", title, () => select(firstOpen()), "here"));
   return out;
 }
 
@@ -52,15 +52,15 @@ export function renderTile() {
   const i = ui.rows.findIndex((y) => y.r.id === ui.selected);
   const body = el("div", { class: "tile", id: "tilebody" });
   box.replaceChildren(
-    el("div", { class: "crumbline" }, ...crumbs().flatMap((cr, k) => [k ? el("span", { class: "sep" }, "›") : null, cr]),
-      el("span", { class: "pos" }, x ? `${i + 1} of ${ui.rows.length}` : `${ui.rows.length - open.length} of ${ui.rows.length} labeled`)),
+    el("div", { class: "crumbline", "data-testid": "breadcrumb" }, ...crumbs().flatMap((cr, k) => [k ? el("span", { class: "sep" }, "›") : null, cr]),
+      el("span", { class: "pos", "data-testid": "tile-position", "data-index": x ? i + 1 : null, "data-total": ui.rows.length }, x ? `${i + 1} of ${ui.rows.length}` : `${ui.rows.length - open.length} of ${ui.rows.length} labeled`)),
     body);
   if (!x) {
     const nx = nextGroup(s, ui.si, ui.cardsSpec);
-    body.replaceChildren(el("div", { class: "done" },
+    body.replaceChildren(el("div", { class: "done", "data-testid": "group-done" },
       el("div", { class: "big" }, "Every match in this group is labeled"),
-      el("div", { class: "muted" }, ui.last ? [el("button", { class: "ghost", onclick: () => select(ui.last) }, "z · back to the last one"), " "] : null,
-        nx ? el("button", { class: "ghost", onclick: () => openSpec(specOfGroup(nx.c, nx.g)) }, `next: ${nx.g.cause ? `✦ ${nx.g.cause.title}` : `${marks[nx.g.dir]} ${nx.g.pkg}`} · ${plural(nx.g.rows.filter((y) => isOpen(y.r)).length, "unlabeled match", "unlabeled matches")}`) : null)));
+      el("div", { class: "muted" }, ui.last ? [el("button", { class: "ghost", "data-testid": "back-to-last", onclick: () => select(ui.last) }, "z · back to the last one"), " "] : null,
+        nx ? el("button", { class: "ghost", "data-testid": "next-group", "data-group": nx.g.key, "data-check": nx.c.name, "data-count": nx.g.rows.filter((y) => isOpen(y.r)).length, onclick: () => openSpec(specOfGroup(nx.c, nx.g)) }, `next: ${nx.g.cause ? `✦ ${nx.g.cause.title}` : `${marks[nx.g.dir]} ${nx.g.pkg}`} · ${plural(nx.g.rows.filter((y) => isOpen(y.r)).length, "unlabeled match", "unlabeled matches")}`) : null)));
     return;
   }
   const spec = ui.cardsSpec, check = spec && spec.kind !== "delta" ? s.gate?.result?.checks.find((k) => k.name === spec.check) : null;

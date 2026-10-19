@@ -14,6 +14,8 @@ const flat = (children: Child[]) => children.flat(Infinity as 1) as Leaf[];
 export function el<K extends keyof HTMLElementTagNameMap>(tag: K, attrs: Attrs = {}, ...children: Child[]): HTMLElementTagNameMap[K] {
   const n = document.createElement(tag);
   for (const [k, v] of Object.entries(attrs)) {
+    // a boolean data-* attribute is "true" or "false" so a test can read both
+    if (k.startsWith("data-") && typeof v === "boolean") { n.setAttribute(k, String(v)); continue; }
     if (v == null || v === false) continue;
     if (k === "class") n.className = String(v);
     else if (k === "style") n.style.cssText = String(v);
@@ -34,6 +36,7 @@ const svgNS = "http://www.w3.org/2000/svg";
 export function svg(tag: string, attrs: Attrs = {}, ...children: Child[]): SVGElement {
   const n = document.createElementNS(svgNS, tag) as SVGElement;
   for (const [k, v] of Object.entries(attrs)) {
+    if (k.startsWith("data-") && typeof v === "boolean") { n.setAttribute(k, String(v)); continue; }
     if (v == null || v === false) continue;
     if (k === "style") n.style.cssText = String(v);
     else if (k.startsWith("on")) n.addEventListener(k.slice(2), v as EventListener);

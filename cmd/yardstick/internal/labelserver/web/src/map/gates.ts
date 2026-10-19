@@ -90,15 +90,15 @@ function renderGates() {
   const order = [...st().gates].sort((a, b) => Number(a.outcome === "pass") - Number(b.outcome === "pass") || b.open - a.open);
   must("#gates").replaceChildren(...order.map((g) => {
     const quiet = g.outcome === "pass" && ui.gate !== g.name;
-    return el("div", { class: `gtile ${g.outcome}${ui.gate === g.name ? " on" : ""}${quiet ? " quiet" : ""}`, title: `${g.description || g.name}${g.note ? `\n${g.note}` : ""}\n\nclick: only the findings that bear on it`,
+    return el("div", { class: `gtile ${g.outcome}${ui.gate === g.name ? " on" : ""}${quiet ? " quiet" : ""}`, "data-testid": "gate-card", "data-gate": g.name, "data-state": g.outcome, "data-open": g.open, "data-active": ui.gate === g.name, title: `${g.description || g.name}${g.note ? `\n${g.note}` : ""}\n\nclick: only the findings that bear on it`,
       onclick: () => navigate({ gate: ui.gate === g.name ? null : g.name, group: null }) },
-      el("div", { class: "top" }, el("span", { class: `band band-${g.outcome}` }, g.outcome), el("span", { class: "nm" }, g.name)),
+      el("div", { class: "top" }, el("span", { class: `band band-${g.outcome}`, "data-testid": "gate-outcome", "data-state": g.outcome }, g.outcome), el("span", { class: "nm" }, g.name)),
       quiet ? null : [
         el("div", { class: "cmp" }, `${g.compared} · ${plural(g.images, "image")}`),
-        el("div", { class: "checks" }, ...(g.checks || []).map((c) => el("span", { class: `ck ${c.state}`, title: `${c.valueMeans}: ${c.state}` }, c.name))),
+        el("div", { class: "checks" }, ...(g.checks || []).map((c) => el("span", { class: `ck ${c.state}`, "data-testid": "gate-check", "data-check": c.name, "data-state": c.state, title: `${c.valueMeans}: ${c.state}` }, c.name))),
       ],
       el("div", { class: "foot" }, g.open ? `${g.open} open bear on it` : "nothing open bears on it",
-        el("a", { href: `/ui/map/gates/${encodeURIComponent(g.name)}/`, onclick: (e) => e.stopPropagation(), title: "this gate's board" }, "board ›")),
+        el("a", { href: `/ui/map/gates/${encodeURIComponent(g.name)}/`, "data-testid": "gate-board-link", "data-gate": g.name, onclick: (e) => e.stopPropagation(), title: "this gate's board" }, "board ›")),
     );
   }));
 }
@@ -108,7 +108,8 @@ function renderStatus() {
   box.hidden = !s;
   if (!s) return;
   box.className = `status${s.error ? " error" : ""}`;
-  fill(box, el("span", {}, s.text), s.busy ? null : el("button", { class: "ghost", onclick: () => { ui.status = null; renderStatus(); } }, "dismiss"));
+  box.dataset.state = s.error ? "error" : s.busy ? "busy" : "done";
+  fill(box, el("span", {}, s.text), s.busy ? null : el("button", { class: "ghost", "data-testid": "status-dismiss", onclick: () => { ui.status = null; renderStatus(); } }, "dismiss"));
 }
 
 function renderList() {
@@ -116,22 +117,22 @@ function renderList() {
   const findings = gate ? all.filter((f) => bearsIn(f, gate)) : all;
   const gs = groups(findings);
   const list = must("#list");
-  const head = el("div", { class: "crumbs" }, el("b", {}, ui.gate ? `bearing on ${ui.gate}` : "every gate"),
+  const head = el("div", { class: "crumbs", "data-testid": "list-head", "data-gate": ui.gate ?? "" }, el("b", {}, ui.gate ? `bearing on ${ui.gate}` : "every gate"),
     el("span", {}, ` · ${plural(findings.length, "open finding")} in ${plural(gs.length, "group")} · ${findings.filter((f) => f.bears > 1).length} of them bear on more than one gate`),
-    ui.gate ? el("button", { onclick: () => navigate({ gate: null, group: null }) }, "every gate") : null);
+    ui.gate ? el("button", { "data-testid": "clear-gate-filter", onclick: () => navigate({ gate: null, group: null }) }, "every gate") : null);
   const out: HTMLElement[] = [head];
   const tiers = [...new Set(gs.map(tierOf))];
   for (const t of tiers) {
     const inTier = gs.filter((g) => tierOf(g) === t);
     const n = inTier.reduce((k, g) => k + g.findings.length, 0);
-    out.push(el("div", { class: "xtier" }, tierTitle(t), ` · ${plural(n, "finding")} in ${plural(inTier.length, "group")}`));
+    out.push(el("div", { class: "xtier", "data-testid": "tier", "data-tier": t, "data-count": inTier.length }, tierTitle(t), ` · ${plural(n, "finding")} in ${plural(inTier.length, "group")}`));
     // the unfolded group always shows, wherever it sits in its tier
     const cap = ui.more.has(`t:${t}`) ? Infinity : 12;
     const shown = inTier.filter((g, i) => i < cap || g.key === ui.group);
     for (const g of shown) out.push(groupCard(g));
-    if (inTier.length > shown.length) out.push(el("button", { class: "ghost more", onclick: () => { ui.more.add(`t:${t}`); render(); } }, `+ ${inTier.length - shown.length} more`));
+    if (inTier.length > shown.length) out.push(el("button", { class: "ghost more", "data-testid": "tier-more", "data-tier": t, onclick: () => { ui.more.add(`t:${t}`); render(); } }, `+ ${inTier.length - shown.length} more`));
   }
-  if (!gs.length) out.push(el("div", { class: "muted" }, "nothing open bears on a gate"));
+  if (!gs.length) out.push(el("div", { class: "muted", "data-testid": "list-empty" }, "nothing open bears on a gate"));
   list.replaceChildren(...out);
 }
 
@@ -149,7 +150,7 @@ function gateChips(findings: CrossFinding[]) {
     const c = by.get(g.name);
     if (!c) return [];
     const dirs = [...c.dirs].map((d) => marks[d]).join("");
-    return [el("span", { class: `gchip${c.flips ? " flip" : ""}${c.bears ? "" : " inert"}`,
+    return [el("span", { class: `gchip${c.flips ? " flip" : ""}${c.bears ? "" : " inert"}`, "data-testid": "gate-chip", "data-gate": g.name, "data-bears": c.bears, "data-flips": c.flips,
       title: `${g.name} (${g.outcome}): ${[...c.dirs].map((d) => dirWords[d]).join("; ")}\n${c.bears ? `${c.bears} bear on a check${c.flips ? `, ${c.flips} could change one alone` : ""}` : "they count, but can't change it: the gate is decided"}` },
       el("span", { class: "d" }, dirs), g.name, findings.length > 1 && c.bears ? el("span", { class: "eff" }, `${c.bears}${c.flips ? ` · ◆${c.flips}` : ""}`) : null)];
   }));
@@ -159,35 +160,35 @@ function gateChips(findings: CrossFinding[]) {
 function effectChip(a: CrossAppearance) {
   const g = st().gates.find((x) => x.name === a.gate);
   const e = a.effect;
-  if (!e) return el("span", { class: "gchip inert", title: `${a.gate} (${g?.outcome}): ${dirWords[a.dir]}; the label counts, but the gate is decided` }, el("span", { class: "d" }, marks[a.dir]), a.gate);
+  if (!e) return el("span", { class: "gchip inert", "data-testid": "gate-effect", "data-gate": a.gate, title: `${a.gate} (${g?.outcome}): ${dirWords[a.dir]}; the label counts, but the gate is decided` }, el("span", { class: "d" }, marks[a.dir]), a.gate);
   const flips = e.couldFlip?.length;
   const moved = (o: string) => o !== g?.outcome;
   // the gate's outcome when a label moves it, else the check it decides (either label does)
   const outcomes = [["TP", e.ifTP.outcome], ["FP", e.ifFP.outcome]].filter(([, o]) => moved(o));
   const eff = !flips ? null : outcomes.length ? outcomes.map(([v, o], i) => [i ? " · " : null, `${v}→`, el("span", { class: o }, o)]) : `◆ ${(e.couldFlip || []).join(", ")}`;
-  return el("span", { class: `gchip${flips ? " flip" : ""}`,
+  return el("span", { class: `gchip${flips ? " flip" : ""}`, "data-testid": "gate-effect", "data-gate": a.gate, "data-if-tp": e.ifTP.outcome, "data-if-fp": e.ifFP.outcome,
     title: `${a.gate} (${g?.outcome}): ${dirWords[a.dir]}\nnarrows ${(e.bears || []).join(", ") || "–"}${flips ? `\nalone changes ${(e.couldFlip || []).join(", ")}` : ""}\nif TP the gate is ${e.ifTP.outcome}; if FP, ${e.ifFP.outcome}` },
     el("span", { class: "d" }, marks[a.dir]), a.gate, eff ? el("span", { class: "eff" }, eff) : null);
 }
 
 function hintChip(h: HintSummary | undefined) {
   if (!h || h.status !== "pending") return null;
-  return el("span", { class: `hint v-${h.verdict}`, title: `${h.skill || "agent"}: ${h.rule || ""}${h.title || h.justification ? `\n${h.title || h.justification}` : ""}` }, `✦ ${labels[h.verdict]?.word || h.verdict}? ${h.confidence || ""}`);
+  return el("span", { class: `hint v-${h.verdict}`, "data-testid": "hint-chip", "data-verdict": h.verdict, "data-confidence": h.confidence ?? "", "aria-label": `${labels[h.verdict]?.word || h.verdict} hint`, title: `${h.skill || "agent"}: ${h.rule || ""}${h.title || h.justification ? `\n${h.title || h.justification}` : ""}` }, `✦ ${labels[h.verdict]?.word || h.verdict}? ${h.confidence || ""}`);
 }
 
-function actions(findings: CrossFinding[]) {
+function actions(findings: CrossFinding[], scope: "group" | "finding") {
   const pending = findings.filter((f) => f.hint?.status === "pending");
   const verdicts = new Set<string>(pending.map((f) => f.hint?.verdict ?? ""));
   const many = findings.length > 1 ? ` ${findings.length}` : "";
-  return el("div", { class: "xacts", onclick: (e) => e.stopPropagation() },
-    pending.length ? el("button", { class: "ghost", title: "endorse the agent's suggestions: your claims, with their reasons and facts", onclick: () => accept(pending) },
+  return el("div", { class: "xacts", "data-testid": "actions", "data-scope": scope, onclick: (e) => e.stopPropagation() },
+    pending.length ? el("button", { class: "ghost", "data-testid": "accept-button", "data-scope": scope, "data-count": pending.length, title: "endorse the agent's suggestions: your claims, with their reasons and facts", onclick: () => accept(pending) },
       `✦ accept${pending.length > 1 ? ` ${pending.length}` : ""}${verdicts.size === 1 ? ` ${labels[[...verdicts][0]]?.word}` : ""}`) : null,
-    el("button", { class: "ghost tp", title: `label${many} TP: the label counts in every gate that reports it`, onclick: () => label(findings, "tp") }, `${labels.tp.glyph} TP${many}`),
+    el("button", { class: "ghost tp", "data-testid": "label-button", "data-verdict": "tp", "data-scope": scope, title: `label${many} TP: the label counts in every gate that reports it`, onclick: () => label(findings, "tp") }, `${labels.tp.glyph} TP${many}`),
     // FP and unclear need a reason from the claims vocabulary: choosing one labels
-    ...["fp", "unclear"].map((v) => el("select", { class: `ghost ${v}`, title: `label${many} ${labels[v].word}, with a reason: the label counts in every gate that reports it`,
+    ...["fp", "unclear"].map((v) => el("select", { class: `ghost ${v}`, "data-testid": "label-select", "data-verdict": v, "data-scope": scope, title: `label${many} ${labels[v].word}, with a reason: the label counts in every gate that reports it`,
       onchange: (e) => { const j = (e.target as HTMLSelectElement).value; if (j) label(findings, v, j); } },
     el("option", { value: "" }, `${labels[v].glyph} ${labels[v].word}${many} because…`),
-    ...Object.entries(st().vocabulary?.justifications?.[v] || {}).sort().map(([j, desc]) => el("option", { value: j }, desc)))),
+    ...Object.entries(st().vocabulary?.justifications?.[v] || {}).sort().map(([j, desc]) => el("option", { value: j, "data-testid": "justification-option", "data-justification": j }, desc)))),
   );
 }
 
@@ -196,18 +197,18 @@ function groupCard(g: Group) {
   const hinted = g.findings.filter((f) => f.hint?.status === "pending");
   const title = g.cause ? `✦ ${g.cause.title}` : `${g.pkg} · ${g.image}`;
   const sub = `${plural(g.findings.length, "finding")}${g.cause ? ` · ${g.pkg} · ${g.image}` : ""}${hinted.length ? ` · ${hinted.length} with a suggestion` : ""}`;
-  const card = el("section", { class: `xgroup${g.cause ? " cause" : ""}` },
-    el("div", { class: "xhead", onclick: () => navigate({ group: open ? null : g.key }) },
+  const card = el("section", { class: `xgroup${g.cause ? " cause" : ""}`, "data-testid": "finding-group", "data-group": g.key, "data-open": open, "data-count": g.findings.length, "data-hinted": hinted.length, "data-package": g.pkg, "data-image": g.image },
+    el("div", { class: "xhead", "data-testid": "group-head", onclick: () => navigate({ group: open ? null : g.key }) },
       el("div", {}, el("span", { class: "ttl" }, open ? "▾ " : "▸ ", title), " ", el("span", { class: "sub" }, sub)),
-      actions(g.findings),
+      actions(g.findings, "group"),
       gateChips(g.findings)));
   if (open) {
     const cap = ui.more.has(g.key) ? Infinity : 40;
-    const rows = el("div", { class: "xrows" }, ...g.findings.slice(0, cap).map((f) => el("div", { class: "xrow" },
+    const rows = el("div", { class: "xrows", "data-testid": "finding-rows" }, ...g.findings.slice(0, cap).map((f) => el("div", { class: "xrow", "data-testid": "finding", "data-row": f.in[0]?.row, "data-gate": f.in[0]?.gate, "data-vulnerability": f.vulnerability, "data-package": pkgName(f.package), "data-image": f.image },
       el("div", {}, el("span", { class: "vuln" }, f.vulnerability), " ", hintChip(f.hint), el("div", { class: "pkg" }, pkgName(f.package))),
       el("div", { class: "chips" }, ...f.in.map((a) => effectChip(a))),
-      actions([f]))));
-    if (g.findings.length > cap) rows.append(el("button", { class: "ghost more", onclick: () => { ui.more.add(g.key); render(); } }, `+ ${g.findings.length - cap} more`));
+      actions([f], "finding"))));
+    if (g.findings.length > cap) rows.append(el("button", { class: "ghost more", "data-testid": "show-more", "data-group": g.key, onclick: () => { ui.more.add(g.key); render(); } }, `+ ${g.findings.length - cap} more`));
     card.append(rows);
   }
   return card;

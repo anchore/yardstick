@@ -66,11 +66,11 @@ function effect(ctx: TileCtx) {
   const { r, dir, check: c } = ctx, e = effects[dir];
   if (!e) return null;
   if (r.verdict === "tp" || r.verdict === "fp") {
-    return el("div", { class: "effect fact" }, el("b", {}, `The candidate ${e[r.verdict]}`),
+    return el("div", { class: "effect fact", "data-testid": "label-effect" }, el("b", {}, `The candidate ${e[r.verdict]}`),
       ctx.reexamine && c ? el("span", { class: "muted" }, ` · ${c.name} fails on this label; relabel it if it's wrong`) : null);
   }
   const half = (v: string, lead: string) => el("span", { class: "eff", id: `eff-${v}` }, "If ", el("span", { class: `v-${v}` }, `${labels[v].glyph} ${labels[v].word}`), `: ${lead} ${e[v]}`);
-  return el("div", { class: "effect" }, half("tp", "the candidate"), el("span", { class: "muted" }, " · "), half("fp", "it"));
+  return el("div", { class: "effect", "data-testid": "label-effect" }, half("tp", "the candidate"), el("span", { class: "muted" }, " · "), half("fp", "it"));
 }
 // preview lights the half of the effect line that the hovered or focused button would make true
 function preview(v: string | null) {
@@ -92,20 +92,20 @@ let shownRow: Row | null = null;
 const receiptFrom = new WeakMap<Receipt, Row>();
 function receipt(ctx: TileCtx, prev: Row | null) {
   const { r, receipt: rc } = ctx;
-  const counter = el("div", { class: "receipt muted" }, ctx.counter || "", ctx.tierName ? ` · ${ctx.tierName}` : "");
+  const counter = el("div", { class: "receipt muted", "data-testid": "tile-counter" }, ctx.counter || "", ctx.tierName ? ` · ${ctx.tierName}` : "");
   if (!rc) return counter;
   if (rc.from == null && !receiptFrom.has(rc) && prev && prev.id !== r.id) receiptFrom.set(rc, prev);
   const from = rc.from || receiptFrom.get(rc);
   const what = rc.text.replace(/ recorded\b/, "");
-  const bar = rc.plain ? el("div", { class: "receipt bar", role: "status" }, el("b", {}, rc.text))
-    : from ? el("div", { class: "receipt bar moved", role: "status" }, "Labeled ", el("b", {}, matchName(from)), `: ${what}`, el("span", { class: "sep" }, " · "), "now on ", el("b", {}, matchName(r)),
+  const bar = rc.plain ? el("div", { class: "receipt bar", "data-testid": "receipt", role: "status" }, el("b", {}, rc.text))
+    : from ? el("div", { class: "receipt bar moved", "data-testid": "receipt", "data-moved": true, role: "status" }, "Labeled ", el("b", {}, matchName(from)), `: ${what}`, el("span", { class: "sep" }, " · "), "now on ", el("b", {}, matchName(r)),
       ctx.backKey ? [el("span", { class: "sep" }, " · "), "back ", el("kbd", {}, ctx.backKey)] : null)
-      : el("div", { class: "receipt bar", role: "status" }, "Labeled ", el("b", {}, matchName(r)), `: ${what}`, ctx.on.skip ? [el("span", { class: "sep" }, " · "), "next ", el("kbd", {}, "j")] : null);
+      : el("div", { class: "receipt bar", "data-testid": "receipt", role: "status" }, "Labeled ", el("b", {}, matchName(r)), `: ${what}`, ctx.on.skip ? [el("span", { class: "sep" }, " · "), "next ", el("kbd", {}, "j")] : null);
   return [bar, counter];
 }
 // advanceToggle is the standing "after labeling, go to the next match" switch
-const advanceToggle = (ctx: TileCtx) => (ctx.canStay ? el("label", { class: "advance", title: "kept in this browser" },
-  el("input", { type: "checkbox", checked: autoAdvance(), onchange: (e) => { const t = e.target as HTMLInputElement; setAutoAdvance(t.checked); t.blur(); } }),
+const advanceToggle = (ctx: TileCtx) => (ctx.canStay ? el("label", { class: "advance", "data-testid": "advance-toggle", title: "kept in this browser" },
+  el("input", { type: "checkbox", "data-testid": "advance-checkbox", checked: autoAdvance(), onchange: (e) => { const t = e.target as HTMLInputElement; setAutoAdvance(t.checked); t.blur(); } }),
   " after labeling, go to the next match") : null);
 
 // ---------- the tile ----------
@@ -121,38 +121,41 @@ export function render(container: HTMLElement, ctx: TileCtx) {
   const cause = (r.causes || []).map((id) => (state.causes || []).find((k) => k.id === id)).find((k) => k && k.pending?.length > 1);
   const btn = (v: string, key: string) => el("button", {
     class: `btn ${v}${r.verdict === v ? " filled" : ""}${h?.verdict === v ? " hinted" : h ? " quiet" : ""}`,
+    "data-testid": "verdict-button", "data-verdict": v, "data-current": r.verdict === v, "data-hinted": h?.verdict === v,
     title: h?.verdict === v ? "the agent hint: accept it (a)" : labels[v].long,
     onclick: () => (h?.verdict === v ? on.accept([r.id]) : on.label(v)),
     onmouseenter: () => preview(v), onmouseleave: () => preview(null), onfocus: () => preview(v), onblur: () => preview(null),
   }, h?.verdict === v ? el("span", { class: "cap" }, "✦ agent hint") : null, el("span", { class: "lbl" }, `${labels[v].glyph} ${labels[v].word}`, el("kbd", {}, key)));
   container.classList.add("tile");
+  container.setAttribute("data-testid", "tile");
+  Object.assign(container.dataset, { row: r.id, verdict: r.verdict, vulnerability: r.vulnerability, package: pk.name, version: pk.version, direction: dir });
   fill(container,
     receipt(ctx, prev),
-    el("div", { class: "title" },
-      el("span", { class: "mark", title: dirWords[dir] }, marks[dir]),
-      el("span", { class: "vuln" }, r.vulnerability),
-      el("span", { class: "pkg" }, `${pk.name} ${pk.version}`),
-      el("span", { class: "img" }, ctx.subjectName(ctx.si), rel ? ` · ${releaseHuman(rel)}` : ""),
-      (r.aliases || []).filter((a) => a !== r.vulnerability).map((a) => el("span", { class: "alias" }, a)),
-      !ctx.reexamine && endsGate(state.gate?.result?.outcome, r) ? el("span", { class: "decisive" }, "◆ a label here ends the gate") : null),
+    el("div", { class: "title", "data-testid": "tile-title" },
+      el("span", { class: "mark", "data-testid": "tile-direction", "aria-label": dirWords[dir], title: dirWords[dir] }, marks[dir]),
+      el("span", { class: "vuln", "data-testid": "tile-vulnerability" }, r.vulnerability),
+      el("span", { class: "pkg", "data-testid": "tile-package" }, `${pk.name} ${pk.version}`),
+      el("span", { class: "img", "data-testid": "tile-image" }, ctx.subjectName(ctx.si), rel ? ` · ${releaseHuman(rel)}` : ""),
+      (r.aliases || []).filter((a) => a !== r.vulnerability).map((a) => el("span", { class: "alias", "data-testid": "tile-alias" }, a)),
+      !ctx.reexamine && endsGate(state.gate?.result?.outcome, r) ? el("span", { class: "decisive", "data-testid": "tile-decisive" }, "◆ a label here ends the gate") : null),
     // three sections that look different on purpose: why the scans differ (open, on the page), what
     // the agent thinks (its tinted card), and the label (one solid box: what it does, the
     // controls, who labeled it)
-    el("section", { class: "sec sec-why" },
+    el("section", { class: "sec sec-why", "data-testid": "why-panel" },
       el("h2", {}, "Why the scans differ"),
-      el("div", { class: "why" }, el("b", {}, `${dirWords[dir][0].toUpperCase()}${dirWords[dir].slice(1)}`), r.why ? `: ${whyText(r.why, dir)}` : "", (r.why?.secondary || []).map((s) => ` · ${whyText(s, dir)}`)),
-      el("div", { id: "path" }, matchPath(r, ctx.matches.get(r.id), rel)),
+      el("div", { class: "why", "data-testid": "why-text" }, el("b", {}, `${dirWords[dir][0].toUpperCase()}${dirWords[dir].slice(1)}`), r.why ? `: ${whyText(r.why, dir)}` : "", (r.why?.secondary || []).map((s) => ` · ${whyText(s, dir)}`)),
+      el("div", { id: "path", "data-testid": "match-path" }, matchPath(r, ctx.matches.get(r.id), rel)),
       records(r, dir, rel)),
-    el("section", { class: "sec sec-agent" }, agent(ctx, h || r.hint, cause)),
-    el("section", { class: "sec sec-label" },
+    el("section", { class: "sec sec-agent", "data-testid": "hint-section" }, agent(ctx, h || r.hint, cause)),
+    el("section", { class: "sec sec-label", "data-testid": "label-section" },
       el("h2", {}, "Label"),
       effect(ctx),
-      el("div", { class: "buttons" }, btn("tp", "t"), btn("fp", "f"), btn("unclear", "u"), on.skip ? el("button", { class: "btn skip", onclick: () => on.skip?.() }, "skip", el("kbd", {}, "j")) : null, advanceToggle(ctx)),
+      el("div", { class: "buttons", "data-testid": "verdict-buttons" }, btn("tp", "t"), btn("fp", "f"), btn("unclear", "u"), on.skip ? el("button", { class: "btn skip", "data-testid": "skip-button", onclick: () => on.skip?.() }, "skip", el("kbd", {}, "j")) : null, advanceToggle(ctx)),
       picker(ctx),
-      el("input", { class: "note", id: "note", placeholder: "note for the label (n)", value: ctx.note || "", oninput: (e) => on.note((e.target as HTMLInputElement).value),
+      el("input", { class: "note", id: "note", "data-testid": "note-input", placeholder: "note for the label (n)", value: ctx.note || "", oninput: (e) => on.note((e.target as HTMLInputElement).value),
         onkeydown: (e) => { if (e.key === "Escape" || e.key === "Enter") { (e.target as HTMLInputElement).blur(); e.stopPropagation(); } } }),
-      r.label ? el("div", { class: "labeled", id: "labeled" }) : null),
-    ctx.more ? more(ctx) : el("div", { class: "muted" }, el("button", { class: "ghost", onclick: () => on.toggleMore() }, "more evidence"), " ", el("kbd", {}, "e"), " links, the label's sources, grype's raw match"),
+      r.label ? el("div", { class: "labeled", id: "labeled", "data-testid": "label-record" }) : null),
+    ctx.more ? more(ctx) : el("div", { class: "muted", "data-testid": "evidence-collapsed" }, el("button", { class: "ghost", "data-testid": "evidence-toggle", onclick: () => on.toggleMore() }, "more evidence"), " ", el("kbd", {}, "e"), " links, the label's sources, grype's raw match"),
   );
   fillDetail(ctx);
   fillPath(ctx, rel);
@@ -177,10 +180,10 @@ async function fillPath(ctx: TileCtx, rel: Release | null) {
 
 function more(ctx: TileCtx) {
   const { r } = ctx;
-  const box = el("div", { class: "more" },
-    el("h3", {}, "read more"), el("div", { class: "links", id: "links" }, el("span", { class: "muted" }, "loading…")),
-    el("h3", {}, "the label, and every claims source holding it"), el("div", { class: "claims", id: "claims" }, "…"),
-    el("h3", {}, "grype's raw match, and the syft artifact"), el("div", { class: "raw" }, el("pre", { id: "raw-c" }, "…"), el("pre", { id: "raw-r" }, "…"), el("pre", { id: "raw-a" }, "…")));
+  const box = el("div", { class: "more", "data-testid": "evidence-panel" },
+    el("h3", {}, "read more"), el("div", { class: "links", id: "links", "data-testid": "evidence-links" }, el("span", { class: "muted" }, "loading…")),
+    el("h3", {}, "the label, and every claims source holding it"), el("div", { class: "claims", id: "claims", "data-testid": "evidence-claims" }, "…"),
+    el("h3", {}, "grype's raw match, and the syft artifact"), el("div", { class: "raw" }, el("pre", { id: "raw-c", "data-testid": "raw-candidate" }, "…"), el("pre", { id: "raw-r", "data-testid": "raw-reference" }, "…"), el("pre", { id: "raw-a", "data-testid": "raw-artifact" }, "…")));
   (async () => {
     const m = await matchesOf(ctx);
     if (!m || shown !== r.id) return;
@@ -239,19 +242,19 @@ async function fillDetail(ctx: TileCtx) {
 function labelLine(state: State, lv: NonNullable<RowResponse["label"]>) {
   const l = lv.label, notes = l.notes || [];
   const whoWhen = (n: claimsv1.Note) => notes.length > 1 || n.author !== l.author ? `${n.author} · ${new Date(n.at).toLocaleDateString()}: ` : "";
-  return el("div", { class: "who" },
-    el("span", { class: `v-${l.verdict}` }, `${labels[l.verdict]?.glyph || ""} ${labels[l.verdict]?.word || l.verdict}`),
+  return el("div", { class: "who", "data-testid": "label-line", "data-verdict": l.verdict, "data-author": l.author || "" },
+    el("span", { class: `v-${l.verdict}`, "aria-label": labels[l.verdict]?.word || l.verdict }, `${labels[l.verdict]?.glyph || ""} ${labels[l.verdict]?.word || l.verdict}`),
     `${l.justification ? ` · ${justWords(state, l.verdict, l.justification)}` : ""} by ${l.author || "?"} · ${new Date(l.lastUpdated).toLocaleDateString()}${l.evidence?.[0]?.rule ? ` · rule: ${ruleWords(l.evidence[0].rule)}` : ""}`,
-    ...notes.map((n) => el("div", { class: "lnote" }, whoWhen(n) + n.text)));
+    ...notes.map((n) => el("div", { class: "lnote", "data-testid": "label-note" }, whoWhen(n) + n.text)));
 }
 
 // picker is the justification picker: FP and unclear need one, from the claims vocabulary, and
 // choosing one labels the match with its verdict. TP's are optional, so they're offered too.
 function picker(ctx: TileCtx) {
   const js = ctx.state.vocabulary?.justifications || {};
-  return el("select", { class: "note", id: "justification", title: "the reason for the label: choosing one labels the match",
+  return el("select", { class: "note", id: "justification", "data-testid": "justification-picker", title: "the reason for the label: choosing one labels the match",
     onchange: (e) => { const [v, j] = (e.target as HTMLSelectElement).value.split(":"); if (v) ctx.on.label(v, j); } },
-  el("option", { value: "" }, "label with a reason…"),
-  ...["fp", "unclear", "tp"].filter((v) => js[v]).map((v) => el("optgroup", { label: `${labels[v].glyph} ${labels[v].word}` },
-    ...Object.entries(js[v]).sort().map(([j, desc]) => el("option", { value: `${v}:${j}` }, `${labels[v].word} · ${desc}`)))));
+  el("option", { value: "", "data-testid": "justification-none" }, "label with a reason…"),
+  ...["fp", "unclear", "tp"].filter((v) => js[v]).map((v) => el("optgroup", { label: `${labels[v].glyph} ${labels[v].word}`, "data-testid": "justification-group", "data-verdict": v },
+    ...Object.entries(js[v]).sort().map(([j, desc]) => el("option", { value: `${v}:${j}`, "data-testid": "justification-option", "data-verdict": v, "data-justification": j }, `${labels[v].word} · ${desc}`)))));
 }

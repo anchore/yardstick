@@ -11,25 +11,25 @@
   <script type="module" src="/assets/dist/map/app.js"></script>
 </head>
 <body>
-  <header>
+  <header data-testid="header">
     <div class="brand">yardstick <span>map</span></div>
-    <div id="compared" class="compared"></div>
+    <div id="compared" class="compared" data-testid="compared"></div>
     <div class="spacer"></div>
-    <button id="theme-button" class="ghost" title="theme (D)"></button>
-    <button id="help-button" class="ghost" title="keyboard (?)">?</button>
+    <button id="theme-button" data-testid="theme-button" class="ghost" title="theme (D)"></button>
+    <button id="help-button" data-testid="help-button" class="ghost" title="keyboard (?)">?</button>
   </header>
 
-  <section id="gate" class="gate"></section>
-  <section id="images" class="images"></section>
+  <section id="gate" class="gate" data-testid="gate-ribbon"></section>
+  <section id="images" class="images" data-testid="images"></section>
 
   <main id="main" class="main">
-    <section id="map" class="map"></section>
-    <section id="tile" class="tileview" hidden></section>
+    <section id="map" class="map" data-testid="map"></section>
+    <section id="tile" class="tileview" data-testid="tile-view" hidden></section>
   </main>
 
-  <div id="toast" class="toast" hidden></div>
+  <div id="toast" class="toast" data-testid="toast" hidden></div>
 
-  <div id="help" class="help" hidden>
+  <div id="help" class="help" data-testid="help" hidden>
     <div class="help-card">
       <h2>Reading the map</h2>
       <p>The gate is drawn first: one bar per check, named above it. The shaded range runs from the worst case for the

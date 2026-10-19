@@ -11,14 +11,14 @@
   <script type="module" src="/assets/dist/map/gates.js"></script>
 </head>
 <body>
-  <header>
+  <header data-testid="header">
     <div class="brand">yardstick <span>map · every gate</span></div>
     <div class="compared muted">a label is about a package in an image, not a gate: it counts in every gate that reports the match</div>
     <div class="spacer"></div>
   </header>
 
-  <section id="gates" class="gates"></section>
-  <div id="status" class="status" hidden></div>
-  <main id="list" class="xlist"></main>
+  <section id="gates" class="gates" data-testid="gate-cards"></section>
+  <div id="status" class="status" data-testid="status" hidden></div>
+  <main id="list" class="xlist" data-testid="finding-list"></main>
 </body>
 </html>

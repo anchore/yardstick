@@ -47,12 +47,12 @@ export const activeResearch = () => allRows(st(), ui.si).filter((x) => ["queued"
 export const researchOff = () => (ui.state?.research && !ui.state.research.available ? ui.state.research : null);
 
 export function researchControls() {
-  const box = el("span", { class: "research-ctl" });
+  const box = el("span", { class: "research-ctl", "data-testid": "research-controls" });
   const off = researchOff();
   if (off) {
     const command = off.command;
-    box.append(el("span", { class: "research-off", title: off.reason }, `⚠ research disabled: ${off.reason}`,
-      command ? [" ", el("code", {}, command), " ", el("button", { class: "ghost", title: "copy the command", onclick: () => navigator.clipboard?.writeText(command).then(() => toast("copied"), () => toast(command)) }, "copy")] : null));
+    box.append(el("span", { class: "research-off", "data-testid": "research-off", title: off.reason }, `⚠ research disabled: ${off.reason}`,
+      command ? [" ", el("code", {}, command), " ", el("button", { class: "ghost", "data-testid": "research-copy", title: "copy the command", onclick: () => navigator.clipboard?.writeText(command).then(() => toast("copied"), () => toast(command)) }, "copy")] : null));
     return box;
   }
   const s = st();
@@ -60,21 +60,21 @@ export function researchControls() {
   const active = activeResearch(), started = ui.research?.started;
   if (active.length) {
     const cancellable = active.filter((x) => x.r.research?.cancellable);
-    box.append(el("span", { class: "researching", title: `${plural(new Set(active.map((x) => x.r.research?.job)).size, "research run")} queued or running, ${s.researchConcurrency} at a time; agent hints arrive as they finish` },
+    box.append(el("span", { class: "researching", "data-testid": "research-running", "data-count": active.length, title: `${plural(new Set(active.map((x) => x.r.research?.job)).size, "research run")} queued or running, ${s.researchConcurrency} at a time; agent hints arrive as they finish` },
       `⧗ researching ${plural(active.length, "match", "matches")}`,
-      cancellable.length ? [" ", el("button", { class: "ghost", title: "cancel the research queued or running here", onclick: () => cancelResearch(cancellable.map((x) => x.r.id)) }, "✕ cancel")] : null));
+      cancellable.length ? [" ", el("button", { class: "ghost", "data-testid": "research-cancel", title: "cancel the research queued or running here", onclick: () => cancelResearch(cancellable.map((x) => x.r.id)) }, "✕ cancel")] : null));
   } else if (started) {
-    box.append(el("span", { class: "researching done", title: "agent hints are on the matches; this note stays until you dismiss it" },
+    box.append(el("span", { class: "researching done", "data-testid": "research-finished", "data-cancelled": !!started.cancelled, "data-count": started.matches, title: "agent hints are on the matches; this note stays until you dismiss it" },
       started.cancelled ? `research cancelled · ${plural(started.matches, "match", "matches")} asked for` : `✦ research finished on ${plural(started.matches, "match", "matches")}`,
-      " ", el("button", { class: "ghost", title: "dismiss", onclick: () => { if (ui.research) ui.research.started = null; render(); } }, "✕")));
+      " ", el("button", { class: "ghost", "data-testid": "research-dismiss", title: "dismiss", onclick: () => { if (ui.research) ui.research.started = null; render(); } }, "✕")));
   }
   const counts = ui.research?.scope === researchScope() ? ui.research.counts : null;
   for (const { select, words } of selections) {
     const n = counts?.[select];
     if (n == null) continue;
-    if (!n) { box.append(el("span", { class: "muted", title: "unlabeled matches that research-vuln hasn't been run on (researched ones are left out), with no research queued or running" }, `no match ${words} is left to research`)); continue; }
+    if (!n) { box.append(el("span", { class: "muted", "data-testid": "research-none", "data-select": select, title: "unlabeled matches that research-vuln hasn't been run on (researched ones are left out), with no research queued or running" }, `no match ${words} is left to research`)); continue; }
     const take = Math.min(n, researchBatch);
-    box.append(el("button", { class: "ghost research", onclick: () => startResearch(select, take),
+    box.append(el("button", { class: "ghost research", "data-testid": "research-select", "data-select": select, "data-count": n, "data-take": take, onclick: () => startResearch(select, take),
       title: `${take < n ? `the first ${take} of ${n}${select === "could-move-check" ? ", those that could flip a check first" : ""}` : `all ${n}`}${ui.si == null ? " in every image" : ` in ${subjectName(s, ui.si)}`}; unlabeled matches research-vuln hasn't been run on yet (already researched ones are left out). ${s.researchConcurrency} at a time; each costs tokens.` },
       `research ${take < n ? `${take} of ${n}` : n} ${n === 1 ? "match" : "matches"} ${words}`));
   }
@@ -118,5 +118,5 @@ export function researchedMark(rows: Row[]) {
   if (triaged.length) parts.push(triaged.length < rows.length ? `✦ ${triaged.length} of ${rows.length} triaged` : "✦ triaged");
   const shown = [...done, ...triaged];
   const title = shown.slice(0, 8).map(researchedText).join("\n") + (shown.length > 8 ? `\n… and ${shown.length - 8} more` : "");
-  return el("span", { class: "researched", title }, parts.join(" · "));
+  return el("span", { class: "researched", "data-testid": "researched-mark", "data-researched": done.length, "data-triaged": triaged.length, "data-total": rows.length, title }, parts.join(" · "));
 }

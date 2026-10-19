@@ -8,7 +8,7 @@ import { st, ui } from "./state";
 
 export function renderHeader() {
   const s = st(), c: Partial<setup.Prepared> = s.candidate || {}, r: Partial<setup.Prepared> = s.reference || c;
-  const field = (k: string, v: Node | (Node | string)[], title: string) => el("span", { class: "field", "data-k": k, title }, v);
+  const field = (k: string, v: Node | (Node | string)[], title: string) => el("span", { class: "field", "data-testid": "compared-field", "data-k": k, title }, v);
   const gv = (p: Partial<setup.Prepared>) => p.grype?.spec?.version || p.grype?.spec?.path;
   const grype = gv(c) === gv(r) ? el("b", {}, gv(c) || "?") : [el("b", {}, gv(r) || "?"), " → ", el("b", {}, gv(c) || "?")];
   const dbName = (db: setup.DB | undefined) => (db?.source || db?.requested || "").split("/").pop()?.replace(/^vulnerability-db_/, "").replace(/\.tar\.zst$/, "") || "?";
@@ -28,8 +28,8 @@ export function renderImages() {
   const s = st();
   const subs = s.subjects.map((_, si) => ({ si, t: tally(diffRows(s, si)) }));
   must("#images").replaceChildren(
-    el("div", { class: `img${ui.si == null ? " on" : ""}`, onclick: () => scope(null) }, el("div", { class: "nm" }, "every image"), stack(tally(diffRows(s, null))), nums(tally(diffRows(s, null)))),
-    ...subs.map(({ si, t }) => el("div", { class: `img${ui.si === si ? " on" : ""}${t.n ? "" : " quiet"}`, title: `${subjectName(s, si)} (${si + 1})`, onclick: () => scope(si) },
+    el("div", { class: `img${ui.si == null ? " on" : ""}`, "data-testid": "image-all", "data-active": ui.si == null, onclick: () => scope(null) }, el("div", { class: "nm" }, "every image"), stack(tally(diffRows(s, null))), nums(tally(diffRows(s, null)))),
+    ...subs.map(({ si, t }) => el("div", { class: `img${ui.si === si ? " on" : ""}${t.n ? "" : " quiet"}`, title: `${subjectName(s, si)} (${si + 1})`, "data-testid": "image", "data-subject": subjectName(s, si), "data-index": si, "data-active": ui.si === si, "data-diffs": t.n, "data-open": t.open, onclick: () => scope(si) },
       el("div", { class: "nm" }, `${si + 1} · ${subjectName(s, si)}`), stack(t), nums(t))),
   );
 }
@@ -38,5 +38,5 @@ function stack(t: Tally) {
   return el("div", { class: "stack" }, t.n ? [seg("tp", t.tp), seg("fp", t.fp), seg("unclear", t.unclear), seg("hint", t.hinted)] : null);
 }
 function nums(t: Tally) {
-  return el("div", { class: "nums" }, el("span", {}, el("b", {}, String(t.n)), " diff"), el("span", {}, el("b", {}, String(t.open)), " open"), t.decisive ? el("span", { class: "decisive" }, `◆ ${t.decisive}`) : null);
+  return el("div", { class: "nums" }, el("span", {}, el("b", {}, String(t.n)), " diff"), el("span", {}, el("b", {}, String(t.open)), " open"), t.decisive ? el("span", { class: "decisive", "data-testid": "image-decisive", "aria-label": `${t.decisive} could change the verdict` }, `◆ ${t.decisive}`) : null);
 }
