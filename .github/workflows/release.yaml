@@ -100,6 +100,7 @@ jobs:
         env:
           VERSION_INPUT: ${{ github.event.inputs.version }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        # note: never mark a python patch as the latest release; "latest" is what the go install.sh resolves
         run: |
           make changelog
-          gh release create "$VERSION_INPUT" -F CHANGELOG.md -t "$VERSION_INPUT"
+          gh release create "$VERSION_INPUT" -F CHANGELOG.md -t "$VERSION_INPUT" --latest=false
