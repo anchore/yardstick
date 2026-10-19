@@ -1,8 +1,6 @@
 package command
 
 import (
-	"fmt"
-
 	"github.com/spf13/cobra"
 
 	"github.com/anchore/clio"
@@ -24,12 +22,13 @@ needs a new format version.`,
 			if err != nil {
 				return err
 			}
+			out := newPrinter(cmd.OutOrStdout())
 			if wrote {
-				fmt.Fprintf(cmd.OutOrStdout(), "wrote %s\n", path)
+				out.row(out.done(), "wrote "+path)
 			} else {
-				fmt.Fprintf(cmd.OutOrStdout(), "%s is unchanged\n", path)
+				out.row(out.skipped(), out.dim(path+" is unchanged"))
 			}
-			return nil
+			return out.flush()
 		},
 	})
 }

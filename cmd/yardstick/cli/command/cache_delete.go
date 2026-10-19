@@ -1,6 +1,7 @@
 package command
 
 import (
+	"errors"
 	"fmt"
 	"path/filepath"
 	"time"
@@ -47,26 +48,31 @@ progress is left alone, and a temporary entry is removed only once a day old.`,
 					return err
 				}
 			}
+			out := newPrinter(cmd.OutOrStdout())
 			var count int
 			var freed int64
 			for _, kind := range kinds {
 				removed, err := cache.Delete(kind, olderThan)
 				for _, e := range removed {
 					rel, _ := filepath.Rel(cache.Dir(), e.Path)
-					fmt.Fprintf(cmd.OutOrStdout(), "removed %s (%s)\n", rel, humanize.Bytes(uint64(e.Size)))
+					out.row(out.done(), "removed "+rel, out.dim(humanize.Bytes(uint64(e.Size))))
 					count++
 					freed += e.Size
 				}
 				if err != nil {
-					return fmt.Errorf("unable to delete from the %s cache: %w", kind, err)
+					return errors.Join(out.flush(), fmt.Errorf("unable to delete from the %s cache: %w", kind, err))
 				}
 			}
 			noun := "entries"
 			if count == 1 {
 				noun = "entry"
 			}
-			fmt.Fprintf(cmd.OutOrStdout(), "removed %d %s, freed %s\n", count, noun, humanize.Bytes(uint64(freed)))
-			return nil
+			// the total is no row of the table, so it never widens a column
+			if err := out.flush(); err != nil {
+				return err
+			}
+			out.row(out.bold(fmt.Sprintf("removed %d %s, freed %s", count, noun, humanize.Bytes(uint64(freed)))))
+			return out.flush()
 		},
 	}, cfg)
 }

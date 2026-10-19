@@ -118,11 +118,14 @@ func newResearch(cmd *cobra.Command, version, run, model string) (*research.Runn
 	}
 	avail := research.CheckPlugin(cmd.Context(), version)
 	if !avail.Available {
-		msg := "research is disabled: " + avail.Reason
+		out := newPrinter(cmd.ErrOrStderr())
+		out.row(out.notice(), "research is disabled: "+avail.Reason)
 		if avail.Command != "" {
-			msg += "\n  to enable it, run: " + avail.Command
+			out.row("", out.dim("to enable it, run: "+avail.Command))
 		}
-		fmt.Fprintln(cmd.ErrOrStderr(), msg)
+		if err := out.flush(); err != nil {
+			return nil, research.Availability{}, err
+		}
 	}
 	return research.NewRunner(research.Config{Model: model, Dir: dir, Run: run, Concurrency: 2, Timeout: 20 * time.Minute, Bin: bin}), avail, nil
 }
@@ -134,7 +137,11 @@ func serve(ctx context.Context, cmd *cobra.Command, addr string, open bool, h ht
 	}
 	h = labelserver.LocalOnly(ln.Addr().(*net.TCPAddr).Port, h)
 	url := "http://" + ln.Addr().String() + "/"
-	fmt.Fprintf(cmd.OutOrStdout(), "labeling at %s (ctrl-c to stop)\n", url)
+	out := newPrinter(cmd.OutOrStdout())
+	out.row(out.done(), "labeling at "+out.bold(url), out.dim("ctrl-c to stop"))
+	if err := out.flush(); err != nil {
+		return err
+	}
 	if open {
 		openBrowser(url)
 	}

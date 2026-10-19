@@ -84,7 +84,7 @@ checks: [{name: expectationsMetAtLeast, params: {min: 1}}]
 		t.Errorf("expected syft run once, for npm, got %v", got)
 	}
 	built, _ := filepath.Glob(filepath.Join(cache, "sboms", "sha256:"+strings.Repeat("2", 64), "*.syft.json"))
-	if len(built) != 1 || stdout != "wrote "+built[0]+"\n" {
+	if len(built) != 1 || stdout != "✔ wrote "+built[0]+"\n" {
 		t.Errorf("expected npm's SBOM written to the cache and named, got %v and %q", built, stdout)
 	}
 	if got := lines(t, grypeCalls); got != nil {

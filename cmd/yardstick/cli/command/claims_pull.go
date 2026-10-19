@@ -1,7 +1,7 @@
 package command
 
 import (
-	"fmt"
+	"errors"
 
 	"github.com/spf13/cobra"
 
@@ -34,6 +34,7 @@ Snapshots are read from YARDSTICK_CLAIMS_URL, or ` + claims.DefaultURL + ` when 
 			if err != nil {
 				return err
 			}
+			out := newPrinter(cmd.OutOrStdout())
 			pulled := 0
 			for _, gs := range sources {
 				if gs.Remote == nil {
@@ -41,19 +42,20 @@ Snapshots are read from YARDSTICK_CLAIMS_URL, or ` + claims.DefaultURL + ` when 
 				}
 				s, err := claims.Open(gs)
 				if err != nil {
-					return err
+					out.row(out.failed(), gs.Locator)
+					return errors.Join(err, out.flush())
 				}
 				pulled++
+				commit := ""
 				if s.Commit != "" {
-					fmt.Fprintf(cmd.OutOrStdout(), "%s at %s (commit %s)\n", s.Locator, s.Digest, s.Commit)
-				} else {
-					fmt.Fprintf(cmd.OutOrStdout(), "%s at %s\n", s.Locator, s.Digest)
+					commit = "commit " + s.Commit
 				}
+				out.row(out.done(), s.Locator, out.dim(s.Digest), out.dim(commit))
 			}
 			if pulled == 0 {
-				fmt.Fprintln(cmd.OutOrStdout(), "no published claims sources to pull")
+				out.row(out.skipped(), out.dim("no published claims sources to pull"))
 			}
-			return nil
+			return out.flush()
 		},
 	})
 }

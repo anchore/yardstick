@@ -64,13 +64,15 @@ skipped and listed.`,
 			if err := (claimsv1.Writer{Dir: cfg.To, Vocab: vocab}).Write(placed); err != nil {
 				return err
 			}
-			out := cmd.OutOrStdout()
-			fmt.Fprintf(out, "imported %d labels into %s\n", len(placed), cfg.To)
-			fmt.Fprintf(out, "skipped %d statements that name no image or package a label can be about\n", len(skipped))
-			for _, s := range skipped {
-				fmt.Fprintf(out, "  %s\n", s)
+			out := newPrinter(cmd.OutOrStdout())
+			out.row(out.done(), fmt.Sprintf("imported %d labels", len(placed)), out.dim("into "+cfg.To))
+			if len(skipped) > 0 {
+				out.row(out.notice(), fmt.Sprintf("skipped %d statements", len(skipped)), out.dim("they name no image or package a label can be about"))
+				for _, s := range skipped {
+					out.row("", out.dim(s))
+				}
 			}
-			return nil
+			return out.flush()
 		},
 	}, cfg)
 }

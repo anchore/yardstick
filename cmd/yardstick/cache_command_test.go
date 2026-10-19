@@ -108,7 +108,7 @@ func TestCacheDeleteTrimmingOldDBs(t *testing.T) {
 	if code != 0 {
 		t.Fatalf("exit %d: %s", code, stderr)
 	}
-	for _, want := range []string{"removed grype-db/sha256-c (3.0 kB)", "removed 1 entry, freed 3.0 kB"} {
+	for _, want := range []string{"✔ removed grype-db/sha256-c  3.0 kB", "removed 1 entry, freed 3.0 kB"} {
 		if !strings.Contains(stdout, want) {
 			t.Errorf("expected %q:\n%s", want, stdout)
 		}

@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"text/tabwriter"
+	"strconv"
 	"time"
 
 	"github.com/dustin/go-humanize"
@@ -98,16 +98,25 @@ func presentCacheStatus(w io.Writer, format string, st cacheStatus) error {
 		enc.SetIndent("", "  ")
 		return enc.Encode(st)
 	}
-	fmt.Fprintln(w, "Path:", st.Root)
-	fmt.Fprintln(w)
-	tw := tabwriter.NewWriter(w, 0, 0, 2, ' ', 0)
-	fmt.Fprintln(tw, "KIND\tENTRIES\tSIZE\tOLDEST USE")
+	out := newPrinter(w)
+	out.row(out.dim("Path:"), st.Root)
+	out.row()
+	if err := out.flush(); err != nil {
+		return err
+	}
+	out.row(out.dim("KIND"), out.dim("ENTRIES"), out.dim("SIZE"), out.dim("OLDEST USE"))
 	for _, row := range append(st.Kinds, st.Total) {
 		oldest := "-"
 		if row.OldestUse != nil {
 			oldest = row.OldestUse.Format(time.RFC3339)
 		}
-		fmt.Fprintf(tw, "%s\t%d\t%s\t%s\n", row.Kind, row.Entries, humanize.Bytes(uint64(row.Size)), oldest)
+		cells := []string{row.Kind, strconv.Itoa(row.Entries), humanize.Bytes(uint64(row.Size)), oldest}
+		if row.Kind == st.Total.Kind {
+			for i := range cells {
+				cells[i] = out.bold(cells[i])
+			}
+		}
+		out.row(cells...)
 	}
-	return tw.Flush()
+	return out.flush()
 }

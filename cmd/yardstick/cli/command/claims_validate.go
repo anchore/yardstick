@@ -28,22 +28,35 @@ SBOM rebuild, are listed on stdout and fail nothing.`,
 			if err != nil {
 				return err
 			}
-			for _, p := range problems {
-				fmt.Fprintln(cmd.ErrOrStderr(), p)
-			}
 			// labels an SBOM rebuild left behind are listed for review, and fail nothing
 			unpaired, err := claimsv1.NoLongerPairing(args[0])
 			if err != nil {
 				return err
 			}
+			out := newPrinter(cmd.OutOrStdout())
+			for _, p := range problems {
+				out.row(out.failed(), p.File, out.dim(labelOf(p)), p.Rule)
+			}
 			for _, p := range unpaired {
-				fmt.Fprintln(cmd.OutOrStdout(), p)
+				out.row(out.notice(), p.File, out.dim(labelOf(p)), p.Rule)
+			}
+			if len(problems) == 0 {
+				out.row(out.done(), args[0]+" is valid")
+			}
+			if err := out.flush(); err != nil {
+				return err
 			}
 			if len(problems) > 0 {
 				return fmt.Errorf("%s: %d problem(s)", args[0], len(problems))
 			}
-			fmt.Fprintf(cmd.OutOrStdout(), "%s: valid\n", args[0])
 			return nil
 		},
 	})
+}
+
+func labelOf(p claimsv1.Problem) string {
+	if p.Label == "" {
+		return ""
+	}
+	return "label " + p.Label
 }

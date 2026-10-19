@@ -27,10 +27,10 @@ bin/yardstick config validate demo/gates/*.yaml
 ```
 
 ```
-github.com/anchore/match-claims@main at sha256:af82f6aa7944375d8181213ff812fc0d6b63e31254da662a460fb7fb18da6d01 (commit 32064318e375ca3a87ee642bfececd00d701c4de)
-demo/gates/go-stdlib-cpe.yaml: valid, gate go-stdlib-cpe
-demo/gates/grype-upgrade-stdlib-cpe.yaml: valid, gate grype-upgrade-stdlib-cpe
-demo/gates/grype-upgrade.yaml: valid, gate grype-upgrade
+✔ github.com/anchore/match-claims@main  sha256:af82f6aa7944375d8181213ff812fc0d6b63e31254da662a460fb7fb18da6d01  commit 32064318e375ca3a87ee642bfececd00d701c4de
+✔ demo/gates/go-stdlib-cpe.yaml             gate go-stdlib-cpe
+✔ demo/gates/grype-upgrade-stdlib-cpe.yaml  gate grype-upgrade-stdlib-cpe
+✔ demo/gates/grype-upgrade.yaml             gate grype-upgrade
 ```
 
 `claims pull` downloads the published snapshot into the cache and checks its digest. Any command that reads the corpus does this on first use, so the pull is optional. Snapshots come from `https://yardstick.anchore.io` unless `YARDSTICK_CLAIMS_URL` says otherwise.
@@ -122,7 +122,7 @@ bin/yardstick claims serve grype-upgrade-stdlib-cpe --open
 ```
 
 ```
-labeling at http://127.0.0.1:7655/ (ctrl-c to stop)
+✔ labeling at http://127.0.0.1:7655/  ctrl-c to stop
 ```
 
 Without the plugin, serve says so as it starts, with the command to install it, and everything but research still works.
@@ -183,8 +183,8 @@ bin/yardstick claims promote claims --to ~/code/match-claims
 ```
 
 ```
-promoted 21 labels into /Users/me/code/match-claims
-  copied pkg/oci/registry.replicated.com/library/grype-test/sha256-3339bcd874d21fa3ca5bd20636e793c0c33bd71ace3a18a9a3b3d147b91dd000/sbom.syft.json
+✔ promoted 21 labels  into /Users/me/code/match-claims
+✔ copied SBOM         pkg/oci/registry.replicated.com/library/grype-test/sha256-3339bcd874d21fa3ca5bd20636e793c0c33bd71ace3a18a9a3b3d147b91dd000/sbom.syft.json
 ```
 
 It doesn't commit or push. In the checkout, branch, commit and run the same check the repository's CI runs on a pull request:
@@ -199,7 +199,7 @@ make validate-changed
 ```
 validating 1 image directories changed since origin/main
 SBOMs for syft 1.14.0: 1 have
-.../match-claims/.tmp/changed: valid
+✔ .../match-claims/.tmp/changed is valid
 ```
 
 The SBOM `promote` copied in is gitignored there: SBOMs live in R2, and the publish workflow uploads any new one. Push the branch and open the pull request.

@@ -222,7 +222,7 @@ func TestRunOpensRemoteSourceOnce(t *testing.T) {
 	}
 	// pull reads the pointer again and finds the snapshot already cached
 	stdout, pullErr, code := yardstick(t, dir, "claims", "pull", "github.com/anchore/match-claims@main")
-	if code != 0 || strings.TrimSpace(stdout) != "github.com/anchore/match-claims@main at "+digest {
+	if code != 0 || strings.TrimSpace(stdout) != "✔ github.com/anchore/match-claims@main  "+digest {
 		t.Errorf("expected pull to name the snapshot, got %d %q: %s", code, stdout, pullErr)
 	}
 	mu.Lock()

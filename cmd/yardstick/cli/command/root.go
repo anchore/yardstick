@@ -251,15 +251,16 @@ func runGate(cmd *cobra.Command, scan collect.Scans, g *gatefile.Gate, name stri
 		if err != nil {
 			return nil, err
 		}
+		out := newPrinter(cmd.OutOrStdout())
 		for _, res := range resolved {
 			for _, w := range res.Warnings {
 				log.Warnf("%s", w)
 			}
 			if res.From == subject.FromBuilt {
-				fmt.Fprintf(cmd.OutOrStdout(), "wrote %s\n", res.SBOM)
+				out.row(out.done(), "wrote "+res.SBOM)
 			}
 		}
-		return nil, nil
+		return nil, out.flush()
 	}
 	rec, err := scan.Gate(cmd.Context(), g, set)
 	if err != nil {

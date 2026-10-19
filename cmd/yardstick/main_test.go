@@ -116,14 +116,15 @@ checks: [{name: expectationsMetAtLeast, params: {min: 1}}]
 	// every file is checked: the unknown check in one and the reference-reading checks of the
 	// other are both reported
 	writeFile(t, filepath.Join(dir, "gates/deb.yaml"), strings.Replace(validGate, "noNewFalseNegatives", "noRegressions", 1))
-	_, stderr, code = yardstick(t, dir, "config", "validate", "gates/deb.yaml", "gates/vulhub.yaml")
-	if code != 2 || !strings.Contains(stderr, "gates/deb.yaml: unknown check \"noRegressions\"") ||
-		!strings.Contains(stderr, "gates/vulhub.yaml: check noNewFalseNegatives reads the reference setup") {
-		t.Errorf("expected exit 2 naming both files' errors, got %d: %s", code, stderr)
+	stdout, stderr, code := yardstick(t, dir, "config", "validate", "gates/deb.yaml", "gates/vulhub.yaml")
+	if code != 2 || !strings.Contains(stdout, "✘ gates/deb.yaml     unknown check \"noRegressions\"") ||
+		!strings.Contains(stdout, "✘ gates/vulhub.yaml  check noNewFalseNegatives reads the reference setup") ||
+		!strings.Contains(stderr, "2 of 2 gate files are invalid") {
+		t.Errorf("expected exit 2 naming both files' errors, got %d:\n%s%s", code, stdout, stderr)
 	}
 
 	// config alone is its help
-	stdout, _, code := yardstick(t, dir, "config")
+	stdout, _, code = yardstick(t, dir, "config")
 	if code != 0 || !strings.Contains(stdout, "validate") {
 		t.Errorf("expected config to print its help, got %d:\n%s", code, stdout)
 	}

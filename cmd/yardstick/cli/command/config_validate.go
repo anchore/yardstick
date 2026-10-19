@@ -1,11 +1,15 @@
 package command
 
 import (
+	"errors"
 	"fmt"
+	"strings"
 
 	"github.com/spf13/cobra"
 
 	"github.com/anchore/clio"
+	"github.com/anchore/yardstick/cmd/yardstick/internal/analysis"
+	"github.com/anchore/yardstick/cmd/yardstick/internal/gatefile"
 	"github.com/anchore/yardstick/cmd/yardstick/internal/log"
 )
 
@@ -24,14 +28,36 @@ when any is not.`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			log.Debugf("options: claims=%v", cfg.Claims)
 			log.Infof("validating %d gate files", len(args))
-			gates, err := loadGates(args, cfg.Claims, false)
+			app, err := gatefile.LoadAppConfig(".")
 			if err != nil {
 				return err
 			}
-			for i, g := range gates {
-				fmt.Fprintf(cmd.OutOrStdout(), "%s: valid, gate %s\n", args[i], g.Name)
+			// a row per file, its problems under it, rather than loadGates' one joined error
+			out := newPrinter(cmd.OutOrStdout())
+			var gates []*gatefile.Gate
+			for _, p := range args {
+				g, err := gatefile.Load(p, gatefile.Options{Checks: analysis.Definitions(), App: app, Claims: cfg.Claims})
+				if err == nil {
+					gates = append(gates, g)
+					out.row(out.done(), p, "gate "+out.bold(g.Name))
+					continue
+				}
+				problems := strings.Split(err.Error(), "\n")
+				if le := (*gatefile.LoadError)(nil); errors.As(err, &le) {
+					problems = le.Problems
+				}
+				out.row(out.failed(), p, problems[0])
+				for _, pr := range problems[1:] {
+					out.row("", "", pr)
+				}
 			}
-			return nil
+			if err := out.flush(); err != nil {
+				return err
+			}
+			if invalid := len(args) - len(gates); invalid > 0 {
+				return fmt.Errorf("%d of %d gate files are invalid", invalid, len(args))
+			}
+			return gatefile.UniqueNames(gates)
 		},
 	}, cfg)
 }

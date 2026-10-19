@@ -119,8 +119,9 @@ func collectImage(cmd *cobra.Command, cfg *collectSBOMsOptions, args []string) e
 	if err := subject.WriteFile(out, data); err != nil {
 		return err
 	}
-	fmt.Fprintf(cmd.OutOrStdout(), "wrote %s\n", out)
-	return nil
+	p := newPrinter(cmd.OutOrStdout())
+	p.row(p.done(), "wrote "+out)
+	return p.flush()
 }
 
 // readCatalog reads a corpus catalog file, and the config it names through the corpus root, so

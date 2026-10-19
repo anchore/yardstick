@@ -108,8 +108,9 @@ neither did), so a label that later stops pairing can say why.`,
 			if err != nil {
 				return err
 			}
-			fmt.Fprintf(cmd.OutOrStdout(), "wrote %s %s into %s\n", l.Verdict, l.Key(), written)
-			return nil
+			out := newPrinter(cmd.OutOrStdout())
+			out.row(out.done(), fmt.Sprintf("wrote %s %s", l.Verdict, l.Key()), out.dim("into "+written))
+			return out.flush()
 		},
 	}, cfg)
 }

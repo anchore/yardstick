@@ -40,11 +40,12 @@ review the diff and open the pull request yourself.`,
 			if err != nil {
 				return err
 			}
-			fmt.Fprintf(cmd.OutOrStdout(), "promoted %d labels into %s\n", out.Labels, cfg.To)
+			p := newPrinter(cmd.OutOrStdout())
+			p.row(p.done(), fmt.Sprintf("promoted %d labels", out.Labels), p.dim("into "+cfg.To))
 			for _, s := range out.SBOMs {
-				fmt.Fprintf(cmd.OutOrStdout(), "  copied %s\n", s)
+				p.row(p.done(), "copied SBOM", p.dim(s))
 			}
-			return nil
+			return p.flush()
 		},
 	}, cfg)
 }
