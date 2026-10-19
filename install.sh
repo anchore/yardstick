@@ -481,6 +481,20 @@ tag_to_version() (
   echo "$value"
 )
 
+# is_go_release [version]
+#
+# succeeds when the version is v0.17.0 or later (the go rewrite). Earlier versions are the python
+# implementation, which ships to PyPI only and has no release assets to install.
+#
+is_go_release() (
+  major=$(echo "$1" | cut -d. -f1)
+  minor=$(echo "$1" | cut -d. -f2)
+  case "${major}${minor}" in
+    *[!0-9]*|"") return 1 ;;
+  esac
+  [ "${major}" -gt 0 ] || [ "${minor}" -ge 17 ]
+)
+
 # get_binary_name [os] [arch] [default-name]
 #
 # outputs a the binary string name
@@ -659,6 +673,12 @@ main() (
   # run the application
 
   version=$(tag_to_version "${tag}")
+
+  if ! is_go_release "${version}"; then
+      log_err "${PROJECT_NAME} ${tag} cannot be installed with this script, only v0.17.0 and later can"
+      log_err "earlier versions are the python implementation: pip install ${PROJECT_NAME}==${version}"
+      return 1
+  fi
   os=$(uname_os)
   arch=$(uname_arch)
   format=$(get_format_name "${os}" "${arch}" "tar.gz")
@@ -703,5 +723,7 @@ set +u
 if [ -z "${TEST_INSTALL_SH}" ]; then
   set -u
   main "$@"
+  # note: exit explicitly, otherwise the trailing `set -u` below masks a failed install as success
+  exit $?
 fi
 set -u
