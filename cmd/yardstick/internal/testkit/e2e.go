@@ -46,8 +46,8 @@ func E2E(t TB, dir, tools, bin string) {
 			t.Fatal(err)
 		}
 	}
-	must(copyTree(E2EPath("gates"), filepath.Join(dir, "gates")))
-	must(copyTree(E2EPath("claims"), filepath.Join(dir, "claims")))
+	must(os.CopyFS(filepath.Join(dir, "gates"), os.DirFS(E2EPath("gates"))))
+	must(os.CopyFS(filepath.Join(dir, "claims"), os.DirFS(E2EPath("claims"))))
 	for _, image := range []string{"deb", "java", "npm"} {
 		r := e2eImage(image)
 		sbom, err := os.ReadFile(fixture.SBOM(image, "syft"))
@@ -63,7 +63,7 @@ func E2E(t TB, dir, tools, bin string) {
 		cmd.Dir, cmd.Env = dir, env
 		out, err := cmd.CombinedOutput()
 		var exit *exec.ExitError
-		if err != nil && !(errors.As(err, &exit) && exit.ExitCode() == 1) {
+		if err != nil && (!errors.As(err, &exit) || exit.ExitCode() != 1) {
 			t.Fatal(fmt.Sprintf("yardstick %s: %v\n%s", strings.Join(args, " "), err, out))
 		}
 	}
@@ -191,12 +191,12 @@ func recordAgent(gate, dir string, env []string, bin string) error {
 			b, _ := json.Marshal(v)
 			out.Write(append(b, '\n'))
 		}
-		args := map[string][]string{
-			"proposals":    {"claims", "agent", "propose"},
-			"causes":       {"claims", "agent", "propose-cause"},
-			"explanations": {"claims", "agent", "explain", "propose"},
-		}[kind]
-		cmd := exec.Command(bin, append(args, "--gate", gate)...)
+		args := append([]string{"claims", "agent"}, map[string][]string{
+			"proposals":    {"propose"},
+			"causes":       {"propose-cause"},
+			"explanations": {"explain", "propose"},
+		}[kind]...)
+		cmd := exec.Command(bin, append(args, "--gate", gate)...) //nolint:gosec // the yardstick under test
 		cmd.Dir, cmd.Env, cmd.Stdin = dir, env, &out
 		if b, err := cmd.CombinedOutput(); err != nil {
 			return fmt.Errorf("yardstick %s: %w\n%s", strings.Join(args, " "), err, b)
@@ -217,21 +217,16 @@ func resolveRows(v any, ids map[string]string) error {
 	switch v := v.(type) {
 	case map[string]any:
 		for k, x := range v {
-			switch {
-			case k == "row":
+			switch k {
+			case "row":
 				id, err := pick(x)
 				if err != nil {
 					return err
 				}
 				v[k] = id
-			case k == "rows":
-				list := x.([]any)
-				for i := range list {
-					id, err := pick(list[i])
-					if err != nil {
-						return err
-					}
-					list[i] = id
+			case "rows":
+				if err := pickEach(x.([]any), pick); err != nil {
+					return err
 				}
 			default:
 				if err := resolveRows(x, ids); err != nil {
@@ -249,19 +244,14 @@ func resolveRows(v any, ids map[string]string) error {
 	return nil
 }
 
-func copyTree(from, to string) error {
-	return filepath.WalkDir(from, func(p string, d os.DirEntry, err error) error {
+// pickEach replaces each selector in list with its row id.
+func pickEach(list []any, pick func(any) (string, error)) error {
+	for i := range list {
+		id, err := pick(list[i])
 		if err != nil {
 			return err
 		}
-		rel, _ := filepath.Rel(from, p)
-		if d.IsDir() {
-			return os.MkdirAll(filepath.Join(to, rel), 0o755)
-		}
-		data, err := os.ReadFile(p)
-		if err != nil {
-			return err
-		}
-		return os.WriteFile(filepath.Join(to, rel), data, 0o600)
-	})
+		list[i] = id
+	}
+	return nil
 }

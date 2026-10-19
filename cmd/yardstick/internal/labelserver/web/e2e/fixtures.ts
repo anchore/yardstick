@@ -1,7 +1,14 @@
 import { test as base, expect } from "@playwright/test";
 
 // test is Playwright's, failing any test whose page throws or logs a console error
-export const test = base.extend({
+export const test = base.extend<{ fresh: void }>({
+  // every test starts on the seeded workspace: the seed puts the claims and agent records back and
+  // starts a new server (a test-only route that `claims serve` does not have)
+  fresh: [async ({ request }, use) => {
+    const res = await request.post("/__e2e/reset");
+    expect(res.status(), "reset the workspace").toBe(204);
+    await use();
+  }, { auto: true }],
   page: async ({ page }, use) => {
     const errors: string[] = [];
     page.on("pageerror", (e) => errors.push(`page error: ${e.message}`));

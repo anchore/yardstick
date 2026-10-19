@@ -12,7 +12,9 @@ import (
 	"net"
 	"net/http"
 	"os"
+	"os/exec"
 	"path/filepath"
+	"sync"
 	"time"
 
 	"github.com/anchore/clio"
@@ -74,8 +76,12 @@ func run(dir, addr string, serve bool) error {
 		fmt.Printf("seeded %s\n", dir)
 		return nil
 	}
-	srv, err := testkit.NewServer(context.Background(), dir, bin)
-	if err != nil {
+	h := &swap{dir: dir, bin: bin, pristine: dir + ".pristine"}
+	// the seeded workspace is kept aside so a test can put it back (POST /__e2e/reset)
+	if out, err := exec.Command("cp", "-a", dir, h.pristine).CombinedOutput(); err != nil {
+		return fmt.Errorf("snapshot workspace: %w\n%s", err, out)
+	}
+	if err := h.start(); err != nil {
 		return err
 	}
 	ln, err := net.Listen("tcp", addr)
@@ -83,6 +89,54 @@ func run(dir, addr string, serve bool) error {
 		return err
 	}
 	fmt.Printf("seeded %s, serving http://%s/\n", dir, ln.Addr())
-	server := &http.Server{Handler: labelserver.LocalOnly(ln.Addr().(*net.TCPAddr).Port, srv.Handler()), ReadHeaderTimeout: 10 * time.Second}
+	server := &http.Server{Handler: labelserver.LocalOnly(ln.Addr().(*net.TCPAddr).Port, h), ReadHeaderTimeout: 10 * time.Second}
 	return server.Serve(ln)
+}
+
+// swap serves the label server and, for the tests only, resets it: POST /__e2e/reset puts the
+// seeded workspace back and starts a fresh server over it. The real `claims serve` has no such route.
+type swap struct {
+	dir, bin, pristine string
+
+	mu     sync.RWMutex
+	cancel context.CancelFunc
+	next   http.Handler
+}
+
+func (s *swap) start() error {
+	ctx, cancel := context.WithCancel(context.Background())
+	srv, err := testkit.NewServer(ctx, s.dir, s.bin)
+	if err != nil {
+		cancel()
+		return err
+	}
+	if s.cancel != nil {
+		s.cancel()
+	}
+	s.cancel, s.next = cancel, srv.Handler()
+	return nil
+}
+
+func (s *swap) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	if r.Method == http.MethodPost && r.URL.Path == "/__e2e/reset" {
+		s.mu.Lock()
+		defer s.mu.Unlock()
+		// contents only: the seed's working directory is dir itself
+		cmd := exec.Command("sh", "-c", `find . -mindepth 1 -delete && cp -a "$1"/. .`, "sh", s.pristine) //nolint:gosec // the seed's own snapshot
+		cmd.Dir = s.dir
+		if out, err := cmd.CombinedOutput(); err != nil {
+			http.Error(w, fmt.Sprintf("restore workspace: %v\n%s", err, out), http.StatusInternalServerError)
+			return
+		}
+		if err := s.start(); err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		w.WriteHeader(http.StatusNoContent)
+		return
+	}
+	s.mu.RLock()
+	h := s.next
+	s.mu.RUnlock()
+	h.ServeHTTP(w, r)
 }

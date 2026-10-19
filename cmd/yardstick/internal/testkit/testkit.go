@@ -14,6 +14,9 @@ import (
 	"github.com/anchore/yardstick/cmd/yardstick/internal/ref"
 )
 
+// author is who the labels and the label server write as in the end to end material.
+const author = "e2e"
+
 // TB is the part of testing.TB the builders use, so the seed can build without a test.
 type TB interface {
 	Helper()
@@ -98,7 +101,7 @@ func (w *Workspace) Label(pkg, vuln string) {
 		}
 		file = *parsed
 	}
-	file.Labels = append(file.Labels, claimsv1.Label{Package: pkg, Vulnerability: vuln, Verdict: claimsv1.TP, Author: "e2e", FirstIssued: "2026-10-14T10:00:00Z", LastUpdated: "2026-10-14T10:00:00Z"})
+	file.Labels = append(file.Labels, claimsv1.Label{Package: pkg, Vulnerability: vuln, Verdict: claimsv1.TP, Author: author, FirstIssued: "2026-10-14T10:00:00Z", LastUpdated: "2026-10-14T10:00:00Z"})
 	data, _ := claimsv1.Marshal(&file)
 	WriteFile(w.T, p, string(data))
 }

@@ -1,8 +1,9 @@
 import { expect, test } from "./fixtures";
+import { openGate } from "./helpers";
 
 // the anchors in ANCHORS.md exist where it says they do; a UI refactor keeps these or updates both
 test("the board and the tile carry their anchors", async ({ page }) => {
-  await page.goto("/");
+  await openGate(page);
   for (const id of ["header", "compared", "gate-ribbon", "images", "map", "board", "theme-button", "help-button"]) {
     await expect(page.getByTestId(id), id).toBeVisible();
   }

@@ -21,7 +21,7 @@ const researchCommand = `printf '{"row":"%s","verdict":"tp","justification":"no-
 // it calls back into.
 func NewServer(ctx context.Context, dir, bin string) (*labelserver.Server, error) {
 	return labelserver.New(ctx, labelserver.Options{
-		Run: runrecord.DefaultName, Author: "e2e", Store: agentstore.Open(agentstore.Dir),
+		Run: runrecord.DefaultName, Author: author, Store: agentstore.Open(agentstore.Dir),
 		Research: research.NewRunner(research.Config{
 			Command: researchCommand, Dir: dir, Run: runrecord.DefaultName, Concurrency: 2, Timeout: time.Minute, Bin: bin,
 		}),

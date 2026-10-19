@@ -101,8 +101,12 @@ func TestE2EWorkspace(t *testing.T) {
 		Gates []struct{ ID, GateOutcome string }
 	}
 	get(t, h, "/api/gates", &gates)
-	if len(gates.Gates) != 2 || gates.Gates[0].ID != "deb-java" || gates.Gates[0].GateOutcome != "fail" ||
-		gates.Gates[1].ID != "deb-npm" || gates.Gates[1].GateOutcome != "undecided" {
+	// listed newest scan first, which two gates scanned across a minute boundary swap
+	outcomes := map[string]string{}
+	for _, g := range gates.Gates {
+		outcomes[g.ID] = g.GateOutcome
+	}
+	if !maps.Equal(outcomes, map[string]string{"deb-java": "fail", "deb-npm": "undecided"}) {
 		t.Fatalf("gates: %+v", gates.Gates)
 	}
 

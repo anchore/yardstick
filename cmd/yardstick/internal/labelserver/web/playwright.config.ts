@@ -10,6 +10,8 @@ process.env.YARDSTICK_E2E_WORKSPACE ??= "/tmp/yardstick-e2e";
 export default defineConfig({
   testDir: "e2e",
   outputDir: "test-results",
+  // one server and one workspace, which every test resets to the seeded state
+  workers: 1,
   forbidOnly: !!process.env.CI,
   reporter: [["list"], ["html", { open: "never", outputFolder: "playwright-report" }]],
   use: {

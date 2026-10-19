@@ -84,14 +84,14 @@ Labels that flip deb-java to PASS. Accepting hints and the cause does most of it
 | accept the log4j hint (or label) | `92028af2aa075929`, `db296d8425f164e0` | tp, no-fix |
 | accept the vc5p hint (or label), replacing the unclear | `95d913cf49b90d65`, `b5049885e0df8561` | tp, no-fix |
 
-The outcome moves as the labels land (checked by labeling in this order with `claims add`):
+The outcome moves as the labels land (measured with `claims add` in this order, and the same through the UI). A subject with no tp or fp label at all fails the three checks that read labels (f1NotWorse, noNewFalseNegatives, noNewFalsePositives) with "no tp or fp label applies to this subject", and java has none until its first tp lands:
 
 | after | outcome | checks |
 |---|---|---|
 | nothing | fail | f1 fail, noNewFN fail, noNewFP fail, unjudged undecided (6) |
-| both tar rows fp | fail | f1 fail, noNewFN pass, noNewFP fail, unjudged undecided (4) |
-| plus the 4 util-linux rows tp | fail | f1 fail, noNewFN pass, noNewFP pass, unjudged undecided (4, the java rows) |
-| plus jfh8 tp (both jars) | undecided, counts as fail | noNewFP undecided, unjudged undecided; f1 and noNewFN pass |
+| both tar rows fp | fail | f1 fail, noNewFN fail, noNewFP fail, unjudged undecided (4) |
+| plus the 4 util-linux rows tp | fail | f1 fail, noNewFN fail, noNewFP fail, unjudged undecided (4, the java rows) |
+| plus jfh8 tp (both jars) | undecided, counts as fail | f1 and noNewFN pass; noNewFP and unjudged undecided |
 | plus vc5p tp (both jars) | **pass** | all four pass, 0 open |
 
 A tp label on a dropped row would fail noNewFalseNegatives, and an fp label on an added row would fail noNewFalsePositives, so those verdicts do not flip the gate.
@@ -114,7 +114,10 @@ No cause or explanation. The tar row is the same row as in deb-java (same id), s
 
 ## Notes for the test writer
 
-- all tests share one workspace and one server for the whole run, and labels written by a test stay for the next. Order tests or relabel accordingly. A test that finishes labeling deb-java leaves deb-npm at pass
+- every test starts from this workspace: the seed's `POST /__e2e/reset` (called by the shared fixture in `web/e2e/fixtures.ts`) puts the seeded files back and starts a fresh server. Tests run on one worker, since there is one server. Labeling deb-java through is also what settles deb-npm (pass)
 - labels land in the files above; `smoke.spec.ts` reads the deb image's `deb.json`, not `claims/global/deb.json`
 - the first group the board opens is the log4j one (GHSA ids), so do not assume a `CVE-` id
-- the UI itself was not driven while writing this: the outcomes above were read from `yardstick score`, `/api/gates/<gate>/state` and `/api/gates/shared`, and the label actions were done with `yardstick claims add`, which writes the same files the UI does
+- a board group's key carries its tier (`p|<tier>|<dir>|<pkg>`), and the tier moves as labels land, so select a group by `data-package` (and `data-hinted`) after the first label; deb-java starts with log4j in tier 0, tar CVE-2005-2541 in 2, util-linux (the cause) and tar CVE-2026-18508 in 3
+- the gates are listed newest scan first, and two scans across a minute boundary swap, so open a gate by its URL rather than `/`
+- the UI writes the row's own purl (version and qualifiers, e.g. `pkg:deb/debian/tar@1.34...?arch=arm64&distro=debian-12`) where `claims add --package` takes a bare one, and an accepted hint carries the proposal's note onto the label; compare labels by package without version
+- the labels written for log4j's vc5p sit beside the seeded unclear label (a different package key), so the file holds both; the exact-version tp decides
