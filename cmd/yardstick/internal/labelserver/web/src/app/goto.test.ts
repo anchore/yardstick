@@ -58,7 +58,7 @@ describe("the palette", () => {
   });
   test("matches every word of the query, and findings only once there is one", () => {
     const fs = findingEntries(states);
-    expect(matching(actions, fs, "").shown.map((e) => e.id)).toEqual(["hints", "queue", "history"]);
+    expect(matching(actions, fs, "").shown.map((e) => e.id)).toEqual(["hints", "queue", "research", "history"]);
     expect(matching(actions, fs, "tar 2026").shown.map((e) => e.id)).toEqual(["e3bfd3b0b0c30ee6"]);
     expect(matching(actions, fs, "gzip").shown.map((e) => e.text)).toEqual(["CVE-2026-41992"]);
     // not by the image, whose name may hold a package's

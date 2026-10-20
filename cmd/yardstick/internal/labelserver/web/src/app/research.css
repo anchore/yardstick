@@ -1,0 +1,59 @@
+/* research.css is research across gates: the /ui/research page with its estimate panel, the gates
+   banner's research states, and the price on a finding's Research button. The page's layout is
+   hint review's (.review, .impact in hints.css); this adds the cost accent and the job lists. */
+
+.cost { color: var(--cost); font-variant-numeric: tabular-nums; font-weight: 500; }
+.costpill { display: inline-flex; gap: 6px; align-items: center; font-size: 12px; font-weight: 500; padding: 1px 8px; border-radius: 6px; color: var(--cost); background: var(--cost-bg); white-space: nowrap; font-variant-numeric: tabular-nums; line-height: 20px; }
+.quiet { color: var(--faint); font-size: 12px; }
+
+/* ---------- the page ---------- */
+
+.rgroups { display: grid; gap: 16px; min-width: 0; align-content: start; }
+.rgrp { border: 1px solid var(--border); border-radius: 10px; overflow: hidden; background: var(--card); }
+.rgrp[hidden], .est [hidden] { display: none; }
+.rgrp > header { display: grid; grid-template-columns: 24px minmax(0, 1fr) auto; gap: 4px 8px; align-items: start; padding: 12px 16px; background: var(--muted); border-bottom: 1px solid var(--border); }
+.rgrp > header input { margin-top: 3px; }
+.rgrp > header .t { font-weight: 600; font-size: 13.5px; }
+.rgrp > header .s { grid-column: 2 / 4; color: var(--muted-foreground); font-size: 12.5px; }
+.rgrp > header .n { text-align: right; font-size: 12.5px; color: var(--muted-foreground); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.rjob { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(0, 1.6fr) 64px 56px; gap: 12px; align-items: center; padding: 8px 16px 8px 48px; border-top: 1px solid var(--border); font-size: 13px; }
+.rjobs > .rjob:first-child { border-top: 0; }
+.rjob .v { font-weight: 500; overflow-wrap: anywhere; }
+.rjob .pk { font-family: var(--font-mono); font-size: 12px; color: var(--muted-foreground); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rjob .pk .imname { font-family: var(--font-sans); }
+.rjob .r { text-align: right; color: var(--muted-foreground); font-variant-numeric: tabular-nums; font-size: 12.5px; }
+.rjob .r.cost { color: var(--cost); }
+.rjobs .more { padding: 8px 16px 10px 48px; border-top: 1px solid var(--border); font-size: 12.5px; color: var(--muted-foreground); }
+.skipped { padding: 10px 16px; font-size: 13px; color: var(--muted-foreground); border: 1px dashed var(--border); border-radius: 10px; }
+
+.est .money { display: flex; flex-wrap: wrap; align-items: baseline; gap: 8px 12px; }
+.est .money b { font-size: 32px; font-weight: 600; line-height: 1; color: var(--cost); font-variant-numeric: tabular-nums; }
+.est .money span { font-size: 13px; color: var(--muted-foreground); font-variant-numeric: tabular-nums; }
+.est .range { position: relative; height: 22px; }
+.est .range .track { position: absolute; left: 0; right: 0; top: 10px; height: 2px; background: var(--border); }
+.est .range .band { position: absolute; top: 6px; height: 10px; border-radius: 3px; background: var(--cost-bg); border: 1px solid var(--cost); }
+.est .range .mean { position: absolute; top: 2px; width: 2px; height: 18px; background: var(--cost); }
+.est .kv { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px 12px; font-size: 13px; }
+.est .kv span:nth-child(odd) { color: var(--muted-foreground); }
+.est .kv span:nth-child(even) { text-align: right; font-variant-numeric: tabular-nums; }
+.est .ctl { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 8px; }
+.est .ctl > div { display: grid; gap: 4px; min-width: 0; }
+.est .ctl label { color: var(--muted-foreground); font-size: 12.5px; }
+.est .ctl select, .est .ctl input { font: inherit; font-size: 13px; color: var(--foreground); background: var(--background); border: 1px solid var(--border); border-radius: 8px; padding: 5px 8px; width: 100%; min-width: 0; }
+.est .warn { margin: 0; font-size: 12.5px; color: var(--und); }
+.est .basis { padding-top: 12px; border-top: 1px solid var(--border); }
+
+/* ---------- the gates banner while research runs ---------- */
+
+.workstack .done, .work .legend .done::before { background: var(--cost); }
+.workstack .running, .work .legend .running::before { background: repeating-linear-gradient(135deg, var(--cost) 0 2px, transparent 2px 4px); }
+.workstack .queued, .work .legend .queued::before { background: var(--border); }
+.work .big b.cost { color: var(--cost); }
+@media (prefers-reduced-motion: no-preference) {
+  .workstack .running { animation: research-slide 1.2s linear infinite; background-size: 12px 12px; }
+  @keyframes research-slide { to { background-position: 12px 0; } }
+}
+
+/* ---------- a finding's Research button ---------- */
+
+.research .rnote { flex-basis: 100%; text-align: right; }

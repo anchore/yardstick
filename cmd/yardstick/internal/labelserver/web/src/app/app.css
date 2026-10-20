@@ -7,6 +7,7 @@
 @import "./finding.css";
 @import "./hints.css";
 @import "./queue.css";
+@import "./research.css";
 
 /* ---------- tokens ---------- */
 
@@ -22,6 +23,7 @@
   --fp: #b0236f; --fp-bg: #fae1ef;
   --unc: #596273; --unc-bg: #e8ebf0;
   --hint: #6447d0; --hint-bg: #ece7fc;
+  --cost: #0f6e6e; --cost-bg: #def3f1;
 }
 .dark {
   --faint: oklch(0.55 0.015 260);
@@ -31,6 +33,7 @@
   --fp: #f07ab8; --fp-bg: #40192f;
   --unc: #a2abba; --unc-bg: #2a303b;
   --hint: #a993ff; --hint-bg: #2a2348;
+  --cost: #5fd0c8; --cost-bg: #10302e;
 }
 /* Basecoat draws its check marks and chevrons from data: URLs, which the page's CSP (img-src falls
    back to 'self') refuses with a console error; the rail marks its pick with a background instead */

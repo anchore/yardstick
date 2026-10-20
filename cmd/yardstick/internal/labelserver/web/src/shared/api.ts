@@ -1,7 +1,8 @@
 // api.ts is the write token and the per-gate API calls the finding page and the lists' writes
 // make, typed against the server's generated wire types.
 import type {
-  AcceptCauseResponse, AcceptResponse, LabelKey, LabelsRequest, LabelsResponse, MatchesResponse, ResearchRequest, ResearchResponse, RevertResponse, RowResponse, State,
+  AcceptCauseResponse, AcceptResponse, CancelResponse, LabelKey, LabelsRequest, LabelsResponse, MatchesResponse, ResearchBatch, ResearchQueueRequest,
+  ResearchQueueResponse, ResearchRequest, ResearchResponse, RevertResponse, RowResponse, State,
 } from "../gen/wire";
 
 export const token = document.querySelector<HTMLMetaElement>('meta[name="yardstick-token"]')?.content ?? "";
@@ -31,3 +32,9 @@ export const acceptCause = (gate: string, cause: string, rows: string[]) =>
 export const research = (gate: string, body: Partial<ResearchRequest>) => post<ResearchResponse>(gate, "/research", body);
 // revert removes labels from the writable claims source: a write's labels undo it
 export const revert = (labels: LabelKey[]) => postTo<RevertResponse>("/api/history/revert", { labels });
+
+// the research queue across gates: plan (dryRun) or start a batch, the newest batch's progress (null
+// when none ever ran), and cancelling the rest of one
+export const researchQueue = (body: ResearchQueueRequest) => postTo<ResearchQueueResponse>("/api/research", body);
+export const researchBatch = () => call<ResearchBatch | null>("/api/research/batch");
+export const cancelBatch = (id: string) => postTo<CancelResponse>("/api/research/batch/cancel", { id });

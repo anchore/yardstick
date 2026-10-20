@@ -9,6 +9,7 @@
 // /ui/gates/<gate>/findings/<row>                     finding, reached from the gate's Findings tab
 // /ui/gates/_kit                                      the component kit (not linked from anywhere)
 // /ui/hints, /ui/history                              the labeling flow's screens
+// /ui/research?scope=                                 research open rows across gates (research.ts)
 // /ui/queue[/<row>]?scope=&check=&low=                the queue, one open row at a time (queue.ts)
 //
 // Filters ride in the query string on every level: image (slug), verdict, hint, pkg, q, page, and
@@ -45,7 +46,9 @@ export type Route =
   // scope is all, gate:<gate> or image:<slug> (all when absent); check, with a gate scope, puts that
   // check's open rows first; low keeps low-confidence hints
   | { level: "queue"; row?: string; scope?: string; check?: string; low?: boolean; filters: Filters }
-  | { level: "history"; filters: Filters };
+  | { level: "history"; filters: Filters }
+  // scope is the queue's: all, gate:<gate> or image:<slug>
+  | { level: "research"; scope?: string; filters: Filters };
 
 const seg = (s: string) => encodeURIComponent(s);
 
@@ -87,6 +90,7 @@ export function formatRoute(r: Route): string {
       return `${base}${seg(r.gate)}/${list}/${seg(r.row)}${query(r.filters)}`;
     }
     case "hints": case "history": return `/ui/${r.level}${query(r.filters)}`;
+    case "research": return `/ui/research${query(r.filters, r.scope && r.scope !== "all" ? [["scope", r.scope]] : [])}`;
     case "queue": {
       const extra: [string, string][] = [];
       if (r.scope && r.scope !== "all") extra.push(["scope", r.scope]);
@@ -100,6 +104,10 @@ export function formatRoute(r: Route): string {
 // parseRoute is the route a location names, or null for a path outside the app's
 export function parseRoute(pathname: string, search = ""): Route | null {
   const params = new URLSearchParams(search), filters = parseFilters(params);
+  if (/^\/ui\/research\/?$/.test(pathname)) {
+    const scope = params.get("scope");
+    return scope && scope !== "all" ? { level: "research", scope, filters } : { level: "research", filters };
+  }
   const flow = /^\/ui\/(?:(hints|history)|queue(?:\/([^/]+))?)\/?$/.exec(pathname);
   if (flow) {
     if (flow[1]) return { level: flow[1] as "hints" | "history", filters };
@@ -139,7 +147,7 @@ export function parseRoute(pathname: string, search = ""): Route | null {
 export function up(r: Route): Route | null {
   switch (r.level) {
     case "gates": return null;
-    case "kit": case "hints": case "queue": case "history": return { level: "gates", tab: "gates", filters: {} };
+    case "kit": case "hints": case "queue": case "history": case "research": return { level: "gates", tab: "gates", filters: {} };
     case "gate": return { level: "gates", tab: "gates", filters: {} };
     case "check": return { level: "gate", gate: r.gate, tab: "checks", filters: r.filters.image ? { image: r.filters.image } : {} };
     case "finding":
@@ -171,6 +179,7 @@ function label(r: Route, row?: string): string {
     case "hints": return "Agent hints";
     case "queue": return "Labeling";
     case "history": return "History";
+    case "research": return "Research";
   }
 }
 

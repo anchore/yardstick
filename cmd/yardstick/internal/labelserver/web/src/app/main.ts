@@ -23,6 +23,7 @@ import { kitView } from "./kit";
 import { openPalette } from "./palette";
 import { queueView } from "./queue";
 import { queueFor } from "./queuelist";
+import { researchView } from "./research";
 import { crumbs, formatRoute, gateOf, inGate, parseRoute, up, type Route } from "./route";
 import { renderShell, type View } from "./shell";
 
@@ -56,7 +57,8 @@ function render() {
             : next.level === "finding" ? findingView(host, next, nav)
               : next.level === "hints" ? hintsView(host, next, nav)
                 : next.level === "queue" ? queueView(host, next, nav)
-                  : historyView(host, next, nav);
+                  : next.level === "research" ? researchView(host, next, nav)
+                    : historyView(host, next, nav);
 }
 
 function notFound(): View {
@@ -111,6 +113,12 @@ document.addEventListener("keydown", (e) => {
   }
   if (view.key?.(e)) {
     e.preventDefault();
+    return;
+  }
+  // r on the gates screen opens research of the open rows no agent has looked at (a finding's R is its own)
+  if (e.key === "r" && !e.altKey && route?.level === "gates") {
+    e.preventDefault();
+    nav({ level: "research", filters: {} });
     return;
   }
   // n enters the queue at the next open row in this screen's scope (queuelist.ts queueFor)

@@ -20,6 +20,8 @@ const routes: Route[] = [
   { level: "finding", gate: "grype-upgrade", check: "f1NotWorse", row: "3e91c0a7d2b4f816", filters: { image: "core", verdict: "tp" } },
   { level: "finding", gate: "grype-upgrade", check: null, row: "3e91c0a7d2b4f816", filters: {} },
   { level: "gate", gate: "deb-java", tab: "findings", filters: { pkg: "org.apache.logging.log4j" } },
+  { level: "research", filters: {} },
+  { level: "research", scope: "gate:deb-java", filters: {} },
   { level: "hints", filters: {} },
   { level: "queue", filters: {} },
   { level: "queue", row: "e1af7851f0e60bb4", filters: { image: "core" } },
@@ -54,6 +56,11 @@ describe("formatRoute", () => {
     expect(formatRoute(q)).toBe("/ui/queue/e3bfd3b0b0c30ee6?scope=gate%3Adeb-java&check=f1NotWorse&low=1");
     expect(parse(formatRoute(q))).toEqual(q);
     expect(formatRoute({ level: "queue", scope: "all", filters: {} })).toBe("/ui/queue");
+  });
+  test("research keeps its scope in the query; all is the default", () => {
+    expect(formatRoute({ level: "research", scope: "gate:deb-java", filters: {} })).toBe("/ui/research?scope=gate%3Adeb-java");
+    expect(formatRoute({ level: "research", scope: "all", filters: {} })).toBe("/ui/research");
+    expect(crumbs({ level: "research", filters: {} }).map((c) => c.label)).toEqual(["Gates", "Research"]);
   });
   test("page 1 stays out of the URL", () => {
     expect(formatRoute({ level: "gate", gate: "g", tab: "labels", filters: { page: 1 } })).toBe("/ui/gates/g/labels");
