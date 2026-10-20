@@ -8,7 +8,7 @@ Select with `getByTestId("<testid>")`, narrow with the `data-*` identity attribu
 - Table rows are `tbody tr[data-id]` inside the table's testid; `data-id` is the row id (16 hex), or a made-up key for a row with no finding page.
 - Pick one instance by its identity attribute: `page.locator('[data-testid=check-row][data-check=f1NotWorse]')`.
 
-Routes (`route.ts`): `/ui/gates/` (level 0, `?tab=unlabeled|labels`), `/ui/gates/<gate>/` and `findings` / `labels` / `map` (level 1), `/ui/gates/<gate>/checks/<check>` (level 2), and a finding at `/ui/gates/<gate>/checks/<check>/<row>` or `/ui/gates/<gate>/findings/<row>` (level 3). Filters ride in the query: `image` (slug), `verdict`, `hint`, `pkg`, `q`, `page`. The labeling flow's screens sit beside them: hint review at `/ui/hints?gate=&image=&low=1`, research at `/ui/research?scope=all|gate:<g>|image:<slug>` (`check`, `rows` comma-separated, `groups` comma-separated) and its jobs at `/ui/research/jobs`, the queue at `/ui/queue` and `/ui/queue/<row>` (`?scope=all|gate:<g>|image:<slug>`, `check`, `low=1`), and `/ui/history` (`?verdict=`, `q`, `page`, `since=all|<RFC 3339 time>`, left out for since the server started). `h` on any screen opens hint review for the gate and image on screen; `r` on the gates, gate and check screens opens research scoped as `n` is; `n` enters the queue for the screen's scope.
+Routes (`route.ts`): `/ui/gates/` (level 0, `?tab=unlabeled|labels`), `/ui/gates/<gate>/` and `findings` / `labels` / `map` (level 1), `/ui/gates/<gate>/checks/<check>` (level 2), and a finding at `/ui/gates/<gate>/checks/<check>/<row>` or `/ui/gates/<gate>/findings/<row>` (level 3). Filters ride in the query: `image` (slug), `verdict`, `hint`, `pkg`, `q`, `page`. The labeling flow's screens sit beside them: hint review at `/ui/hints?gate=&image=&low=1`, research at `/ui/research?scope=all|gate:<g>|image:<slug>` (`check`, `rows` comma-separated, `groups` comma-separated, and the filters `chip`, `image`, `q`) and its jobs at `/ui/research/jobs`, the queue at `/ui/queue` and `/ui/queue/<row>` (`?scope=all|gate:<g>|image:<slug>`, `check`, `low=1`), and `/ui/history` (`?verdict=`, `q`, `page`, `since=all|<RFC 3339 time>`, left out for since the server started). `h` on any screen opens hint review for the gate and image on screen; `r` on the gates, gate and check screens opens research scoped as `n` is; `n` enters the queue for the screen's scope.
 
 ## Shell (every screen)
 
@@ -116,21 +116,24 @@ Routes (`route.ts`): `/ui/gates/` (level 0, `?tab=unlabeled|labels`), `/ui/gates
 | `research-gate-chip` | a scope chip in the title row, a link; "All gates" first | `data-gate` (empty for all), `aria-pressed` |
 | `research-check-chip`, `research-rows-chip` | "check: f1NotWorse" with `check=`, "N selected matches" with `rows=`; each × clears it | |
 | `research-toggle` | "Open matches / Jobs N", here and on the jobs page; each is a link | each one's `data-tab` (`matches`, `jobs`) and `aria-pressed` |
-| `research-group` | a group of jobs by effect | `data-group` = change / none, `hidden` with no jobs |
-| `research-group-toggle` | its checkbox; change starts checked, none unchecked | |
-| `research-job` | one job: vulnerability, package, image, matches, price | `data-gate` (researched under), `data-row` (the row it starts from) |
-| `research-more` | "and N more jobs" | |
+| `research-table` | the open matches, one row each, as the findings tables' table with its `bulk-bar`; checks survive a filter change here | rows keyed by row id |
+| `research-group` | in a group's header row: its box, title, and "N matches · M jobs · ~$X" over what is shown | `data-group` = change / none; absent with no row shown |
+| `research-group-toggle` | its checkbox, over the matches shown; change starts checked, none unchecked (`groups=` picks them, `rows=` checks every row) | `indeterminate` when some are |
+| `research-job` | a row's Job cell: "own job" or "shares with N" | `data-gate` (researched under), `data-group` |
+| `research-row-price` | a row's Price cell: one job's price on its job's first match, blank on the others, "–" unmeasured | |
+| `research-image` | the image select ("All images"), `?image=` | |
+| `research-bulk`, `research-hidden` | in the bulk bar: "N jobs · ~$X", then " · N hidden by the filter" while the filter hides checked matches | |
 | `research-skipped` | what was left out: researched, hinted, queued or running | |
 | `research-empty` | the body when nothing in scope qualifies | |
 | `research-estimate` | the sticky panel | |
 | `research-cost`, `research-range` | the mean ("$0.92", or "not measured") and the range ("$0.72 to $1.12", or the job count) | |
-| `research-jobs`, `research-rows`, `research-tokens`, `research-time` | the panel's numbers | |
+| `research-rows`, `research-jobs`, `research-tokens`, `research-time` | the panel's numbers: matches checked, then the jobs they make (up to "Stop after") | |
 | `research-model`, `research-limit` | the model select and "Stop after" | |
 | `research-unmeasured` | the line saying the model has no finished jobs here | `hidden` when measured |
 | `research-start` | "Start N research jobs" | `data-jobs`, `disabled` with none |
 | `research-basis` | where the per-job numbers come from | |
 
-`label-left` is in the title row here too.
+Its chips are buttons with `data-chip` (`all`, `change`, `none`, `checked`, `?chip=`) and `aria-pressed`; the count is the `b` inside and follows the search and the image. The search box is the findings tables' (`Filter matches`, `?q=`). `label-left` is in the title row here too, and follows the image filter.
 
 ## Research jobs (`/ui/research/jobs`)
 
