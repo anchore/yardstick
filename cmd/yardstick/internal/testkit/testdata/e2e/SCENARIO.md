@@ -80,7 +80,8 @@ Agent material:
 - proposals (hints) are keyed by package and vulnerability, so one covers both jars. Three recorded: tar CVE-2005-2541 fp (medium); log4j-core GHSA-jfh8-c2jp-5v3q tp (medium); log4j-core GHSA-vc5p-v9hr-52mj tp (medium). All by skill `triage-deltas`, model `e2e`
 - one cause (package hint) on source package `util-linux`, title "CVE-2026-3184 on util-linux and the binary packages built from it", direction added, tp no-fix medium, 4 members (the four util-linux rows)
 - one explanation, "the reference setup does not report CVE-2026-3184 on util-linux", the same 4 rows
-- research (`POST .../research`) runs a stand-in that records a tp proposal (medium, note "e2e research stand-in") for the row it is asked about
+- research (`POST .../research`, and `POST /api/research` across gates) runs a stand-in that records a tp proposal (medium, note "e2e research stand-in") for the row it is asked about, then prints a claude result line, so every finished job costs $0.25 (10,030 tokens in, 400 out, 2 s)
+- across gates, research on the seed finds two rows with no hint or cause, babel `24160b879ac36bf5` and tar `e3bfd3b0b0c30ee6`, and neither can change a gate; the other 10 open rows have a hint or a cause
 
 Labels that flip deb-java to PASS. Accepting hints and the cause does most of it, one row needs a hand label:
 

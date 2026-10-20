@@ -227,3 +227,31 @@ func TestServeCauseMembersMustBeTheirRows(t *testing.T) {
 		}
 	}
 }
+
+func TestServeCancelABatch(t *testing.T) {
+	var runner *research.Runner
+	s := newServedWith(t, func(o *labelserver.Options) {
+		dir, _ := os.Getwd()
+		runner = research.NewRunner(research.Config{Command: "sleep 30", Dir: dir, Run: o.Run, Concurrency: 1, Timeout: time.Minute})
+		o.Research, o.ResearchAvailability = runner, research.Availability{Available: true}
+	})
+	var started labelserver.ResearchQueueResponse
+	rec := s.do(http.MethodPost, "/api/research", s.srv.Token(), `{"groups":["change","none"]}`)
+	if rec.Code != http.StatusOK || json.Unmarshal(rec.Body.Bytes(), &started) != nil || started.Batch == "" || len(started.Jobs) == 0 {
+		t.Fatalf("start: %d %s", rec.Code, rec.Body)
+	}
+	if rec := s.do(http.MethodPost, "/api/research/batch/cancel", "", `{"id":"`+started.Batch+`"}`); rec.Code != http.StatusForbidden {
+		t.Errorf("expected a cancel without the token refused, got %d", rec.Code)
+	}
+	var cancel labelserver.CancelResponse
+	rec = s.do(http.MethodPost, "/api/research/batch/cancel", s.srv.Token(), `{"id":"`+started.Batch+`"}`)
+	if rec.Code != http.StatusOK || json.Unmarshal(rec.Body.Bytes(), &cancel) != nil || len(cancel.Cancelled) != len(started.Jobs) || len(cancel.NotCancelled) != 0 {
+		t.Fatalf("cancel: %d %s", rec.Code, rec.Body)
+	}
+	runner.Wait()
+	var b labelserver.ResearchBatch
+	s.get("/api/research/batch", &b)
+	if b.ID != started.Batch || b.Total != len(started.Jobs) || b.Cancelled != b.Total || b.Spent != 0 {
+		t.Errorf("cancelled batch: %+v", b)
+	}
+}
