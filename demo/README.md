@@ -127,14 +127,14 @@ bin/yardstick claims serve grype-upgrade-stdlib-cpe --open
 
 Without the plugin, serve says so as it starts, with the command to install it, and everything but research still works.
 
-The gate's board shows its checks as range bars and the changed matches as a map, grouped by direction, reason and source package.
+The page opens on the list of gates. A gate lists its checks, each with its value against its limit; a check lists every finding it counts, and the gate's Scan map tab draws the changed matches grouped by direction, reason and source package.
 
-- **Research.** `research 20 of 21 matches that could move a check` on the board sends an agent to each of those matches, two at a time, and `R` in a match's tile researches just that one. Each agent reads the CVE record, the advisories, the distro's security data and the image's SBOM, and records a **proposal**: a verdict, a justification and a note on what decided it. A proposal is not a label and counts for nothing until a person accepts it.
-- **Label.** Open a match to see its proposal and what accepting it would do to each check. `a` accepts it. `t`, `f` and `u` label it tp, fp or unclear yourself; fp and unclear need a justification, picked from the list under the buttons.
+- **Research.** `R` on a finding sends an agent to research that match. Each agent reads the CVE record, the advisories, the distro's security data and the image's SBOM, and records a **proposal**: a verdict, a justification and a note on what decided it. A proposal is not a label and counts for nothing until a person accepts it.
+- **Label.** Open a finding to see its proposal in its own card. `a` accepts it, and Accept hints on a table accepts the hints of every row selected. `t`, `f` and `u` label it tp, fp or unclear yourself; fp and unclear need a reason, picked from the list under the buttons, and Save writes the label.
 
 Here the 21 matches took about 10 minutes. The agents found that the secureos security data lists every one of these CVEs as not affecting `glibc-2.42` (fixed at version "0", with no reason given), so they proposed 16 as fp. For the other 5 they proposed `unclear`, because upstream 2.42 still has the vulnerable code and nobody checked what the apk patches. Read a proposal's note before you accept it: it is an agent's claim, and you are the one vouching for it.
 
-Each label is written to `./claims` as you go, with `seenIn` filled from the run, and the board re-scores at once. `claims add` writes the same label from the command line:
+Each label is written to `./claims` as you go, with `seenIn` filled from the run, and the gate re-scores at once. `claims add` writes the same label from the command line:
 
 ```bash
 bin/yardstick claims add --gate demo/gates/grype-upgrade-stdlib-cpe.yaml \
@@ -170,7 +170,7 @@ what changed  26 of 2709 matches: 26 dropped by the candidate, 0 added
       one labeled tp: f1NotWorse FAIL, noNewFalseNegatives FAIL; fp: no change
 ```
 
-An `unclear` label counts as unjudged, so the gate stays undecided until a person settles those 5. The report says what each answer does: if all 5 are fp, every check reaches 0 and the gate passes, which means the newer grype was right to drop all 26. If even one is tp, `noNewFalseNegatives` fails, and grype v0.120.1 misses a real glibc vulnerability on secureos. Settling them means reading the secureos glibc package's patches, and the board previews either answer before anything is written.
+An `unclear` label counts as unjudged, so the gate stays undecided until a person settles those 5. The report says what each answer does: if all 5 are fp, every check reaches 0 and the gate passes, which means the newer grype was right to drop all 26. If even one is tp, `noNewFalseNegatives` fails, and grype v0.120.1 misses a real glibc vulnerability on secureos. Settling them means reading the secureos glibc package's patches.
 
 The labels are worth keeping whatever the gate says, since every gate that scans this image reads them.
 
