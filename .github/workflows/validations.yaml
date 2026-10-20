@@ -96,6 +96,33 @@ jobs:
             cmd/yardstick/internal/labelserver/web/playwright-report/
           if-no-files-found: ignore
 
+  CLI-Test:
+    name: "CLI tests"
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+    env:
+      # bump to drop the cached grype releases, claims snapshot and SBOMs
+      CLI_CACHE_BUSTER: "1"
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 #v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Bootstrap environment
+        uses: anchore/go-make/.github/actions/setup@abf41688f36f2cbec13105747abbe8e60f5c56ca # v0.9.3
+
+      # the key is test/cli's pins: the two grype releases its gates install and the claims snapshot
+      # (claimsPin in test/cli/utils_test.go). The DB is built per run and never cached.
+      - name: Cache grype releases, claims and SBOMs
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 #v6.1.0
+        with:
+          path: .tmp/cli/cache
+          key: cli-${{ runner.os }}-grype-v0.100.0-v0.120.1-claims-32064318e375ca3a87ee642bfececd00d701c4de-${{ env.CLI_CACHE_BUSTER }}
+
+      - name: Run CLI tests
+        run: make cli
+
   Build-Snapshot-Artifacts:
     # Note: changing this job name requires making the same update in the .github/workflows/release.yaml pipeline
     name: "Build snapshot artifacts"
