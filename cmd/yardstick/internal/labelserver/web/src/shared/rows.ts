@@ -10,9 +10,14 @@ export function direction(r: Row): Dir {
   if (!r.inCandidate && r.inReference) return "dropped";
   return r.inCandidate ? "both" : "neither";
 }
+// decoded is a purl or version as people read it, percent escapes undone (+, not %2B); a malformed
+// escape leaves it as it is
+export function decoded(s: string) {
+  try { return decodeURIComponent(s); } catch { return s; }
+}
 export function pkgOf(ref: string | undefined) {
   const m = (ref || "").match(/^pkg:([^/]+)\/(?:.*\/)?([^@?#]+)(?:@([^?#]+))?/);
-  return { type: m?.[1] || "", name: decodeURIComponent(m?.[2] || ref || ""), version: decodeURIComponent(m?.[3] || "") };
+  return { type: m?.[1] || "", name: decoded(m?.[2] || ref || ""), version: decoded(m?.[3] || "") };
 }
 export const detail = (r: Row) => r.candidate || r.reference;
 export const otherRecords = (r: Row) => (direction(r) === "added" ? r.referenceRecords : r.candidateRecords) || [];

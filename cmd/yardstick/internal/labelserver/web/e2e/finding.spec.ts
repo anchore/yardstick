@@ -24,6 +24,9 @@ test("a finding opened by URL shows its title, subtitle, tabs and the hint", asy
   const tabs = page.getByTestId("finding-tabs").getByRole("tab");
   await expect(tabs).toHaveText(["Why it differs", "Evidence", "Raw match", "Labels on file (0)"]);
   await expect(page.getByTestId("match-lanes")).toBeVisible();
+  // the purl reads decoded, raw on hover
+  await expect(page.getByTestId("finding-purl")).toHaveText(/^pkg:deb\/debian\/tar@1\.34\+dfsg-1\.2\+deb12u1\?/);
+  await expect(page.getByTestId("finding-purl")).toHaveAttribute("title", /tar@1\.34%2Bdfsg/);
   await expect(page.getByTestId("finding-ref")).toContainText("vulnerabilities-debian-12-tar-util-linux:617d48d@sha256:");
 
   const hint = page.getByTestId("hint-card");
