@@ -293,18 +293,29 @@ func (s *Server) handleState(w http.ResponseWriter, req *http.Request) {
 	if r, ok := e.rec.Setups[pairing.Reference]; ok {
 		st.Reference = &r
 	}
+	changes := v.changes()
 	for si, sub := range v.verdict.Subjects {
-		ss := StateSubject{Name: st.Scans.Subjects[si].Name, Slug: st.Scans.Subjects[si].Slug, Rows: []StateRow{}}
+		ss := StateSubject{Name: st.Scans.Subjects[si].Name, Slug: st.Scans.Subjects[si].Slug, Changes: changes[si], Rows: []StateRow{}}
 		for j := range sub.Matches {
-			r := v.rows[sub.Matches[j].Row]
-			ss.Rows = append(ss.Rows, v.listRow(r, idx))
-			if r.match.InCandidate != r.match.InReference {
-				ss.Changes.add(verdictOf(r), v.hintFor(r) != nil)
-			}
+			ss.Rows = append(ss.Rows, v.listRow(v.rows[sub.Matches[j].Row], idx))
 		}
 		st.Subjects = append(st.Subjects, ss)
 	}
 	writeJSON(w, st)
+}
+
+// changes tallies each subject's changed rows (the ones only one setup reports), in subject order:
+// the image rail's counts and the gate list's strip.
+func (v *view) changes() []Tally {
+	out := make([]Tally, len(v.verdict.Subjects))
+	for si, sub := range v.verdict.Subjects {
+		for j := range sub.Matches {
+			if r := v.rows[sub.Matches[j].Row]; r.match.InCandidate != r.match.InReference {
+				out[si].add(verdictOf(r), v.hintFor(r) != nil)
+			}
+		}
+	}
+	return out
 }
 
 // RunSummary is a gate's scans as the gate list and every page's header show them.
@@ -318,8 +329,9 @@ type RunSummary struct {
 }
 
 type SubjectInfo struct {
-	Name string `json:"name"` // what a person calls it, e.g. wolfi-base
-	Slug string `json:"slug"` // unique within the gate, for URLs
+	Name string `json:"name"`          // what a person calls it, e.g. wolfi-base
+	Slug string `json:"slug"`          // unique within the gate, for URLs
+	Ref  string `json:"ref,omitempty"` // the gate's reference, shown on hover
 }
 
 func summarize(e *entry, v *view) RunSummary {
@@ -332,7 +344,7 @@ func summarize(e *entry, v *view) RunSummary {
 		if seen[slug]++; seen[slug] > 1 {
 			slug = fmt.Sprintf("%s-%d", slug, seen[slug])
 		}
-		sum.Subjects = append(sum.Subjects, SubjectInfo{Name: name, Slug: slug})
+		sum.Subjects = append(sum.Subjects, SubjectInfo{Name: name, Slug: slug, Ref: s.Name})
 		names = append(names, name)
 	}
 	switch len(names) {
@@ -457,7 +469,7 @@ func (s *Server) handleGateList(w http.ResponseWriter, _ *http.Request) {
 		if out.Open == "" {
 			out.Open = e.name // the gate scanned last that can be scored, as / opens
 		}
-		l := GateListItem{RunSummary: summarize(e, v), GateOutcome: analysis.Undecided, GateNote: v.stale}
+		l := GateListItem{RunSummary: summarize(e, v), Changes: v.changes(), GateOutcome: analysis.Undecided, GateNote: v.stale}
 		if v.stale == "" {
 			l.GateOutcome = v.verdict.Outcome
 		}
@@ -468,7 +480,9 @@ func (s *Server) handleGateList(w http.ResponseWriter, _ *http.Request) {
 
 // GateListItem is one gate of GET /api/gates.
 type GateListItem struct {
-	RunSummary  `tstype:",extends"`
+	RunSummary `tstype:",extends"`
+	// Changes tallies each subject's changed rows, in Subjects order.
+	Changes     []Tally        `json:"changes,omitempty"`
 	GateOutcome analysis.State `json:"gateOutcome,omitempty"`
 	GateNote    string         `json:"gateNote,omitempty"`
 	Error       string         `json:"error,omitempty"`

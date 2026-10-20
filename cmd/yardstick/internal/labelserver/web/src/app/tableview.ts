@@ -37,10 +37,16 @@ export interface Table<T> {
   update(rows: T[], hide?: string[]): void;
   selected(): string[];
   clear(): void;
+  // regroup draws the rows under other group headers, or none
+  regroup(g: TableOptions<T>["group"]): void;
+  // key moves the row cursor (j / k) and opens its row (Enter), and says whether it did
+  key(e: KeyboardEvent): boolean;
 }
 
 export function dataTable<T>(o: TableOptions<T>): Table<T> {
   let rows = o.rows, sort = o.sort ?? null, hide = new Set<string>();
+  // order is the rows as drawn, groups included, which the cursor walks; cursor is its index
+  let order: T[] = [], cursor = -1;
   const chosen = new Set<string>();
   const cols = () => o.columns.filter((c) => !hide.has(c.key));
 
@@ -100,12 +106,19 @@ export function dataTable<T>(o: TableOptions<T>): Table<T> {
     else if (o.group) fill(tbody, groupRows(shown, o.group.key).map((g) => [
       el("tr", { class: "group" }, el("td", { colspan: span }, o.group!.header(g.key, g.rows))), g.rows.map(line)]));
     else fill(tbody, shown.map(line));
+    order = o.group ? groupRows(shown, o.group.key).flatMap((g) => g.rows) : shown;
+    cursor = Math.min(cursor, order.length - 1);
+    mark();
     all.checked = shown.length > 0 && shown.every((r) => chosen.has(o.id(r)));
     all.indeterminate = !all.checked && chosen.size > 0;
     bulk.hidden = chosen.size === 0;
     bulkCount.textContent = `${chosen.size} selected`;
     if (o.select && chosen.size) fill(bulkActions, o.select.bulk([...chosen], clear));
     fill(foot, o.foot ? o.foot(shown) : `${shown.length.toLocaleString()} ${shown.length === 1 ? "row" : "rows"}`);
+  }
+  function mark() {
+    const at = cursor < 0 ? null : o.id(order[cursor]);
+    for (const tr of tbody.querySelectorAll<HTMLElement>("tr[data-id]")) tr.classList.toggle("cursor", tr.dataset.id === at);
   }
   function toggle(id: string) {
     if (chosen.has(id)) chosen.delete(id); else chosen.add(id);
@@ -122,5 +135,20 @@ export function dataTable<T>(o: TableOptions<T>): Table<T> {
     update(next, h = []) { rows = next; hide = new Set(h); draw(); },
     selected: () => [...chosen],
     clear,
+    regroup(g) { o.group = g; draw(); },
+    key(e) {
+      if (!order.length) return false;
+      if (e.key === "j" || e.key === "k") {
+        cursor = Math.max(0, Math.min(order.length - 1, cursor + (e.key === "j" ? 1 : -1)));
+        mark();
+        tbody.querySelector(".cursor")?.scrollIntoView({ block: "nearest" });
+        return true;
+      }
+      if (e.key === "Enter" && cursor >= 0 && o.open) {
+        o.open(order[cursor]);
+        return true;
+      }
+      return false;
+    },
   };
 }

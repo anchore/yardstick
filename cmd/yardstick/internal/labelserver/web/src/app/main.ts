@@ -6,7 +6,10 @@
 import "basecoat-css/basecoat";
 import "basecoat-css/combobox";
 import { el, must } from "../shared/dom";
+import { checkView } from "./check";
 import { findingView } from "./finding";
+import { gateView } from "./gate";
+import { gatesView } from "./gates";
 import { kitView } from "./kit";
 import { crumbs, formatRoute, parseRoute, up, type Route } from "./route";
 import { renderShell, type View } from "./shell";
@@ -33,19 +36,14 @@ function render() {
   }
   route = next;
   document.title = next ? `${crumbs(next).at(-1)!.label} · yardstick` : "yardstick";
-  view = next == null ? notFound() : next.level === "kit" ? kitView(host, next, nav)
-    : next.level === "finding" ? findingView(host, next, nav) : placeholder(next);
+  view = next == null ? notFound()
+    : next.level === "kit" ? kitView(host, next, nav)
+      : next.level === "gates" ? gatesView(host, next, nav)
+        : next.level === "gate" ? gateView(host, next, nav)
+          : next.level === "check" ? checkView(host, next, nav)
+            : findingView(host, next, nav);
 }
 
-// placeholder draws a screen the next change fills in, so every route renders its chrome today
-function placeholder(r: Route): View {
-  const title = r.level === "gates" ? "Gates" : r.level === "gate" ? r.gate : r.level === "check" ? r.check : r.level === "finding" ? r.row : "";
-  renderShell(host, r, {
-    title,
-    body: el("div", { class: "placeholder", "data-testid": "placeholder" }, "This screen isn't built yet."),
-  });
-  return {};
-}
 
 function notFound(): View {
   renderShell(host, { level: "gates", tab: "gates", filters: {} }, {
