@@ -69,7 +69,10 @@ type Job struct {
 	// Model is the model the job runs on (Request.Model, else Config.Model when it was queued).
 	Model string `json:"model,omitempty"`
 	// Batch is the id shared by the jobs one start of many created, empty for a job started alone.
-	Batch    string    `json:"batch,omitempty"`
+	Batch string `json:"batch,omitempty"`
+	// From is the screen of Source a person started it from (the label UI's research page, a
+	// findings table or a finding), empty when not known.
+	From     string    `json:"from,omitempty"`
 	Status   Status    `json:"status"`
 	Error    string    `json:"error,omitempty"`
 	Command  string    `json:"command"`
@@ -147,6 +150,7 @@ type Request struct {
 	Source        string // where a person started it
 	Model         string // overrides Config.Model when set; see CheckModel
 	Batch         string
+	From          string // the screen of Source it was started from
 }
 
 // Start queues a job and returns at once; the job runs when a slot is free and stops when ctx ends.
@@ -177,6 +181,7 @@ func (r *Runner) Start(ctx context.Context, req Request) (Job, error) {
 		Source:        req.Source,
 		Model:         cmp.Or(req.Model, r.cfg.Model),
 		Batch:         req.Batch,
+		From:          req.From,
 		Status:        Queued,
 		Command:       r.cfg.Command,
 		Dir:           r.cfg.Dir,
