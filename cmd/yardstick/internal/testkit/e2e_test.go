@@ -84,10 +84,12 @@ func (s *state) open() []string {
 	return out
 }
 
-// the facts SCENARIO.md states: if the material drifts, this fails before any browser does
-func TestE2EWorkspace(t *testing.T) {
-	dir, tools := t.TempDir(), t.TempDir()
-	bin := filepath.Join(tools, "yardstick")
+// e2eServer builds the seeded workspace in a temporary directory, which becomes the working
+// directory, and serves it. tools holds the yardstick binary bin and the cache.
+func e2eServer(t *testing.T) (srv *labelserver.Server, dir, tools, bin string) {
+	t.Helper()
+	dir, tools = t.TempDir(), t.TempDir()
+	bin = filepath.Join(tools, "yardstick")
 	if out, err := exec.Command("go", "build", "-o", bin, "../..").CombinedOutput(); err != nil {
 		t.Fatalf("%v\n%s", err, out)
 	}
@@ -97,6 +99,12 @@ func TestE2EWorkspace(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	return srv, dir, tools, bin
+}
+
+// the facts SCENARIO.md states: if the material drifts, this fails before any browser does
+func TestE2EWorkspace(t *testing.T) {
+	srv, _, tools, bin := e2eServer(t)
 	h := srv.Handler()
 
 	var gates struct {

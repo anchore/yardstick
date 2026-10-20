@@ -6,6 +6,7 @@ import (
 	"slices"
 
 	"github.com/anchore/yardstick/cmd/yardstick/internal/analysis"
+	claimsv1 "github.com/anchore/yardstick/cmd/yardstick/internal/claims/v1"
 )
 
 // The cross-gate view: a label is about a package in a subject and a vulnerability, not about a
@@ -49,12 +50,16 @@ type CrossFinding struct {
 	In    []CrossAppearance `json:"in"`
 	Bears int               `json:"bears"`
 	Flips int               `json:"flips"`
+
+	slug string // the image's, as the first gate seen names it
 }
 
 type CrossCause struct {
-	ID    string `json:"id"`
-	Title string `json:"title"`
-	Gate  string `json:"gate"` // a gate to accept it in
+	ID         string           `json:"id"`
+	Title      string           `json:"title"`
+	Gate       string           `json:"gate"` // a gate to accept it in
+	Verdict    claimsv1.Verdict `json:"verdict,omitempty"`
+	Confidence string           `json:"confidence,omitempty"`
 }
 
 type CrossAppearance struct {
@@ -62,6 +67,11 @@ type CrossAppearance struct {
 	Row    string     `json:"row"`
 	Dir    string     `json:"dir"`
 	Effect *RowEffect `json:"effect,omitempty"`
+	// Outcome is the gate's outcome now, and Decides says a tp or fp label on the row alone changes it.
+	Outcome analysis.State `json:"outcome,omitempty"`
+	Decides bool           `json:"decides,omitempty"`
+
+	si, at int // the row's subject index and report position in the gate, for the queue's order
 }
 
 func (s *Server) handleShared(w http.ResponseWriter, _ *http.Request) {
@@ -96,10 +106,12 @@ func (s *Server) handleShared(w http.ResponseWriter, _ *http.Request) {
 	writeJSON(w, out)
 }
 
-// join collects the open deltas of every gate, by what a label about them is about.
+// join collects the open deltas of every gate, by what a label about them is about, or with byRow
+// by row id: one per image match, which is what the queue works through.
 type join struct {
 	byKey map[string]*CrossFinding
 	order []string // first seen first
+	byRow bool
 }
 
 // add summarizes a gate and joins its open deltas.
@@ -113,16 +125,19 @@ func (j *join) add(e *entry, v *view) GateSummary {
 	for _, c := range v.verdict.Checks {
 		g.Checks = append(g.Checks, GateCheckSummary{Name: c.Name, State: c.State, ValueMeans: checkWords[c.Name].means})
 	}
-	for _, r := range v.orderedRows() {
+	for at, r := range v.orderedRows() {
 		dir := direction(r.match)
 		if !r.open() || (dir != "added" && dir != "dropped") {
 			continue
 		}
 		key := subjectKey(&e.rec.Subjects[r.si]) + "|" + r.match.Package + "|" + cmp.Or(r.match.Group, r.match.Vulnerability)
+		if j.byRow {
+			key = r.match.Row
+		}
 		f := j.byKey[key]
 		if f == nil {
 			f = &CrossFinding{Key: key, Vulnerability: r.match.Vulnerability, Package: PkgRef{r.match.Package}, SourcePackage: r.match.SourcePackage,
-				Image: sum.Subjects[r.si].Name}
+				Image: sum.Subjects[r.si].Name, slug: sum.Subjects[r.si].Slug}
 			j.byKey[key] = f
 			j.order = append(j.order, key)
 		}
@@ -130,10 +145,11 @@ func (j *join) add(e *entry, v *view) GateSummary {
 			f.Hint = h.summary()
 		}
 		if cs := v.rowCauses[r.match.Row]; f.Cause == nil && len(cs) > 0 {
-			f.Cause = &CrossCause{ID: cs[0].ID, Title: cs[0].Title, Gate: e.name}
+			f.Cause = &CrossCause{ID: cs[0].ID, Title: cs[0].Title, Gate: e.name, Verdict: cs[0].Verdict, Confidence: cs[0].Confidence}
 		}
 		eff := v.effectOf(r.match.Row)
-		f.In = append(f.In, CrossAppearance{Gate: e.name, Row: r.match.Row, Dir: dir, Effect: eff})
+		decides := eff != nil && (eff.IfTP.Outcome != g.Outcome || eff.IfFP.Outcome != g.Outcome)
+		f.In = append(f.In, CrossAppearance{Gate: e.name, Row: r.match.Row, Dir: dir, Effect: eff, Outcome: g.Outcome, Decides: decides, si: r.si, at: at})
 		if eff != nil {
 			f.Bears++
 			g.Open++

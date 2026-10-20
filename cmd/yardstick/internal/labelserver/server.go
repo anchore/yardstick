@@ -69,6 +69,21 @@
 //	                            changed such row. Newest lastUpdated first; counts skip the verdict
 //	                            filter and perImage the image filter
 //
+//	queue                     ← the cross-gate join (shared.go) keyed by row id, every open change kept:
+//	                            per entry the strongest in-scope effect (decides: a tp or fp label
+//	                            alone changes a gate's outcome, from analysis.Effect; could-move,
+//	                            counted, none), per gate in[].outcome and decides; gates[].rows every
+//	                            open change, settled from analysis.EvaluateAs over the open changes all
+//	                            labeled for the candidate and all against it
+//	hints                     ← pending agentstore.Proposal (on a changed row) and agentstore.Cause
+//	                            (pending members) of every gate; gates[].after is analysis.EvaluateAs
+//	                            with only the hint's rows labeled its verdict; group from those
+//	                            (decides, needed, none); replaces when a row holds a claims label
+//	POST hints/accept         ← Proposal.Label and Cause.Label per row as the single accepts, placed by
+//	                            labelwrite.Place and written once per writable source, file and key
+//	history                   ← every label file in each gate's writable source (claims.Set.Writer,
+//	                            the last source), rows from the pairing's labels held by that source
+//
 //	row.research, researchLevel, researched, researchedBy, hint.origin
 //	                          ← research.Job records under .yardstick/research/jobs/, as in delta;
 //	                            researchedBy reads only the newest proposal (no history kept)
@@ -174,6 +189,10 @@ func (s *Server) Handler() http.Handler {
 
 	mux.HandleFunc("GET /api/gates", s.handleGateList)
 	mux.HandleFunc("GET /api/gates/shared", s.handleShared)
+	mux.HandleFunc("GET /api/queue", s.handleQueue)
+	mux.HandleFunc("GET /api/hints", s.handleHints)
+	mux.HandleFunc("POST /api/hints/accept", s.authorized(s.handleAcceptHints))
+	mux.HandleFunc("GET /api/history", s.handleHistory)
 	const g = "/api/gates/{gate}"
 	mux.HandleFunc("GET "+g+"/state", s.handleState)
 	mux.HandleFunc("GET "+g+"/checks/{check}/findings", s.handleCheckFindings)
