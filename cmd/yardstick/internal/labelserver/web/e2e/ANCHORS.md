@@ -22,7 +22,7 @@ Routes (`route.ts`): `/ui/gates/` (level 0, `?tab=unlabeled|labels`), `/ui/gates
 | `settings`, `settings-button` | the settings cog at the app bar's right end (Basecoat's popover) and its trigger, named "Settings" | `aria-expanded` on the button |
 | `settings-panel` | the open popover; keys pressed in it stay in it, and `Esc` closes it | `aria-hidden` while closed |
 | `advance-toggle`, `advance-checkbox` | the "Go to the next match" row and its switch (a checkbox with `role="switch"`); off, Save says "Save" and stays on the match, in the queue too | `checked` |
-| `queue-skip` | the "Skip labeled rows" switch; on, the queue's `j` / `k` step over rows it labeled | `checked` |
+| `queue-skip` | the "Skip labeled matches" switch; on, the queue's `j` / `k` step over rows it labeled | `checked` |
 | `settings-theme` | the theme radio group, drawn as a segmented control | |
 | `theme-option` | System, Light or Dark | `value` (`system`, `light`, `dark`), `checked` |
 | `palette` | the go-to palette (Basecoat's command), visible while open | |
@@ -53,7 +53,7 @@ Routes (`route.ts`): `/ui/gates/` (level 0, `?tab=unlabeled|labels`), `/ui/gates
 | `rail-collapse`, `rail-expand` | collapse to the dropdown, and back | |
 | `rail-review-all` | "Review all N hints" in the rail's head, a link to review scoped to the gate | |
 | `rail-act` | the hint line under an image with pending hints | `data-image` (slug) |
-| `rail-hints` | "N hints on M rows" in it | |
+| `rail-hints` | "N hints on M matches" in it | |
 | `rail-replaces` | "N overrides a label", when a hint would replace a person's label | |
 | `rail-accept` | "Accept…", a link to review scoped to the gate and the image | `data-image` (slug) |
 | `image-picker`, `image-picker-button` | the collapsed dropdown and its trigger | |
@@ -97,7 +97,7 @@ Routes (`route.ts`): `/ui/gates/` (level 0, `?tab=unlabeled|labels`), `/ui/gates
 | `impact-gate` | a gate the selection touches | `data-gate`, `data-before`, `data-after` |
 | `impact-check` | one of its checks | `data-check`, `data-before`, `data-after` |
 | `impact-left`, `impact-left-item` | what stays open after the selection | |
-| `accept-hints` | "Accept N hints on M rows" | `data-hints`, `data-rows`, `disabled` with none |
+| `accept-hints` | "Accept N hints on M matches" | `data-hints`, `data-rows`, `disabled` with none |
 | `hints-empty` | the body when no hint is pending in scope | |
 
 ## Research (`/ui/research`)
