@@ -17,7 +17,7 @@ export function provenance(h: HintSummary) {
 
 // researchLine says where the row's newest research job is when the "✦ researched" mark doesn't
 // already: running, failed, or done after the hint shown without leaving a new one
-function researchLine(r: Row) {
+export function researchLine(r: Row) {
   const j = r.research;
   if (!j) return "";
   if (j.status === "queued" || j.status === "running") return `⧗ research ${j.status}`;

@@ -17,6 +17,7 @@ export type Nav = (r: Route, replace?: boolean) => void;
 export interface ShellView {
   title: Child;
   status?: Child;        // the state badge before the title
+  after?: Child;         // beside the title, such as a finding's label and effect
   sub?: Child;           // at most one line under the title
   actions?: Child;       // the screen's one primary button, and any secondary ones
   above?: Child;         // full width under the title, such as the gate's verdict bar
@@ -24,6 +25,7 @@ export interface ShellView {
   tabCounts?: Partial<Record<string, number>>;
   body: Child;
   row?: string;          // the finding's crumb, its vulnerability ID, once known
+  crumbEnd?: Child;      // the breadcrumb row's right end, such as a finding's pager
   meta?: Child;          // the app bar's right side
 }
 
@@ -64,9 +66,9 @@ export function renderShell(host: HTMLElement, r: Route, v: ShellView): Shell {
       el("span", { class: "sp" }),
       el("span", { class: "meta" }, v.meta)),
     el("main", { class: "page" },
-      breadcrumb,
+      v.crumbEnd ? el("div", { class: "crumbrow" }, breadcrumb, el("span", { class: "sp" }), v.crumbEnd) : breadcrumb,
       el("div", { class: "titlerow" },
-        v.status, el("h1", { "data-testid": "title" }, v.title), el("span", { class: "sp" }), v.actions,
+        v.status, el("h1", { "data-testid": "title" }, v.title), v.after, el("span", { class: "sp" }), v.actions,
         v.sub && el("p", { class: "sub" }, v.sub)),
       v.above,
       el("div", { class: "layout" }, v.rail?.rail, el("div", { class: "content" }, navrow, tablist, v.body))));
