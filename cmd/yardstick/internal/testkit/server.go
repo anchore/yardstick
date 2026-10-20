@@ -13,9 +13,10 @@ import (
 )
 
 // researchCommand stands in for the research-vuln skill: it proposes tp for the row it was given,
-// through the CLI the way the skill does, then prints a result line as claude does, costing $0.25.
-const researchCommand = `printf '{"row":"%s","verdict":"tp","justification":"no-fix","confidence":"medium","note":"e2e research stand-in","author":{"skill":"research-vuln","model":"e2e"}}\n' "$YARDSTICK_ROW" | yardstick claims agent propose && ` +
-	`echo '{"type":"result","total_cost_usd":0.25,"num_turns":4,"duration_ms":2000,"usage":{"input_tokens":30,"cache_read_input_tokens":9000,"cache_creation_input_tokens":1000,"output_tokens":400}}'`
+// through the CLI the way the skill does, between the init and result events claude streams, costing
+// $0.25.
+const researchCommand = `echo '{"type":"system","subtype":"init","model":"e2e"}' && printf '{"row":"%s","verdict":"tp","justification":"no-fix","confidence":"medium","note":"e2e research stand-in","author":{"skill":"research-vuln","model":"e2e"}}\n' "$YARDSTICK_ROW" | yardstick claims agent propose && ` +
+	`echo '{"type":"result","subtype":"success","result":"proposed tp","total_cost_usd":0.25,"num_turns":4,"duration_ms":2000,"usage":{"input_tokens":30,"cache_read_input_tokens":9000,"cache_creation_input_tokens":1000,"output_tokens":400}}'`
 
 // NewServer is the label server over the scanned workspace in the working directory, as the label
 // UI's end to end tests run it. Research runs the stand-in, never claude, and bin is the yardstick
