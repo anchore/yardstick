@@ -70,23 +70,20 @@ func (m *model) spin() string {
 func (m *model) live(g *gate, w int) []string {
 	now := m.now()
 	if g.name == "" {
-		lines := []string{m.st.bold.Render("yardstick")}
-		for _, t := range g.tasks {
-			lines = append(lines, m.taskLine(t, w))
-		}
-		return lines
+		return m.loose(g, w)
 	}
 	elapsed := dur(now.Sub(g.start))
 	title := m.st.bold.Render("yardstick") + m.st.dim.Render(" › ") + m.st.gate.Render(g.name)
 	head := []string{
-		title + strings.Repeat(" ", max(1, w-lipgloss.Width(title)-len(elapsed))) + m.st.dim.Render(elapsed),
+		title + "  " + m.st.dim.Render(elapsed),
 		m.varies(g, w),
 		m.phases(g),
 	}
 	preparing := len(g.resolved) < len(g.setups)
+	nw := taskW(g.tasks, "    ", w)
 	for _, t := range g.tasks {
 		if preparing || !t.done || t.Err != nil {
-			head = append(head, m.taskLine(t, w))
+			head = append(head, m.taskLine(t, "    ", nw, w))
 		}
 	}
 
@@ -109,7 +106,8 @@ func (m *model) live(g *gate, w int) []string {
 	}
 	head = append(head, m.st.dim.Render(header))
 
-	foot := append(m.failures(g, w), m.bar(g, w))
+	// the bar spans the table, so its counts sit beside it rather than at the terminal's edge
+	foot := append(m.failures(g, w), m.bar(g, lipgloss.Width(header)-2, w))
 
 	rows := make([]string, len(g.rows))
 	for i, r := range g.rows {
@@ -321,6 +319,8 @@ func (m *model) phases(g *gate) string {
 		scans = m.st.dim.Render(fmt.Sprintf("· 0/%d", total))
 	}
 	label := m.st.dim.Render
+	// setup padded to its widest, "✔ 1m02s", so the phases after it hold still as it settles
+	setup += strings.Repeat(" ", max(7-lipgloss.Width(setup), 0))
 	return "  " + label("setup ") + setup + label("   SBOMs ") + sboms + label("   scans ") + scans
 }
 
@@ -337,24 +337,49 @@ func anyFailed(tasks []*task, kinds ...event.TaskKind) bool {
 
 var checksum = regexp.MustCompile(`sha256[:-]([0-9a-f]{7})[0-9a-f]*`)
 
-func (m *model) taskLine(t *task, w int) string {
+func taskName(t *task) string {
 	name := t.Name
 	if t.Kind == event.BuildSBOM {
 		name = shortName(name)
 	}
-	name = string(t.Kind) + " " + checksum.ReplaceAllString(name, "$1")
+	return string(t.Kind) + " " + checksum.ReplaceAllString(name, "$1")
+}
+
+// taskW is the width task names pad to, so their times sit in one column just past the longest name
+// rather than across the terminal from it.
+func taskW(tasks []*task, indent string, w int) int {
+	n := 0
+	for _, t := range tasks {
+		n = max(n, len([]rune(taskName(t))))
+	}
+	return max(min(n, w-len(indent)-10), 1)
+}
+
+// loose is work outside a gate: its tasks flush left, lined up with the result lines a command
+// prints under them.
+func (m *model) loose(g *gate, w int) []string {
+	nw := taskW(g.tasks, "", w)
+	var lines []string
+	for _, t := range g.tasks {
+		lines = append(lines, m.taskLine(t, "", nw, w))
+	}
+	return lines
+}
+
+func (m *model) taskLine(t *task, indent string, nw, w int) string {
+	name := taskName(t)
 	switch {
 	case !t.done:
-		return "    " + m.spin() + " " + pad(cut(name, w-17), w-16) + m.st.dim.Render(dur(m.now().Sub(t.start)))
+		return indent + m.spin() + " " + pad(cut(name, nw), nw+2) + m.st.dim.Render(dur(m.now().Sub(t.start)))
 	case t.Err != nil:
-		return m.st.bad.Render("    ✘ ") + cut(name+": "+brief(t.Err), w-6)
+		return m.st.bad.Render(indent+"✘ ") + cut(name+": "+brief(t.Err), w-len(indent)-2)
 	}
-	return m.st.ok.Render("    ✔ ") + pad(cut(name, w-17), w-16) + m.st.dim.Render(dur(t.end.Sub(t.start)))
+	return m.st.ok.Render(indent+"✔ ") + pad(cut(name, nw), nw+2) + m.st.dim.Render(dur(t.end.Sub(t.start)))
 }
 
 // bar is the gate's progress: done, failed and running scans as shares of every scan, then counts
 // and an ETA from the rate scans have finished at so far.
-func (m *model) bar(g *gate, w int) string {
+func (m *model) bar(g *gate, span, w int) string {
 	n, total := g.counts()
 	finished := n[done] + n[failed] + n[stopped]
 	stats := fmt.Sprintf(" %d/%d", finished, total)
@@ -367,7 +392,7 @@ func (m *model) bar(g *gate, w int) string {
 	if eta, ok := m.eta(g, finished, total); ok {
 		stats += " · eta " + eta
 	}
-	width := max(w-2-len([]rune(stats)), 10)
+	width := max(min(span, w-2-len([]rune(stats))), 10)
 	if total == 0 {
 		return "  " + m.st.dim.Render(strings.Repeat("─", width)) + stats
 	}
@@ -399,11 +424,7 @@ func (m *model) eta(g *gate, finished, total int) (string, bool) {
 // and an earlier gate once the next starts.
 func (m *model) summary(g *gate, w int) []string {
 	if g.name == "" {
-		var lines []string
-		for _, t := range g.tasks {
-			lines = append(lines, m.taskLine(t, w))
-		}
-		return lines
+		return m.loose(g, w)
 	}
 	n, total := g.counts()
 	end := g.end
@@ -433,7 +454,7 @@ func (m *model) summary(g *gate, w int) []string {
 	lines := []string{line}
 	for _, t := range g.tasks {
 		if t.Err != nil {
-			lines = append(lines, m.taskLine(t, w))
+			lines = append(lines, m.taskLine(t, "    ", 0, w))
 		}
 	}
 	return append(lines, m.failures(g, w)...)

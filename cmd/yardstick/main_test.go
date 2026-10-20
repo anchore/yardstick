@@ -105,15 +105,15 @@ candidate: {grype: grype@latest, db: latest}
 subjects: [oci:docker.io/vulhub/struts2:2.3.12@`+digest+`]
 checks: [{name: expectationsMetAtLeast, params: {min: 1}}]
 `)
-	_, stderr, code := yardstick(t, dir, "config", "validate", "gates/deb.yaml", "gates/presence.yaml")
-	if code != 0 || stderr != "" {
-		t.Errorf("expected valid files to exit 0 with no error, got %d: %s", code, stderr)
+	stdout, stderr, code := yardstick(t, dir, "config", "validate", "gates/deb.yaml", "gates/presence.yaml")
+	if code != 0 || stderr != "" || !strings.HasSuffix(stdout, "✔ all 2 gate files valid\n") {
+		t.Errorf("expected valid files to exit 0 ending on one verdict line, got %d:\n%s%s", code, stdout, stderr)
 	}
 
 	// every file is checked: the unknown check in one and the reference-reading checks of the
 	// other are both reported
 	writeFile(t, filepath.Join(dir, "gates/deb.yaml"), strings.Replace(validGate, "noNewFalseNegatives", "noRegressions", 1))
-	stdout, stderr, code := yardstick(t, dir, "config", "validate", "gates/deb.yaml", "gates/vulhub.yaml")
+	stdout, stderr, code = yardstick(t, dir, "config", "validate", "gates/deb.yaml", "gates/vulhub.yaml")
 	if code != 2 || !strings.Contains(stdout, "✘ gates/deb.yaml     unknown check \"noRegressions\"") ||
 		!strings.Contains(stdout, "✘ gates/vulhub.yaml  check noNewFalseNegatives reads the reference setup") ||
 		!strings.Contains(stderr, "2 of 2 gate files are invalid") {

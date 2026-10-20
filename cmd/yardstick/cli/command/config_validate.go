@@ -51,13 +51,19 @@ when any is not.`,
 					out.row("", "", pr)
 				}
 			}
+			if invalid := len(args) - len(gates); invalid > 0 {
+				return errors.Join(fmt.Errorf("%d of %d gate files are invalid", invalid, len(args)), out.flush())
+			}
+			if err := gatefile.UniqueNames(gates); err != nil {
+				return errors.Join(err, out.flush())
+			}
+			// one verdict line for the whole run, flushed on its own so it never widens the path column;
+			// a failure's verdict is the returned error
 			if err := out.flush(); err != nil {
 				return err
 			}
-			if invalid := len(args) - len(gates); invalid > 0 {
-				return fmt.Errorf("%d of %d gate files are invalid", invalid, len(args))
-			}
-			return gatefile.UniqueNames(gates)
+			out.row(out.done(), out.ok(fmt.Sprintf("all %d gate files valid", len(args))))
+			return out.flush()
 		},
 	}, cfg)
 }

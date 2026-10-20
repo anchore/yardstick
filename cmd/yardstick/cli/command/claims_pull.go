@@ -2,6 +2,7 @@ package command
 
 import (
 	"errors"
+	"strings"
 
 	"github.com/spf13/cobra"
 
@@ -46,11 +47,13 @@ Snapshots are read from YARDSTICK_CLAIMS_URL, or ` + claims.DefaultURL + ` when 
 					return errors.Join(err, out.flush())
 				}
 				pulled++
+				// seven characters each, as the download line above names the snapshot
+				_, digest, _ := strings.Cut(s.Digest, ":")
 				commit := ""
 				if s.Commit != "" {
-					commit = "commit " + s.Commit
+					commit = "commit " + s.Commit[:min(7, len(s.Commit))]
 				}
-				out.row(out.done(), s.Locator, out.dim(s.Digest), out.dim(commit))
+				out.row(out.done(), s.Locator, out.dim(digest[:min(7, len(digest))]), out.dim(commit))
 			}
 			if pulled == 0 {
 				out.row(out.skipped(), out.dim("no published claims sources to pull"))
