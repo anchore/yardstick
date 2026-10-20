@@ -1,6 +1,8 @@
 package main
 
 import (
+	"os"
+
 	. "github.com/anchore/go-make"
 	"github.com/anchore/go-make/file"
 	"github.com/anchore/go-make/run"
@@ -19,6 +21,13 @@ func webDeps() {
 	if file.Exists(web + "/tygo.yaml") {
 		Run("tygo generate --config " + web + "/tygo.yaml")
 	}
+}
+
+// taskfile forwards to a task in Taskfile.yaml, which holds the shell orchestration. It runs in the
+// terminal's process group with its stdin and stdout, so ctrl-c and a tty reach what it starts
+// (go-make's gotask wrapper gives each command its own group and holds stdout back).
+func taskfile(name string) func() {
+	return func() { Run("task", run.Args(name), run.Interactive(), run.Stdout(os.Stdout)) }
 }
 
 func main() {
@@ -40,10 +49,11 @@ func main() {
 
 		Task{
 			Name:        "generate",
-			Description: "build the label UI into labelserver/assets/dist: bun install, tygo, tsc, then esbuild",
+			Description: "build the label UI into labelserver/assets/dist: bun install, tygo, tsc (the UI and its e2e tests), then esbuild",
 			Run: func() {
 				webDeps()
 				Run(tsc(), run.Args("--noEmit", "-p", web))
+				Run(tsc(), run.Args("--noEmit", "-p", web+"/e2e"))
 				Run("go run ./" + web + "/build")
 			},
 		},
@@ -64,25 +74,20 @@ func main() {
 			Name:         "e2e",
 			Description:  "run the label UI's Playwright tests in Playwright's docker image (traces in web/test-results/)",
 			Dependencies: Deps("generate"),
-			Run:          e2e(nil),
+			Run:          taskfile("e2e"),
 		},
 
 		Task{
 			Name:         "e2e-ui",
 			Description:  "the label UI's Playwright tests in UI mode, at http://127.0.0.1:8080",
 			Dependencies: Deps("generate"),
-			Run:          e2e([]string{"-p", "127.0.0.1:8080:8080"}, "--ui", "--ui-host=0.0.0.0", "--ui-port=8080"),
+			Run:          taskfile("e2e-ui"),
 		},
 
 		Task{
 			Name:        "fixtures",
 			Description: "regenerate test fixtures with the real, pinned syft, grype, vexctl and oras (needs docker)",
-			Run: func() {
-				Run("cmd/yardstick/internal/fixture/generate.sh")
-				Run("cmd/yardstick/internal/fixture/generate-vex.sh")
-				Run("cmd/yardstick/internal/fixture/generate-vml.sh")
-				Run("cmd/yardstick/internal/fixture/generate-cpes.sh")
-			},
+			Run:         taskfile("fixtures"),
 		},
 	)
 }

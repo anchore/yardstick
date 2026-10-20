@@ -1,0 +1,54 @@
+version: "3"
+
+# Orchestration for the label UI's end to end tests. The Go side (build, lint, test, generate, dev
+# and the tool pins) lives in .make/main.go on go-make; `make e2e` and `make e2e-ui` run generate
+# there and then forward here. Run through `task` directly, the UI must already be built.
+
+vars:
+  WEB: cmd/yardstick/internal/labelserver/web
+  # @playwright/test's exact version names the docker image, so the two cannot drift
+  PLAYWRIGHT_VERSION:
+    sh: |
+      sed -n 's/.*"@playwright\/test": *"\([^"]*\)".*/\1/p' cmd/yardstick/internal/labelserver/web/package.json
+
+tasks:
+  e2e:
+    desc: run the label UI's Playwright tests in Playwright's docker image (traces in web/test-results/; args after -- go to playwright)
+    cmds:
+      - task: playwright
+
+  e2e-ui:
+    desc: the label UI's Playwright tests in UI mode, at http://127.0.0.1:8080
+    cmds:
+      - task: playwright
+        vars:
+          DOCKER_ARGS: -p 127.0.0.1:8080:8080
+          PLAYWRIGHT_ARGS: --ui --ui-host=0.0.0.0 --ui-port=8080
+
+  playwright:
+    internal: true
+    preconditions:
+      - sh: echo "{{.PLAYWRIGHT_VERSION}}" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+$'
+        msg: "@playwright/test in {{.WEB}}/package.json must be an exact version, since it names the docker image (got '{{.PLAYWRIGHT_VERSION}}')"
+    cmds:
+      # the seed runs inside the container, which has no Go toolchain
+      - GOOS=linux GOARCH={{ARCH}} CGO_ENABLED=0 go build -o .tmp/e2e/seed ./cmd/yardstick/internal/testkit/seed
+      # with a terminal, -it gives the container a tty, so ctrl-c reaches playwright as a real
+      # interrupt and the output keeps its colours; without one (CI) FORCE_COLOR keeps them. The repo
+      # is mounted at its own path because the seed finds its fixtures by source path
+      - >-
+        docker run --rm --init --ipc=host
+        $([ -t 0 ] && [ -t 1 ] && echo -it)
+        --user "$(id -u):$(id -g)" -e HOME=/tmp -e FORCE_COLOR=1 -e NPM_CONFIG_UPDATE_NOTIFIER=false
+        -v "{{.ROOT_DIR}}:{{.ROOT_DIR}}" -w "{{.ROOT_DIR}}/{{.WEB}}"
+        {{.DOCKER_ARGS}} mcr.microsoft.com/playwright:v{{.PLAYWRIGHT_VERSION}}-noble
+        npx playwright test {{.PLAYWRIGHT_ARGS}} {{.CLI_ARGS}}
+
+  fixtures:
+    desc: regenerate test fixtures with the real, pinned syft, grype, vexctl and oras (needs docker)
+    dir: cmd/yardstick/internal/fixture
+    cmds:
+      - ./generate.sh
+      - ./generate-vex.sh
+      - ./generate-vml.sh
+      - ./generate-cpes.sh
