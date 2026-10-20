@@ -143,7 +143,7 @@ test.describe("palette queries", () => {
     await page.goto(gatesPage);
     await openPalette(page);
     await input(page).fill("CVE-2011-3389");
-    await expect(item(page, "Findings", "c54934489d4ac861")).toContainText(/fp/i);
+    await expect(item(page, "Findings", "c54934489d4ac861").getByTestId("verdict")).toHaveText("FP");
   });
 });
 
@@ -181,7 +181,7 @@ test.describe("palette keys and closing", () => {
   test("opens from the queue, hint review and history", async ({ page }) => {
     for (const url of [`/ui/queue/${rows.jfhA}?scope=gate:deb-java`, "/ui/hints", "/ui/history"]) {
       await page.goto(url);
-      await page.getByTestId("title").waitFor();
+      await expect(page.getByTestId("title")).toBeVisible();
       await page.keyboard.press("Control+k");
       await expect(palette(page), url).toBeVisible();
       await page.keyboard.press("Escape");
