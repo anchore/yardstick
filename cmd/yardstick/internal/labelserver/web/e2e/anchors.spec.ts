@@ -5,7 +5,7 @@ import { checkPage, gatePage, gatesPage, openFinding, rows } from "./helpers";
 test("every level carries its anchors", async ({ page }) => {
   // level 0
   await page.goto(gatesPage);
-  for (const id of ["app-bar", "breadcrumb", "title-row", "title", "tabs", "gate-rows", "label-next"]) await expect(page.getByTestId(id), id).toBeVisible();
+  for (const id of ["app-bar", "breadcrumb", "title-row", "title", "tabs", "gate-rows", "work-banner", "review-hints", "label-left"]) await expect(page.getByTestId(id), id).toBeVisible();
   const gate = page.getByTestId("gate-row").first();
   await expect(gate).toHaveAttribute("data-gate", /.+/);
   await expect(gate).toHaveAttribute("data-state", /^(pass|fail|undecided)$/);

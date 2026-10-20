@@ -30,7 +30,7 @@ Routes (`route.ts`): `/ui/gates/` (level 0, `?tab=unlabeled|labels`), `/ui/gates
 | `hint` | an agent hint mark in a table cell | text e.g. `TP · medium`, or `package hint` |
 | `tabs` | the screen's tabs (levels 0 and 1); each tab is `role=tab` | `aria-selected`, `data-tab` |
 | `scope-chip` | "image: …" beside the tabs while an image is picked | `hidden` without one |
-| `label-next` | the primary "Label next" button (a link, or disabled when nothing is open) | |
+| `label-next` | the primary "Label next" button (a link, or disabled when nothing is open); on the gates screen only on the Unlabeled and Labels tabs, since the Gates tab's work banner carries the primary action | |
 | `loading`, `load-error` | the body while loading, or when it failed | |
 | `toast` | transient message | visible while `hidden` is off |
 
@@ -62,7 +62,7 @@ Routes (`route.ts`): `/ui/gates/` (level 0, `?tab=unlabeled|labels`), `/ui/gates
 | `work-stack` | the hinted / no hint bar | |
 | `work-outcome` | one gate if every hint were accepted (its preview) | `data-gate`, `data-before`, `data-after` |
 | `work-foot` | what each gate not passing still waits on | |
-| `review-hints`, `label-left` | "Review N hints" (`h`) and "Label what's left" (`n`) | |
+| `review-hints`, `label-left` | "Review N hints" (`h`) and "Label what's left" (`n`); the first is primary while hints are pending, else the second | |
 | `unlabeled-table` | the Unlabeled tab: open findings across gates | rows keyed by finding |
 | `labels-table` | the Labels tab (and the gate's) | |
 

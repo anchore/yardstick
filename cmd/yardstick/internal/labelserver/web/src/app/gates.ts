@@ -36,8 +36,8 @@ export function gatesView(host: HTMLElement, r0: Route & { level: "gates" }, nav
     renderShell(host, r, {
       title: "Gates",
       above: work?.el,
-      // "Label next" enters the queue across every gate
-      actions: primary("Label next unlabeled", sh.findings.length ? formatRoute(queueFor(r)) : null),
+      // the banner carries the screen's primary action (UI-RULES 7); the other tabs enter the queue here
+      actions: work ? undefined : primary("Label what's left", sh.findings.length ? formatRoute(queueFor(r)) : null),
       tabCounts: { gates: list.gates.length, unlabeled: sh.findings.length, labels: labels.length },
       meta: [...new Set(labels.map((l) => shortSource(l.source)))].join(" + "),
       body,

@@ -131,6 +131,10 @@ test.describe("the work banner", () => {
     await expect(page.getByTestId("work-hinted")).toHaveText("8");
     await expect(page.getByTestId("work-need")).toHaveText("2");
     await expect(page.getByTestId("review-hints")).toContainText("Review 5 hints");
+    // one primary button: review while hints are pending, and no "Label next" in the title row
+    await expect(page.getByTestId("review-hints")).not.toHaveAttribute("data-variant", /.+/);
+    await expect(page.getByTestId("label-left")).toHaveAttribute("data-variant", "outline");
+    await expect(page.getByTestId("label-next")).toHaveCount(0);
     await expect(outcome(page, "deb-npm")).toHaveAttribute("data-after", "pass");
     await expect(outcome(page, "deb-java")).toHaveAttribute("data-before", "fail");
     await expect(outcome(page, "deb-java")).toHaveAttribute("data-after", "undecided");

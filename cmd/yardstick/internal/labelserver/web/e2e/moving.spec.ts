@@ -15,9 +15,10 @@ test.describe("Label next", () => {
   // pager counts open rows from the first. Across every gate the queue starts at gzip, which alone
   // passes deb-npm
   const queuePager = (page: Page) => page.getByTestId("queue-pager");
-  test("from the gates screen enters the queue at its first row, 1 of 12", async ({ page }) => {
+  test("Label what's left on the gates screen enters the queue at its first row, 1 of 12", async ({ page }) => {
     await page.goto(gatesPage);
-    await page.getByTestId("label-next").click();
+    await expect(page.getByTestId("label-next")).toHaveCount(0);
+    await page.getByTestId("label-left").click();
     await onFinding(page, rows.gzip);
     await expect(page).toHaveURL(new RegExp(`/ui/queue/${rows.gzip}$`));
     await expect(queuePager(page)).toHaveText(/1 of 12/);

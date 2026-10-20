@@ -1,6 +1,7 @@
 // banner.ts is the gates page's work banner: how much is open across gates, how much an agent has
 // hinted, what accepting every hint would do to each gate (one preview per gate), and the two ways
-// in: review the hints, or label what's left. It also fills each gate row's hint column.
+// in: review the hints, or label what's left. Whichever fits is the screen's one primary button (the
+// title row has none here). It also fills each gate row's hint column.
 import type { GateList } from "../gen/wire";
 import { el, fill } from "../shared/dom";
 import { plural } from "../shared/words";
@@ -49,7 +50,8 @@ export function workBanner(list: GateList): Work {
     const { hints, low } = inScope(all, {});
     const hinted = hintedRows(all), labels = previewLabels(hints);
     fill(review, `Review ${plural(hints.length, "hint")} `, kbd("h"));
-    if (!hints.length) review.setAttribute("data-variant", "outline");
+    // one primary button (UI-RULES 7): review while hints are pending, else label what's left
+    if (!hints.length) { review.setAttribute("data-variant", "outline"); left.removeAttribute("data-variant"); }
     const after = new Map(await Promise.all(gates.map(async (g) => {
       const p = labels.get(g.id);
       return [g.id, (p ? (await preview(g.id, p)).outcome : g.gateOutcome ?? "undecided") as Status] as const;
