@@ -15,7 +15,7 @@ import { gateState, getJSON } from "./data";
 import { hintsHref } from "./hintsdata";
 import { failed, loading, shown } from "./lists";
 import { started, tick } from "./researchtable";
-import { costWords, fromWords, jobGroups, modelWords, money, newHints, stateWords, timeWords } from "./researchwords";
+import { costWords, fromWords, jobGroups, liveLog, modelWords, money, newHints, stateWords, timeWords } from "./researchwords";
 import { formatRoute, type Route } from "./route";
 import { renderShell, type Nav, type View } from "./shell";
 import { hint, imageName, kbd } from "./ui";
@@ -150,7 +150,7 @@ export function jobsView(host: HTMLElement, r: Extract<Route, { level: "jobs" }>
       el("span", { class: `r${x.usage ? " cost" : ""}` }, costWords(x, basis)),
       el("span", { class: "res" }, result),
       el("span", { class: "acts2" },
-        x.started && el("a", { class: "lk", href: `/api/research/${encodeURIComponent(x.id)}/log`, target: "_blank", rel: "noopener", "data-testid": "job-log" }, "log"),
+        x.started && el("a", { class: "lk", href: `/api/research/${encodeURIComponent(x.id)}/log`, target: "_blank", rel: "noopener", title: x.status === "running" ? liveLog : undefined, "data-testid": "job-log" }, "log"),
         inFlight(x) && x.cancellable && x.gate && el("button", { type: "button", class: "lk", "data-testid": "job-cancel", onclick: () => void cancel([x]) }, "cancel"),
         (failedJob(x) || x.status === "cancelled") && x.gate && el("button", { type: "button", class: "lk", "data-testid": "job-retry", onclick: () => void retry(x) }, "retry")));
   }

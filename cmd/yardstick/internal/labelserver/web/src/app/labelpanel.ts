@@ -10,7 +10,7 @@ import { direction, isResearched, outcome, pkgOf } from "../shared/rows";
 import { dots, justWords, labels, ruleWords } from "../shared/words";
 import type { FindingData } from "./finding-data";
 import { mutedReason, panel, reasons, seenWith, shortSource } from "./finding-words";
-import { about, money } from "./researchwords";
+import { about, liveLog, money } from "./researchwords";
 import { tick } from "./researchtable";
 import type { GateLines } from "./queuewords";
 import { kbd, verdict, type Verdict } from "./ui";
@@ -142,7 +142,7 @@ function researchStatus(row: FindingData["row"], line: string, cancel: () => voi
     el("span", { class: `rs ${running ? "run" : "q"}`, "data-testid": "research-status", "data-state": j.status }, `${d.word} `,
       el("small", running ? { "data-since": j.started } : {}, d.small), running && j.model && el("small", {}, ` · ${j.model[0].toUpperCase()}${j.model.slice(1)}`)),
     el("a", { class: "lk", href: jobHref(j.job), "data-testid": "research-job-link" }, "view job"),
-    running && el("a", { class: "lk", href: `/api/research/${encodeURIComponent(j.job)}/log`, target: "_blank", rel: "noopener" }, "log"),
+    running && el("a", { class: "lk", href: `/api/research/${encodeURIComponent(j.job)}/log`, target: "_blank", rel: "noopener", title: liveLog }, "log"),
     j.cancellable && el("button", { type: "button", class: "lk", "data-testid": "research-cancel-row", onclick: cancel }, "cancel"));
 }
 

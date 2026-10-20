@@ -9,6 +9,8 @@ import { plural } from "../shared/words";
 import type { Effect } from "./listing";
 
 export const money = (x: number) => `$${x.toFixed(2)}`;
+// liveLog is the hover on a running job's log link, which grows as the agent works
+export const liveLog = "Live: the agent's work so far. Reload it for more.";
 
 // tokens is a token count the way the estimate shows it: 6.5M, 99k, 400
 export function tokens(n: number): string {
