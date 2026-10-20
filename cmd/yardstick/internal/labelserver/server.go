@@ -98,9 +98,14 @@
 //	POST research             ← the queue's join (queue.go), rows with no research level and no
 //	                            active job, grouped change (decides, could-move) or none, one
 //	                            research.Requests job per row not already covered; estimate is
-//	                            research.Estimate times the jobs; a start shares one batch id
+//	                            research.Estimate times the jobs; a start shares one batch id.
+//	                            check narrows to the check findings' rows, grouped by their effect
+//	                            on it; rows to those rows, each under the gate the plan picks
 //	research/batch            ← the research.Job records of a batch, spent from each Job.Usage, hints
 //	                            the proposals whose author.researchJob is one of its jobs
+//	research/jobs             ← every research.Job record, newest first; position from the order
+//	                            this runner queued the ones it holds; summary is research/batch's
+//	                            math over the active jobs and the batches they are in
 package labelserver
 
 import (
@@ -227,6 +232,7 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("POST "+g+"/research/cancel", s.authorized(s.handleCancelResearch))
 	mux.HandleFunc("POST /api/research", s.authorized(s.handleResearchQueue))
 	mux.HandleFunc("GET /api/research/batch", s.handleResearchBatch)
+	mux.HandleFunc("GET /api/research/jobs", s.handleResearchJobs)
 	mux.HandleFunc("POST /api/research/batch/cancel", s.authorized(s.handleCancelBatch))
 	mux.HandleFunc("GET /api/research/{id}/log", s.handleResearchLog)
 	if dev != nil {

@@ -100,7 +100,11 @@ func (s *Server) joinGates() (*queueBuild, error) {
 	if err != nil {
 		return nil, err
 	}
-	b := &queueBuild{Queue: Queue{Gates: []QueueGate{}, Entries: []QueueEntry{}, Settled: true}, j: &join{byKey: map[string]*CrossFinding{}, byRow: true},
+	idx, err := s.researchIndex()
+	if err != nil {
+		return nil, err
+	}
+	b := &queueBuild{Queue: Queue{Gates: []QueueGate{}, Entries: []QueueEntry{}, Settled: true}, j: &join{byKey: map[string]*CrossFinding{}, byRow: true, idx: idx},
 		views: map[string]*view{}, gateAt: map[string]int{}}
 	for _, e := range all {
 		b.gateAt[e.name] = len(b.Gates)

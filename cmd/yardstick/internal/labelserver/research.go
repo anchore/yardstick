@@ -38,23 +38,30 @@ type ResearchSummary struct {
 	LastDone time.Time       `json:"lastDone,omitzero"`
 	Model    string          `json:"model,omitempty"`
 	Source   string          `json:"source,omitempty"`
+	Batch    string          `json:"batch,omitempty"`
 	// Cancellable is true for jobs this server started and is still running or holding.
 	Cancellable    bool `json:"cancellable,omitempty"`
 	SurvivingGroup int  `json:"survivingGroup,omitempty"`
+	// Position is the job's place in the runner's queue while it waits (1 starts next), of
+	// QueueLength jobs waiting; both zero otherwise.
+	Position    int `json:"position,omitempty"`
+	QueueLength int `json:"queueLength,omitempty"`
 }
 
 // researchIndex is every research job, by what the state API says about rows.
 type researchIndex struct {
+	all      []research.Job // newest first
 	newest   map[string]*ResearchSummary
 	finished map[string]bool // a job finished on the row, now or before, with or without a hint
 	byRow    map[string][]research.Job
 	byID     map[string]research.Job
+	position map[string]int // queuePositions
 }
 
 // researchIndex reads the jobs; it is empty when there is no runner.
 func (s *Server) researchIndex() (*researchIndex, error) {
 	idx := &researchIndex{newest: map[string]*ResearchSummary{}, finished: map[string]bool{},
-		byRow: map[string][]research.Job{}, byID: map[string]research.Job{}}
+		byRow: map[string][]research.Job{}, byID: map[string]research.Job{}, position: map[string]int{}}
 	if s.opts.Research == nil {
 		return idx, nil
 	}
@@ -62,6 +69,7 @@ func (s *Server) researchIndex() (*researchIndex, error) {
 	if err != nil {
 		return nil, err
 	}
+	idx.all, idx.position = all, queuePositions(s.opts.Research, all)
 	for _, j := range all {
 		idx.byID[j.ID] = j
 		for _, id := range j.Rows {
@@ -71,12 +79,32 @@ func (s *Server) researchIndex() (*researchIndex, error) {
 			}
 			if _, seen := idx.newest[id]; !seen {
 				idx.newest[id] = &ResearchSummary{Job: j.ID, Status: j.Status, Error: j.Error, Started: j.Started, Finished: j.Finished,
-					Queued: j.Queued, LastDone: j.LastDone, Model: j.Model, Source: j.Source,
-					Cancellable: j.Status.Active() && s.opts.Research.Cancellable(j.ID), SurvivingGroup: j.SurvivingGroup}
+					Queued: j.Queued, LastDone: j.LastDone, Model: j.Model, Source: j.Source, Batch: j.Batch,
+					Cancellable: j.Status.Active() && s.opts.Research.Cancellable(j.ID), SurvivingGroup: j.SurvivingGroup,
+					Position: idx.position[j.ID], QueueLength: map[bool]int{true: len(idx.position)}[idx.position[j.ID] > 0]}
 			}
 		}
 	}
 	return idx, nil
+}
+
+// queuePositions numbers the queued jobs this process holds, 1-based, in the order it starts them:
+// the order they were queued.
+// ponytail: queue order is the order the jobs' goroutines block on the runner's slots, which Go
+// serves first come first served in practice but doesn't promise
+func queuePositions(r *research.Runner, all []research.Job) map[string]int {
+	var waiting []research.Job
+	for _, j := range all {
+		if j.Status == research.Queued && r.Cancellable(j.ID) {
+			waiting = append(waiting, j)
+		}
+	}
+	slices.SortStableFunc(waiting, func(a, b research.Job) int { return a.Queued.Compare(b.Queued) })
+	out := map[string]int{}
+	for i, j := range waiting {
+		out[j.ID] = i + 1
+	}
+	return out
 }
 
 // active is true while a research job covering the row is queued or running.
@@ -155,25 +183,40 @@ func hintOrigin(idx *researchIndex, rowID string, p agentstore.Proposal) (origin
 // ResearchRequest is the body of POST .../research (and, rows only, of .../research/cancel): rows,
 // or a selection the server resolves, as in delta:
 //
-//	{"rows": ["<row id>", ...]}
+//	{"rows": ["<row id>", ...], "from": "table"}
 //	{"select": "no-hint"}            open rows with no agent hint at all
 //	{"select": "could-move-check", "subject": "<slug>", "limit": 10, "dryRun": true}
 //
 // A selection takes only open rows not yet researched with nothing queued or running; there is
-// deliberately no "all". Sibling packages (same alias group and source package) share a job.
+// deliberately no "all". Rows given that a job is already queued or running on are skipped. Sibling
+// packages (same alias group and source package) share a job. From is the screen asking (table or
+// finding), recorded on the jobs.
 type ResearchRequest struct {
 	Rows    []string `json:"rows"`
 	Select  string   `json:"select,omitempty"`
 	Subject string   `json:"subject,omitempty"`
 	Limit   int      `json:"limit,omitempty"`
 	DryRun  bool     `json:"dryRun,omitempty"`
+	From    string   `json:"from,omitempty"`
 }
 
+// ResearchResponse is what a start queued: the jobs, the rows they cover (Matches), and the rows
+// given that were skipped because a job on them is already queued or running. A start of more
+// than one row shares one batch id.
 type ResearchResponse struct {
 	Jobs    []string `json:"jobs"`
 	Matches int      `json:"matches"`
 	Queued  int      `json:"queued"`
+	Skipped int      `json:"skipped"`
+	Batch   string   `json:"batch,omitempty"`
 }
+
+// Where in the label UI research was started (research.Job.From).
+const (
+	FromResearchPage = "research"
+	FromTable        = "table"
+	FromFinding      = "finding"
+)
 
 const (
 	selectNoHint         = "no-hint"
@@ -225,24 +268,33 @@ func (s *Server) handleResearch(w http.ResponseWriter, req *http.Request) {
 		http.Error(w, "nothing to research: give rows or select", http.StatusBadRequest)
 		return
 	}
+	if body.From != "" && body.From != FromTable && body.From != FromFinding {
+		http.Error(w, fmt.Sprintf("from must be %q or %q, got %q", FromTable, FromFinding, body.From), http.StatusBadRequest)
+		return
+	}
+	idx, err := s.researchIndex()
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	asked := len(rows)
+	rows = slices.DeleteFunc(slices.Clone(rows), idx.active)
 	requests, err := research.Requests(v.verdict, rows)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-	out := ResearchResponse{Jobs: []string{}, Matches: len(rows), Queued: len(requests)}
-	if body.DryRun {
+	out := ResearchResponse{Jobs: []string{}, Matches: len(rows), Queued: len(requests), Skipped: asked - len(rows)}
+	if body.DryRun || len(requests) == 0 {
 		writeJSON(w, out)
 		return
 	}
-	for _, r := range requests {
-		r.Gate, r.Source = e.name, research.FromLabelUI
-		job, err := s.opts.Research.Start(s.ctx, r)
-		if err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-			return
-		}
-		out.Jobs = append(out.Jobs, job.ID)
+	for i := range requests {
+		requests[i].Gate, requests[i].Source, requests[i].From = e.name, research.FromLabelUI, body.From
+	}
+	if out.Batch, out.Jobs, err = s.start(requests, asked > 1); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
 	}
 	writeJSON(w, out)
 }

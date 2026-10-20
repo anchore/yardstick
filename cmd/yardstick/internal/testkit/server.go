@@ -21,11 +21,16 @@ const researchCommand = `printf '{"row":"%s","verdict":"tp","justification":"no-
 // UI's end to end tests run it. Research runs the stand-in, never claude, and bin is the yardstick
 // it calls back into.
 func NewServer(ctx context.Context, dir, bin string) (*labelserver.Server, error) {
+	return newServer(ctx, research.NewRunner(research.Config{
+		Command: researchCommand, Dir: dir, Run: runrecord.DefaultName, Concurrency: 2, Timeout: time.Minute, Bin: bin,
+	}))
+}
+
+// newServer is the label server with its research run by r.
+func newServer(ctx context.Context, r *research.Runner) (*labelserver.Server, error) {
 	return labelserver.New(ctx, labelserver.Options{
 		Run: runrecord.DefaultName, Author: author, Store: agentstore.Open(agentstore.Dir),
-		Research: research.NewRunner(research.Config{
-			Command: researchCommand, Dir: dir, Run: runrecord.DefaultName, Concurrency: 2, Timeout: time.Minute, Bin: bin,
-		}),
+		Research:             r,
 		ResearchAvailability: research.Availability{Available: true},
 		Load: func(p string) (*gatefile.Gate, error) {
 			return gatefile.Load(p, gatefile.Options{Checks: analysis.Definitions()})

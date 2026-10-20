@@ -45,6 +45,8 @@ type CrossFinding struct {
 	Image         string       `json:"image"`
 	Hint          *HintSummary `json:"hint,omitempty"`
 	Cause         *CrossCause  `json:"cause,omitempty"`
+	// Research is the newest research job on its row (the first of its rows to have one).
+	Research *ResearchSummary `json:"research,omitempty"`
 	// In is every gate whose scans report it; Bears and Flips count the gates where its label
 	// narrows a check, or alone changes one.
 	In    []CrossAppearance `json:"in"`
@@ -80,8 +82,13 @@ func (s *Server) handleShared(w http.ResponseWriter, _ *http.Request) {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
+	idx, err := s.researchIndex()
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
 	out := SharedState{Gates: []GateSummary{}, Findings: []CrossFinding{}}
-	j := &join{byKey: map[string]*CrossFinding{}}
+	j := &join{byKey: map[string]*CrossFinding{}, idx: idx}
 	for _, e := range all {
 		v, err := s.view(e)
 		if err != nil {
@@ -112,6 +119,7 @@ type join struct {
 	byKey map[string]*CrossFinding
 	order []string // first seen first
 	byRow bool
+	idx   *researchIndex
 }
 
 // add summarizes a gate and joins its open deltas.
@@ -143,6 +151,9 @@ func (j *join) add(e *entry, v *view) GateSummary {
 		}
 		if h := v.hints[r.match.Row]; f.Hint == nil && h != nil {
 			f.Hint = h.summary()
+		}
+		if rs := j.idx.newest[r.match.Row]; f.Research == nil && rs != nil {
+			f.Research = rs
 		}
 		if cs := v.rowCauses[r.match.Row]; f.Cause == nil && len(cs) > 0 {
 			f.Cause = &CrossCause{ID: cs[0].ID, Title: cs[0].Title, Gate: e.name, Verdict: cs[0].Verdict, Confidence: cs[0].Confidence}
