@@ -182,6 +182,10 @@ func TestServePages(t *testing.T) {
 		{"/ui/map/gates/deb/delta/added", "", http.StatusOK},
 		{"/ui/map/gates/", "", http.StatusOK},
 		{"/ui/map/gates/nope/", "", http.StatusNotFound},
+		{"/ui/gates/", "", http.StatusOK},
+		{"/ui/gates/deb/", "", http.StatusOK},
+		{"/ui/gates/deb/checks/unjudgedChangesAtMost/0123456789abcdef", "", http.StatusOK},
+		{"/ui/gates/nope/labels", "", http.StatusNotFound},
 	} {
 		rec := s.do(http.MethodGet, tc.path, "", "")
 		if rec.Code != tc.code || rec.Header().Get("Location") != tc.location {
@@ -192,7 +196,7 @@ func TestServePages(t *testing.T) {
 		}
 	}
 	// every asset the pages load; the built ones only when make generate has run
-	for _, page := range []string{"/ui/map/gates/deb/", "/ui/map/gates/"} {
+	for _, page := range []string{"/ui/map/gates/deb/", "/ui/map/gates/", "/ui/gates/"} {
 		for _, m := range assetRef.FindAllStringSubmatch(s.do(http.MethodGet, page, "", "").Body.String(), -1) {
 			p := m[1]
 			if strings.HasPrefix(p, "/assets/dist/") && !labelserver.HasUI() {

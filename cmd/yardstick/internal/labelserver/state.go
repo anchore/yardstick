@@ -76,9 +76,11 @@ func vocabOf(v *claimsv1.Vocabulary) *Vocabulary {
 }
 
 type StateSubject struct {
-	Name string     `json:"name"`
-	Slug string     `json:"slug"`
-	Rows []StateRow `json:"rows"`
+	Name string `json:"name"`
+	Slug string `json:"slug"`
+	// Changes tallies the rows only one setup reports, for the image rail: total is how many changed.
+	Changes Tally      `json:"changes"`
+	Rows    []StateRow `json:"rows"`
 }
 
 // StateRow is a report row in delta's row shape: the fields named the same pass through, and
@@ -294,7 +296,11 @@ func (s *Server) handleState(w http.ResponseWriter, req *http.Request) {
 	for si, sub := range v.verdict.Subjects {
 		ss := StateSubject{Name: st.Scans.Subjects[si].Name, Slug: st.Scans.Subjects[si].Slug, Rows: []StateRow{}}
 		for j := range sub.Matches {
-			ss.Rows = append(ss.Rows, v.listRow(v.rows[sub.Matches[j].Row], idx))
+			r := v.rows[sub.Matches[j].Row]
+			ss.Rows = append(ss.Rows, v.listRow(r, idx))
+			if r.match.InCandidate != r.match.InReference {
+				ss.Changes.add(verdictOf(r), v.hintFor(r) != nil)
+			}
 		}
 		st.Subjects = append(st.Subjects, ss)
 	}

@@ -15,7 +15,7 @@ function state(rows: Row[][], causes: StateCause[] = [], outcome = "undecided"):
   return {
     scans: { id: "g", created: "", gate: "", label: "", compared: "", subjects: rows.map((_, i) => ({ name: `s${i}`, slug: `s${i}` })) },
     author: "me",
-    subjects: rows.map((r, i) => ({ name: `s${i}`, slug: `s${i}`, rows: r })),
+    subjects: rows.map((r, i) => ({ name: `s${i}`, slug: `s${i}`, changes: { tp: 0, fp: 0, unclear: 0, hinted: 0, open: 0, total: 0 }, rows: r })),
     causes,
     explanations: [],
     gate: { name: "g", locator: "", result: { outcome, ci: outcome, checks: [fnCheck] } },
