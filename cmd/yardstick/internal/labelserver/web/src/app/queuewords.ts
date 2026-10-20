@@ -43,12 +43,15 @@ const gateDoes = (a: CrossAppearance, o: OutcomeEffect) => o.outcome === a.outco
   ? `${a.gate} ${o.outcome === "undecided" ? "stays undecided" : `still ${is[o.outcome] ?? o.outcome}`}`
   : `${a.gate} ${o.outcome === "fail" && o.fails?.length ? `fails ${o.fails.join(", ")}` : is[o.outcome] ?? o.outcome}`;
 
-// outcomeLines are the label panel's lines under TP / FP / Unclear: "FP: deb-java passes. TP:
-// deb-java fails noNewFalseNegatives." Unclear judges nothing, so it moves nothing.
-export function outcomeLines(e: QueueEntry): string {
+// GateLines are what TP and FP each do to the row's gates, one line per verdict in the label panel
+// ("deb-java passes", "deb-java fails noNewFalseNegatives"), or none when no label moves a gate.
+// Unclear judges nothing, so it moves nothing.
+export type GateLines = { tp: string; fp: string } | { none: string };
+export function outcomeLines(e: QueueEntry): GateLines {
   const bearing = e.in.filter((a) => a.effect);
-  if (!e.in.some(changes)) return "No label here changes a gate's outcome.";
-  return [["FP", "ifFP"], ["TP", "ifTP"]].map(([v, k]) => `${v}: ${bearing.map((a) => gateDoes(a, a.effect![k as "ifFP" | "ifTP"])).join(", ")}.`).join(" ");
+  if (!e.in.some(changes)) return { none: "No label here changes a gate's outcome." };
+  const does = (k: "ifTP" | "ifFP") => bearing.map((a) => gateDoes(a, a.effect![k])).join(", ");
+  return { tp: does("ifTP"), fp: does("ifFP") };
 }
 
 // progress is the queue bar's "3 of 12 done · 9 left", and how full its track is

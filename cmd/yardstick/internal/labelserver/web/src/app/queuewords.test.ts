@@ -40,13 +40,13 @@ describe("whyNext", () => {
 });
 
 describe("outcomeLines", () => {
-  test("say what FP and TP do to each gate", () => {
-    expect(outcomeLines(lastTar)).toBe("FP: deb-java passes. TP: deb-java fails noNewFalseNegatives.");
+  test("say what TP and FP each do to every gate", () => {
+    expect(outcomeLines(lastTar)).toEqual({ tp: "deb-java fails noNewFalseNegatives", fp: "deb-java passes" });
     const tar = entry("0fe9fc814bcd060a", "decides", at("deb-npm", "undecided", "pass", "pass"), at("deb-java", "fail", "fail", "fail"));
-    expect(outcomeLines(tar)).toBe("FP: deb-npm passes, deb-java still fails. TP: deb-npm passes, deb-java still fails.");
+    expect(outcomeLines(tar)).toEqual({ tp: "deb-npm passes, deb-java still fails", fp: "deb-npm passes, deb-java still fails" });
   });
   test("say plainly when nothing moves", () => {
-    expect(outcomeLines(entry("24160b879ac36bf5", "none", at("deb-npm", "pass")))).toBe("No label here changes a gate's outcome.");
+    expect(outcomeLines(entry("24160b879ac36bf5", "none", at("deb-npm", "pass")))).toEqual({ none: "No label here changes a gate's outcome." });
   });
 });
 

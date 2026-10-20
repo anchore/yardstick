@@ -13,6 +13,7 @@ import { forget, written } from "./data";
 import { loadFinding, researching, type FindingData } from "./finding-data";
 import { effect, mutedReason, pendingCause, seenWith, shortSource, type Dir } from "./finding-words";
 import { labelPanel, type Draft, type LabelPanel } from "./labelpanel";
+import type { GateLines } from "./queuewords";
 import { nextOpen, position, type Item } from "./neighbors";
 import { formatRoute, type Route } from "./route";
 import { advancing } from "./settings";
@@ -28,7 +29,7 @@ export interface QueueMode {
   bar: Child;
   prefs: () => void;                             // a setting in the cog changed: redraw the bar
   why: Child;
-  outcomes: Child;
+  outcomes: GateLines | undefined;
   step: (dir: 1 | -1, all: boolean) => void;     // j / k, Skip, and ⌥j / ⌥k over every row
   next: (rows: string[], text: string, how: "hint" | "hand", keys: LabelKey[]) => Promise<void>;
   key: (e: KeyboardEvent) => boolean;            // n, Esc

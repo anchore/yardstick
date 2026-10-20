@@ -32,7 +32,7 @@ test("a finding opened by URL shows its title, subtitle, tabs and the hint", asy
   const hint = page.getByTestId("hint-card");
   await expect(hint).toHaveAttribute("data-verdict", "fp");
   await expect(hint).toHaveAttribute("data-confidence", "medium");
-  await expect(page.getByTestId("label-meaning")).toHaveText("TP → new FN · FP → fixed FP");
+  await expect(page.getByTestId("verdict-outcome")).toHaveText(["TP → new FN", "FP → fixed FP"]);
 
   await page.getByRole("tab", { name: "Evidence" }).click();
   await expect(page.getByTestId("evidence-links").getByRole("link").first()).toBeVisible();

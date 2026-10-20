@@ -11,6 +11,7 @@ import { dots, justWords, labels, ruleWords } from "../shared/words";
 import type { FindingData } from "./finding-data";
 import { mutedReason, panel, reasons, seenWith, shortSource } from "./finding-words";
 import { about, money } from "./researchwords";
+import type { GateLines } from "./queuewords";
 import { kbd, verdict, type Verdict } from "./ui";
 
 // Draft is the form as typed, kept across a repaint (research polling redraws the page)
@@ -37,7 +38,7 @@ const reasonText = (d: FindingData, v: string, j: string | undefined) =>
   el("span", { class: `reason${mutedReason(j) ? " muted" : ""}`, "data-testid": "reason" }, j ? justWords(d.state, v, j) : "no reason");
 
 // outcomes, in the queue, says what each verdict does to the row's gates
-export function labelPanel(d: FindingData, draft: Draft, advance: boolean, on: PanelActions, outcomes?: Child): LabelPanel {
+export function labelPanel(d: FindingData, draft: Draft, advance: boolean, on: PanelActions, outcomes?: GateLines): LabelPanel {
   const { row, detail, state } = d;
   const p = panel(row, state.causes);
   const lv = detail.label, l = lv?.label;
@@ -113,10 +114,7 @@ export function labelPanel(d: FindingData, draft: Draft, advance: boolean, on: P
     onFile, hintCard, causeCard,
     el("h2", { class: p.onFile || h || c ? "rule" : null }, p.heading),
     el("div", { class: "segv", role: "group", "aria-label": "Verdict" }, segs),
-    outcomes && el("p", { class: "help outcomes", "data-testid": "queue-outcomes" }, outcomes),
-    // what each verdict would make the row, as quiet help text: the panel's verdicts are the choice
-    (dir === "added" || dir === "dropped") && el("p", { class: "help", "data-testid": "label-meaning" },
-      `TP → ${outcome(dir, "tp")?.text} · FP → ${outcome(dir, "fp")?.text}`),
+    ifLines(dir, outcomes),
     el("label", { class: "field" }, "Reason", reason),
     el("label", { class: "field" }, "Note", note),
     el("div", { class: "acts" }, save, el("button", { type: "button", class: "btn", "data-variant": "outline", "data-testid": "skip-button", onclick: on.skip }, "Skip ", kbd("j"))),
@@ -138,4 +136,15 @@ function jobWords(d: FindingData, price: Basis | null) {
   const names = [...new Set(d.state.subjects.flatMap((s) => s.rows).filter((r) => shares.has(r.id)).map((r) => pkgOf(r.package.ref).name))];
   const time = price ? `, ${about(price.seconds)}` : "";
   return names.length ? `One job${time}, shared with ${names.join(", ")}.` : `One job${time}.`;
+}
+
+// ifLines is a line per verdict saying what it does, as quiet help text since the verdicts are the
+// choice: what it makes the row (TP → new FN) and, in the queue, what it does to each gate
+function ifLines(dir: string, gates: GateLines | undefined) {
+  const side = dir === "added" || dir === "dropped", per = gates && "tp" in gates ? gates : null;
+  if (!side && !gates) return null;
+  return el("div", { class: "help if-label", "data-testid": "label-meaning" },
+    (side || per) && (["tp", "fp"] as const).map((v) => el("div", { "data-testid": "verdict-outcome", "data-verdict": v },
+      `${labels[v].word} → ${[side && outcome(dir, v)?.text, per?.[v]].filter(Boolean).join(" · ")}`)),
+    gates && "none" in gates && el("div", {}, gates.none));
 }

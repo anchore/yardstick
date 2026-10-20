@@ -35,7 +35,7 @@ test("n from the gates screen labels the seed through the queue until every gate
   await onFinding(page, rows.gzip);
   await expect(page.getByTestId("queue-progress")).toHaveText("0 of 12 done · 12 left");
   await expect(page.getByTestId("why-next")).toContainText("deb-npm is undecided, with 3 open matches. A label here decides it: either label passes it.");
-  await expect(page.getByTestId("queue-outcomes")).toHaveText("FP: deb-npm passes. TP: deb-npm passes.");
+  await expect(page.getByTestId("verdict-outcome")).toHaveText(["TP → new FN · deb-npm passes", "FP → fixed FP · deb-npm passes"]);
   await expect(page.getByTestId("breadcrumb")).toContainText("deb-npm");
   await page.keyboard.press("a");
 
@@ -54,7 +54,7 @@ test("n from the gates screen labels the seed through the queue until every gate
     if (row === rows.tarHand) {
       // no hint: a tp here would be a new false negative
       await expect(page.getByTestId("why-next")).toContainText("TP fails noNewFalseNegatives");
-      await expect(page.getByTestId("queue-outcomes")).toContainText("TP: deb-java fails noNewFalseNegatives.");
+      await expect(page.locator("[data-testid=verdict-outcome][data-verdict=tp]")).toHaveText("TP → new FN · deb-java fails noNewFalseNegatives");
       await label(page, "f", "fix-installed");
     } else await page.keyboard.press("a");
     // the next row, or a card; while the queue reads itself fresh the page shows neither

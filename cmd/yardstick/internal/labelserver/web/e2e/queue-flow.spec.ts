@@ -188,7 +188,7 @@ test.describe("why this one is next", () => {
     await page.goto(queueRow(rows.tarHand, "gate:deb-java"));
     await onFinding(page, rows.tarHand);
     await expect(whyText(page)).toHaveText("deb-java is undecided, with 8 open matches. A label here decides it: FP leaves it undecided; TP fails noNewFalseNegatives.");
-    await expect(page.getByTestId("queue-outcomes")).toHaveText("FP: deb-java stays undecided. TP: deb-java fails noNewFalseNegatives.");
+    await expect(page.getByTestId("verdict-outcome")).toHaveText(["TP → new FN · deb-java fails noNewFalseNegatives", "FP → fixed FP · deb-java stays undecided"]);
   });
 
   test("tar CVE-2026-18508 as deb-java's only open row decides it", async ({ page }) => {
