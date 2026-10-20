@@ -25,7 +25,8 @@ func (u Usage) TokensIn() int {
 	return u.InputTokens + u.CacheReadTokens + u.CacheCreationTokens
 }
 
-// result is the part of `claude -p --output-format json`'s result object a job keeps.
+// result is the part of claude's result object (the last line of `--output-format stream-json`, or all
+// of `--output-format json`) a job keeps.
 type result struct {
 	Type         string  `json:"type"`
 	TotalCostUSD float64 `json:"total_cost_usd"`

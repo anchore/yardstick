@@ -25,9 +25,9 @@ import (
 
 // DefaultCommand runs the plugin's research-vuln skill headless, on the configured model
 // ($YARDSTICK_MODEL). Values are passed in the environment (see Job.env), never interpolated into
-// the command, so a crafted path or ID can't inject shell. The JSON output ends in the result line
-// the job's Usage is read from.
-const DefaultCommand = `claude -p "/yardstick:research-vuln row:$YARDSTICK_ROW $YARDSTICK_ROOT" --model "${YARDSTICK_MODEL:-sonnet}" --allowedTools "Bash,Read,Write,Edit,Grep,Glob,WebFetch,WebSearch" --output-format json`
+// the command, so a crafted path or ID can't inject shell. stream-json prints one event per line as
+// the agent works, so the log is live, and ends in the result line the job's Usage is read from.
+const DefaultCommand = `claude -p "/yardstick:research-vuln row:$YARDSTICK_ROW $YARDSTICK_ROOT" --model "${YARDSTICK_MODEL:-sonnet}" --allowedTools "Bash,Read,Write,Edit,Grep,Glob,WebFetch,WebSearch" --output-format stream-json --verbose`
 
 // DefaultModel is the model research runs on unless configured otherwise: a name or alias the
 // command understands (for claude, "sonnet", "opus", "haiku" or a full model ID).

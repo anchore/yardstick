@@ -30,6 +30,16 @@ func TestUsageIsReadFromTheResultLine(t *testing.T) {
 	}
 }
 
+// testdata/claude-stream.jsonl is the real output of `claude -p "say ok" --model haiku --output-format
+// stream-json --verbose`: the result is its last line, after the init, assistant and rate limit events
+func TestUsageIsReadFromTheEndOfAStream(t *testing.T) {
+	u := readUsage("testdata/claude-stream.jsonl")
+	want := Usage{CostUSD: 0.00103219, InputTokens: 2, CacheReadTokens: 14159, CacheCreationTokens: 4442, OutputTokens: 4, Turns: 1, DurationMs: 873}
+	if u == nil || *u != want {
+		t.Fatalf("expected %+v, got %+v", want, u)
+	}
+}
+
 func TestNoResultLineRecordsNoUsage(t *testing.T) {
 	r, _ := newRunner(t, `echo "plain text, no result"`, time.Minute)
 	if _, err := r.Start(context.Background(), Request{Rows: []string{"aaa"}}); err != nil {
