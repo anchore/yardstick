@@ -16,13 +16,25 @@ import (
 // so a type error never stops the server from starting: the dev build bundles on startup and
 // tsc --watch reports the errors beside it.
 func dev() {
-	webDeps()
-	bin := template.Render("{{RootDir}}/.tmp/yardstick-dev")
-	Run("go build -tags dev -o", run.Args(bin, "./cmd/yardstick"))
 	dir := os.Getenv("YARDSTICK_DEV_DIR")
 	if dir == "" {
 		dir = template.Render("{{RootDir}}")
 	}
+	devIn(dir)
+}
+
+// devE2E is dev over a fresh copy of the e2e tests' workspace (testkit/testdata/e2e), rebuilt
+// into .tmp/dev-e2e on every start so it begins where the tests do.
+func devE2E() {
+	dir := template.Render("{{RootDir}}/.tmp/dev-e2e")
+	Run("go run ./cmd/yardstick/internal/testkit/seed -serve=false -dir", run.Args(dir))
+	devIn(dir)
+}
+
+func devIn(dir string) {
+	webDeps()
+	bin := template.Render("{{RootDir}}/.tmp/yardstick-dev")
+	Run("go build -tags dev -o", run.Args(bin, "./cmd/yardstick"))
 	parallel(
 		func() error {
 			args := append([]string{"claims", "serve"}, shell.Split(os.Getenv("ARGS"))...)

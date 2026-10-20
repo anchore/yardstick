@@ -55,6 +55,12 @@ func main() {
 		},
 
 		Task{
+			Name:        "dev:e2e",
+			Description: "make dev over a fresh copy of the e2e tests' workspace, in .tmp/dev-e2e (ARGS: more claims serve args)",
+			Run:         devE2E,
+		},
+
+		Task{
 			Name:         "e2e",
 			Description:  "run the label UI's Playwright tests in Playwright's docker image (traces in web/test-results/)",
 			Dependencies: Deps("generate"),
