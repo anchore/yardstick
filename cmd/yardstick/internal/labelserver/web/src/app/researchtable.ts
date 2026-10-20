@@ -8,7 +8,7 @@ import type { ResearchSummary, State } from "../gen/wire";
 import { doing, inFlight, jobHref, since, type Doing } from "../shared/agent";
 import { el, toast, type Child } from "../shared/dom";
 import { plural } from "../shared/words";
-import { busy, kick, onJobs } from "./activity";
+import { busy, kick, latest, onJobs } from "./activity";
 import { bulkPlan, bulkWords, money, type BulkRow } from "./researchwords";
 
 // Research is what a table needs to offer research: whether it can start here, what one job costs,
@@ -90,4 +90,7 @@ export function follow(table: HTMLElement, anyInFlight: () => boolean, redraw: (
     if (anyInFlight() && (now !== seen || !busy(j.summary))) void redraw().catch(() => undefined);
     seen = now;
   });
+  // rows cached before their job finished still say it's in flight, and with nothing in flight the
+  // top bar won't read the jobs again by itself: read them once, after the table's first draw
+  setTimeout(() => { if (anyInFlight() && !busy(latest()?.summary)) void kick(); });
 }

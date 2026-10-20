@@ -230,6 +230,8 @@ a[role="tab"] { text-decoration: none; }
 
 .filters { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
 .filters .search { margin-left: auto; width: auto; min-width: 240px; }
+/* a chip row wraps within itself before it pushes the search box onto a line of its own */
+.filters > .chips { flex: 1 1 0; max-width: max-content; }
 .chips { display: flex; flex-wrap: wrap; gap: 8px; }
 .chip { all: unset; cursor: pointer; font-size: 13px; padding: 4px 12px; border-radius: 8px; border: 1px solid var(--border); color: var(--muted-foreground); background: var(--background); display: inline-flex; gap: 6px; align-items: center; }
 .chip b { font-weight: 600; color: var(--foreground); font-variant-numeric: tabular-nums; }

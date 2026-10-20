@@ -76,6 +76,19 @@ test.describe("the Agent hint cell", () => {
     await expect(page.locator(".chip[data-chip=researching]")).toHaveCount(0);
   });
 
+  test("a table drawn from rows read before their job finished reads them again", async ({ page }) => {
+    // the first read of the state has a job running on the row, every later one has it finished
+    let reads = 0;
+    await fakeState(page, (by) => { if (reads++ === 0) by.get(rows.tarHand)!.research = { job: "j-gone", status: "running", started: ago(41) }; });
+    const firstJobs = page.waitForResponse("**/api/research/jobs");
+    await page.goto("/ui/gates");
+    await firstJobs;
+    await page.waitForLoadState("networkidle");
+    // in the app, so the top bar has already read the jobs (nothing in flight) and won't again
+    await page.evaluate((u) => { history.pushState(null, "", u); dispatchEvent(new PopStateEvent("popstate")); }, unlabeledFindings);
+    await expect(cell(page, rows.tarHand)).toHaveAttribute("data-state", "offer");
+  });
+
   test("Research on a row starts it from the table, the cell follows the job to its hint, and the top bar says a new hint waits", async ({ page }) => {
     let sent: Request | null = null;
     page.on("request", (q) => { if (q.method() === "POST" && q.url().endsWith("/api/gates/deb-java/research")) sent = q; });
