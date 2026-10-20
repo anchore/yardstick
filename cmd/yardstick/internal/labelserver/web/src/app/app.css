@@ -82,7 +82,9 @@ a[role="tab"] { text-decoration: none; }
 
 /* ---------- moving between gates: the gate crumb's switcher and the go-to palette ---------- */
 
-.appbar .goto, .appbar .settings > .btn { color: var(--muted-foreground); }
+.appbar .goto, .appbar .history, .appbar .settings > .btn { color: var(--muted-foreground); }
+/* history's count is a neutral pill: it says how much, not whether that is good */
+.appbar .history .ct { padding: 0 6px; border-radius: 999px; background: var(--muted); color: var(--foreground); font-size: 11.5px; font-weight: 500; font-variant-numeric: tabular-nums; }
 
 /* the settings cog's popover: groups under a muted caps label (the label panel's), rows that are
    one click target each, and the theme as a segmented control like the label panel's verdicts */

@@ -1,7 +1,7 @@
 // api.ts is the write token and the per-gate API calls the finding page and the lists' writes
 // make, typed against the server's generated wire types.
 import type {
-  AcceptCauseResponse, AcceptResponse, CancelResponse, LabelKey, LabelsRequest, LabelsResponse, MatchesResponse, ResearchBatch, ResearchJobs, ResearchQueueRequest,
+  AcceptCauseResponse, AcceptResponse, CancelResponse, History, LabelKey, LabelsRequest, LabelsResponse, MatchesResponse, ResearchBatch, ResearchJobs, ResearchQueueRequest,
   ResearchQueueResponse, ResearchRequest, ResearchResponse, RevertResponse, RowResponse, State,
 } from "../gen/wire";
 
@@ -34,6 +34,8 @@ export const research = (gate: string, body: Partial<ResearchRequest>) => post<R
 export const cancelResearch = (gate: string, rows: string[]) => post<CancelResponse>(gate, "/research/cancel", { rows });
 // revert removes labels from the writable claims source: a write's labels undo it
 export const revert = (labels: LabelKey[]) => postTo<RevertResponse>("/api/history/revert", { labels });
+// history is the labels in the writable claims source, query being GET /api/history's
+export const history = (query: string) => call<History>(`/api/history?${query}`);
 
 // the research queue across gates: plan (dryRun) or start a batch, the newest batch's progress (null
 // when none ever ran), and cancelling the rest of one

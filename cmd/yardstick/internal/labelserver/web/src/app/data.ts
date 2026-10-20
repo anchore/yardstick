@@ -4,6 +4,7 @@ import type { CheckFindings, CrossFinding, GateLabels, GateList, LabelKey, Share
 import * as api from "../shared/api";
 import { toast } from "../shared/dom";
 import { labels as words, plural } from "../shared/words";
+import { recount } from "./historylink";
 import { crossByGate, type FRow } from "./listing";
 
 const cache = new Map<string, Promise<unknown>>();
@@ -70,12 +71,14 @@ export async function revert(labels: LabelKey[]) {
     return false;
   } finally {
     cache.clear();
+    void recount();
     dispatchEvent(new Event("yardstick:reverted"));
   }
 }
 
 // written is a write's toast, with an Undo that removes the labels it wrote
 export function written(text: string, labels: LabelKey[] | undefined) {
+  void recount();
   toast(text, false, labels?.length ? { text: "Undo", run: () => void revert(labels) } : undefined);
 }
 
@@ -87,7 +90,9 @@ async function write(what: (keys: LabelKey[]) => Promise<string>) {
     written(text, keys);
     return true;
   } catch (e) {
+    // a write across gates can fail part way, after writing some
     cache.clear();
+    void recount();
     toast((e as Error).message, true);
     return false;
   }
