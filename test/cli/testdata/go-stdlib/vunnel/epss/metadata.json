@@ -1,0 +1,19 @@
+{
+  "provider": "epss",
+  "version": 1,
+  "processor": "vunnel@0.63.1.post49+15c107c",
+  "schema": {
+    "version": "1.0.3",
+    "url": "https://raw.githubusercontent.com/anchore/vunnel/main/schema/provider-workspace-state/schema-1.0.3.json"
+  },
+  "urls": [
+    "https://epss.cyentia.com/epss_scores-current.csv.gz"
+  ],
+  "timestamp": "2026-10-13T00:38:57Z",
+  "listing": {
+    "path": "results/listing.xxh64",
+    "digest": "6d7d78efe422d00d",
+    "algorithm": "xxh64"
+  },
+  "store": "flat-file"
+}

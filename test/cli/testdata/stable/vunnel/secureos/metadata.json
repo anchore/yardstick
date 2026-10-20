@@ -1,0 +1,20 @@
+{
+  "provider": "secureos",
+  "version": 1,
+  "processor": "vunnel@0.63.1.post49+15c107c",
+  "schema": {
+    "version": "1.0.3",
+    "url": "https://raw.githubusercontent.com/anchore/vunnel/main/schema/provider-workspace-state/schema-1.0.3.json"
+  },
+  "urls": [
+    "https://security.secureos.io/v1/latest.json",
+    "https://security.secureos.io/v1/secdb.json.gz"
+  ],
+  "timestamp": "2026-10-13T00:38:54Z",
+  "listing": {
+    "path": "results/listing.xxh64",
+    "digest": "ea4ca91781173c0e",
+    "algorithm": "xxh64"
+  },
+  "store": "flat-file"
+}
