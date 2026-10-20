@@ -77,7 +77,12 @@ func run(dir, addr string, serve bool) error {
 		return nil
 	}
 	h := &swap{dir: dir, bin: bin, pristine: dir + ".pristine"}
-	// the seeded workspace is kept aside so a test can put it back (POST /__e2e/reset)
+	// the seeded workspace is kept aside so a test can put it back (POST /__e2e/reset). An earlier
+	// seed's snapshot goes first: cp would copy into it, and a reset would bring back that seed's
+	// workspace, whose run records name SBOMs in its own temporary cache, long gone
+	if err := os.RemoveAll(h.pristine); err != nil {
+		return err
+	}
 	if out, err := exec.Command("cp", "-a", dir, h.pristine).CombinedOutput(); err != nil {
 		return fmt.Errorf("snapshot workspace: %w\n%s", err, out)
 	}

@@ -41,8 +41,7 @@ test("a finding opened by URL shows its title, subtitle, tabs and the hint", asy
   await page.getByRole("tab", { name: "Raw match" }).click();
   await expect(page.getByTestId("raw-candidate")).toHaveText("no match on the candidate's side");
   await expect(page.getByTestId("raw-reference")).toContainText("CVE-2005-2541");
-  // the artifact comes from the SBOM cache, which a reset can leave pointing at the last server's
-  await expect(page.getByTestId("raw-artifact")).toHaveText(/"name": "tar"|^SBOM not found: /);
+  await expect(page.getByTestId("raw-artifact")).toContainText('"name": "tar"');
   await page.reload();
   await expect(page.getByRole("tab", { name: "Raw match" })).toHaveAttribute("aria-selected", "true");
   await expect(page.getByTestId("raw-reference")).toBeVisible();
