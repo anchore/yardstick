@@ -143,4 +143,6 @@ document.addEventListener("click", (e) => {
 });
 
 window.addEventListener("popstate", render);
+// labels removed (a toast's Undo, history's Remove): the screen is drawn again from fresh data
+window.addEventListener("yardstick:reverted", () => { route = null; render(); });
 render();

@@ -3,10 +3,10 @@
 // exit), why the row is next, and what each verdict does, and after each write reads the queue
 // fresh to pick the next row, or a card: a gate boundary, the stopping point, or the end. The logic
 // is queuelist.ts's and the words queuewords.ts's.
-import type { CheckFindings, History, Queue, QueueEntry } from "../gen/wire";
+import type { CheckFindings, History, LabelKey, Queue, QueueEntry } from "../gen/wire";
 import { el, toast } from "../shared/dom";
 import { boundaryCard, endCard, stopCard } from "./cards";
-import { getJSON } from "./data";
+import { getJSON, written } from "./data";
 import { findingView, type QueueMode } from "./finding";
 import { checkRows, isOpen } from "./listing";
 import { failed, loading, shown } from "./lists";
@@ -136,13 +136,13 @@ export function queueView(host: HTMLElement, r: QueueRoute, nav: Nav): View {
 
   // ---------- after a write ----------
 
-  async function after(e: QueueEntry | undefined, gate: string, rows: string[], text: string, how: "hint" | "hand") {
+  async function after(e: QueueEntry | undefined, gate: string, rows: string[], text: string, how: "hint" | "hand", keys: LabelKey[]) {
     let q: Queue;
     try { q = await fetchQueue(r); } catch (err) { toast((err as Error).message, true); return; }
     if (!alive()) return;
     s[how === "hint" ? "hints" : "hand"] += Math.max(1, note(q).length);
     keep(s);
-    toast(text);
+    written(text, keys);
     if (!q.entries.length) return showEnd(q);
     if (q.settled && !s.stopped) return showStop(q);
     const row = pickNext(q.entries, rows, s.skipped)!;
@@ -194,7 +194,7 @@ export function queueView(host: HTMLElement, r: QueueRoute, nav: Nav): View {
         if (dir > 0 && e && !s.skipped.includes(row)) { s.skipped.push(row); keep(s); }
         if (to) go(to); else toast(dir > 0 ? "last one in the queue" : "first one in the queue");
       },
-      next: (rows, text, how) => after(e, gate, rows, text, how),
+      next: (rows, text, how, keys) => after(e, gate, rows, text, how, keys),
       key(ev) {
         if (ev.key === "Escape") { exit(); return true; }
         if (ev.key === "n") {

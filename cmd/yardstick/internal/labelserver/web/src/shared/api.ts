@@ -1,7 +1,7 @@
 // api.ts is the write token and the per-gate API calls the finding page and the lists' writes
 // make, typed against the server's generated wire types.
 import type {
-  AcceptCauseResponse, AcceptResponse, LabelsRequest, LabelsResponse, MatchesResponse, ResearchRequest, ResearchResponse, RowResponse, State,
+  AcceptCauseResponse, AcceptResponse, LabelKey, LabelsRequest, LabelsResponse, MatchesResponse, ResearchRequest, ResearchResponse, RevertResponse, RowResponse, State,
 } from "../gen/wire";
 
 export const token = document.querySelector<HTMLMetaElement>('meta[name="yardstick-token"]')?.content ?? "";
@@ -13,11 +13,12 @@ async function call<T>(path: string, init?: RequestInit): Promise<T> {
 }
 const gatePath = (gate: string, path: string) => `/api/gates/${encodeURIComponent(gate)}${path}`;
 const get = <T>(gate: string, path: string) => call<T>(gatePath(gate, path));
-const post = <T>(gate: string, path: string, body: unknown) => call<T>(gatePath(gate, path), {
+const postTo = <T>(path: string, body: unknown) => call<T>(path, {
   method: "POST",
   headers: { "Content-Type": "application/json", "X-Yardstick-Token": token },
   body: JSON.stringify(body),
 });
+const post = <T>(gate: string, path: string, body: unknown) => postTo<T>(gatePath(gate, path), body);
 
 export const state = (gate: string) => get<State>(gate, "/state");
 export const row = (gate: string, id: string) => get<RowResponse>(gate, `/rows/${id}`);
@@ -28,3 +29,5 @@ export const acceptCause = (gate: string, cause: string, rows: string[]) =>
   post<AcceptCauseResponse>(gate, `/package-hints/${encodeURIComponent(cause)}/accept`, { rows });
 // research takes rows, or a selection the server resolves (ResearchRequest's rows are then left out)
 export const research = (gate: string, body: Partial<ResearchRequest>) => post<ResearchResponse>(gate, "/research", body);
+// revert removes labels from the writable claims source: a write's labels undo it
+export const revert = (labels: LabelKey[]) => postTo<RevertResponse>("/api/history/revert", { labels });

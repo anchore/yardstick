@@ -2,14 +2,14 @@
 // tabs (why the scans differ, evidence, grype's raw match, the labels on file), the label panel
 // sticky on the right, and j / k through the list the URL's filters name. The content is the old
 // map page's tile, reorganized.
-import type { claimsv1 } from "../gen/wire";
+import type { claimsv1, LabelKey } from "../gen/wire";
 import * as api from "../shared/api";
 import { el, toast, type Child } from "../shared/dom";
 import { records, matchPath } from "../shared/matchpath";
 import { imageRelease } from "../shared/names";
 import { decoded, direction, pkgOf } from "../shared/rows";
 import { dirWords, justWords, labels, plural, ruleWords, sideWords, whyText } from "../shared/words";
-import { forget } from "./data";
+import { forget, written } from "./data";
 import { loadFinding, researching, type FindingData } from "./finding-data";
 import { effect, mutedReason, pendingCause, seenWith, shortSource, type Dir } from "./finding-words";
 import { labelPanel, type Draft, type LabelPanel } from "./labelpanel";
@@ -30,7 +30,7 @@ export interface QueueMode {
   why: Child;
   outcomes: Child;
   step: (dir: 1 | -1, all: boolean) => void;     // j / k, Skip, and ⌥j / ⌥k over every row
-  next: (rows: string[], text: string, how: "hint" | "hand") => Promise<void>;
+  next: (rows: string[], text: string, how: "hint" | "hand", keys: LabelKey[]) => Promise<void>;
   key: (e: KeyboardEvent) => boolean;            // n, Esc
 }
 
@@ -120,18 +120,19 @@ export function findingView(host: HTMLElement, r: FindingRoute, nav: Nav, q?: Qu
   // ---------- writes ----------
 
   // after moves on to the next open finding of the list when the switch is on, else redraws this one
-  async function after(rows: string[], text: string, how: "hint" | "hand") {
+  async function after(rows: string[], text: string, how: "hint" | "hand", keys: LabelKey[]) {
     const list = d?.list ?? [];
     Object.assign(draft, { verdict: undefined, reason: undefined, note: "" });
-    if (q && advancing()) return q.next(rows, text, how);
+    if (q && advancing()) return q.next(rows, text, how, keys);
     const next = advancing() ? nextOpen(list, r.row, rows) : undefined;
-    if (next) { toast(text); nav(at(next)); return; }
-    toast(advancing() ? `${text} · nothing left to label in this list` : text);
+    if (next) { written(text, keys); nav(at(next)); return; }
+    written(advancing() ? `${text} · nothing left to label in this list` : text, keys);
     await load();
   }
-  async function write(rows: string[], text: string, call: () => Promise<unknown>, how: "hint" | "hand" = "hint") {
-    try { await call(); } catch (e) { toast((e as Error).message, true); return; }
-    await after(rows, text, how);
+  async function write(rows: string[], text: string, call: () => Promise<{ labels: LabelKey[] }>, how: "hint" | "hand" = "hint") {
+    let keys: LabelKey[];
+    try { keys = (await call()).labels; } catch (e) { toast((e as Error).message, true); return; }
+    await after(rows, text, how, keys);
   }
   const said = (v: string) => `${labels[v]?.glyph ?? ""} ${labels[v]?.word ?? v}`;
 

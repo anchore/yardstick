@@ -1,6 +1,6 @@
 // data.ts is what the /ui/gates/ screens read and write: the API calls, cached until the next write,
 // and the writes the lists' actions make (labels, accepted hints) through the existing routes.
-import type { CheckFindings, CrossFinding, GateLabels, GateList, SharedState, State, Vocabulary } from "../gen/wire";
+import type { CheckFindings, CrossFinding, GateLabels, GateList, LabelKey, SharedState, State, Vocabulary } from "../gen/wire";
 import * as api from "../shared/api";
 import { toast } from "../shared/dom";
 import { labels as words, plural } from "../shared/words";
@@ -51,11 +51,31 @@ export async function everyLabel() {
 
 // ---------- writes ----------
 
-async function write(what: () => Promise<string>) {
+// revert removes labels from the writable claims source, then has main.ts redraw the screen
+export async function revert(labels: LabelKey[]) {
   try {
-    const text = await what();
+    toast(`${plural((await api.revert(labels)).removed, "label")} removed`);
+    return true;
+  } catch (e) {
+    toast((e as Error).message, true);
+    return false;
+  } finally {
     cache.clear();
-    toast(text);
+    dispatchEvent(new Event("yardstick:reverted"));
+  }
+}
+
+// written is a write's toast, with an Undo that removes the labels it wrote
+export function written(text: string, labels: LabelKey[] | undefined) {
+  toast(text, false, labels?.length ? { text: "Undo", run: () => void revert(labels) } : undefined);
+}
+
+async function write(what: (keys: LabelKey[]) => Promise<string>) {
+  const keys: LabelKey[] = [];
+  try {
+    const text = await what(keys);
+    cache.clear();
+    written(text, keys);
     return true;
   } catch (e) {
     cache.clear();
@@ -67,7 +87,7 @@ async function write(what: () => Promise<string>) {
 // acceptHints endorses the pending hints on rows of one gate: a row's own proposal, else the cause
 // (package hint) it is a pending member of
 export function acceptHints(gate: string, rows: FRow[]) {
-  return write(async () => {
+  return write(async (keys) => {
     const hinted = rows.filter((r) => r.row && r.hint);
     if (!hinted.length) throw new Error("no agent hint to accept on the matches selected");
     const proposals = hinted.filter((r) => r.hint!.kind === "proposal").map((r) => r.row!);
@@ -78,29 +98,33 @@ export function acceptHints(gate: string, rows: FRow[]) {
       const id = r.hint!.cause ?? st?.causes.find((c) => c.pending.includes(r.row!))?.id;
       if (id) causes.set(id, [...(causes.get(id) ?? []), r.row!]);
     }
-    let n = proposals.length ? (await api.accept(gate, proposals)).written : 0;
-    for (const [id, ids] of causes) n += (await api.acceptCause(gate, id, ids)).written;
+    let n = 0;
+    const add = (res: { written: number; labels: LabelKey[] }) => { n += res.written; keys.push(...res.labels); };
+    if (proposals.length) add(await api.accept(gate, proposals));
+    for (const [id, ids] of causes) add(await api.acceptCause(gate, id, ids));
     return `✦ ${plural(n, "agent hint")} accepted as your labels`;
   });
 }
 
 // labelRows writes one verdict on rows of a gate; fp and unclear carry a reason from the vocabulary
 export function labelRows(gate: string, rows: string[], verdict: string, justification = "") {
-  return write(async () => {
+  return write(async (keys) => {
     const res = await api.labels(gate, { rows, verdict, justification, note: "", scope: "subject" });
+    keys.push(...res.labels);
     return `${words[verdict].glyph} ${plural(res.written, "label")} written as ${words[verdict].word}${res.overridden?.length ? ", overriding the agent hint" : ""}`;
   });
 }
 
 // acceptCross accepts the hints on cross-gate findings, each through a gate that reports it
 export function acceptCross(fs: CrossFinding[]) {
-  return write(async () => {
+  return write(async (keys) => {
     let n = 0;
+    const add = (res: { written: number; labels: LabelKey[] }) => { n += res.written; keys.push(...res.labels); };
     const withHint = fs.filter((f) => f.hint?.status === "pending");
-    for (const [gate, rows] of crossByGate(withHint)) n += (await api.accept(gate, rows)).written;
+    for (const [gate, rows] of crossByGate(withHint)) add(await api.accept(gate, rows));
     for (const f of fs.filter((x) => !withHint.includes(x) && x.cause)) {
       const a = f.in.find((x) => x.gate === f.cause!.gate);
-      if (a) n += (await api.acceptCause(a.gate, f.cause!.id, [a.row])).written;
+      if (a) add(await api.acceptCause(a.gate, f.cause!.id, [a.row]));
     }
     if (!n && !withHint.length) throw new Error("no agent hint to accept on the findings selected");
     return `✦ ${plural(n, "agent hint")} accepted as your labels`;
@@ -110,9 +134,12 @@ export function acceptCross(fs: CrossFinding[]) {
 // labelCross labels cross-gate findings, each through a gate that reports it; the label counts in
 // every gate that reports the match
 export function labelCross(fs: CrossFinding[], verdict: string, justification = "") {
-  return write(async () => {
+  return write(async (keys) => {
     let n = 0;
-    for (const [gate, rows] of crossByGate(fs)) n += (await api.labels(gate, { rows, verdict, justification, note: "", scope: "subject" })).written;
+    for (const [gate, rows] of crossByGate(fs)) {
+      const res = await api.labels(gate, { rows, verdict, justification, note: "", scope: "subject" });
+      n += res.written; keys.push(...res.labels);
+    }
     return `${words[verdict].glyph} ${plural(n, "label")} written as ${words[verdict].word}`;
   });
 }

@@ -220,6 +220,8 @@ a[role="tab"] { text-decoration: none; }
 
 .toast { position: fixed; bottom: 24px; left: 50%; translate: -50% 0; z-index: 60; max-width: min(640px, calc(100vw - 32px)); padding: 8px 16px; border-radius: 8px; background: var(--foreground); color: var(--background); font-size: 13.5px; box-shadow: 0 4px 16px rgba(0, 0, 0, .18); }
 .toast.error { background: var(--fail); color: #fff; }
+.toast-action { all: unset; cursor: pointer; margin-left: 16px; font-weight: 600; text-decoration: underline; text-underline-offset: 3px; }
+.toast-action:focus-visible { outline: 2px solid currentColor; outline-offset: 2px; border-radius: 2px; }
 
 /* ---------- data table ---------- */
 

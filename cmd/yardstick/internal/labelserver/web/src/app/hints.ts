@@ -5,7 +5,7 @@ import type { GateList, GateResult, HintEntry, HintsAcceptResponse, HintsRespons
 import { token } from "../shared/api";
 import { el, fill, toast, type Child } from "../shared/dom";
 import { dots, labels as words, plural, sideWords } from "../shared/words";
-import { forget, gateList, gateState } from "./data";
+import { forget, gateList, gateState, written } from "./data";
 import { hintsHref, imageHints, inScope, parseScope, preselected, previewLabels, rowCount, stillOpen, type OpenRow } from "./hintsdata";
 import { noCounts, type RailImage } from "./images";
 import { gateRows, isOpen } from "./listing";
@@ -181,7 +181,7 @@ export function hintsView(host: HTMLElement, r0: Route & { level: "hints" }, _na
       accept.disabled = true;
       try {
         const res = await acceptHints(ids);
-        toast(`✦ ${plural(res.written.length, "label")} written from ${plural(ids.length, "hint")}${res.skipped.length ? `, ${plural(res.skipped.length, "match", "matches")} skipped` : ""}`);
+        written(`✦ ${plural(res.written.length, "label")} written from ${plural(ids.length, "hint")}${res.skipped.length ? `, ${plural(res.skipped.length, "match", "matches")} skipped` : ""}`, res.labels);
       } catch (e) {
         toast((e as Error).message, true);
       }

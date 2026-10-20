@@ -56,9 +56,12 @@ export function must<T extends HTMLElement = HTMLElement>(s: string): T {
 }
 
 let toastTimer: ReturnType<typeof setTimeout> | undefined;
-export function toast(msg: string, error = false) {
+// an action (a write's Undo) is a button in the toast, which then stays up long enough to reach it
+export function toast(msg: string, error = false, action?: { text: string; run: () => void }) {
   const t = $("#toast");
   if (!t) return;
-  t.textContent = msg; t.className = `toast${error ? " error" : ""}`; t.hidden = false;
-  clearTimeout(toastTimer); toastTimer = setTimeout(() => (t.hidden = true), error ? 6000 : 2500);
+  fill(t, msg, action && el("button", { type: "button", class: "toast-action", "data-testid": "toast-action",
+    onclick: () => { t.hidden = true; action.run(); } }, action.text));
+  t.className = `toast${error ? " error" : ""}`; t.hidden = false;
+  clearTimeout(toastTimer); toastTimer = setTimeout(() => (t.hidden = true), error ? 6000 : action ? 10000 : 2500);
 }
