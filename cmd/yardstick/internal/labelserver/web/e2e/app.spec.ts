@@ -1,7 +1,6 @@
 import { expect, test } from "./fixtures";
 
-// /ui/gates/ is the four-level UI taking over from /ui/map/; until its screens land, the component
-// kit is the page with something on it
+// the app's shell: the component kit's image rail, and Esc up the breadcrumb
 
 test("the component kit's image rail filters by number key, collapses to a dropdown and back", async ({ page }) => {
   await page.goto("/ui/gates/_kit");

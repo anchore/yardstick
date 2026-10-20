@@ -13,7 +13,7 @@ test("a finding opened by URL shows its title, subtitle, tabs and the hint", asy
   await page.goto(`${unjudged}/${rows.tarDropped}`);
   await expect(page.getByTestId("title")).toHaveText("CVE-2005-2541");
   await expect(page.getByTestId("breadcrumb")).toHaveText(/^Gates\s*›\s*deb-java\s*›\s*unjudgedChangesAtMost\s*›\s*CVE-2005-2541$/);
-  await expect(page.locator(".titlerow [data-testid=verdict]")).toHaveText("unlabeled");
+  await expect(page.getByTestId("title-row").getByTestId("verdict")).toHaveText("unlabeled");
   await expect(page.getByTestId("finding-package")).toHaveText("tar 1.34+dfsg-1.2+deb12u1");
   await expect(page.getByTestId("finding-image")).toHaveText(images.deb.name);
   await expect(page.getByTestId("finding-image")).toHaveAttribute("title", /^ghcr\.io\/anchore\/test-images\/vulnerabilities-debian-12-tar-util-linux:617d48d@sha256:617d48dd/);
@@ -134,7 +134,7 @@ test("Esc goes back to the check with the filters it came with", async ({ page }
 test("a labeled finding shows the label on file and every source, and can be relabeled", async ({ page }) => {
   await page.goto(`${f1}/${libgnutls}`);
   await expect(page.getByTestId("title")).toHaveText("CVE-2011-3389");
-  await expect(page.locator(".titlerow [data-testid=verdict]")).toHaveText("FP");
+  await expect(page.getByTestId("title-row").getByTestId("verdict")).toHaveText("FP");
   const onFile = page.getByTestId("label-on-file");
   await expect(onFile).toHaveAttribute("data-verdict", "fp");
   await expect(onFile.getByTestId("reason")).not.toHaveText("no reason");

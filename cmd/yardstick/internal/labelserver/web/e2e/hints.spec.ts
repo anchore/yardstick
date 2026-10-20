@@ -1,35 +1,22 @@
 import { expect, test } from "./fixtures";
-import { causeGroup, check, diskLabels, images, labelsOf, log4jGroup, openGate, openGroup, pick, rows, tarGroup, verdictButton } from "./helpers";
-
-async function openTar(page: import("@playwright/test").Page) {
-  await openGate(page);
-  await openGroup(page, tarGroup(page, true));
-  await expect(page.getByTestId("tile")).toHaveAttribute("data-row", rows.tarDropped);
-}
+import { checkPage, diskLabels, gatePage, images, labelsOf, openFinding, rows, tableRow, verdictButton } from "./helpers";
 
 test.describe("a single hint", () => {
-  test("the card shows the proposal, who made it and why", async ({ page }) => {
-    await openTar(page);
+  test("the card shows the proposal, who made it and why, apart from the verdict buttons", async ({ page }) => {
+    await openFinding(page, rows.tarDropped);
     const card = page.getByTestId("hint-card");
     await expect(card).toHaveAttribute("data-status", "pending");
     await expect(card).toHaveAttribute("data-verdict", "fp");
     await expect(card).toHaveAttribute("data-confidence", "medium");
-    await expect(card).toHaveAttribute("data-open", "false");
-    await expect(page.getByTestId("hint-skill")).toContainText("triage-deltas");
+    await expect(card).toContainText("triage-deltas");
     await expect(page.getByTestId("hint-reason")).not.toBeEmpty();
-    // the verdict button that carries the hint says so
-    await expect(page.locator("[data-testid=verdict-button][data-hinted=true]")).toHaveAttribute("data-verdict", "fp");
-
-    await page.keyboard.press("w");
-    await expect(card).toHaveAttribute("data-open", "true");
-    await expect(page.getByTestId("hint-toggle")).toHaveAttribute("aria-expanded", "true");
-    await expect(page.getByTestId("hint-note")).toBeVisible();
-    await page.keyboard.press("w");
-    await expect(card).toHaveAttribute("data-open", "false");
+    // a hint never looks like a choice already made
+    for (const v of ["tp", "fp", "unclear"]) await expect(verdictButton(page, v)).toHaveAttribute("aria-pressed", "false");
+    await expect(page.getByTestId("accept-hint")).toBeVisible();
   });
 
   test("a accepts it as the label the proposal says", async ({ page }) => {
-    await openTar(page);
+    await openFinding(page, rows.tarDropped);
     await page.keyboard.press("a");
     await expect.poll(() => labelsOf("CVE-2005-2541").length).toBe(1);
     expect(labelsOf("CVE-2005-2541")[0]).toMatchObject({
@@ -37,148 +24,91 @@ test.describe("a single hint", () => {
     });
   });
 
-  test("the hinted verdict button accepts it too", async ({ page }) => {
-    await openTar(page);
-    await page.locator("[data-testid=verdict-button][data-hinted=true]").click();
-    await expect.poll(() => labelsOf("CVE-2005-2541").length).toBe(1);
-    expect(labelsOf("CVE-2005-2541")[0]).toMatchObject({ verdict: "fp", justification: "fix-installed" });
+  test("the card's Accept button accepts it too, and the label then shows as on file", async ({ page }) => {
+    await openFinding(page, rows.tarDropped);
+    await page.getByTestId("advance-checkbox").uncheck();
+    await page.getByTestId("accept-hint").click();
+    await expect.poll(() => labelsOf("CVE-2005-2541").map((l) => `${l.verdict} ${l.justification}`)).toEqual(["fp fix-installed"]);
+    await expect(page.getByTestId("label-on-file")).toHaveAttribute("data-verdict", "fp");
+    await expect(page.getByTestId("hint-card")).toHaveCount(0);
   });
 
-  test("the card agrees once the label is the hint, and disagrees when it is not", async ({ page }) => {
-    await openTar(page);
+  test("a label against the hint replaces it on file", async ({ page }) => {
+    await openFinding(page, rows.tarDropped);
     await page.getByTestId("advance-checkbox").uncheck();
-    await page.keyboard.press("a");
-    await expect(page.getByTestId("tile")).toHaveAttribute("data-verdict", "fp");
-    await expect(page.getByTestId("hint-card")).toHaveAttribute("data-status", /accepted|agrees/);
-
-    // a different verdict on the same match
-    await verdictButton(page, "tp").click();
-    await expect(page.getByTestId("tile")).toHaveAttribute("data-verdict", "tp");
-    await expect(page.getByTestId("hint-card")).toHaveAttribute("data-status", "disagrees");
-    await expect.poll(() => labelsOf("CVE-2005-2541")[0]?.verdict).toBe("tp");
-  });
-
-  test("a label against the hint says it overrides it", async ({ page }) => {
-    await openTar(page);
-    await page.getByTestId("advance-checkbox").uncheck();
-    await verdictButton(page, "tp").click();
-    await expect(page.getByTestId("receipt")).toContainText("overrides the agent hint");
+    await page.keyboard.press("t");
+    await page.getByTestId("save-label").click();
+    await expect.poll(() => labelsOf("CVE-2005-2541").map((l) => l.verdict)).toEqual(["tp"]);
+    await expect(page.getByTestId("label-on-file")).toHaveAttribute("data-verdict", "tp");
   });
 
   test("a on a match with no hint writes nothing", async ({ page }) => {
-    await openGate(page);
-    await openGroup(page, tarGroup(page, false));
+    await openFinding(page, rows.tarHand);
+    await expect(page.getByTestId("hint-card")).toHaveCount(0);
     await page.keyboard.press("a");
-    await expect(page.getByTestId("toast")).toContainText("no agent hint");
+    await expect(page.getByTestId("toast")).toContainText("no agent hint to accept here");
     expect(labelsOf("CVE-2026-18508")).toEqual([]);
   });
 });
 
 test.describe("a package hint", () => {
-  async function openCause(page: import("@playwright/test").Page) {
-    await openGate(page);
-    await openGroup(page, causeGroup(page));
-  }
-
-  test("the tile offers the same reasoning on all four matches", async ({ page }) => {
-    await openCause(page);
-    await expect(page.getByTestId("cause-offer")).toHaveAttribute("data-count", "4");
-    await expect(page.getByTestId("accept-all")).toHaveAttribute("data-count", "4");
-    await expect(page.getByTestId("accept-all")).toHaveAttribute("data-verdict", "tp");
-  });
-
-  test("accept all labels every member with the cause's verdict", async ({ page }) => {
-    await openCause(page);
-    await page.getByTestId("accept-all").click();
-    await expect.poll(() => labelsOf("CVE-2026-3184").length).toBe(4);
-    const written = labelsOf("CVE-2026-3184");
-    expect(written.map((l) => l.package).sort()).toEqual(["pkg:deb/debian/libblkid1", "pkg:deb/debian/libmount1", "pkg:deb/debian/mount", "pkg:deb/debian/util-linux"]);
-    for (const l of written) expect(l).toMatchObject({ subject: images.deb.name, verdict: "tp", justification: "no-fix" });
-  });
-
-  test("A does the same from the keyboard", async ({ page }) => {
-    await openCause(page);
+  test("A accepts it for every member from the keyboard", async ({ page }) => {
+    await openFinding(page, rows.utilLinux[0]);
+    await expect(page.getByTestId("cause-card")).toHaveAttribute("data-verdict", "tp");
     await page.keyboard.press("A");
     await expect.poll(() => labelsOf("CVE-2026-3184").length).toBe(4);
-    for (const l of labelsOf("CVE-2026-3184")) expect(l).toMatchObject({ verdict: "tp", justification: "no-fix" });
+    for (const l of labelsOf("CVE-2026-3184")) expect(l).toMatchObject({ subject: images.deb.name, verdict: "tp", justification: "no-fix" });
   });
 
-  test("A in a group of medium hints with no cause writes nothing", async ({ page }) => {
-    await openGate(page);
-    await openGroup(page, log4jGroup(page));
+  test("a accepts it for this row alone", async ({ page }) => {
+    await openFinding(page, rows.utilLinux[0]);
+    await page.keyboard.press("a");
+    await expect.poll(() => labelsOf("CVE-2026-3184").map((l) => l.package)).toEqual(["pkg:deb/debian/util-linux"]);
+  });
+
+  test("A on a finding with no package hint writes nothing", async ({ page }) => {
+    await openFinding(page, rows.jfhA, "f1NotWorse");
     const before = diskLabels().length;
     await page.keyboard.press("A");
-    await expect(page.getByTestId("toast")).toContainText("no agent hint");
+    await expect(page.getByTestId("toast")).toContainText("no package hint to accept here");
     expect(diskLabels().length).toBe(before);
   });
 });
 
-test.describe("accepting from the board", () => {
-  test("a group's accept control labels its rows", async ({ page }) => {
-    await openGate(page);
-    await tarGroup(page, true).getByTestId("group-accept").click();
-    await expect.poll(() => labelsOf("CVE-2005-2541").length).toBe(1);
-    expect(labelsOf("CVE-2005-2541")[0]).toMatchObject({ verdict: "fp", justification: "fix-installed" });
-    // the group is settled: it leaves the board
-    await expect(tarGroup(page, true)).toHaveCount(0);
-  });
-
-  test("the log4j group's accept writes both advisories as tp", async ({ page }) => {
-    await openGate(page);
-    const g = log4jGroup(page);
-    await expect(g.getByTestId("group-accept")).toHaveAttribute("data-count", "4");
-    await g.getByTestId("group-accept").click();
-    await expect(g).toHaveCount(0);
-    const log4j = diskLabels().filter((l) => l.package === "pkg:maven/org.apache.logging.log4j/log4j-core");
+test.describe("accepting from a table", () => {
+  test("Accept hints on log4j's four rows writes both advisories as tp", async ({ page }) => {
+    await page.goto(`${gatePage()}findings?q=log4j`);
+    const table = page.getByTestId("findings-table");
+    await table.getByRole("checkbox", { name: "Select every row shown" }).check();
+    await expect(page.getByTestId("bulk-bar")).toContainText("4 selected");
+    await page.getByTestId("bulk-accept").click();
+    await expect.poll(() => labelsOf("GHSA-jfh8-c2jp-5v3q").length).toBe(1);
     // the seeded unclear stays on file beside the tp, which is on the exact version and so decides
-    expect(log4j.map((l) => `${l.vulnerability} ${l.verdict} ${l.justification}`).sort()).toEqual([
+    await expect.poll(() => diskLabels().filter((l) => l.package === "pkg:maven/org.apache.logging.log4j/log4j-core")
+      .map((l) => `${l.vulnerability} ${l.verdict} ${l.justification}`).sort()).toEqual([
       "GHSA-jfh8-c2jp-5v3q tp no-fix", "GHSA-vc5p-v9hr-52mj tp no-fix", "GHSA-vc5p-v9hr-52mj unclear not-assessed",
     ]);
+    for (const id of [rows.jfhA, rows.jfhB, rows.vc5pA, rows.vc5pB]) await expect(tableRow(page, "findings-table", id).getByTestId("verdict")).toHaveText("TP");
   });
 
-  test("the cause's accept labels its four rows", async ({ page }) => {
-    await openGate(page);
-    await causeGroup(page).getByTestId("group-accept").click();
+  test("Accept hints on the cause's rows labels all four", async ({ page }) => {
+    // f1NotWorse counts the rows labeled or not, so they stay in its table
+    await page.goto(`${checkPage("f1NotWorse")}?q=CVE-2026-3184`);
+    await page.getByTestId("check-table").getByRole("checkbox", { name: "Select every row shown" }).check();
+    await expect(page.getByTestId("bulk-accept")).toHaveText("Accept hints (4)");
+    await page.getByTestId("bulk-accept").click();
     await expect.poll(() => labelsOf("CVE-2026-3184").length).toBe(4);
+    for (const id of rows.utilLinux) await expect(tableRow(page, "check-table", id).getByTestId("verdict")).toHaveText("TP");
   });
 
-  test("hovering an accept draws the preview, and the flip it causes", async ({ page }) => {
-    await openGate(page);
-    const unjudged = check(page, "unjudgedChangesAtMost");
-
-    // the util-linux rows narrow the range of what is unjudged, and flip nothing
-    await causeGroup(page).getByTestId("group-accept").hover();
-    await expect(page.getByTestId("preview-note")).toBeVisible();
-    await expect(unjudged.getByTestId("preview-range")).toBeVisible();
-    await expect(unjudged.getByTestId("panel-bar")).not.toHaveAttribute("data-flips-to", /.+/);
-    await page.getByTestId("header").hover();
-    await expect(page.getByTestId("preview-note")).toHaveCount(0);
-
-    // with everything else labeled, accepting log4j's hints is what passes the gate
-    await tarGroup(page, true).getByTestId("group-accept").click();
-    await openGroup(page, tarGroup(page, false));
-    await pick(page, "fp:fix-installed");
-    await page.keyboard.press("Escape");
-    await causeGroup(page).getByTestId("group-accept").click();
-    await expect(causeGroup(page)).toHaveCount(0);
-    await log4jGroup(page).getByTestId("group-accept").hover();
-    await expect(page.getByTestId("preview-note")).toContainText("the gate would be pass");
-    for (const name of ["f1NotWorse", "noNewFalseNegatives", "noNewFalsePositives", "unjudgedChangesAtMost"]) {
-      await expect(check(page, name).getByTestId("panel-bar"), name).toHaveAttribute("data-flips-to", "pass");
-    }
-
-    // moving away takes it back, and the preview wrote nothing
-    await page.getByTestId("header").hover();
-    await expect(page.getByTestId("preview-note")).toHaveCount(0);
-    await expect(unjudged.getByTestId("panel-bar")).not.toHaveAttribute("data-flips-to", /.+/);
-    expect(labelsOf("GHSA-jfh8-c2jp-5v3q")).toEqual([]);
-  });
-
-  test("hovering the hinted button on the tile previews the accept", async ({ page }) => {
-    await openGate(page);
-    await openGroup(page, tarGroup(page, true));
-    await page.locator("[data-testid=verdict-button][data-hinted=true]").hover();
-    await expect(page.getByTestId("preview-note")).toBeVisible();
-    await expect(page.getByTestId("check-bar").first()).toBeVisible();
+  test("Label as against a hint says it overrides the hint", async ({ page }) => {
+    await page.goto(`${gatePage()}findings`);
+    await tableRow(page, "findings-table", rows.tarDropped).getByRole("checkbox").check();
+    await page.getByTestId("label-as").selectOption("tp:");
+    await expect.poll(() => labelsOf("CVE-2005-2541").map((l) => l.verdict)).toEqual(["tp"]);
+    await expect(page.getByRole("status")).toContainText("overriding the agent hint");
+    // the finding the hint was on shows the label instead
+    await openFinding(page, rows.tarDropped);
+    await expect(page.getByTestId("hint-card")).toHaveCount(0);
   });
 });
