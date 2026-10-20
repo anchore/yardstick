@@ -1,0 +1,141 @@
+/* finding.css is level 3, one finding: content on the left in tabs, the label panel sticky on the
+   right (UI-RULES: "the label panel sits on the right and stays in place"). Basecoat's variables
+   and our tokens from app.css; the 4 / 8 / 16 / 24 / 32 spacing scale. */
+
+/* ---------- breadcrumb row and title row ---------- */
+
+.crumbrow { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
+.pager { display: inline-flex; align-items: center; gap: 8px; font-size: 13px; color: var(--muted-foreground); font-variant-numeric: tabular-nums; }
+.pager a { text-decoration: none; color: inherit; }
+.pager a:hover .kbd { border-color: var(--foreground); color: var(--foreground); }
+.pager .off { opacity: .4; }
+
+.titlerow .decides { font-size: 12px; white-space: nowrap; }
+.titlerow .could-move, .titlerow .decides { color: var(--foreground); }
+.fsub { display: grid; gap: 4px; }
+/* versions run to 58 characters: wrap, never clip (UI-RULES 10) */
+.fsub .pkgv { overflow-wrap: anywhere; color: var(--foreground); }
+.fsub .img { font-weight: 500; color: var(--foreground); cursor: help; }
+
+/* ---------- the two columns ---------- */
+
+.finding { display: grid; grid-template-columns: minmax(0, 1fr) 340px; gap: 24px; align-items: start; }
+.fcontent { min-width: 0; }
+.ftabs { display: grid; gap: 16px; }
+.ftabs > [role="tablist"] { justify-content: flex-start; }
+.ftabs > [role="tabpanel"] { min-width: 0; font-size: 14px; }
+
+.finding h3 { margin: 0; font-size: 12px; text-transform: uppercase; letter-spacing: .07em; color: var(--muted-foreground); font-weight: 600; }
+.finding .help { font-size: 12.5px; color: var(--muted-foreground); margin: 0; }
+.finding p { margin: 0; }
+.finding .mono { overflow-wrap: anywhere; }
+.finding a { color: var(--foreground); }
+
+.kv { display: grid; grid-template-columns: 120px minmax(0, 1fr); gap: 8px 16px; margin: 0; font-size: 13.5px; }
+.kv dt { color: var(--muted-foreground); }
+.kv dd { margin: 0; min-width: 0; }
+
+/* ---------- Why it differs: the lanes, today's match path on Basecoat's look ---------- */
+
+.why { display: grid; gap: 16px; }
+.why > p b { font-weight: 600; }
+.lanes { overflow-x: auto; padding-bottom: 4px; }
+.lanes .path { display: grid; gap: 8px 0; align-items: center; }
+.lanes .path.k1 { grid-template-columns: 84px minmax(0, max-content); }
+.lanes .path.k2 { grid-template-columns: 84px minmax(0, max-content) 24px minmax(0, max-content); }
+.lanes .path.k3 { grid-template-columns: 84px minmax(0, max-content) repeat(2, 24px minmax(0, max-content)); }
+.lanes .path.k4 { grid-template-columns: 84px minmax(0, max-content) repeat(3, 24px minmax(0, max-content)); }
+.lanes .path.k5 { grid-template-columns: 84px minmax(0, max-content) repeat(4, 24px minmax(0, max-content)); }
+.lanes .lane-k { font-size: 12.5px; color: var(--muted-foreground); }
+.lanes .arrow { color: var(--faint); text-align: center; font-size: 12px; }
+/* an empty slot carries the lane's line through the column */
+.lanes .slot { border-top: 1px dashed var(--border); margin: 0 -12px; }
+.lanes .step { display: grid; gap: 2px; border: 1px solid var(--border); border-radius: 10px; padding: 6px 10px; background: var(--card); min-width: 90px; max-width: 320px; font-size: 12.5px; box-shadow: 0 1px 2px rgba(0, 0, 0, .04); }
+.lanes .step .t { font-weight: 500; overflow-wrap: anywhere; }
+.lanes .step .sub { font-family: var(--font-mono); font-size: 11px; color: var(--muted-foreground); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.lanes .step.diff { background: var(--muted); border-color: color-mix(in oklab, var(--foreground) 35%, var(--border)); }
+.lanes .step.miss { border-style: dashed; color: var(--muted-foreground); box-shadow: none; }
+.lanes .step.ok { border-color: var(--pass); }
+.lanes .step.ok .t::before { content: "✓ "; color: var(--pass); }
+.lanes .step.same { border-color: var(--foreground); }
+.lanes .step .mine { font-size: 10px; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; }
+.why .records { display: grid; gap: 4px; font-size: 13px; }
+.why .records .k { color: var(--muted-foreground); }
+.why .records .rec { font-family: var(--font-mono); font-size: 12px; }
+.why .records .rec.same { font-weight: 600; }
+.why .records .rec.other { color: var(--muted-foreground); }
+.why .records .rec.same .ns::after { content: "  ← this image"; font-weight: 400; }
+
+/* ---------- Evidence, Raw match, Labels on file ---------- */
+
+.evidence, .labels, .rawtab { display: grid; gap: 24px; }
+.evidence section, .labels { align-content: start; }
+.evidence section { display: grid; gap: 8px; }
+.links { margin: 0; padding-left: 16px; display: grid; gap: 4px; font-size: 13.5px; }
+.explanation { border-left: 2px solid var(--hint); padding-left: 16px; }
+
+.rawtab { gap: 16px; }
+.raw { border: 1px solid var(--border); border-radius: 10px; background: var(--card); overflow: hidden; }
+.raw > summary { display: block; cursor: pointer; padding: 8px 16px; font-size: 13px; font-weight: 500; }
+.raw > summary::before { content: "▸ "; color: var(--faint); }
+.raw[open] > summary::before { content: "▾ "; }
+.raw pre { border-top: 1px solid var(--border); margin: 0; padding: 8px 16px; max-height: 420px; overflow: auto; font-family: var(--font-mono); font-size: 11.5px; line-height: 1.45; background: color-mix(in oklab, var(--muted) 45%, transparent); }
+
+.labelcard { display: grid; gap: 16px; border: 1px solid var(--border); border-radius: 10px; padding: 16px; background: var(--card); }
+.line { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.reason { font-size: 13.5px; }
+.reason.muted { color: var(--muted-foreground); }
+.notes { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.notes p { font-size: 13.5px; }
+.sources { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; font-size: 13px; }
+.sources li { display: flex; gap: 8px; align-items: center; }
+
+/* ---------- the label panel ---------- */
+
+.lpanel { position: sticky; top: 16px; display: grid; gap: 16px; padding: 24px; border: 1px solid var(--border); border-radius: 10px; background: var(--card); box-shadow: 0 1px 2px rgba(0, 0, 0, .04); max-height: calc(100vh - 32px); overflow-y: auto; }
+.lpanel h2 { margin: 0; font-size: 12px; text-transform: uppercase; letter-spacing: .07em; color: var(--muted-foreground); font-weight: 600; }
+.lpanel h2.rule { border-top: 1px solid var(--border); padding-top: 16px; }
+.onfile { display: grid; gap: 8px; }
+
+.hintcard { display: grid; gap: 8px; padding: 16px; border-radius: 10px; background: var(--hint-bg); font-size: 13.5px; }
+.hintcard .top { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.hintcard .by { font-size: 12px; color: var(--muted-foreground); }
+.hintcard .btn { justify-self: start; }
+.hintcard .facts summary { cursor: pointer; font-size: 12.5px; color: var(--muted-foreground); }
+.hintcard .facts[open] { display: grid; gap: 8px; }
+.hintcard .facts ul { margin: 0; padding-left: 16px; font-size: 12px; display: grid; gap: 4px; overflow-wrap: anywhere; }
+.hintcard .researched { color: color-mix(in oklab, var(--tp) 50%, var(--muted-foreground)); font-weight: 600; }
+.acts { display: flex; flex-wrap: wrap; gap: 8px; }
+
+/* TP / FP / Unclear: one segmented control, the word and its color (UI-RULES 8) */
+.segv { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 4px; padding: 4px; border: 1px solid var(--border); border-radius: 10px; background: var(--muted); }
+.segv button { all: unset; cursor: pointer; display: grid; justify-items: center; gap: 2px; padding: 8px 4px; border-radius: 8px; font-weight: 600; font-size: 14px; }
+.segv button small { font-family: var(--font-mono); font-size: 11px; font-weight: 400; color: var(--faint); }
+.segv button:hover { background: var(--background); }
+.segv button:focus-visible { outline: 2px solid var(--ring); outline-offset: -2px; }
+.segv .tp { color: var(--tp); }
+.segv .fp { color: var(--fp); }
+.segv .unclear { color: var(--unc); }
+.segv button[aria-pressed="true"] { color: #fff; }
+.segv button[aria-pressed="true"] small { color: rgba(255, 255, 255, .8); }
+.segv button[aria-pressed="true"].tp { background: var(--tp); }
+.segv button[aria-pressed="true"].fp { background: var(--fp); }
+.segv button[aria-pressed="true"].unclear { background: var(--unc); }
+.dark .segv button[aria-pressed="true"] { color: var(--background); }
+.dark .segv button[aria-pressed="true"] small { color: color-mix(in oklab, var(--background) 75%, transparent); }
+
+.lpanel .field { display: grid; gap: 8px; font-size: 12.5px; color: var(--muted-foreground); }
+.lpanel .field select, .lpanel .field input { width: 100%; color: var(--foreground); }
+.advance { display: flex; gap: 8px; align-items: center; font-size: 12.5px; color: var(--muted-foreground); cursor: pointer; }
+.research { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; font-size: 12.5px; color: var(--muted-foreground); border-top: 1px solid var(--border); padding-top: 16px; }
+.research .btn { margin-left: auto; }
+
+/* ---------- the toast ---------- */
+
+.toast { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%); z-index: 50; max-width: min(640px, calc(100vw - 32px)); padding: 8px 16px; border-radius: 10px; background: var(--foreground); color: var(--background); font-size: 13.5px; box-shadow: 0 4px 16px rgba(0, 0, 0, .18); }
+.toast.error { background: var(--fail); color: #fff; }
+
+@media (max-width: 1000px) {
+  .finding { grid-template-columns: minmax(0, 1fr); }
+  .lpanel { position: static; max-height: none; }
+}
