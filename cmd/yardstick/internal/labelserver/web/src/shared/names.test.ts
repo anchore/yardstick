@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { imageRelease, nsHuman, releaseHuman, sameRelease } from "./names";
+import { imageRelease, nsHuman, sameRelease } from "./names";
 import type { Row } from "./rows";
 
 const row = (ref: string, distro?: string): Row => ({ id: "r", match: "m", row: "r", vulnerability: "CVE-1", group: "g", sourcePackage: "p", package: { ref }, verdict: "unlabeled", inCandidate: true, inReference: false, candidate: distro ? { distro } : undefined });
@@ -18,7 +18,6 @@ describe("names", () => {
     expect(imageRelease(row("pkg:deb/debian/zlib@1", "debian 12"))).toEqual({ distro: "debian", version: "12" });
     expect(imageRelease(row("pkg:rpm/redhat/vim@8?distro=rhel-8.6"))).toEqual({ distro: "redhat", version: "8.6" });
     expect(imageRelease(row("pkg:npm/left-pad@1"))).toBeNull();
-    expect(releaseHuman({ distro: "debian", version: "12" })).toBe("Debian 12 (bookworm)");
   });
   test("a namespace is the image's own release on the same version, or a Red Hat major", () => {
     expect(sameRelease("debian:distro:debian:12", { distro: "debian", version: "12" })).toBe(true);

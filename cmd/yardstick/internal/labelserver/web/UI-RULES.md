@@ -20,7 +20,7 @@ Gate and check screens (levels 1 and 2) carry the image rail on the left, collap
 - Every list of findings or labels is the same table, prefiltered. The gate's Findings tab is the check table with no check filter, and the Labels tab is that table without unlabeled rows, plus source and author columns.
 - Labeled findings are always reachable. A passing gate still lists its checks, and each check still lists the findings and labels that decide it.
 - Filters live in the query string (`?image=grype-quality-golang-d89207b&verdict=unlabeled`), so `j` / `k` on a finding walk the same list you came from.
-- Tiers and agent causes are a "Group by" option on the table, not URL segments.
+- Grouping is a "Group by" option on the table (by image or by package), not URL segments. Tiers are gone; an agent cause shows as a "package hint" on its rows and as a card on each of its findings.
 
 ## Rules
 
@@ -34,7 +34,7 @@ Gate and check screens (levels 1 and 2) carry the image rail on the left, collap
 8. **Color always comes with a word or shape.** pass / fail / undecided and TP / FP / unclear always print their word next to the color. Hint purple is never used for a verdict.
 9. **A spacing scale of 4, 8, 16, 24, 32.** 24 between sections, 16 inside a group, 8 between a label and its value. Rows are 44px comfortable, 34px compact. No one-off margins.
 10. **Design for real names.** A real gate has 14 to about 90 images, displayed names run 4 to 50 characters (`vulnerabilities-package-name-normalization:984794b`), versions run to 58 (`v17.12.0-ce-rc1.0.20200309214505-aa6a9891b09c+incompatible`), and a gate can count thousands of labels. Truncate the repository part of a name, never the tag. The full reference is one hover away everywhere a name appears, and the finding page shows it whole. Test layouts against those lengths, not `deb`.
-11. **Help is one line, or it's behind a "?".** Each screen gets at most one sentence of explanation under its title. Check definitions live in a help drawer, not on every panel.
+11. **Help is one line, or it's behind a "?".** Each screen gets at most one sentence of explanation under its title. Check definitions belong in a help drawer, not on every panel; none has shipped yet, so a check's description is its row's one line.
 
 ## Screen specifics
 
@@ -63,4 +63,4 @@ Gate and check screens (levels 1 and 2) carry the image rail on the left, collap
 | a label here can flip a check | could move | ◆ | none |
 | candidate added / dropped | + added / − dropped | + / − | none |
 
-Keys stay the same at every level: `t` `f` `u` label, `a` accepts the hint, `j` / `k` next and previous, `n` label next unlabeled, `0` to `9` pick an image, `Esc` up one level.
+Keys stay the same at every level: `t` `f` `u` label, `a` accepts the hint, `j` / `k` next and previous, `n` label next unlabeled, `0` to `9` pick an image, `Esc` up one level. A finding adds `A` (accept the package hint for every match it covers) and `R` (research); `t` `f` `u` pick the verdict and Save (or Enter in the note) writes it. Lists add `Enter` to open the row under the cursor, and the rail adds `[` / `]` and `/`.

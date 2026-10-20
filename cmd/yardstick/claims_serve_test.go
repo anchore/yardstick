@@ -177,11 +177,7 @@ func TestServePages(t *testing.T) {
 		path, location string
 		code           int
 	}{
-		{"/", "/ui/map/gates/deb/", http.StatusFound},
-		{"/ui/map/gates/deb/", "", http.StatusOK},
-		{"/ui/map/gates/deb/delta/added", "", http.StatusOK},
-		{"/ui/map/gates/", "", http.StatusOK},
-		{"/ui/map/gates/nope/", "", http.StatusNotFound},
+		{"/", "/ui/gates/", http.StatusFound},
 		{"/ui/gates/", "", http.StatusOK},
 		{"/ui/gates/deb/", "", http.StatusOK},
 		{"/ui/gates/deb/checks/unjudgedChangesAtMost/0123456789abcdef", "", http.StatusOK},
@@ -196,7 +192,7 @@ func TestServePages(t *testing.T) {
 		}
 	}
 	// every asset the pages load; the built ones only when make generate has run
-	for _, page := range []string{"/ui/map/gates/deb/", "/ui/map/gates/", "/ui/gates/"} {
+	for _, page := range []string{"/ui/gates/"} {
 		for _, m := range assetRef.FindAllStringSubmatch(s.do(http.MethodGet, page, "", "").Body.String(), -1) {
 			p := m[1]
 			if strings.HasPrefix(p, "/assets/dist/") && !labelserver.HasUI() {
@@ -207,6 +203,35 @@ func TestServePages(t *testing.T) {
 				t.Errorf("GET %s (from %s): %d, %d bytes", p, page, rec.Code, rec.Body.Len())
 			}
 		}
+	}
+}
+
+func TestServeRedirectsTheOldMapURLs(t *testing.T) {
+	s := newServed(t)
+	for _, tc := range []struct{ path, location string }{
+		{"/ui/map/gates/", "/ui/gates/"},
+		{"/ui/map/gates/?gate=deb&group=c:x", "/ui/gates/deb/"},
+		{"/ui/map/gates/deb/", "/ui/gates/deb/"},
+		{"/ui/map/gates/deb/?image=debian-12", "/ui/gates/deb/?image=debian-12"},
+		{"/ui/map/gates/deb/delta", "/ui/gates/deb/map"},
+		{"/ui/map/gates/deb/delta/added/unexplained%7C%7C", "/ui/gates/deb/map"},
+		{"/ui/map/gates/deb/delta/added/unexplained%7C%7C/all", "/ui/gates/deb/map"},
+		{"/ui/map/gates/deb/delta/dropped/unexplained%7C%7C/%40babel%2Ftraverse?image=n", "/ui/gates/deb/findings?image=n&pkg=%40babel%2Ftraverse"},
+		{"/ui/map/gates/deb/check/f1NotWorse/fails/CVE-1/tar?image=d", "/ui/gates/deb/checks/f1NotWorse?image=d"},
+		{"/ui/map/gates/deb/check/no%20new%20FNs/cause/c-1", "/ui/gates/deb/checks/no%20new%20FNs"},
+		{"/ui/map/gates/deb/check", "/ui/gates/deb/"},
+		{"/ui/map/gates/a%20gate/", "/ui/gates/a%20gate/"},
+	} {
+		rec := s.do(http.MethodGet, tc.path, "", "")
+		if rec.Code != http.StatusFound || rec.Header().Get("Location") != tc.location {
+			t.Errorf("GET %s: got %d %q, want 302 %q", tc.path, rec.Code, rec.Header().Get("Location"), tc.location)
+		}
+	}
+
+	// a gate named on the command line is what / opens
+	named := newServedWith(t, func(o *labelserver.Options) { o.Open = "deb" })
+	if rec := named.do(http.MethodGet, "/", "", ""); rec.Header().Get("Location") != "/ui/gates/deb/" {
+		t.Errorf("expected / to open the gate named, got %d %q", rec.Code, rec.Header().Get("Location"))
 	}
 }
 
@@ -447,9 +472,6 @@ func TestServeSkipsAGateThatCannotBeScored(t *testing.T) {
 	}
 	writeFile(t, gate, strings.Replace(string(data), "claims: [../claims]", "claims: [github.com/anchore/delta-prototype@main]", 1))
 
-	if rec := s.do(http.MethodGet, "/", "", ""); rec.Code != http.StatusFound || rec.Header().Get("Location") != "/ui/map/gates/deb/" {
-		t.Errorf("expected / to open deb, got %d %s", rec.Code, rec.Header().Get("Location"))
-	}
 	var list struct {
 		Open  string
 		Gates []struct{ ID, Error string }

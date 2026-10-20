@@ -1,15 +1,15 @@
 // finding.ts is level 3, one finding: the title row (ID, label, effect), the content on the left in
 // tabs (why the scans differ, evidence, grype's raw match, the labels on file), the label panel
-// sticky on the right, and j / k through the list the URL's filters name. The content is today's
-// tile (shared/tile.ts), reorganized; the pure parts are reused by import.
+// sticky on the right, and j / k through the list the URL's filters name. The content is the old
+// map page's tile, reorganized.
 import type { claimsv1 } from "../gen/wire";
 import * as api from "../shared/api";
 import { $, el, toast } from "../shared/dom";
 import { records, matchPath } from "../shared/matchpath";
 import { imageRelease } from "../shared/names";
 import { direction, pkgOf } from "../shared/rows";
-import { autoAdvance, setAutoAdvance } from "../shared/tile";
 import { dirWords, justWords, labels, plural, ruleWords, whyText } from "../shared/words";
+import { forget } from "./data";
 import { loadFinding, researching, type FindingData } from "./finding-data";
 import { directionWords, effect, mutedReason, pendingCause, seenWith, shortSource, type Dir } from "./finding-words";
 import { labelPanel, type Draft, type LabelPanel } from "./labelpanel";
@@ -31,8 +31,12 @@ function savedTab(): Tab {
   } catch { return "why"; }
 }
 function saveTab(t: Tab) { try { localStorage.setItem(tabKey, t); } catch { /* no storage: the tab resets next time */ } }
-function advancing() { try { return autoAdvance(); } catch { return true; } }
-function setAdvancing(on: boolean) { try { setAutoAdvance(on); } catch { /* no storage: the default stands */ } }
+// the switch to go on to the next finding after a label is on unless this browser turned it off
+const advanceKey = "yardstick.autoAdvance";
+function advancing() { try { return localStorage.getItem(advanceKey) !== "off"; } catch { return true; } }
+function setAdvancing(on: boolean) {
+  try { if (on) localStorage.removeItem(advanceKey); else localStorage.setItem(advanceKey, "off"); } catch { /* no storage: the default stands */ }
+}
 
 const sleep = (ms: number) => new Promise((done) => setTimeout(done, ms));
 let current = 0; // the newest load anywhere on the page; an older one finishing late doesn't paint
@@ -56,6 +60,8 @@ export function findingView(host: HTMLElement, r: FindingRoute, nav: Nav): View 
 
   async function load() {
     const mine = ++current;
+    // this page writes and researches outside data.ts, so the lists read fresh after it
+    forget();
     try {
       const next = await loadFinding(r.gate, r.row, r.check, r.filters);
       if (mine !== current || !live()) return;

@@ -70,6 +70,7 @@ export function gateView(host: HTMLElement, r0: GateRoute, nav: Nav): View {
       r = nr as GateRoute;
       const img = imageOf(r.filters.image);
       rail.select(img?.slug ?? null);
+      shell.retab(r);
       shell.scope(img ? imageName(img.name, img.ref) : null, () => nav(withFilters(r, { image: undefined })));
       tab.update(r, img?.slug ?? null);
       return true;

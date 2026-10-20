@@ -1,143 +1,72 @@
 import { expect, test } from "./fixtures";
-import { causeGroup, images, labelsOf, openGate, openGroup, pick, rows, tarGroup, verdictButton } from "./helpers";
+import { checkPage, images, label, labelsOf, onFinding, openFinding, rows, verdictButton } from "./helpers";
 
-// the four util-linux rows are the group to walk: several rows, no labels, no hand-made state
-async function openUtilLinux(page: import("@playwright/test").Page) {
-  await openGate(page);
-  await openGroup(page, causeGroup(page));
-  await expect(page.getByTestId("tile-position")).toHaveAttribute("data-total", "4");
-}
+// labeling on the finding page; finding.spec.ts has the reason, note and relabel cases. The util-linux
+// rows are the ones to walk: several rows, no labels, no hand-made state
+const [, libblkid1, libmount1] = rows.utilLinux;
 
-test.describe("a label from the tile", () => {
-  test("tp by key writes the label, updates the verdict anchor and moves on", async ({ page }) => {
-    await openUtilLinux(page);
-    const first = (await page.getByTestId("tile").getAttribute("data-row"))!;
-    expect(rows.utilLinux).toContain(first);
-    await expect(page.getByTestId("tile")).toHaveAttribute("data-verdict", "unlabeled");
-
-    await page.keyboard.press("t");
-
+test.describe("a label from the finding page", () => {
+  test("t and Save write a tp label, and the page moves on to the next open finding", async ({ page }) => {
+    await openFinding(page, libblkid1);
+    await expect(page.getByTestId("title-row").getByTestId("verdict")).toHaveText("unlabeled");
+    await label(page, "t");
     await expect.poll(() => labelsOf("CVE-2026-3184").length).toBe(1);
-    const [l] = labelsOf("CVE-2026-3184");
-    expect(l).toMatchObject({ subject: images.deb.name, verdict: "tp" });
-    await expect(page.getByTestId("receipt")).toBeVisible();
-    await expect(page.getByTestId("receipt")).toHaveAttribute("data-moved", "true");
-    // the tile is on the next unlabeled match, which is another row of the group
-    await expect(page.getByTestId("tile")).not.toHaveAttribute("data-row", first);
-    await expect(page.getByTestId("tile")).toHaveAttribute("data-verdict", "unlabeled");
-    expect(rows.utilLinux).toContain((await page.getByTestId("tile").getAttribute("data-row"))!);
+    expect(labelsOf("CVE-2026-3184")[0]).toMatchObject({ subject: images.deb.name, package: "pkg:deb/debian/libblkid1", verdict: "tp" });
+    await onFinding(page, libmount1);
+    await expect(page.getByTestId("toast")).toContainText("CVE-2026-3184: ● TP");
+
+    // back goes to the finding just labeled, which shows its label
+    await page.goBack();
+    await onFinding(page, libblkid1);
+    await expect(page.getByTestId("title-row").getByTestId("verdict")).toHaveText("TP");
+    await expect(page.getByTestId("label-on-file")).toHaveAttribute("data-verdict", "tp");
+    await expect(verdictButton(page, "tp")).toHaveAttribute("aria-pressed", "true");
   });
 
-  test("tp by button writes the same label", async ({ page }) => {
-    await openUtilLinux(page);
+  test("the TP button picks the same verdict", async ({ page }) => {
+    await openFinding(page, libblkid1);
     await verdictButton(page, "tp").click();
-    await expect.poll(() => labelsOf("CVE-2026-3184").length).toBe(1);
-    expect(labelsOf("CVE-2026-3184")[0]).toMatchObject({ verdict: "tp" });
+    await expect(verdictButton(page, "tp")).toHaveAttribute("aria-pressed", "true");
+    await page.getByTestId("save-label").click();
+    await expect.poll(() => labelsOf("CVE-2026-3184").map((l) => l.verdict)).toEqual(["tp"]);
   });
 
-  test("z returns to the match just labeled, which shows its verdict", async ({ page }) => {
-    await openUtilLinux(page);
-    const first = (await page.getByTestId("tile").getAttribute("data-row"))!;
-    await page.keyboard.press("t");
-    await expect(page.getByTestId("tile")).not.toHaveAttribute("data-row", first);
-
-    await page.keyboard.press("z");
-
-    await expect(page.getByTestId("tile")).toHaveAttribute("data-row", first);
-    await expect(page.getByTestId("tile")).toHaveAttribute("data-verdict", "tp");
-    await expect(verdictButton(page, "tp")).toHaveAttribute("data-current", "true");
-    await expect(page.getByTestId("label-line")).toHaveAttribute("data-verdict", "tp");
-  });
-
-  test("fp without a justification writes nothing and asks for one", async ({ page }) => {
-    await openUtilLinux(page);
-    await page.keyboard.press("f");
-    await expect(page.getByTestId("toast")).toContainText("needs a reason");
-    await expect(page.getByTestId("justification-picker")).toBeFocused();
-    await verdictButton(page, "fp").click();
-    await expect(page.getByTestId("toast")).toContainText("needs a reason");
-    expect(labelsOf("CVE-2026-3184")).toEqual([]);
-    await expect(page.getByTestId("tile")).toHaveAttribute("data-verdict", "unlabeled");
-  });
-
-  test("picking an fp justification writes the fp label", async ({ page }) => {
-    await openUtilLinux(page);
-    const row = (await page.getByTestId("tile").getAttribute("data-row"))!;
-    await pick(page, "fp:fix-installed");
-    await expect.poll(() => labelsOf("CVE-2026-3184").length).toBe(1);
-    expect(labelsOf("CVE-2026-3184")[0]).toMatchObject({ verdict: "fp", justification: "fix-installed" });
-    await expect(page.getByTestId("tile")).not.toHaveAttribute("data-row", row);
-    await page.keyboard.press("z");
-    await expect(page.getByTestId("tile")).toHaveAttribute("data-row", row);
-    await expect(page.getByTestId("tile")).toHaveAttribute("data-verdict", "fp");
-  });
-
-  test("unclear without a justification writes nothing, with one it writes unclear", async ({ page }) => {
-    await openUtilLinux(page);
-    const row = (await page.getByTestId("tile").getAttribute("data-row"))!;
+  test("unclear without a reason writes nothing, with one it writes unclear", async ({ page }) => {
+    await openFinding(page, libblkid1);
     await page.keyboard.press("u");
-    await expect(page.getByTestId("toast")).toContainText("needs a reason");
+    await expect(page.getByTestId("reason-picker")).toBeFocused();
+    await page.getByTestId("save-label").click();
+    await expect(page.getByTestId("toast")).toContainText("unclear needs a reason");
     expect(labelsOf("CVE-2026-3184")).toEqual([]);
 
-    await pick(page, "unclear:not-assessed");
-    await expect.poll(() => labelsOf("CVE-2026-3184").length).toBe(1);
-    expect(labelsOf("CVE-2026-3184")[0]).toMatchObject({ verdict: "unclear", justification: "not-assessed" });
-    await expect(page.getByTestId("tile")).not.toHaveAttribute("data-row", row);
-    await page.keyboard.press("z");
-    await expect(page.getByTestId("tile")).toHaveAttribute("data-row", row);
-    await expect(page.getByTestId("tile")).toHaveAttribute("data-verdict", "unclear");
+    await page.getByTestId("reason-picker").selectOption("not-assessed");
+    await page.getByTestId("save-label").click();
+    await expect.poll(() => labelsOf("CVE-2026-3184").map((l) => `${l.verdict} ${l.justification}`)).toEqual(["unclear not-assessed"]);
+    await onFinding(page, libmount1);
   });
 
-  test("a note written with n lands on the label", async ({ page }) => {
-    await openUtilLinux(page);
-    const row = (await page.getByTestId("tile").getAttribute("data-row"))!;
-    await page.keyboard.press("n");
-    await expect(page.getByTestId("note-input")).toBeFocused();
-    await page.keyboard.type("checked against the debian tracker");
-    // typing in the field does not trigger the label keys; the button does
-    await verdictButton(page, "tp").click();
-    await expect.poll(() => labelsOf("CVE-2026-3184").length).toBe(1);
-    expect(labelsOf("CVE-2026-3184")[0].notes).toEqual(["checked against the debian tracker"]);
-    await expect(page.getByTestId("tile")).not.toHaveAttribute("data-row", row);
-    await page.keyboard.press("z");
-    await expect(page.getByTestId("tile")).toHaveAttribute("data-row", row);
-    await expect(page.getByTestId("label-note")).toContainText("checked against the debian tracker");
+  test("keys typed into the note are text, not commands", async ({ page }) => {
+    await openFinding(page, libblkid1);
+    await page.getByTestId("note-input").click();
+    await page.keyboard.type("a fat tuna");
+    for (const v of ["tp", "fp", "unclear"]) await expect(verdictButton(page, v)).toHaveAttribute("aria-pressed", "false");
+    await expect(page.getByTestId("note-input")).toHaveValue("a fat tuna");
+    expect(labelsOf("CVE-2026-3184")).toEqual([]);
   });
 
-  test("with the advance switch off the tile stays on the match it labeled", async ({ page }) => {
-    await openUtilLinux(page);
-    const row = (await page.getByTestId("tile").getAttribute("data-row"))!;
-    await page.getByTestId("advance-checkbox").uncheck();
-    await page.keyboard.press("t");
-    await expect.poll(() => labelsOf("CVE-2026-3184").length).toBe(1);
-    await expect(page.getByTestId("tile")).toHaveAttribute("data-row", row);
-    await expect(page.getByTestId("tile")).toHaveAttribute("data-verdict", "tp");
-  });
-
-  test("labeling every match of a group says the group is done and offers the next one", async ({ page }) => {
-    await openUtilLinux(page);
+  test("labeling the last open finding of a list says nothing is left", async ({ page }) => {
+    // the search narrows the check's list to the four util-linux rows
+    await page.goto(`${checkPage("unjudgedChangesAtMost")}/${libblkid1}?q=CVE-2026-3184`);
+    await expect(page.getByTestId("pager")).toHaveAttribute("data-total", "4");
     for (let i = 0; i < 4; i++) {
-      const row = await page.getByTestId("tile").getAttribute("data-row");
-      await page.keyboard.press("t");
+      await expect(page.getByTestId("label-panel")).toHaveAttribute("data-verdict", "unlabeled");
+      await label(page, "t");
       await expect.poll(() => labelsOf("CVE-2026-3184").length).toBe(i + 1);
-      // the next key press needs the tile to be on the next match
-      if (i < 3) await expect(page.getByTestId("tile")).not.toHaveAttribute("data-row", row!);
     }
-    await expect(page.getByTestId("group-done")).toBeVisible();
-    await expect(page.getByTestId("tile-position")).toContainText("labeled");
-    await expect(page.getByTestId("back-to-last")).toBeVisible();
-    await expect(page.getByTestId("next-group")).toBeVisible();
-    await page.getByTestId("next-group").click();
-    await expect(page.getByTestId("tile")).toBeVisible();
-  });
-
-  test("the hand label on the tar row without a hint lands as fp", async ({ page }) => {
-    await openGate(page);
-    await openGroup(page, tarGroup(page, false));
-    await expect(page.getByTestId("tile")).toHaveAttribute("data-row", rows.tarHand);
-    await expect(page.getByTestId("hint-card")).toHaveAttribute("data-status", "none");
-    await pick(page, "fp:fix-installed");
-    await expect.poll(() => labelsOf("CVE-2026-18508").length).toBe(1);
-    expect(labelsOf("CVE-2026-18508")[0]).toMatchObject({ subject: images.deb.name, package: "pkg:deb/debian/tar", verdict: "fp", justification: "fix-installed" });
+    await expect(page.getByTestId("toast")).toContainText("nothing left to label in this list");
+    await expect(page.getByTestId("label-panel")).toHaveAttribute("data-verdict", "tp");
+    expect(labelsOf("CVE-2026-3184").map((l) => l.package.replace(/.*\//, "")).sort()).toEqual(["libblkid1", "libmount1", "mount", "util-linux"]);
+    await page.keyboard.press("n");
+    await expect(page.getByTestId("toast")).toContainText("nothing left to label in this list");
   });
 });
