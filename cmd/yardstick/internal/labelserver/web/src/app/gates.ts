@@ -4,9 +4,11 @@ import type { CrossFinding, GateListItem, SharedState } from "../gen/wire";
 import { el, fill } from "../shared/dom";
 import { pkgOf } from "../shared/rows";
 import { plural } from "../shared/words";
+import { workBanner, type Work } from "./banner";
 import { acceptCross, everyLabel, gateList, gateState, labelCross, shared } from "./data";
 import { hintWords, labelPicker } from "./findings";
 import { labelsTable, type LRow } from "./labelstable";
+import { openOf } from "./images";
 import { gateRows, labelText, mergeLabels, nextOpen, pageInfo, shortSource, square, sumTally, type WideLabel } from "./listing";
 import { failed, listCursor, loading, primary, shown } from "./lists";
 import { formatRoute, withFilters, type Route } from "./route";
@@ -36,14 +38,16 @@ export function gatesView(host: HTMLElement, r0: Route & { level: "gates" }, nav
     if (!alive()) return;
     const labels = mergeLabels(byGate);
     const body = el("div", { class: "screen" });
+    const work = r.tab === "gates" ? workBanner(list) : null;
     renderShell(host, r, {
       title: "Gates",
+      above: work?.el,
       actions: primary("Label next unlabeled", next ? findingHref(next.gate, next.row) : null),
       tabCounts: { gates: list.gates.length, unlabeled: sh.findings.length, labels: labels.length },
       meta: [...new Set(labels.map((l) => shortSource(l.source)))].join(" + "),
       body,
     });
-    const tab = r.tab === "unlabeled" ? unlabeledTab(sh, r, nav, load) : r.tab === "labels" ? labelsTab(labels, r, nav) : gatesTab(list.gates);
+    const tab = r.tab === "unlabeled" ? unlabeledTab(sh, r, nav, load) : r.tab === "labels" ? labelsTab(labels, r, nav) : gatesTab(list.gates, work);
     fill(body, tab.el);
     out.key = (e) => {
       if (e.key === "n" && next) { nav({ level: "finding", gate: next.gate, check: null, row: next.row, filters: {} }); return true; }
@@ -59,19 +63,20 @@ export function gatesView(host: HTMLElement, r0: Route & { level: "gates" }, nav
 interface Tab { el: HTMLElement | HTMLElement[]; key: (e: KeyboardEvent) => boolean; update?: (r: Route) => boolean }
 
 // gatesTab is one row per gate: status, name and setups, a square per image, how much is unlabeled
-function gatesTab(gates: GateListItem[]): Tab {
-  const list = el("div", { class: "lrows", "data-testid": "gate-rows" }, gates.map((g) => {
+function gatesTab(gates: GateListItem[], work: Work | null): Tab {
+  const list = el("div", { class: "lrows gatelist", "data-testid": "gate-rows" }, gates.map((g) => {
     const changes = g.changes ?? [], sum = sumTally(changes), state = (g.error ? "undecided" : g.gateOutcome ?? "undecided") as Status;
-    const withOpen = changes.filter((t) => t.open).length;
+    const withOpen = changes.filter((t) => openOf(t)).length;
     return el("a", { class: "lrow", href: formatRoute({ level: "gate", gate: g.id, tab: "checks", filters: {} }), "data-testid": "gate-row", "data-gate": g.id, "data-state": state },
       status(state),
       el("div", { class: "lname" },
         el("div", { class: "name" }, g.id),
         el("div", { class: "desc", title: g.error || g.gateNote || g.gate }, g.error || [g.compared, g.created && `scanned ${day(g.created)}`].filter(Boolean).join(" · "))),
       el("div", { class: "lstrip" },
-        el("div", { class: "squares", "aria-hidden": "true" }, g.subjects.map((s, i) => el("i", { class: `sq ${square(changes[i])}`, title: `${s.name}: ${changes[i]?.open ?? 0} open of ${changes[i]?.total ?? 0} changed` }))),
+        el("div", { class: "squares", "aria-hidden": "true" }, g.subjects.map((s, i) => el("i", { class: `sq ${square(changes[i])}`, title: `${s.name}: ${openOf(changes[i])} open of ${changes[i]?.total ?? 0} changed` }))),
         el("small", {}, g.subjects.length === 1 ? `1 image · ${g.subjects[0].name}` : `${plural(g.subjects.length, "image")} · ${withOpen} with open changes`)),
-      el("div", { class: "lnum", "data-testid": "gate-unlabeled" }, `${sum.open.toLocaleString()} unlabeled`, el("small", {}, `of ${sum.total.toLocaleString()} changed`)),
+      el("div", { class: "lnum", "data-testid": "gate-unlabeled" }, `${openOf(sum).toLocaleString()} open`, el("small", {}, `of ${sum.total.toLocaleString()} changed`)),
+      work?.cell(g.id),
       el("span", { class: "chev", "aria-hidden": "true" }, "›"));
   }));
   return { el: list, key: listCursor(list) };

@@ -1,7 +1,8 @@
 // images.ts is the image rail's logic: names, order, filtering and keys. Pure: rail.ts draws it.
 
 // Counts are one image's findings by verdict. open is every unlabeled one, hinted the open ones an
-// agent left a hint on, so the bar's plain-open part is open - hinted.
+// agent left a hint on, so the bar's plain-open part is open - hinted. What the UI calls open is
+// openOf: unlabeled or unclear, since unclear doesn't judge a row.
 export interface Counts { tp: number; fp: number; unclear: number; hinted: number; open: number; total: number }
 
 export interface RailImage {
@@ -12,6 +13,9 @@ export interface RailImage {
 }
 
 export const noCounts: Counts = { tp: 0, fp: 0, unclear: 0, hinted: 0, open: 0, total: 0 };
+
+// openOf is the open rows of a tally: unlabeled, and unclear, which doesn't judge a row
+export const openOf = (c: Counts | undefined) => (c?.open ?? 0) + (c?.unclear ?? 0);
 
 // splitName splits a name before its tag, so the repository part can truncate and the tag never
 // does: "grype-quality-golang:d89207b" → ["grype-quality-golang", ":d89207b"]
@@ -35,7 +39,7 @@ export type RailSort = "gate" | "open";
 // order). Number keys stay with the gate order whichever is shown.
 export function order(images: RailImage[], by: RailSort): number[] {
   const ix = images.map((_, i) => i);
-  return by === "open" ? ix.sort((a, b) => images[b].counts.open - images[a].counts.open || a - b) : ix;
+  return by === "open" ? ix.sort((a, b) => openOf(images[b].counts) - openOf(images[a].counts) || a - b) : ix;
 }
 
 // matches says whether an image passes the rail's filter text: every word in its name or reference

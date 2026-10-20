@@ -115,7 +115,8 @@ test.describe("the go-to palette", () => {
     // the tar row is in both gates and is one finding
     await page.getByTestId("palette-input").fill("CVE-2005-2541");
     await expect(palette(page).locator("[data-group=Findings]")).toHaveCount(1);
-    await expect(item(page, "Findings", rows.tarDropped)).toContainText("deb-java, deb-npm");
+    // in gate list order, which two scans across a minute boundary swap
+    await expect(item(page, "Findings", rows.tarDropped)).toContainText(/deb-java, deb-npm|deb-npm, deb-java/);
     await page.getByTestId("palette-input").fill("babel");
     await expect(item(page, "Findings", rows.babel)).toBeVisible();
 
@@ -144,7 +145,9 @@ test.describe("the go-to palette", () => {
     await expect(page.getByTestId("breadcrumb")).toHaveText(/^Gates\s*›\s*History$/);
 
     // the flow's screens load by URL too, and Esc goes up to Gates
-    for (const [path, title] of [["/ui/hints", "Agent hints"], ["/ui/queue", "Labeling"], [`/ui/queue/${rows.tarHand}`, "Labeling"]]) {
+    await page.goto("/ui/hints");
+    await expect(page.getByTestId("title")).toHaveText("Agent hints");
+    for (const [path, title] of [["/ui/queue", "Labeling"], [`/ui/queue/${rows.tarHand}`, "Labeling"]]) {
       await page.goto(path);
       await expect(page.getByTestId("title")).toHaveText(title);
       await expect(page.getByTestId("placeholder")).toBeVisible();

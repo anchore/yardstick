@@ -16,15 +16,15 @@ test.describe("deb-java", () => {
     await expect(meter(page, "noNewFalseNegatives")).toContainText("2 new · limit 0");
     await expect(meter(page, "noNewFalsePositives")).toContainText("4 new · limit 0");
     await expect(meter(page, "unjudgedChangesAtMost")).toContainText("6 unlabeled · limit 0");
-    await expect(checkRow(page, "unjudgedChangesAtMost").getByTestId("check-count")).toContainText("10 unlabeled");
+    await expect(checkRow(page, "unjudgedChangesAtMost").getByTestId("check-count")).toContainText("10 open");
   });
 
   test("the verdict bar and the rail count the changed matches by label", async ({ page }) => {
     const bar = page.getByTestId("verdict-bar");
     for (const part of ["TP 0", "FP 2", "unclear 2", "unlabeled with a hint 7", "unlabeled 1", "12 changed matches"]) await expect(bar).toContainText(part);
-    // open leaves out the unclear rows, which have their own segment
+    // open is unlabeled or unclear, so java's two unclear vc5p rows count
     await expect(railImage(page, "deb")).toContainText("6 open · 8");
-    await expect(railImage(page, "java")).toContainText("2 open · 4");
+    await expect(railImage(page, "java")).toContainText("4 open · 4");
     await expect(page.getByTestId("tabs").getByRole("tab", { name: /Findings/ })).toContainText("12");
   });
 

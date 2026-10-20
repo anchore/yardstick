@@ -58,7 +58,8 @@ test("labeling through the UI flips deb-java to pass and settles deb-npm", async
   await page.keyboard.press("Escape");
   await checkStates(page, { f1NotWorse: "fail", noNewFalseNegatives: "fail", noNewFalsePositives: "fail", unjudgedChangesAtMost: "undecided" });
   await expect(railImage(page, "deb")).toContainText("0 open · 8");
-  await expect(railImage(page, "java")).toContainText("2 open · 4");
+  // open is unlabeled or unclear, so vc5p's two unclear rows count
+  await expect(railImage(page, "java")).toContainText("4 open · 4");
 
   // n opens the next open finding, jfh8; its hint covers both jars and gives java a tp label, which
   // leaves two checks undecided
@@ -87,7 +88,7 @@ test("labeling through the UI flips deb-java to pass and settles deb-npm", async
   // every gate: deb-java passes with nothing unlabeled, and the tar label settled deb-npm
   await page.getByTestId("breadcrumb").getByRole("link", { name: "Gates" }).click();
   await expect(gateRow(page, "deb-java")).toHaveAttribute("data-state", "pass");
-  await expect(gateRow(page, "deb-java").getByTestId("gate-unlabeled")).toHaveText(/^0 unlabeled\s*of 12 changed$/);
+  await expect(gateRow(page, "deb-java").getByTestId("gate-unlabeled")).toHaveText(/^0 open\s*of 12 changed$/);
   await expect(gateRow(page, "deb-npm")).toHaveAttribute("data-state", "pass");
   await gateRow(page, "deb-npm").click();
   await expect(outcome(page)).toHaveText("pass");

@@ -10,6 +10,7 @@ import { noCounts, type RailImage } from "./images";
 import { labelsTable } from "./labelstable";
 import { gateRows, nextOpen, pageSize, sumTally, type FRow } from "./listing";
 import { failed, listCursor, loading, primary, shown } from "./lists";
+import { railHints } from "./hints";
 import { imageRail } from "./rail";
 import { formatRoute, withFilters, type Route } from "./route";
 import { scanMap } from "./scanmap";
@@ -48,6 +49,7 @@ export function gateView(host: HTMLElement, r0: GateRoute, nav: Nav): View {
     const railed = r.tab === "labels" ? images.map((i) => ({ ...i, counts: { ...noCounts, total: all.perImage[i.slug] ?? 0 } })) : images;
     const rail = imageRail({ images: railed, selected: imageOf(r.filters.image)?.slug ?? null, scope: r.tab === "labels" ? "labels" : "gate",
       onSelect: (slug) => nav(withFilters(r, { image: slug ?? undefined })) });
+    if (r.tab !== "labels") railHints(rail, gate);
     const next = () => nextOpen(rows.filter((x) => !r.filters.image || x.image.slug === r.filters.image));
     const nextRoute = (x: FRow): Route => ({ level: "finding", gate, check: null, row: x.row!, filters: r.filters.image ? { image: r.filters.image } : {} });
     const n = next();
@@ -139,7 +141,7 @@ function checksTab(st: State): Tab {
         status(c.state as Status),
         el("div", { class: "lname" }, el("div", { class: "name" }, c.name), el("div", { class: "desc", title: sentence(c.description) }, c.summary || sentence(c.description))),
         checkMeter(c),
-        el("div", { class: "lnum", "data-testid": "check-count" }, `${n.bearing.toLocaleString()} unlabeled`,
+        el("div", { class: "lnum", "data-testid": "check-count" }, `${n.bearing.toLocaleString()} open`,
           el("small", {}, countWords(n))),
         el("span", { class: "chev", "aria-hidden": "true" }, "›"));
       }));
