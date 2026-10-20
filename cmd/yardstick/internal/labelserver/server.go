@@ -1,9 +1,10 @@
 // Package labelserver is yardstick claims serve: a local web UI over a run's gates, ported from
-// delta's label server with its map UI, that shows the matches the setups disagree on and writes
-// labels through the same path as yardstick claims add.
+// delta's label server, that shows the matches the setups disagree on and writes labels through
+// the same path as yardstick claims add. The UI is one page under /ui/gates/, routed in the
+// browser; / opens it and the old /ui/map/ URLs redirect into it.
 //
-// The wire contract is delta's: /state, /rows/{id} and /api/gates* keep delta's response shapes
-// wherever yardstick has the data, so the map and tile JS change only where a concept differs.
+// The wire contract started as delta's: /state, /rows/{id} and /api/gates* keep delta's response
+// shapes wherever yardstick has the data.
 //
 // The machine-checked record of the contract is the Go types this package serializes, exported
 // so tygo can see them, with web/tygo.yaml turning them into web/src/gen/wire.ts for the UI to

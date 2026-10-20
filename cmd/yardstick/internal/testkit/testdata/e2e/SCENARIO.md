@@ -116,7 +116,7 @@ Subjects `deb` and `npm`. One check, `unjudgedChangesAtMost` (max 1), undecided 
 
 No cause or explanation. The tar row is the same row as in deb-java (same id), so labeling it in either gate moves the other: once it is labeled, deb has 1 open and npm 1, and deb-npm is **pass**. That is the cross-gate effect. Verified by labeling the two tar rows and the rest of deb-java: deb-npm reports pass with 2 rows still open (gzip, babel).
 
-## Cross-gate page (`/ui/map/gates/`)
+## Every gate (`/ui/gates/?tab=unlabeled`)
 
 `GET /api/gates/shared` lists both gates (deb-npm: undecided, open 3; deb-java: fail, open 10) and 10 findings. The tar CVE-2005-2541 finding is in both gates (rows `deb-npm` and `deb-java`, both `0fe9fc814bcd060a`, dropped) with the fp hint. Each other finding is in one gate: gzip CVE-2026-41992 (deb-npm), GHSA-jfh8-c2jp-5v3q and GHSA-vc5p-v9hr-52mj (deb-java, two rows each), GHSA-67hx-6x53-jw92 (deb-npm), tar CVE-2026-18508 (deb-java), and CVE-2026-3184 on util-linux as four findings (deb-java, one row each).
 
@@ -124,8 +124,9 @@ No cause or explanation. The tar row is the same row as in deb-java (same id), s
 
 - every test starts from this workspace: the seed's `POST /__e2e/reset` (called by the shared fixture in `web/e2e/fixtures.ts`) puts the seeded files back and starts a fresh server. Tests run on one worker, since there is one server. Labeling deb-java through is also what settles deb-npm (pass)
 - labels land in the files above, with `subject.image` as the gate wrote the ref (tag included); `smoke.spec.ts` reads the deb image's `deb.json`, not `claims/global/deb.json`
-- the first group the board opens is the log4j one (GHSA ids), so do not assume a `CVE-` id
-- a board group's key carries its tier (`p|<tier>|<dir>|<pkg>`), and the tier moves as labels land, so select a group by `data-package` (and `data-hinted`) after the first label; deb-java starts with log4j in tier 0, tar CVE-2005-2541 in 2, util-linux (the cause) and tar CVE-2026-18508 in 3
+- `n` on deb-java opens the log4j row first (a GHSA id, the first open row whose label could move a check), so do not assume a `CVE-` id
+- a check lists only what it counts: a labeled row leaves `unjudgedChangesAtMost`, and a tp on an added row leaves `noNewFalsePositives`; `f1NotWorse` lists every changed row, labeled or not
+- the image names hold `tar` and `util-linux`, and the binary packages' purls name `util-linux` as upstream, so a search for either matches more than the package; search the purl (`debian/tar@`)
 - the gates are listed newest scan first, and two scans across a minute boundary swap, so open a gate by its URL rather than `/`
 - the UI writes the row's own purl (version and qualifiers, e.g. `pkg:deb/debian/tar@1.34...?arch=arm64&distro=debian-12`) where `claims add --package` takes a bare one, and an accepted hint carries the proposal's note onto the label; compare labels by package without version
 - the labels written for log4j's vc5p sit beside the seeded unclear label (a different package key), so the file holds both; the exact-version tp decides
