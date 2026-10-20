@@ -6,10 +6,11 @@
 
 .crumbrow { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
 .pager { display: inline-flex; align-items: center; gap: 8px; font-size: 13px; color: var(--muted-foreground); font-variant-numeric: tabular-nums; }
-.pager .step { display: inline-flex; align-items: center; gap: 4px; padding: 2px 6px; border-radius: 6px; text-decoration: none; color: inherit; }
-.pager a.step:hover { background: var(--accent); color: var(--foreground); }
-.pager a.step:hover .kbd { border-color: var(--foreground); color: var(--foreground); }
-.pager .off { opacity: .4; }
+/* a step is a small clickable glyph and its key: the pagers' arrows and the queue's ✕ */
+.step { display: inline-flex; align-items: center; gap: 4px; padding: 2px 6px; border: 0; border-radius: 6px; background: none; font: inherit; text-decoration: none; color: inherit; cursor: pointer; }
+:is(a, button).step:hover { background: var(--accent); color: var(--foreground); }
+:is(a, button).step:hover .kbd { opacity: 1; }
+.step.off { opacity: .4; cursor: default; }
 
 .titlerow .decides { font-size: 12px; white-space: nowrap; }
 .titlerow .could-move, .titlerow .decides { color: var(--foreground); }
@@ -111,19 +112,16 @@
 /* TP / FP / Unclear: one segmented control, the word and its color (UI-RULES 8) */
 .segv { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 4px; padding: 4px; border: 1px solid var(--border); border-radius: 10px; background: var(--muted); }
 .segv button { all: unset; cursor: pointer; display: grid; justify-items: center; gap: 2px; padding: 8px 4px; border-radius: 8px; font-weight: 600; font-size: 14px; }
-.segv button small { font-family: var(--font-mono); font-size: 11px; font-weight: 400; color: var(--faint); }
 .segv button:hover { background: var(--background); }
 .segv button:focus-visible { outline: 2px solid var(--ring); outline-offset: -2px; }
 .segv .tp { color: var(--tp); }
 .segv .fp { color: var(--fp); }
 .segv .unclear { color: var(--unc); }
 .segv button[aria-pressed="true"] { color: #fff; }
-.segv button[aria-pressed="true"] small { color: rgba(255, 255, 255, .8); }
 .segv button[aria-pressed="true"].tp { background: var(--tp); }
 .segv button[aria-pressed="true"].fp { background: var(--fp); }
 .segv button[aria-pressed="true"].unclear { background: var(--unc); }
 .dark .segv button[aria-pressed="true"] { color: var(--background); }
-.dark .segv button[aria-pressed="true"] small { color: color-mix(in oklab, var(--background) 75%, transparent); }
 
 .lpanel .field { display: grid; gap: 8px; font-size: 12.5px; color: var(--muted-foreground); }
 .lpanel .field select, .lpanel .field input { width: 100%; color: var(--foreground); }

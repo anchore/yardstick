@@ -100,9 +100,10 @@ export function queueView(host: HTMLElement, r: QueueRoute, nav: Nav): View {
         el("div", { class: "track", "aria-hidden": "true" }, fill),
         el("span", { class: "quiet", "data-testid": "queue-progress", "data-done": done, "data-left": q.entries.length }, p.text)),
       // the pager is where this row sits and the way to the next one, apart from how much is done
-      pos && el("span", { class: "pager", "data-testid": "queue-pager", "data-index": pos.index + 1, "data-total": pos.total },
+      pos && el("span", { class: "pager qbox", "data-testid": "queue-pager", "data-index": pos.index + 1, "data-total": pos.total },
         link(pos.prev, "previous"), pos.index >= 0 ? `${pos.index + 1} of ${pos.total}` : "labeled", link(pos.next, "next")),
-      el("button", { type: "button", class: "btn", "data-variant": "ghost", "data-size": "sm", "data-testid": "queue-exit", onclick: exit }, "Exit ", kbd("esc")));
+      el("span", { class: "qbox" },
+        el("button", { type: "button", class: "step", "aria-label": "Exit", title: "Exit (esc)", "data-testid": "queue-exit", onclick: exit }, "✕", kbd("esc"))));
   }
 
   // ---------- cards ----------

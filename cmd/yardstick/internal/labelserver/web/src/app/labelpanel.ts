@@ -79,7 +79,7 @@ export function labelPanel(d: FindingData, draft: Draft, advance: boolean, on: P
   const segs = (["tp", "fp", "unclear"] as const).map((v, i) => el("button", {
     type: "button", class: v, "aria-pressed": String(draft.verdict === v), "data-testid": "verdict-button", "data-verdict": v, title: labels[v].long,
     onclick: () => pick(v),
-  }, words[v], el("small", {}, "tfu"[i])));
+  }, words[v], kbd("tfu"[i])));
   const reason = el("select", { class: "select", id: "reason", "data-testid": "reason-picker", onchange: () => { draft.reason = reason.value || undefined; } });
   const note = el("input", { class: "input", id: "note", type: "text", "data-testid": "note-input", value: draft.note, placeholder: p.onFile ? "Why it changed (a newer label wins)" : "Optional",
     oninput: () => { draft.note = note.value; },
