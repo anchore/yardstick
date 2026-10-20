@@ -1,5 +1,5 @@
 import { expect, test } from "./fixtures";
-import { causeGroup, check, log4jGroup, openGate, openGroup } from "./helpers";
+import { causeGroup, check, images, imageTile, log4jGroup, openGate, openGroup } from "./helpers";
 
 test.describe("moving around", () => {
   test("j and k walk the group, and stop at its ends", async ({ page }) => {
@@ -152,16 +152,16 @@ test.describe("image scope", () => {
     await expect(unjudged.getByTestId("group-row")).toHaveCount(4);
 
     await page.keyboard.press("2");
-    await expect(page.locator("[data-testid=image][data-subject=java]")).toHaveAttribute("data-active", "true");
+    await expect(imageTile(page, "java")).toHaveAttribute("data-active", "true");
     await expect(page.getByTestId("image-all")).toHaveAttribute("data-active", "false");
-    await expect(page).toHaveURL(/\?image=java/);
+    await expect(page).toHaveURL(new RegExp("\\?image=" + images.java.slug));
     await expect(unjudged.getByTestId("group-row")).toHaveCount(1);
     await expect(log4jGroup(page)).toBeVisible();
-    await expect(page.getByTestId("scope-name")).toContainText("java");
+    await expect(page.getByTestId("scope-name")).toContainText(images.java.name);
 
     await page.keyboard.press("1");
-    await expect(page.locator("[data-testid=image][data-subject=deb]")).toHaveAttribute("data-active", "true");
-    await expect(page).toHaveURL(/\?image=deb/);
+    await expect(imageTile(page, "deb")).toHaveAttribute("data-active", "true");
+    await expect(page).toHaveURL(new RegExp("\\?image=" + images.deb.slug));
     await expect(unjudged.getByTestId("group-row")).toHaveCount(3);
     await expect(log4jGroup(page)).toHaveCount(0);
     await expect(causeGroup(page)).toBeVisible();
@@ -174,20 +174,20 @@ test.describe("image scope", () => {
 
   test("the image controls scope too, and clicking the active image clears it", async ({ page }) => {
     await openGate(page);
-    const java = page.locator("[data-testid=image][data-subject=java]");
+    const java = imageTile(page, "java");
     await java.click();
     await expect(java).toHaveAttribute("data-active", "true");
-    await expect(page).toHaveURL(/\?image=java/);
+    await expect(page).toHaveURL(new RegExp("\\?image=" + images.java.slug));
     await java.click();
     await expect(page.getByTestId("image-all")).toHaveAttribute("data-active", "true");
-    await page.locator("[data-testid=image][data-subject=deb]").click();
+    await imageTile(page, "deb").click();
     await page.getByTestId("image-all").click();
     await expect(page.getByTestId("image-all")).toHaveAttribute("data-active", "true");
   });
 
   test("?image= in the URL scopes the page, and an unknown image means every image", async ({ page }) => {
-    await page.goto("/ui/map/gates/deb-java/?image=java");
-    await expect(page.locator("[data-testid=image][data-subject=java]")).toHaveAttribute("data-active", "true");
+    await page.goto("/ui/map/gates/deb-java/?image=" + images.java.slug);
+    await expect(imageTile(page, "java")).toHaveAttribute("data-active", "true");
     await expect(page.getByTestId("group-row")).toHaveCount(1);
     await page.goto("/ui/map/gates/deb-java/?image=nope");
     await expect(page.getByTestId("image-all")).toHaveAttribute("data-active", "true");
@@ -195,10 +195,10 @@ test.describe("image scope", () => {
   });
 
   test("a scoped tile only walks that image's matches", async ({ page }) => {
-    await page.goto("/ui/map/gates/deb-java/?image=java");
+    await page.goto("/ui/map/gates/deb-java/?image=" + images.java.slug);
     await openGroup(page, log4jGroup(page));
     await expect(page.getByTestId("tile-position")).toHaveAttribute("data-total", "4");
-    await expect(page.getByTestId("tile-image")).toContainText("java");
+    await expect(page.getByTestId("tile-image")).toContainText(images.java.name);
   });
 });
 

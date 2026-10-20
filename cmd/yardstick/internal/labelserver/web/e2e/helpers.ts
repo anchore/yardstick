@@ -23,7 +23,7 @@ export function diskLabels(): DiskLabel[] {
     const doc = JSON.parse(readFileSync(join(claims, f), "utf8"));
     for (const l of doc.labels ?? []) {
       out.push({
-        file: f, subject: doc.subject?.image?.replace(/^docker.io\/anchore\/yardstick-fixture-/, "").replace(/@.*/, "") ?? "global",
+        file: f, subject: doc.subject?.image?.replace(/@.*/, "").replace(/.*\//, "") ?? "global",
         package: l.package.replace(/[@?].*/, ""), vulnerability: l.vulnerability, verdict: l.verdict, justification: l.justification,
         notes: (l.notes ?? []).map((n: { text: string }) => n.text),
       });
@@ -41,13 +41,25 @@ export const claimSet = () =>
 
 // row ids from SCENARIO.md
 export const rows = {
-  tarDropped: "f6c84232c44b2e7c", // CVE-2005-2541, in both gates
-  tarHand: "f9df921776ca876d", // CVE-2026-18508, no hint
-  utilLinux: ["2817af9158bb4920", "7686e908f573f7b7", "f3639433e8dd7e25", "497821ed48240b13"],
-  jfhA: "92028af2aa075929", jfhB: "db296d8425f164e0",
-  vc5pA: "95d913cf49b90d65", vc5pB: "b5049885e0df8561",
-  gzip: "e49d34ea0fd16e94", babel: "d19a1ab46b67fd84",
+  tarDropped: "0fe9fc814bcd060a", // CVE-2005-2541, in both gates
+  tarHand: "e3bfd3b0b0c30ee6", // CVE-2026-18508, no hint
+  utilLinux: ["9f5eb52729c83cc1", "d2572e8f87a44f74", "781d813b74ed9e10", "12fab8dbf4fcf9e8"],
+  jfhA: "e1af7851f0e60bb4", jfhB: "783bbb63489d81a6",
+  vc5pA: "42c45bf99e4f741b", vc5pB: "a88b3bd584c62516",
+  gzip: "5e50fe5b2007001a", babel: "24160b879ac36bf5",
 };
+
+// the images as the UI names them (repository base and tag, which diskLabels also gives) and as
+// ?image= spells them
+export const images = {
+  deb: { name: "vulnerabilities-debian-12-tar-util-linux:617d48d", slug: "vulnerabilities-debian-12-tar-util-linux-617d48d" },
+  java: { name: "grype-quality-java-log4j-two-jars:e363e44", slug: "grype-quality-java-log4j-two-jars-e363e44" },
+  npm: { name: "grype-quality-npm-babel:8e253b5", slug: "grype-quality-npm-babel-8e253b5" },
+};
+
+// imageTile is an image's small multiple in a board's header
+export const imageTile = (page: Page, image: keyof typeof images) =>
+  page.locator(`[data-testid=image][data-subject="${images[image].name}"]`);
 
 export const javaGate = "/ui/map/gates/deb-java/";
 export const npmGate = "/ui/map/gates/deb-npm/";

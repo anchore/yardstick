@@ -1,7 +1,7 @@
 {
   "schema": "1.0.0",
   "subject": {
-    "image": "docker.io/anchore/yardstick-fixture-java@sha256:e363e4447342edd5320a67f79c6980a1ab26f5a9af3e9fdee5bf14e86b2a4c65"
+    "image": "ghcr.io/anchore/test-images/grype-quality-java-log4j-two-jars:e363e44@sha256:e363e4447342edd5320a67f79c6980a1ab26f5a9af3e9fdee5bf14e86b2a4c65"
   },
   "labels": [
     {

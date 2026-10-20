@@ -1,5 +1,5 @@
 import { expect, test } from "./fixtures";
-import { causeGroup, check, claimSet, gatesPage, group, labelsOf, log4jGroup, openGate, openGroup, pick, rows, tarGroup } from "./helpers";
+import { causeGroup, check, claimSet, gatesPage, group, images, imageTile, labelsOf, log4jGroup, openGate, openGroup, pick, rows, tarGroup } from "./helpers";
 import type { Page } from "@playwright/test";
 
 const states = async (page: Page, want: Record<string, string>) => {
@@ -8,18 +8,19 @@ const states = async (page: Page, want: Record<string, string>) => {
 
 // the labels the seed starts with, which the workflow leaves alone, and what it adds. The unclear on
 // log4j's vc5p stays on file beside the tp that decides it (the tp names the exact version).
+const deb = images.deb.name, java = images.java.name;
 const seeded = [
   "global pkg:deb/debian/libgnutls30 CVE-2011-3389 fp fix-installed",
-  "deb pkg:deb/debian/libc6 CVE-2026-5450 tp no-fix",
-  "deb pkg:deb/debian/tar CVE-2026-5704 fp fix-installed",
-  "java pkg:maven/org.apache.logging.log4j/log4j-core GHSA-vc5p-v9hr-52mj unclear not-assessed",
+  `${deb} pkg:deb/debian/libc6 CVE-2026-5450 tp no-fix`,
+  `${deb} pkg:deb/debian/tar CVE-2026-5704 fp fix-installed`,
+  `${java} pkg:maven/org.apache.logging.log4j/log4j-core GHSA-vc5p-v9hr-52mj unclear not-assessed`,
 ];
 const flipped = [
-  "deb pkg:deb/debian/tar CVE-2005-2541 fp fix-installed",
-  "deb pkg:deb/debian/tar CVE-2026-18508 fp fix-installed",
-  ...["util-linux", "libblkid1", "libmount1", "mount"].map((p) => `deb pkg:deb/debian/${p} CVE-2026-3184 tp no-fix`),
-  "java pkg:maven/org.apache.logging.log4j/log4j-core GHSA-jfh8-c2jp-5v3q tp no-fix",
-  "java pkg:maven/org.apache.logging.log4j/log4j-core GHSA-vc5p-v9hr-52mj tp no-fix",
+  `${deb} pkg:deb/debian/tar CVE-2005-2541 fp fix-installed`,
+  `${deb} pkg:deb/debian/tar CVE-2026-18508 fp fix-installed`,
+  ...["util-linux", "libblkid1", "libmount1", "mount"].map((p) => `${deb} pkg:deb/debian/${p} CVE-2026-3184 tp no-fix`),
+  `${java} pkg:maven/org.apache.logging.log4j/log4j-core GHSA-jfh8-c2jp-5v3q tp no-fix`,
+  `${java} pkg:maven/org.apache.logging.log4j/log4j-core GHSA-vc5p-v9hr-52mj tp no-fix`,
 ];
 
 test("the seeded claims are what SCENARIO.md lists", () => {
@@ -45,13 +46,13 @@ test("labeling through the UI flips deb-java to pass and settles deb-npm", async
   // three checks that score labels until it has one
   await expect(page.getByTestId("gate-outcome")).toHaveAttribute("data-state", "fail");
   await states(page, { f1NotWorse: "fail", noNewFalseNegatives: "fail", noNewFalsePositives: "fail", unjudgedChangesAtMost: "undecided" });
-  await expect(page.locator("[data-testid=image][data-subject=deb]")).toHaveAttribute("data-open", "4");
+  await expect(imageTile(page, "deb")).toHaveAttribute("data-open", "4");
 
   // the util-linux cause, accepted for its four rows: deb has nothing open, java is all that is left
   await causeGroup(page).getByTestId("group-accept").click();
   await expect(causeGroup(page)).toHaveCount(0);
   await states(page, { f1NotWorse: "fail", noNewFalseNegatives: "fail", noNewFalsePositives: "fail", unjudgedChangesAtMost: "undecided" });
-  await expect(page.locator("[data-testid=image][data-subject=deb]")).toHaveAttribute("data-open", "0");
+  await expect(imageTile(page, "deb")).toHaveAttribute("data-open", "0");
 
   // the log4j advisories on the tile: jfh8 first, which gives java a tp label and leaves two checks undecided
   await openGroup(page, log4jGroup(page));
@@ -91,8 +92,8 @@ test("labeling through the UI flips deb-java to pass and settles deb-npm", async
   await npm.getByTestId("gate-board-link").click();
   await expect(page.getByTestId("gate-outcome")).toHaveAttribute("data-state", "pass");
   // gzip and the babel row are still open, one in each image
-  await expect(page.locator("[data-testid=image][data-subject=deb]")).toHaveAttribute("data-open", "1");
-  await expect(page.locator("[data-testid=image][data-subject=npm]")).toHaveAttribute("data-open", "1");
+  await expect(imageTile(page, "deb")).toHaveAttribute("data-open", "1");
+  await expect(imageTile(page, "npm")).toHaveAttribute("data-open", "1");
 });
 
 test("a tar label in one gate moves the other", async ({ page }) => {
@@ -104,7 +105,7 @@ test("a tar label in one gate moves the other", async ({ page }) => {
   await openGate(page, "deb-java");
   // the same row, already judged here: only the labels the deb-java page counts moved
   await expect(tarGroup(page, true)).toHaveCount(0);
-  await expect(page.locator("[data-testid=image][data-subject=deb]")).toHaveAttribute("data-open", "5");
+  await expect(imageTile(page, "deb")).toHaveAttribute("data-open", "5");
   await expect(page.getByTestId("gate-outcome")).toHaveAttribute("data-state", "fail");
 });
 

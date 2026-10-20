@@ -1,5 +1,5 @@
 import { expect, test } from "./fixtures";
-import { causeGroup, check, diskLabels, labelsOf, log4jGroup, openGate, openGroup, pick, rows, tarGroup, verdictButton } from "./helpers";
+import { causeGroup, check, diskLabels, images, labelsOf, log4jGroup, openGate, openGroup, pick, rows, tarGroup, verdictButton } from "./helpers";
 
 async function openTar(page: import("@playwright/test").Page) {
   await openGate(page);
@@ -33,7 +33,7 @@ test.describe("a single hint", () => {
     await page.keyboard.press("a");
     await expect.poll(() => labelsOf("CVE-2005-2541").length).toBe(1);
     expect(labelsOf("CVE-2005-2541")[0]).toMatchObject({
-      subject: "deb", package: "pkg:deb/debian/tar", vulnerability: "CVE-2005-2541", verdict: "fp", justification: "fix-installed",
+      subject: images.deb.name, package: "pkg:deb/debian/tar", vulnerability: "CVE-2005-2541", verdict: "fp", justification: "fix-installed",
     });
   });
 
@@ -93,7 +93,7 @@ test.describe("a package hint", () => {
     await expect.poll(() => labelsOf("CVE-2026-3184").length).toBe(4);
     const written = labelsOf("CVE-2026-3184");
     expect(written.map((l) => l.package).sort()).toEqual(["pkg:deb/debian/libblkid1", "pkg:deb/debian/libmount1", "pkg:deb/debian/mount", "pkg:deb/debian/util-linux"]);
-    for (const l of written) expect(l).toMatchObject({ subject: "deb", verdict: "tp", justification: "no-fix" });
+    for (const l of written) expect(l).toMatchObject({ subject: images.deb.name, verdict: "tp", justification: "no-fix" });
   });
 
   test("A does the same from the keyboard", async ({ page }) => {
