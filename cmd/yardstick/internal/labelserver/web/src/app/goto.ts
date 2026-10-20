@@ -1,7 +1,8 @@
 // goto.ts is where moving between gates goes: the gates with their open counts, the gate ⇧J and
 // ⇧K go to, and the ⌘K palette's entries. Pure: shell.ts, palette.ts and main.ts draw and act.
-import type { GateList, State, Tally } from "../gen/wire";
+import type { GateList, State } from "../gen/wire";
 import { plural } from "../shared/words";
+import { openOf } from "./images";
 import { gateRows, sumTally } from "./listing";
 import { filterRows } from "./table";
 import { formatRoute } from "./route";
@@ -9,8 +10,6 @@ import type { State as Status, Verdict } from "./ui";
 
 export interface GateItem { id: string; state: Status; open: number; total: number }
 
-// openOf is a tally's open rows: unlabeled, and unclear, which doesn't judge a row
-const openOf = (t: Tally | undefined) => (t?.open ?? 0) + (t?.unclear ?? 0);
 
 // gateItems are the gates in the list's order, each with its outcome and open rows
 export const gateItems = (l: GateList): GateItem[] => l.gates.map((g) => {

@@ -3,6 +3,7 @@
 // DOM; the screens draw it.
 import type { CheckFindings, CrossFinding, GateLabel, ImageRef, State, Tally } from "../gen/wire";
 import { pkgOf, srcPkg } from "../shared/rows";
+import { openOf } from "./images";
 import type { Filters, VerdictFilter } from "./route";
 import { filterRows, sortRows } from "./table";
 import type { Verdict } from "./ui";
@@ -122,7 +123,7 @@ export function pageInfo(total: number, page = 1, size = pageSize): PageInfo {
 // ---------- the gate list ----------
 
 // square is an image's square in a gate's strip: open changes, changes all judged, or none
-export const square = (t: Tally | undefined) => (!t?.total ? "none" : t.open ? "open" : "chg");
+export const square = (t: Tally | undefined) => (!t?.total ? "none" : openOf(t) ? "open" : "chg");
 
 // sumTally adds tallies up
 export function sumTally(ts: Tally[]): Tally {

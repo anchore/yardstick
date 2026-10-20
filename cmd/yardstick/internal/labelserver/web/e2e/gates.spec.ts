@@ -14,11 +14,11 @@ async function openUnlabeled(page: Page, q = "") {
 }
 
 test.describe("every gate", () => {
-  test("shows both gates with their outcomes and how much is unlabeled", async ({ page }) => {
+  test("shows both gates with their outcomes and how much is open", async ({ page }) => {
     await page.goto(gatesPage);
     await expect(gateRow(page, "deb-java")).toHaveAttribute("data-state", "fail");
     await expect(gateRow(page, "deb-npm")).toHaveAttribute("data-state", "undecided");
-    await expect(gateRow(page, "deb-npm").getByTestId("gate-unlabeled")).toHaveText(/^3 unlabeled\s*of 3 changed$/);
+    await expect(gateRow(page, "deb-npm").getByTestId("gate-unlabeled")).toHaveText(/^3 open\s*of 3 changed$/);
     await expect(gateRow(page, "deb-npm")).toHaveAttribute("href", "/ui/gates/deb-npm/");
     await expect(gateRow(page, "deb-npm")).toContainText("grype candidate-b vs reference-b");
   });
@@ -72,7 +72,8 @@ test.describe("labeling from every gate", () => {
     await page.getByTestId("tabs").getByRole("tab", { name: /Gates/ }).click();
     await expect(gateRow(page, "deb-npm")).toHaveAttribute("data-state", "pass");
     await expect(gateRow(page, "deb-java")).toHaveAttribute("data-state", "fail");
-    await expect(gateRow(page, "deb-java").getByTestId("gate-unlabeled")).toHaveText(/^7 unlabeled/);
+    // open is unlabeled or unclear: 7 unlabeled and vc5p's two unclear rows
+    await expect(gateRow(page, "deb-java").getByTestId("gate-unlabeled")).toHaveText(/^9 open/);
   });
 
   test("Label as TP on one finding writes a tp label", async ({ page }) => {
@@ -102,6 +103,6 @@ test.describe("labeling from every gate", () => {
     for (const l of labelsOf("CVE-2026-3184")) expect(l).toMatchObject({ subject: images.deb.name, verdict: "tp" });
     await expect(unlabeled(page)).toHaveCount(0);
     await page.getByTestId("tabs").getByRole("tab", { name: /Gates/ }).click();
-    await expect(gateRow(page, "deb-java").getByTestId("gate-unlabeled")).toHaveText(/^4 unlabeled/);
+    await expect(gateRow(page, "deb-java").getByTestId("gate-unlabeled")).toHaveText(/^6 open/);
   });
 });

@@ -14,8 +14,8 @@ test("the gates screen lists each gate with its images, and its tabs list the op
   await expect(gates).toHaveCount(2);
   const java = page.locator("[data-testid=gate-row][data-gate=deb-java]");
   await expect(java).toHaveAttribute("data-state", "fail");
-  // unclear is not unlabeled: 8 of deb-java's 10 open rows have no label at all
-  await expect(java.getByTestId("gate-unlabeled")).toHaveText(/8 unlabeled\s*of 12 changed/);
+  // open is unlabeled or unclear, as everywhere: 8 unlabeled and vc5p's two unclear rows
+  await expect(java.getByTestId("gate-unlabeled")).toHaveText(/10 open\s*of 12 changed/);
   await expect(java.locator(".sq.open")).toHaveCount(2);
   await expect(page.locator("[data-testid=gate-row][data-gate=deb-npm]")).toHaveAttribute("data-state", "undecided");
 

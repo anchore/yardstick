@@ -1,8 +1,8 @@
 // rail.ts is the image rail: the numbered image filter on gate and check screens, and the searchable
 // dropdown (Basecoat's combobox) it collapses to. It's a filter, not navigation: picking an image
 // calls onSelect, and the screen decides what that does to the URL.
-import { el, fill } from "../shared/dom";
-import { matches, order, railKey, sumCounts, type Counts, type RailImage, type RailSort } from "./images";
+import { el, fill, type Child } from "../shared/dom";
+import { matches, openOf, order, railKey, sumCounts, type Counts, type RailImage, type RailSort } from "./images";
 import { plural } from "../shared/words";
 import { imageName, stackBar } from "./ui";
 
@@ -11,8 +11,9 @@ export interface RailOptions {
   selected: string | null;      // the selected image's slug, null for every image
   onSelect: (slug: string | null) => void;
   // "check" when the counts are one check's findings: an image with none reads "none here";
-  // "labels" when they are the labels on each image, which have no verdict bar
-  scope?: "gate" | "check" | "labels";
+  // "labels" when they are the labels on each image, which have no verdict bar; "hints" when
+  // total is the hinted rows on each image (hint review)
+  scope?: Scope;
 }
 
 export interface Rail {
@@ -22,7 +23,11 @@ export interface Rail {
   select(slug: string | null): void;
   // key handles 0-9, [, ] and /, and says whether it did; the page calls it outside text fields
   key(e: KeyboardEvent): boolean;
+  // hints puts hint review's actions in: one in the rail's head, and one under each image (by slug)
+  hints(head: Child, per: (slug: string) => Child): void;
 }
+
+type Scope = "gate" | "check" | "labels" | "hints";
 
 const collapseKey = "yardstick.rail";
 const ALL = "*"; // the combobox's value for every image; Basecoat ignores an empty one
@@ -36,11 +41,12 @@ function setCollapsed(on: boolean) {
 }
 
 // countText is an item's count column
-function countText(c: Counts, scope: "gate" | "check" | "labels") {
+function countText(c: Counts, scope: Scope) {
   if (scope === "labels") return c.total ? plural(c.total, "label") : "no labels";
+  if (scope === "hints") return c.total ? plural(c.total, "hinted row") : "no hints";
   if (c.total === 0) return scope === "check" ? "none here" : "no changes";
-  if (c.open === 0 && scope === "check") return `${c.total} here`;
-  return [el("b", {}, String(c.open)), ` open · ${c.total}`];
+  if (openOf(c) === 0 && scope === "check") return `${c.total} here`;
+  return [el("b", {}, String(openOf(c))), ` open · ${c.total}`];
 }
 
 let seq = 0;
@@ -60,17 +66,19 @@ export function imageRail(o: RailOptions): Rail {
   const sortBtn = el("button", { type: "button", class: "rail-sort-btn", "data-testid": "rail-sort" });
   const list = el("div", { class: "rail-items" });
   const items: HTMLButtonElement[] = [];
+  const acts: (HTMLElement | undefined)[] = []; // hint review's action under each image, by position
+  const head = el("div", { class: "rail-hints", hidden: true });
   const item = (p: number) => {
     const img = p === 0 ? null : o.images[p - 1], c = img ? img.counts : all;
     const b = el("button", {
-      type: "button", class: `im${p === 0 ? " all" : ""}${c.total === 0 ? " none" : c.open === 0 ? " quiet" : ""}`,
+      type: "button", class: `im${p === 0 ? " all" : ""}${c.total === 0 ? " none" : scope !== "hints" && openOf(c) === 0 ? " quiet" : ""}`,
       title: img?.ref, "data-slug": img?.slug ?? "", "data-testid": "rail-image",
       onclick: () => pick(p),
     },
     el("span", { class: "k" }, keyFor(p)),
     p === 0 ? el("span", { class: "imname" }, el("span", { class: "b" }, "All images")) : imageName(img!.name, img!.ref),
     el("span", { class: "ct" }, countText(c, scope)),
-    scope !== "labels" && stackBar(c));
+    scope !== "labels" && scope !== "hints" && stackBar(c));
     items[p] = b;
     return b;
   };
@@ -79,7 +87,7 @@ export function imageRail(o: RailOptions): Rail {
   const rail = el("nav", { class: "rail", "aria-label": scope === "check" ? "Images in this check" : "Images", "data-testid": "image-rail" },
     el("div", { class: "rail-head" }, filter, collapse),
     el("div", { class: "rail-sort" }, el("span", {}, scope === "check" ? "this check's findings" : scope === "labels" ? "labels per image" : "per image"), sortBtn),
-    list);
+    head, list);
 
   // the dropdown: Basecoat's combobox, the variant whose trigger is a button and whose search box
   // sits in the popover. basecoat.js finds it once it is in the document and wires it up.
@@ -88,7 +96,7 @@ export function imageRail(o: RailOptions): Rail {
     return el("div", { role: "option", "data-value": img?.slug ?? ALL, "data-filter": img ? `${img.name} ${img.ref}` : "all images", title: img?.ref },
       el("span", { class: "k" }, keyFor(p)),
       img ? imageName(img.name) : el("span", { class: "imname" }, el("span", { class: "b" }, "All images")),
-      el("span", { class: "ct" }, scope === "labels" ? countText(c, scope) : c.open ? `${c.open} open` : scope === "check" && c.total ? `${c.total} here` : "0 open"));
+      el("span", { class: "ct" }, scope === "labels" || scope === "hints" ? countText(c, scope) : openOf(c) ? `${openOf(c)} open` : scope === "check" && c.total ? `${c.total} here` : "0 open"));
   });
   const current = el("span", { class: "cur" });
   const trigger = el("button", { type: "button", class: "btn", "data-variant": "outline", "aria-haspopup": "listbox", "aria-expanded": "false", "aria-controls": `${id}-listbox`, "data-testid": "image-picker-button" },
@@ -118,8 +126,8 @@ export function imageRail(o: RailOptions): Rail {
     const q = filter.value;
     sortBtn.textContent = sort === "gate" ? "gate order ▾" : "most open ▾";
     sortBtn.title = sort === "gate" ? "Sort by most open" : "Sort in gate order";
-    fill(list, items[0], order(o.images, sort).map((i) => items[i + 1]));
-    o.images.forEach((img, i) => (items[i + 1].hidden = !matches(img, q)));
+    fill(list, items[0], order(o.images, sort).map((i) => [items[i + 1], acts[i + 1]]));
+    o.images.forEach((img, i) => { items[i + 1].hidden = !matches(img, q); if (acts[i + 1]) acts[i + 1]!.hidden = items[i + 1].hidden; });
     items.forEach((b, p) => b.setAttribute("aria-pressed", String(p === posOf(sel))));
     const img = sel == null ? null : o.images[posOf(sel) - 1];
     fill(current, img ? imageName(img.name, img.ref) : "All images");
@@ -147,6 +155,15 @@ export function imageRail(o: RailOptions): Rail {
   return {
     rail, picker,
     select(slug) { if (slug !== sel) { sel = slug; draw(); } },
+    hints(h, per) {
+      fill(head, h);
+      head.hidden = !h;
+      o.images.forEach((img, i) => {
+        const a = per(img.slug);
+        acts[i + 1] = a ? el("div", { class: "im-act", "data-testid": "rail-act", "data-image": img.slug }, a) : undefined;
+      });
+      draw();
+    },
     key(e) {
       if (e.key === "/") {
         if (rail.hidden) trigger.click(); else filter.focus();

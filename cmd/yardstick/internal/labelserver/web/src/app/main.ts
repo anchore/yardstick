@@ -14,6 +14,8 @@ import { gateList } from "./data";
 import { findingView } from "./finding";
 import { gateView } from "./gate";
 import { gatesView } from "./gates";
+import { hintsView } from "./hints";
+import { hintsHref } from "./hintsdata";
 import { gateItems, nextGate } from "./goto";
 import { kitView } from "./kit";
 import { openPalette } from "./palette";
@@ -48,7 +50,8 @@ function render() {
         : next.level === "gate" ? gateView(host, next, nav)
           : next.level === "check" ? checkView(host, next, nav)
             : next.level === "finding" ? findingView(host, next, nav)
-              : placeholder(next);
+              : next.level === "hints" ? hintsView(host, next, nav)
+                : placeholder(next);
 }
 
 // placeholder is a labeling flow screen its next wave builds
@@ -103,6 +106,13 @@ document.addEventListener("keydown", (e) => {
   }
   // ⌥ reaches the screen only as ⌥j and ⌥k, which the finding page walks every row with
   if (e.altKey && e.code !== "KeyJ" && e.code !== "KeyK") return;
+  // h opens hint review for the gate or image on screen, else every gate
+  if (e.key === "h" && !e.altKey && route && route.level !== "hints") {
+    e.preventDefault();
+    history.pushState(null, "", hintsHref({ gate: gateOf(route) ?? undefined, image: route.filters.image }));
+    render();
+    return;
+  }
   if (view.key?.(e)) {
     e.preventDefault();
     return;

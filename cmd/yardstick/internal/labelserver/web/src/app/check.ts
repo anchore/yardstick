@@ -10,6 +10,7 @@ const sentenceCase = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
 import { noCounts } from "./images";
 import { checkRows, nextOpen, type FRow } from "./listing";
 import { failed, loading, primary, shown } from "./lists";
+import { railHints } from "./hints";
 import { imageRail } from "./rail";
 import { formatRoute, withFilters, type Route } from "./route";
 import { renderShell, type Nav, type View } from "./shell";
@@ -26,6 +27,7 @@ export function checkView(host: HTMLElement, r0: CheckRoute, nav: Nav): View {
     const images = railImages(st).map((i) => ({ ...i, counts: f.images[i.slug] ?? noCounts }));
     const imageOf = (slug: string | undefined) => images.find((i) => i.slug === slug) ?? null;
     const rail = imageRail({ images, selected: imageOf(r.filters.image)?.slug ?? null, scope: "check", onSelect: (slug) => nav(withFilters(r, { image: slug ?? undefined })) });
+    railHints(rail, gate);
 
     // "Images" hides the rail, or its dropdown when collapsed, and brings back whichever it was
     let was: [boolean, boolean] | null = null;

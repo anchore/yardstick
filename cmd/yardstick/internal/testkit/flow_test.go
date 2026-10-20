@@ -149,6 +149,11 @@ func TestE2ELabelingFlow(t *testing.T) {
 	if !slices.Equal(lines, want) || all.Low != 0 {
 		t.Errorf("hints (low %d):\n%s\nwant:\n%s", all.Low, strings.Join(lines, "\n"), strings.Join(want, "\n"))
 	}
+	// the vc5p hint replaces a person's unclear label, whose note review shows as the reason
+	if i := slices.IndexFunc(all.Hints, func(x labelserver.HintEntry) bool { return x.Replaces }); i < 0 || all.Hints[i].Rows[0].Label == nil ||
+		all.Hints[i].Rows[0].Label.Note != "needs a look at the JNDI lookup config" {
+		t.Errorf("the replacing hint's label: %+v", all.Hints)
+	}
 	if java := hints(t, h, "?image="+javaSlug); len(java.Hints) != 2 {
 		t.Errorf("java hints: %d", len(java.Hints))
 	}

@@ -70,6 +70,7 @@ type FindingLabel struct {
 	Verdict       string `json:"verdict"` // tp, fp or unclear
 	Justification string `json:"justification,omitempty"`
 	Source        string `json:"source"`
+	Note          string `json:"note,omitempty"` // the newest note, why it was chosen
 }
 
 // FindingHint is the agent's pending suggestion on an open row: its own proposal, else a cause
@@ -114,7 +115,11 @@ func labelOf(b *pairing.Bound, verdict string) *FindingLabel {
 	if b == nil || verdict == unlabeled {
 		return nil
 	}
-	return &FindingLabel{Verdict: verdict, Justification: b.Justification, Source: b.Held[0].Source}
+	l := &FindingLabel{Verdict: verdict, Justification: b.Justification, Source: b.Held[0].Source}
+	if n := len(b.Notes); n > 0 {
+		l.Note = b.Notes[n-1].Text
+	}
+	return l
 }
 
 // hintFor is an open row's pending hint: its proposal, else a cause it is a pending member of.
