@@ -1,4 +1,4 @@
-// words.ts is how the pages say things: label glyphs, direction marks, counts and numbers, and a
+// words.ts is how the pages say things: label glyphs, directions, counts and numbers, and a
 // row's computed reason in words. Pure: no DOM, no page state.
 import type { Vocabulary, report } from "../gen/wire";
 
@@ -10,7 +10,6 @@ export const labels: Record<string, LabelWords> = {
   unlabeled: { glyph: "◌", word: "unlabeled", long: "unlabeled" },
 };
 export const dots: Record<string, string> = { high: "•••", medium: "••◦", low: "•◦◦" };
-export const marks: Record<string, string> = { added: "+", dropped: "−", both: "=", neither: "∅" };
 export const dirWords: Record<string, string> = { added: "the candidate added this", dropped: "the candidate dropped this", both: "both sides found this", neither: "neither side found this" };
 export const dirTitle: Record<string, string> = { added: "+ candidate added", dropped: "− candidate dropped" };
 
@@ -67,10 +66,3 @@ export const justWords = (state: { vocabulary?: Vocabulary } | undefined, verdic
   (j ? state?.vocabulary?.justifications?.[verdict ?? ""]?.[j] || j : "");
 // ruleWords turns a rule id into words: "sbom/code-not-in-binary" → "sbom: code not in binary"
 export const ruleWords = (rule: string | undefined) => (rule ? rule.replace("/", ": ").replace(/-/g, " ") : "");
-// firstSentence is the note's first sentence, cut at about 110 characters
-export function firstSentence(text: string | undefined) {
-  const m = (text || "").match(/^.*?[.;](\s|$)/);
-  let t = (m ? m[0] : text || "").trim().replace(/[.;]$/, "");
-  if (t.length > 110) t = `${t.slice(0, 108).replace(/\s+\S*$/, "")}…`;
-  return t;
-}

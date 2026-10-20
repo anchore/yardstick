@@ -25,7 +25,7 @@ func TestCheckLicenses(t *testing.T) {
 		}
 	}
 	meta := func(inputs ...string) string {
-		return `{"inputs": {"src/map/app.ts": {}, "` + strings.Join(inputs, `": {}, "`) + `": {}}}`
+		return `{"inputs": {"src/app/main.ts": {}, "` + strings.Join(inputs, `": {}, "`) + `": {}}}`
 	}
 
 	if err := checkLicenses(meta("node_modules/ok/index.js", "node_modules/@scope/ok/lib/a.js", "node_modules/ok/node_modules/nested/x.js"), web); err != nil {
