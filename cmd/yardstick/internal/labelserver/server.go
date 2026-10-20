@@ -117,7 +117,7 @@ const TokenHeader = "X-Yardstick-Token" //nolint:gosec // a header name, not a c
 // Options are what a server serves.
 type Options struct {
 	Run    string // the run name whose gates are served, .yardstick/runs/<run>/
-	Open   string // the gate "/" opens, by name; empty for the one scanned last
+	Open   string // the gate "/" opens, by name; empty for the list of gates
 	Author string // who the labels written are by
 	// Load loads a gate file as the CLI does, with its --claims.
 	Load  func(path string) (*gatefile.Gate, error)
@@ -155,12 +155,9 @@ func (s *Server) Handler() http.Handler {
 	mux := http.NewServeMux()
 	mux.Handle("GET /assets/", http.StripPrefix("/assets/", http.FileServerFS(static)))
 	mux.HandleFunc("GET /{$}", s.handleRoot)
-	mux.HandleFunc("GET /ui/map/gates/{$}", func(w http.ResponseWriter, _ *http.Request) { s.servePage(w, "assets/map/gates.html") })
-	mux.HandleFunc("GET /ui/map/gates/{gate}/{rest...}", func(w http.ResponseWriter, req *http.Request) {
-		if e := s.gateFor(w, req); e != nil {
-			s.servePage(w, "assets/map/index.html")
-		}
-	})
+	// the old map UI's pages, bookmarked and in links people pasted, go to their new screens
+	mux.HandleFunc("GET /ui/map/gates/{$}", redirectOldMap)
+	mux.HandleFunc("GET /ui/map/gates/{gate}/{rest...}", redirectOldMap)
 
 	// the new UI: one page, routed client side. _kit is the component kit, not a gate
 	mux.HandleFunc("GET /ui/gates/{$}", func(w http.ResponseWriter, _ *http.Request) { s.servePage(w, "assets/app/index.html") })
@@ -193,28 +190,52 @@ func (s *Server) Handler() http.Handler {
 	return mux
 }
 
-// handleRoot opens the gate given on the command line, else the one scanned last.
+// handleRoot opens the gate given on the command line, else the list of gates.
 func (s *Server) handleRoot(w http.ResponseWriter, req *http.Request) {
-	name := s.opts.Open
-	if name == "" {
-		all, err := s.entries()
-		if err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-			return
-		}
-		// the gate scanned last that can be scored
-		for _, e := range all {
-			if _, err := s.view(e); err == nil {
-				name = e.name
-				break
-			}
-		}
-		if name == "" {
-			http.Error(w, "no gate scanned under run "+s.opts.Run+" can be scored; yardstick claims serve reads .yardstick/runs/ in the working directory", http.StatusNotFound)
-			return
+	to := "/ui/gates/"
+	if s.opts.Open != "" {
+		to += url.PathEscape(s.opts.Open) + "/"
+	}
+	http.Redirect(w, req, to, http.StatusFound)
+}
+
+// redirectOldMap sends a /ui/map/ URL to the screen that took its place, keeping the image filter:
+// the every-gate page (?gate= names a gate) to the gates list or that gate, a gate's board to the
+// gate, its delta map to the Scan map tab (a package block to the Findings tab filtered to it), and
+// a check's cards to the check. The #row= a card carried never reaches the server.
+func redirectOldMap(w http.ResponseWriter, req *http.Request) {
+	q, keep := req.URL.Query(), url.Values{}
+	if v := q.Get("image"); v != "" {
+		keep.Set("image", v)
+	}
+	// segments split before unescaping, since a package name can hold an escaped slash
+	var p []string
+	for _, seg := range strings.Split(strings.TrimPrefix(req.URL.EscapedPath(), "/ui/map/gates/"), "/") {
+		v, _ := url.PathUnescape(seg)
+		p = append(p, v)
+	}
+	gate := p[0]
+	if gate == "" {
+		gate = q.Get("gate")
+	}
+	to := "/ui/gates/"
+	if gate != "" {
+		to += url.PathEscape(gate) + "/"
+		p = append(p[1:], "")
+		switch {
+		case p[0] == "delta" && len(p) >= 4 && p[3] != "all" && p[3] != "":
+			keep.Set("pkg", p[3])
+			to += "findings"
+		case p[0] == "delta":
+			to += "map"
+		case p[0] == "check" && len(p) >= 2 && p[1] != "":
+			to += "checks/" + url.PathEscape(p[1])
 		}
 	}
-	http.Redirect(w, req, "/ui/map/gates/"+url.PathEscape(name)+"/", http.StatusFound)
+	if len(keep) > 0 {
+		to += "?" + keep.Encode()
+	}
+	http.Redirect(w, req, to, http.StatusFound)
 }
 
 // servePage serves a page with the write token filled in.

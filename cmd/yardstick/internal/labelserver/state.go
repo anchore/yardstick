@@ -467,7 +467,7 @@ func (s *Server) handleGateList(w http.ResponseWriter, _ *http.Request) {
 			continue
 		}
 		if out.Open == "" {
-			out.Open = e.name // the gate scanned last that can be scored, as / opens
+			out.Open = e.name // the gate scanned last that can be scored
 		}
 		l := GateListItem{RunSummary: summarize(e, v), Changes: v.changes(), GateOutcome: analysis.Undecided, GateNote: v.stale}
 		if v.stale == "" {
@@ -488,7 +488,8 @@ type GateListItem struct {
 	Error       string         `json:"error,omitempty"`
 }
 
-// GateList is GET /api/gates: every gate scanned under the run, and the one "/" opens.
+// GateList is GET /api/gates: every gate scanned under the run, and the one to open first: the one
+// the command line named, else the one scanned last that can be scored.
 type GateList struct {
 	Open  string         `json:"open"`
 	Gates []GateListItem `json:"gates"`
