@@ -1,0 +1,87 @@
+import { describe, expect, test } from "bun:test";
+import { crumbs, formatRoute, parseRoute, up, withFilters, type Route } from "./route";
+
+// parse splits a URL the way location does
+function parse(url: string) {
+  const u = new URL(url, "http://localhost");
+  return parseRoute(u.pathname, u.search);
+}
+
+const routes: Route[] = [
+  { level: "gates", tab: "gates", filters: {} },
+  { level: "gates", tab: "unlabeled", filters: { image: "core" } },
+  { level: "gates", tab: "labels", filters: { verdict: "fp", page: 3 } },
+  { level: "kit", filters: {} },
+  { level: "gate", gate: "grype-upgrade", tab: "checks", filters: {} },
+  { level: "gate", gate: "grype-upgrade", tab: "findings", filters: { image: "grype-quality-golang-d89207b", verdict: "unlabeled" } },
+  { level: "gate", gate: "grype-upgrade", tab: "labels", filters: { q: "log4j core", page: 2 } },
+  { level: "gate", gate: "my gate/x", tab: "map", filters: {} },
+  { level: "check", gate: "grype-upgrade", check: "f1NotWorse", filters: { hint: "yes" } },
+  { level: "finding", gate: "grype-upgrade", check: "f1NotWorse", row: "3e91c0a7d2b4f816", filters: { image: "core", verdict: "tp" } },
+  { level: "finding", gate: "grype-upgrade", check: null, row: "3e91c0a7d2b4f816", filters: {} },
+];
+
+describe("formatRoute", () => {
+  test("each level has its documented path", () => {
+    expect(formatRoute(routes[0])).toBe("/ui/gates/");
+    expect(formatRoute(routes[1])).toBe("/ui/gates/?tab=unlabeled&image=core");
+    expect(formatRoute(routes[3])).toBe("/ui/gates/_kit");
+    expect(formatRoute(routes[4])).toBe("/ui/gates/grype-upgrade/");
+    expect(formatRoute(routes[5])).toBe("/ui/gates/grype-upgrade/findings?image=grype-quality-golang-d89207b&verdict=unlabeled");
+    expect(formatRoute(routes[7])).toBe("/ui/gates/my%20gate%2Fx/map");
+    expect(formatRoute(routes[8])).toBe("/ui/gates/grype-upgrade/checks/f1NotWorse?hint=yes");
+    expect(formatRoute(routes[9])).toBe("/ui/gates/grype-upgrade/checks/f1NotWorse/3e91c0a7d2b4f816?image=core&verdict=tp");
+    expect(formatRoute(routes[10])).toBe("/ui/gates/grype-upgrade/findings/3e91c0a7d2b4f816");
+  });
+  test("page 1 stays out of the URL", () => {
+    expect(formatRoute({ level: "gate", gate: "g", tab: "labels", filters: { page: 1 } })).toBe("/ui/gates/g/labels");
+  });
+});
+
+describe("parseRoute", () => {
+  test("routes round-trip", () => {
+    for (const r of routes) expect(parse(formatRoute(r))).toEqual(r);
+  });
+  test("the gate path parses with or without its trailing slash", () => {
+    expect(parse("/ui/gates/g")).toEqual({ level: "gate", gate: "g", tab: "checks", filters: {} });
+    expect(parse("/ui/gates/g/checks/c/")).toEqual({ level: "check", gate: "g", check: "c", filters: {} });
+  });
+  test("unknown filters, tabs and verdicts are dropped", () => {
+    expect(parse("/ui/gates/?tab=nope&verdict=maybe&page=x&foo=1")).toEqual({ level: "gates", tab: "gates", filters: {} });
+  });
+  test("paths outside the app are null", () => {
+    for (const p of ["/ui/map/gates/", "/ui/gates/g/nope", "/ui/gates/g/checks", "/ui/gates/g/checks/c/r/extra", "/ui/gates/g/findings/r/x", "/ui/gates/%E0%A4%A/"]) {
+      expect(parse(p)).toBeNull();
+    }
+  });
+});
+
+describe("up and crumbs", () => {
+  test("Esc walks one level at a time to the top", () => {
+    const chain: string[] = [];
+    for (let r: Route | null = routes[9]; r; r = up(r)) chain.push(formatRoute(r));
+    expect(chain).toEqual([
+      "/ui/gates/grype-upgrade/checks/f1NotWorse/3e91c0a7d2b4f816?image=core&verdict=tp",
+      "/ui/gates/grype-upgrade/checks/f1NotWorse?image=core&verdict=tp",
+      "/ui/gates/grype-upgrade/?image=core",
+      "/ui/gates/",
+    ]);
+  });
+  test("a finding from the Findings tab goes back to that tab", () => {
+    expect(formatRoute(up(routes[10])!)).toBe("/ui/gates/grype-upgrade/findings");
+  });
+  test("crumbs are nouns, top first, the finding named when known", () => {
+    expect(crumbs(routes[9], "CVE-2019-13139").map((c) => c.label)).toEqual(["Gates", "grype-upgrade", "f1NotWorse", "CVE-2019-13139"]);
+    expect(crumbs(routes[10]).map((c) => c.label)).toEqual(["Gates", "grype-upgrade", "3e91c0a7d2b4f816"]);
+    expect(crumbs(routes[0])).toEqual([{ label: "Gates", href: "/ui/gates/" }]);
+  });
+});
+
+describe("withFilters", () => {
+  test("sets and drops filters, and resets the page unless it is the change", () => {
+    const r: Route = { level: "check", gate: "g", check: "c", filters: { image: "a", page: 4 } };
+    expect(withFilters(r, { image: undefined, verdict: "tp" }).filters).toEqual({ verdict: "tp" });
+    expect(withFilters(r, { page: 5 }).filters).toEqual({ image: "a", page: 5 });
+    expect(withFilters(r, { q: "" }).filters).toEqual({ image: "a" });
+  });
+});

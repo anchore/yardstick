@@ -16,6 +16,7 @@ func Options(webDir string) api.BuildOptions {
 		EntryPoints: []string{
 			"src/map/app.ts", "src/map/gates.ts",
 			"src/map/app.css", "src/map/gates.css", "src/shared/tile.css",
+			"src/app/main.ts", "src/app/app.css",
 		},
 		Outbase:    "src",
 		Outdir:     filepath.Join(webDir, "..", "assets", "dist"),
