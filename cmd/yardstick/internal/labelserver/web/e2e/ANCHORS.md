@@ -19,6 +19,8 @@ Routes (`route.ts`): `/ui/gates/` (level 0, `?tab=unlabeled|labels`), `/ui/gates
 | `gate-switch`, `gate-switch-button` | the gate crumb's switcher and its ▾ trigger; the menu is filled as it opens | |
 | `gate-option` | one gate in the switcher, a link to the same level there | `data-gate`, `data-state`, `data-open` (unlabeled and unclear rows), `aria-current` on this gate |
 | `goto-button` | "Go to…" in the app bar, which opens the palette like `⌘K` / `ctrl+K` | |
+| `history-entry` | "History" in the app bar, a link to `/ui/history`; its title says what the count is | `data-count` (labels written since the server started) |
+| `history-count` | the entry's count pill | `hidden` at 0 |
 | `activity` | the research chip in the app bar: "2 researching · 13 queued" (a link to the jobs page) or "✦ N new hints" (a link to hint review) | `data-state` `busy` or `hints`, `hidden` with neither |
 | `settings`, `settings-button` | the settings cog at the app bar's right end (Basecoat's popover) and its trigger, named "Settings" | `aria-expanded` on the button |
 | `settings-panel` | the open popover; keys pressed in it stay in it, and `Esc` closes it | `aria-hidden` while closed |

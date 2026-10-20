@@ -5,7 +5,7 @@ import { checkPage, gatePage, gatesPage, openFinding, rows } from "./helpers";
 test("every level carries its anchors", async ({ page }) => {
   // level 0
   await page.goto(gatesPage);
-  for (const id of ["app-bar", "settings-button", "breadcrumb", "title-row", "title", "tabs", "gate-rows", "work-banner", "review-hints", "label-left"]) await expect(page.getByTestId(id), id).toBeVisible();
+  for (const id of ["app-bar", "history-entry", "settings-button", "breadcrumb", "title-row", "title", "tabs", "gate-rows", "work-banner", "review-hints", "label-left"]) await expect(page.getByTestId(id), id).toBeVisible();
   await page.getByTestId("settings-button").click();
   for (const id of ["settings-panel", "advance-checkbox", "queue-skip", "settings-theme"]) await expect(page.getByTestId(id), id).toBeVisible();
   await expect(page.getByTestId("theme-option")).toHaveCount(3);

@@ -157,3 +157,43 @@ test.describe("toast undo", () => {
     await expect(toast(page).getByTestId("toast-action")).toHaveCount(0);
   });
 });
+
+test.describe("the app bar's history entry", () => {
+  const entry = (page: Page) => page.getByTestId("history-entry");
+  const counts = async (page: Page, n: number) => {
+    await expect(entry(page)).toHaveAttribute("data-count", String(n));
+    if (n) await expect(page.getByTestId("history-count")).toHaveText(String(n));
+    else await expect(page.getByTestId("history-count")).toBeHidden();
+    await expect(entry(page)).toHaveText(n ? `History${n}` : "History");
+  };
+
+  test("counts what this server wrote, after writes, an Undo and a remove, and opens history", async ({ page }) => {
+    await page.goto("/ui/gates/");
+    await counts(page, 0);
+    await expect(entry(page)).toHaveAttribute("title", /^0 labels written to .+ since the server started$/);
+
+    // a hand label, then an accepted hint
+    await openFinding(page, rows.tarHand);
+    await setPref(page, "advance-checkbox", false);
+    await label(page, "f", "fix-installed");
+    await counts(page, 1);
+    await openFinding(page, rows.tarDropped);
+    await page.keyboard.press("a");
+    await expect(toast(page)).toContainText(/hint accepted/);
+    await counts(page, 2);
+    await expect(entry(page)).toHaveAttribute("title", /^2 labels written to /);
+
+    // the hint's Undo takes it back off
+    await toast(page).getByTestId("toast-action").click();
+    await expect(toast(page)).toContainText("1 label removed");
+    await counts(page, 1);
+
+    // the entry opens history since the server started, where a remove counts down too
+    await entry(page).click();
+    await expect(page).toHaveURL(/\/ui\/history$/);
+    await expect(lines(page)).toHaveCount(1);
+    await line(page, "CVE-2026-18508").getByTestId("history-remove").click();
+    await expect(toast(page)).toContainText("1 label removed");
+    await counts(page, 0);
+  });
+});
