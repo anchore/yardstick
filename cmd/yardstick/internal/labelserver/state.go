@@ -207,15 +207,17 @@ type GateResult struct {
 }
 
 type CheckResult struct {
-	Name        string             `json:"name"`
-	Description string             `json:"description"`
-	ValueMeans  string             `json:"valueMeans"`
-	Counts      string             `json:"counts,omitempty"`
-	Direction   string             `json:"direction"`
-	Params      map[string]float64 `json:"params,omitempty"`
-	Threshold   float64            `json:"threshold"`
-	Value       analysis.Value     `json:"value"`
-	State       analysis.State     `json:"state"`
+	Name        string `json:"name"`
+	Description string `json:"description"`
+	// Summary is the check's meaning in a short line, for a list row; Description is in full.
+	Summary    string             `json:"summary,omitempty"`
+	ValueMeans string             `json:"valueMeans"`
+	Counts     string             `json:"counts,omitempty"`
+	Direction  string             `json:"direction"`
+	Params     map[string]float64 `json:"params,omitempty"`
+	Threshold  float64            `json:"threshold"`
+	Value      analysis.Value     `json:"value"`
+	State      analysis.State     `json:"state"`
 	// FailsOn are the rows whose label decides the check: behind its failing (decidingRows).
 	FailsOn []string `json:"failsOn,omitempty"`
 }
@@ -226,16 +228,16 @@ const (
 	atLeast = "atLeast"
 )
 
-// checkWords say what each check's value is, what it counts, and which side of the threshold
-// passes: the UI's words for checks it draws.
-var checkWords = map[string]struct{ means, counts, direction string }{
-	analysis.F1NotWorse:             {"the reference's F1 less the candidate's", "f1", atMost},
-	analysis.NoNewFalseNegatives:    {"new false negatives", "fn", atMost},
-	analysis.NoNewFalsePositives:    {"new false positives", "fp", atMost},
-	analysis.UnjudgedChangesAtMost:  {"unlabeled deltas", "unjudged", atMost},
-	analysis.UnlabeledPercentAtMost: {"percent of the candidate's matches unlabeled", "unjudged", atMost},
-	analysis.ExpectationsMetAtLeast: {"expectations the candidate meets", "", atLeast},
-	analysis.NoNewMisses:            {"expectations the candidate newly misses", "", atMost},
+// checkWords say what each check's value is, what it counts, which side of the threshold passes,
+// and its meaning in a short line: the UI's words for checks it draws.
+var checkWords = map[string]struct{ means, counts, direction, summary string }{
+	analysis.F1NotWorse:             {"the reference's F1 less the candidate's", "f1", atMost, "Candidate F1 must not fall below the reference's"},
+	analysis.NoNewFalseNegatives:    {"new false negatives", "fn", atMost, "No true matches lost by the candidate"},
+	analysis.NoNewFalsePositives:    {"new false positives", "fp", atMost, "No false matches added by the candidate"},
+	analysis.UnjudgedChangesAtMost:  {"unlabeled deltas", "unjudged", atMost, "Unlabeled changes stay under the limit"},
+	analysis.UnlabeledPercentAtMost: {"percent of the candidate's matches unlabeled", "unjudged", atMost, "Unlabeled share of the candidate's matches stays under the limit"},
+	analysis.ExpectationsMetAtLeast: {"expectations the candidate meets", "", atLeast, "Enough expectations met by the candidate"},
+	analysis.NoNewMisses:            {"expectations the candidate newly misses", "", atMost, "No expectations newly missed by the candidate"},
 }
 
 func (v *view) gateStatus(e *entry) *GateStatus {
@@ -257,7 +259,7 @@ func (v *view) result(g *gatefile.Gate, outcome analysis.State, checks []analysi
 	}
 	for _, c := range checks {
 		w := checkWords[c.Name]
-		cr := CheckResult{Name: c.Name, Description: analysis.Registry[c.Name].Description, ValueMeans: w.means, Counts: w.counts,
+		cr := CheckResult{Name: c.Name, Description: analysis.Registry[c.Name].Description, Summary: w.summary, ValueMeans: w.means, Counts: w.counts,
 			Direction: w.direction, Params: c.Params, Threshold: c.Threshold, Value: c.Value, State: c.State}
 		if c.Message != "" {
 			cr.Description += "; " + c.Message
