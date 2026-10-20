@@ -48,6 +48,22 @@
 //	                            appends an agentstore.Override
 //	POST preview              ← analysis.EvaluateAs over the cached pairing, nothing re-read
 //
+// The /ui/gates/ tables, new and not delta's:
+//
+//	state.subjects[].changes  ← Tally over the subject's rows only one setup reports: verdictOf, and
+//	                            hinted for an open row with a pending proposal or pending cause member
+//	checks/{c}/findings       ← analysis.Check of the gate: per subject its FailsOn (effect decides when
+//	                            that subject fails the check, else counted) and Rows, plus any open row
+//	                            whose analysis.Effect narrows or could flip it (could-move when a tp or
+//	                            fp label alone changes the check's state, else counted); a per-gate
+//	                            check's Unmet expectations, on a row only when a match pairs the label.
+//	                            check is this package's CheckResult; images tallies findings by slug
+//	labels                    ← pairing.Result.Labels of every subject, a global label once: source is
+//	                            its first claims.Label.Held, decides the checks failing on a row it is
+//	                            the deciding label of (or an unmet expectation it is), row the first
+//	                            changed such row. Newest lastUpdated first; counts skip the verdict
+//	                            filter and perImage the image filter
+//
 //	row.research, researchLevel, researched, researchedBy, hint.origin
 //	                          ← research.Job records under .yardstick/research/jobs/, as in delta;
 //	                            researchedBy reads only the newest proposal (no history kept)
@@ -145,10 +161,20 @@ func (s *Server) Handler() http.Handler {
 		}
 	})
 
+	// the new UI: one page, routed client side
+	mux.HandleFunc("GET /ui/gates/{$}", func(w http.ResponseWriter, _ *http.Request) { s.servePage(w, "assets/app/index.html") })
+	mux.HandleFunc("GET /ui/gates/{gate}/{rest...}", func(w http.ResponseWriter, req *http.Request) {
+		if e := s.gateFor(w, req); e != nil {
+			s.servePage(w, "assets/app/index.html")
+		}
+	})
+
 	mux.HandleFunc("GET /api/gates", s.handleGateList)
 	mux.HandleFunc("GET /api/gates/shared", s.handleShared)
 	const g = "/api/gates/{gate}"
 	mux.HandleFunc("GET "+g+"/state", s.handleState)
+	mux.HandleFunc("GET "+g+"/checks/{check}/findings", s.handleCheckFindings)
+	mux.HandleFunc("GET "+g+"/labels", s.handleGateLabels)
 	mux.HandleFunc("GET "+g+"/rows/{id}", s.handleRow)
 	mux.HandleFunc("GET "+g+"/rows/{id}/matches", s.handleMatches)
 	mux.HandleFunc("GET "+g+"/package-hints/{id}", s.handleCause)
