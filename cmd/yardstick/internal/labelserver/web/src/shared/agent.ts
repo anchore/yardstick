@@ -1,12 +1,6 @@
-// agent.ts is the tile's agent card: the agent hint on the row, open or already labeled, where it
-// came from, and the row's research.
-import type { HintSummary, StateCause } from "../gen/wire";
-import { el } from "./dom";
-import { isOpen, isResearched, type Row } from "./rows";
-import type { TileCtx } from "./tile";
-import { dots, justWords, labels, plural, ruleWords } from "./words";
-
-const hintStatus: Record<string, string> = { accepted: "the label came from it", agrees: "the label agrees", disagrees: "⚠ the label disagrees" };
+// agent.ts says where an agent hint came from and where the row's research is.
+import type { HintSummary } from "../gen/wire";
+import type { Row } from "./rows";
 
 // provenance says where a hint came from: the skill, and who started the research that left it
 const originWords: Record<string, string> = { "label-ui": "requested in the label UI", cli: "requested with yardstick", "research-job": "requester not recorded" };
@@ -27,35 +21,4 @@ export function researchLine(r: Row) {
   const fresh = r.hint.written && j.started && new Date(r.hint.written) >= new Date(j.started);
   const when = j.finished ? ` ${new Date(j.finished).toLocaleDateString()}` : "";
   return fresh ? "" : `research${when} left no new agent hint; the one here is older`;
-}
-
-// agent is the agent hint for the row, open or already labeled, and the row's research. The
-// verdict and confidence are the button that opens the hint's note, facts and rule (w).
-export function agent(ctx: TileCtx, h: HintSummary | undefined, cause: StateCause | undefined) {
-  const { r, on } = ctx, pending = h?.status === "pending" && isOpen(r);
-  const line = researchLine(r);
-  const off = ctx.state?.research && !ctx.state.research.available ? ctx.state.research : null;
-  const foot = el("div", { class: "foot", "data-testid": "research-foot" }, line ? el("span", { "data-testid": "research-status", "data-state": r.research?.status }, line) : null, el("button", { class: "ghost", "data-testid": "research-button", "data-researched": isResearched(r), onclick: () => on.research([r.id]), disabled: !!off, title: off ? `research disabled: ${off.reason}${off.command ? `; run ${off.command}` : ""}` : null }, isResearched(r) ? "research again" : "research"), el("kbd", {}, "R"));
-  // the offer to accept a package hint's pending members, which a match may have without a hint of its own
-  const offer = (c: StateCause) => el("div", { class: "group", "data-testid": "cause-offer", "data-count": c.pending.length }, `✦ same reasoning on ${plural(c.pending.length, "unlabeled match", "unlabeled matches")} (${c.sourcePackage}): `, el("button", { class: "ghost", "data-testid": "accept-all", "data-count": c.pending.length, "data-verdict": c.verdict, onclick: () => on.acceptCause(c) }, `accept all ${c.pending.length} as ${labels[c.verdict].glyph} ${labels[c.verdict].word}`), " ", el("kbd", {}, "A"));
-  if (!h) {
-    return el("div", { class: "agent none", "data-testid": "hint-card", "data-status": "none" }, isResearched(r) ? el("span", { class: "researched", "data-testid": "researched-mark" }, "✦ researched, no hint") : el("span", {}, "✦ no agent hint"), isOpen(r) && cause ? offer(cause) : null, foot);
-  }
-  return el("div", { class: `agent${pending ? "" : " settled"}${ctx.why ? " open" : ""}`, "data-testid": "hint-card", "data-status": h.status, "data-verdict": h.verdict, "data-confidence": h.confidence ?? "", "data-open": !!ctx.why },
-    el("h2", {}, "Agent hint"),
-    el("div", { class: "head" },
-      el("button", { class: "verdict", "data-testid": "hint-toggle", "aria-expanded": ctx.why ? "true" : "false", title: ctx.why ? "hide the note and facts (w)" : "show the note and facts (w)", onclick: () => on.toggleWhy() },
-        el("span", { class: "star" }, "✦"), el("span", { class: `v-${h.verdict} big`, "data-testid": "hint-verdict", "aria-label": `${labels[h.verdict].word} hint` }, `${labels[h.verdict].glyph} ${labels[h.verdict].word}`),
-        el("span", { class: "conf", "data-testid": "hint-confidence" }, `${h.confidence} ${dots[h.confidence ?? ""] || ""}`), el("span", { class: "caret" }, ctx.why ? "▾" : "▸")),
-      el("span", { class: "reason", id: "hint-reason", "data-testid": "hint-reason", title: h.rule ? `rule ${h.rule}${h.decision ? ` · policy ${h.decision}` : ""}` : "" }, h.title || justWords(ctx.state, h.verdict, h.justification) || ruleWords(h.rule)),
-      pending ? null : el("span", { class: `status ${h.status}`, "data-testid": "hint-status", "data-status": h.status }, hintStatus[h.status] || h.status)),
-    el("div", { class: "from", title: [h.model ? `model ${h.model}` : "", h.researchJob ? `research job ${h.researchJob}` : ""].filter(Boolean).join(" · ") },
-      el("span", { class: "skill", "data-testid": "hint-skill" }, provenance(h)),
-      h.written ? el("span", {}, new Date(h.written).toLocaleDateString()) : null,
-      isResearched(r) ? el("span", { class: "researched", "data-testid": "researched-mark" }, "✦ researched") : null),
-    ctx.why ? el("div", { class: "note", id: "hint-note", "data-testid": "hint-note" }, "…") : null,
-    ctx.why ? el("ul", { class: "facts", id: "hint-facts", "data-testid": "hint-facts" }) : null,
-    ctx.why ? el("div", { class: "rule", id: "hint-rule", "data-testid": "hint-rule" }, h.rule ? `rule: ${ruleWords(h.rule)}${h.decision ? ` · policy ${h.decision}` : ""}` : "") : null,
-    pending && cause ? offer(cause) : null,
-    foot);
 }

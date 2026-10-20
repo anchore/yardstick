@@ -61,8 +61,3 @@ export function sameRelease(ns: string | undefined, rel: Release | null) {
   // Red Hat namespaces carry the major only (redhat:distro:redhat:8); an image says 8.6
   return a === b && (n.version === rel.version || (a === "redhat" && major(n.version) === major(rel.version)));
 }
-export function releaseHuman(rel: Release | null) {
-  if (!rel) return "";
-  const name = distroNames[rel.distro] || rel.distro, code = codenames[rel.distro]?.[rel.version];
-  return `${name} ${rel.version}${code ? ` (${code})` : ""}`;
-}

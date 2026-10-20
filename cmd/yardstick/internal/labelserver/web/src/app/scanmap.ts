@@ -1,13 +1,12 @@
-// scanmap.ts is the gate's Scan map tab: today's scan-delta treemap (direction › reason › source
-// package, each block's bar its labels), drawn from the map page's own pure modules. The map page's
-// view (mapview.ts) is bound to that page's state, so this draws the same layout without it; a
-// block opens the Findings tab filtered to its package.
+// scanmap.ts is the gate's Scan map tab: the scan-delta treemap (direction › reason › source
+// package, each block's bar its labels), laid out by treemap.ts from scandata.ts; a block opens
+// the Findings tab filtered to its package.
 import type { State } from "../gen/wire";
 import { el, svg } from "../shared/dom";
 import { srcPkg } from "../shared/rows";
 import { clip, dirTitle, plural } from "../shared/words";
-import { diffRows, groupBy, type Item, reasonTitle, tally, whyKey } from "../map/data";
-import { type Rect, squarify } from "../map/treemap";
+import { diffRows, groupBy, type Item, reasonTitle, tally, whyKey } from "./scandata";
+import { type Rect, squarify } from "./treemap";
 
 const W = 1100, H = 520;
 
