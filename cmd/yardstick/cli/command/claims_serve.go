@@ -44,10 +44,10 @@ func ClaimsServe(app clio.Application) *cobra.Command {
 	cfg := &claimsServeConfig{nameOption: newNameOption(), Addr: "127.0.0.1:7655"}
 	return app.SetupCommand(&cobra.Command{
 		Use:   "serve [gate]",
-		Short: "Label a run's gates in a local web UI (opens the gate given, or the one scanned last)",
+		Short: "Label a run's gates in a local web UI (opens the gate given, or the list of gates)",
 		Long: `serve is a local web UI over every gate scanned under the run (.yardstick/runs/<name>/): the
-gate's checks as range bars, its deltas as a map, and one match at a time to label. It opens the
-gate given (a name, or a gate file), else the one scanned last. Labels are written into each
+gate's checks, the findings each one counts, a scan map of its changes, and one finding at a time
+to label. It opens the gate given (a name, or a gate file), else the list of gates. Labels are written into each
 gate's last claims source, which must be local, the same as yardstick claims add, and gates are
 re-scored whenever a label, claims file or agent record changes, so labels written elsewhere
 show up when the page regains focus, without scanning again. Agent proposals, causes and
