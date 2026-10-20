@@ -115,7 +115,7 @@ func labelOf(b *pairing.Bound, verdict string) *FindingLabel {
 	if b == nil || verdict == unlabeled {
 		return nil
 	}
-	l := &FindingLabel{Verdict: verdict, Justification: b.Justification, Source: b.Held[0].Source}
+	l := &FindingLabel{Verdict: verdict, Justification: b.Justification, Source: b.Source()}
 	if n := len(b.Notes); n > 0 {
 		l.Note = b.Notes[n-1].Text
 	}
@@ -247,7 +247,7 @@ func (v *view) unmetLabel(x analysis.Expectation) (int, *pairing.Bound) {
 			continue
 		}
 		for _, b := range in.Result.Labels {
-			if b.Package == x.Package && b.Vulnerability == x.Vulnerability && b.Verdict == x.Verdict && !b.Disagrees() {
+			if b.Package == x.Package && b.Vulnerability == x.Vulnerability && b.Verdict == x.Verdict {
 				return si, b
 			}
 		}
@@ -385,7 +385,7 @@ func expectationKey(subject, pkg, vuln string, verdict claimsv1.Verdict) string 
 func newGateLabel(b *pairing.Bound) *gateLabel {
 	l := b.Label.Label
 	return &gateLabel{GateLabel: GateLabel{Verdict: l.Verdict, Justification: l.Justification, Vulnerability: l.Vulnerability,
-		Package: PackageInfo{Name: b.Fields.Name, Version: b.Fields.Version, PURL: l.Package}, Source: b.Held[0].Source,
+		Package: PackageInfo{Name: b.Fields.Name, Version: b.Fields.Version, PURL: l.Package}, Source: b.Source(),
 		Author: l.Author, Notes: l.Notes, FirstIssued: l.FirstIssued, LastUpdated: l.LastUpdated, Decides: []string{}}}
 }
 

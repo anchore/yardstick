@@ -386,7 +386,7 @@ func TestE2EHistoryUndo(t *testing.T) {
 		t.Fatalf("gzip with both sources fp: %s", v)
 	}
 
-	// a tp in ./claims replaces the fp there, keeping its firstIssued, and the sources disagree
+	// a tp in ./claims replaces the fp there, keeping its firstIssued, and outweighs the corpus's fp
 	var res labelserver.LabelsResponse
 	if code := post(t, h, srv.Token(), "/api/gates/deb-npm/labels", labelserver.LabelsRequest{Rows: []string{gzip}, Verdict: "tp"}, &res); code != http.StatusOK || len(res.Labels) != 1 {
 		t.Fatalf("label gzip tp: %d %+v", code, res.Labels)
@@ -400,8 +400,8 @@ func TestE2EHistoryUndo(t *testing.T) {
 	if hist = history("?since=2099-01-01T00:00:00Z"); hist.Total != 0 {
 		t.Errorf("history since a later time: %d", hist.Total)
 	}
-	if v := rowVerdict(t, h, "deb-npm", gzip); v != "unlabeled" {
-		t.Errorf("gzip with the sources disagreeing: %s", v)
+	if v := rowVerdict(t, h, "deb-npm", gzip); v != "tp" {
+		t.Errorf("gzip with the last source's tp: %s", v)
 	}
 
 	revert := func(token string, keys []labelserver.LabelKey) int {

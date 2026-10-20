@@ -153,10 +153,10 @@ func TestDisagreementInEveryRenderer(t *testing.T) {
 			t.Errorf("%s: expected the key with each source and its verdict, got\n%s", f, out)
 		}
 	}
-	// the match is unlabeled: nothing pairs it as a tp or fp
+	// the last source decides: the local tp
 	for _, m := range v.Subjects[0].Matches {
-		if m.Vulnerability == "CVE-2026-5450" && strings.Contains(m.Package, "libc6@") && m.Verdict != "" {
-			t.Errorf("expected the disputed match unlabeled, got %s", m.Verdict)
+		if m.Vulnerability == "CVE-2026-5450" && strings.Contains(m.Package, "libc6@") && m.Verdict != claimsv1.TP {
+			t.Errorf("expected the disputed match to take the last source's tp, got %q", m.Verdict)
 		}
 	}
 }

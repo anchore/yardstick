@@ -229,11 +229,13 @@ func TestMostSpecificLabelWins(t *testing.T) {
 		{"subject over global", []claims.Label{global(label(ncurses, "CVE-2023-50495", claimsv1.FP)), label(ncurses, "CVE-2023-50495", claimsv1.TP)}, claimsv1.TP},
 		{"versioned over versionless", []claims.Label{label("pkg:deb/debian/ncurses-base", "CVE-2023-50495", claimsv1.TP), label(ncurses, "CVE-2023-50495", claimsv1.FP)}, claimsv1.FP},
 		{"only unclear", []claims.Label{label(ncurses, "CVE-2023-50495", claimsv1.Unclear)}, ""},
-		{"two sources disagree", []claims.Label{func() claims.Label {
+		// claims.Set gives the label the last source's verdict and keeps every source's in Held
+		{"the last of two sources that disagree", []claims.Label{func() claims.Label {
 			l := label(ncurses, "CVE-2023-50495", claimsv1.TP)
+			l.Verdict = claimsv1.FP
 			l.Held = append(l.Held, claims.SourceVerdict{Source: "local", Verdict: claimsv1.FP})
 			return l
-		}()}, ""},
+		}()}, claimsv1.FP},
 		{"equally specific labels disagree", []claims.Label{label("pkg:deb/debian/ncurses-base@6.4-4", "CVE-2023-50495", claimsv1.TP), label("pkg:deb/debian/ncurses-base?arch=all", "CVE-2023-50495", claimsv1.FP)}, ""},
 	} {
 		t.Run(tc.name, func(t *testing.T) {

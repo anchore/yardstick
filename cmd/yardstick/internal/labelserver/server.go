@@ -23,7 +23,7 @@
 //	row.sourcePackage, aliases, group, inCandidate/inReference
 //	                          ← the report.Match fields of the same names (E1, E2, E4)
 //	row.label                 ← report.Match.Label (file, sources), replacing delta's row.claims ids
-//	row.conflict              ← dropped: disagreeing sources already read as unlabeled
+//	row.conflict              ← dropped: the last source holding a key decides its verdict
 //	row.gate                  ← analysis.Effect: bears = Narrows, couldFlip = checks whose state a
 //	                            tp or fp label changes, ifTP/ifFP.outcome = Outcome[tp]/Outcome[fp];
 //	                            set only for an open delta whose label bears on a check
@@ -64,9 +64,9 @@
 //	                            check's Unmet expectations, on a row only when a match pairs the label.
 //	                            check is this package's CheckResult; images tallies findings by slug
 //	labels                    ← pairing.Result.Labels of every subject, a global label once: source is
-//	                            its first claims.Label.Held, decides the checks failing on a row it is
-//	                            the deciding label of (or an unmet expectation it is), row the first
-//	                            changed such row. Newest lastUpdated first; counts skip the verdict
+//	                            claims.Label.Source (the last source holding it), decides the checks
+//	                            failing on a row it is the deciding label of (or an unmet expectation
+//	                            it is), row the first changed such row. Newest lastUpdated first; counts skip the verdict
 //	                            filter and perImage the image filter
 //
 //	queue                     ← the cross-gate join (shared.go) keyed by row id, every open change kept:

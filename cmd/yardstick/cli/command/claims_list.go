@@ -91,7 +91,7 @@ func ClaimsList(app clio.Application) *cobra.Command {
 		Short:   "List the labels in the claims sources",
 		Long: `list lists every label in the app config's claims sources and --claims, in source order, each with
 its source, file and subject. Each source's labels are listed as written: when two sources
-disagree both show, and scoring reads that match as unlabeled. A label's history is the claims
+disagree both show, and scoring uses the last source's verdict. A label's history is the claims
 repository's git history.`,
 		Example: `  yardstick claims list -s pkg:deb/debian/tar -o json
   yardstick claims list -V CVE-2005-2541`,

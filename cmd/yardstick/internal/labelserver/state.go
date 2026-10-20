@@ -28,7 +28,7 @@ func verdictOf(r *rowRef) string {
 	switch {
 	case r.match.Verdict != "":
 		return string(r.match.Verdict)
-	case r.pm.Label != nil && r.pm.Label.Verdict == claimsv1.Unclear && !r.pm.Label.Disagrees():
+	case r.pm.Label != nil && r.pm.Label.Verdict == claimsv1.Unclear:
 		return string(claimsv1.Unclear)
 	}
 	return unlabeled

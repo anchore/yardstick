@@ -214,14 +214,12 @@ func TestPrecisionCountsMatchesRecallCountsLabels(t *testing.T) {
 
 func TestUnlabeledMeans(t *testing.T) {
 	const ncurses = "pkg:deb/debian/ncurses-base@6.4-4"
-	disputed := label(ncurses, "CVE-2025-69720", claimsv1.TP)
-	disputed.Held = append(disputed.Held, claims.SourceVerdict{Source: "local", Verdict: claimsv1.FP})
 	deb := pairOne(t, "deb", "deb", grype(t, "deb"), grype(t, "deb"),
-		label(ncurses, "CVE-2023-50495", claimsv1.Unclear), disputed,
+		label(ncurses, "CVE-2023-50495", claimsv1.Unclear),
 		label(ncurses, "CVE-2020-9999", claimsv1.Unclear), label(libc, "CVE-2026-5450", claimsv1.TP))
 	st := evaluator{}.stats(deb.Result, pairing.Candidate, worstCase)
-	// the unclear-only and the disputed match count toward no tp or fp; an unclear label pairing
-	// nothing is no false negative
+	// the unclear-only match counts toward no tp or fp; an unclear label pairing nothing is no
+	// false negative
 	if st.TP != 1 || st.FP != 0 || st.Labels != 1 || st.Satisfied != 1 {
 		t.Errorf("expected one tp match and one tp label, got %+v", st)
 	}

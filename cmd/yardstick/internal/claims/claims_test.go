@@ -208,7 +208,7 @@ func union(t *testing.T, open opener) {
 	}
 }
 
-// cross-source-disagreement-reads-unlabeled
+// last-source-wins
 func disagree(t *testing.T, open opener) {
 	published := open(t, corpus(t, at(claimsv1.TypeFile(dir, "deb"), label(libudv, "CVE-2020-13776", claimsv1.FP))))
 	local := open(t, corpus(t, at(claimsv1.TypeFile(dir, "deb"), label(libudv, "CVE-2020-13776", claimsv1.TP))))
@@ -217,12 +217,19 @@ func disagree(t *testing.T, open opener) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		if len(got.Labels) != 1 || !got.Labels[0].Disagrees() {
-			t.Fatalf("expected one label that disagrees, whatever the order, got %+v", got.Labels)
+		last, want := order[1], claimsv1.TP
+		if last == published {
+			want = claimsv1.FP
+		}
+		if len(got.Labels) != 1 || !got.Labels[0].Disagrees() || len(got.Labels[0].Held) != 2 {
+			t.Fatalf("expected one label that disagrees, holding both verdicts, got %+v", got.Labels)
+		}
+		if l := got.Labels[0]; l.Source() != last.Locator || l.Verdict != want {
+			t.Errorf("expected the last source's verdict used, got %s from %s", l.Verdict, l.Source())
 		}
 		w := strings.Join(got.Warnings, "\n")
-		if !strings.Contains(w, "CVE-2020-13776 on "+libudv) || !strings.Contains(w, published.Locator+": fp") || !strings.Contains(w, local.Locator+": tp") {
-			t.Errorf("expected the warning to name the key, each source and its verdict, got %q", w)
+		if !strings.Contains(w, "CVE-2020-13776 on "+libudv) || !strings.Contains(w, published.Locator+": fp") || !strings.Contains(w, local.Locator+": tp") || !strings.Contains(w, last.Locator+"'s verdict is used") {
+			t.Errorf("expected the warning to name the key, each source and its verdict, and the one used, got %q", w)
 		}
 	}
 }

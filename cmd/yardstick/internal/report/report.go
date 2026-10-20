@@ -303,7 +303,7 @@ func labelRef(b *pairing.Bound) LabelRef {
 func misses(r *pairing.Result) []Miss {
 	var out []Miss
 	for _, b := range r.Labels {
-		if b.Verdict != claimsv1.TP || b.Disagrees() || b.PairedIn(pairing.Candidate) {
+		if b.Verdict != claimsv1.TP || b.PairedIn(pairing.Candidate) {
 			continue
 		}
 		miss := Miss{Label: labelRef(b), InReference: b.PairedIn(pairing.Reference)}

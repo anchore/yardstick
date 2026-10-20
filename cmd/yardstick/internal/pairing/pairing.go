@@ -60,8 +60,8 @@ type Match struct {
 	// Paired are the labels pairing the match; Label is the most specific of them.
 	Paired []*Bound
 	Label  *Bound
-	// Verdict is tp or fp, or empty when the match is unlabeled: no label, only unclear, labels
-	// that give different verdicts, or claims sources that disagree.
+	// Verdict is tp or fp, or empty when the match is unlabeled: no label, only unclear, or labels
+	// that give different verdicts.
 	Verdict claimsv1.Verdict
 
 	pkg purl.Fields
@@ -338,7 +338,7 @@ func (r *Result) pair(m *Match) {
 		}
 	}
 	m.Label = best
-	if len(verdicts) == 1 && !best.Disagrees() && best.Verdict != claimsv1.Unclear {
+	if len(verdicts) == 1 && best.Verdict != claimsv1.Unclear {
 		m.Verdict = best.Verdict
 	}
 }

@@ -232,12 +232,12 @@ type unit struct {
 	matches []*pairing.Match
 }
 
-// units are a subject's tp labels in a case: every tp label that applies and that no source
-// disputes, plus each match the case or a hypothesis calls tp that no tp label pairs.
+// units are a subject's tp labels in a case: every tp label that applies, plus each match the
+// case or a hypothesis calls tp that no tp label pairs.
 func (e evaluator) units(r *pairing.Result, x extreme) []unit {
 	var out []unit
 	for _, b := range r.Labels {
-		if b.Verdict == claimsv1.TP && !b.Disagrees() {
+		if b.Verdict == claimsv1.TP {
 			out = append(out, unit{cand: b.PairedIn(pairing.Candidate), ref: b.PairedIn(pairing.Reference), matches: b.Matches})
 		}
 	}
@@ -251,7 +251,7 @@ func (e evaluator) units(r *pairing.Result, x extreme) []unit {
 
 func pairedByTP(m *pairing.Match) bool {
 	for _, b := range m.Paired {
-		if b.Verdict == claimsv1.TP && !b.Disagrees() {
+		if b.Verdict == claimsv1.TP {
 			return true
 		}
 	}
@@ -315,7 +315,7 @@ func (e evaluator) stats(r *pairing.Result, setup string, x extreme) Stats {
 // hasLabels says whether any tp or fp label applies to the subject, or a hypothesis would give it one.
 func (e evaluator) hasLabels(r *pairing.Result) bool {
 	for _, b := range r.Labels {
-		if (b.Verdict == claimsv1.TP || b.Verdict == claimsv1.FP) && !b.Disagrees() {
+		if b.Verdict == claimsv1.TP || b.Verdict == claimsv1.FP {
 			return true
 		}
 	}
@@ -481,7 +481,7 @@ func (e evaluator) expectations() []Expectation {
 	var out []Expectation
 	for _, s := range e.subjects {
 		for _, b := range s.Result.Labels {
-			if (b.Verdict != claimsv1.TP && b.Verdict != claimsv1.FP) || b.Disagrees() {
+			if b.Verdict != claimsv1.TP && b.Verdict != claimsv1.FP {
 				continue
 			}
 			x := Expectation{Subject: s.Name, Package: b.Package, Vulnerability: b.Vulnerability, Verdict: b.Verdict, Met: map[string]bool{}}

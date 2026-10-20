@@ -1,7 +1,8 @@
-// Package claims reads labels from a gate's ordered claims sources: local corpus directories and
-// published snapshots. Reads take the union of every source, two sources that disagree on a
-// match make it unlabeled with both named, and writes go to the last source, which must be
-// local. A gate reads only the files its own subjects need.
+// Package claims reads labels from a gate's ordered claims sources: local corpus directories,
+// published snapshots and claims directories in GitHub repositories. Reads take the union of every
+// source, the last source holding a key decides its verdict (with a warning when an earlier one
+// disagrees), and writes go to the last source, which must be local. A gate reads only the files
+// its own subjects need.
 package claims
 
 import (
@@ -173,12 +174,17 @@ type Label struct {
 	Global bool
 	// File is where it was read, corpus-relative.
 	File string
-	// Held is each source holding this key, with its verdict.
+	// Held is each source holding this key, with its verdict, in source order.
 	Held []SourceVerdict
 }
 
-// Disagrees says whether the sources holding the key give different verdicts; the label then
-// decides nothing, and the match reads as unlabeled.
+// Source is the source the label was read from: the last one holding its key.
+func (l Label) Source() string {
+	return l.Held[len(l.Held)-1].Source
+}
+
+// Disagrees says whether the sources holding the key give different verdicts; the last source's
+// verdict is the one used.
 func (l Label) Disagrees() bool {
 	for _, h := range l.Held {
 		if h.Verdict != l.Held[0].Verdict {
@@ -275,7 +281,8 @@ func (s *Source) readLabels(p string) (*claimsv1.File, error) {
 }
 
 // add takes one file's labels into the union: a key new to the union is added, and a key already
-// there records this source's verdict beside the others. The same verdict twice counts once.
+// there takes this source's label, since sources are read in order and the last one wins, while
+// recording its verdict beside the others. The same verdict twice counts once.
 func (s *Set) add(out *Labels, byKey map[scopedKey]int, src *Source, p string, f *claimsv1.File) error {
 	global := strings.HasPrefix(p, "global/")
 	for _, l := range f.Labels {
@@ -285,6 +292,7 @@ func (s *Set) add(out *Labels, byKey map[scopedKey]int, src *Source, p string, f
 		k := scopedKey{global: global, Key: l.Key()}
 		held := SourceVerdict{Source: src.Locator, Verdict: l.Verdict}
 		if i, seen := byKey[k]; seen {
+			out.Labels[i].Label, out.Labels[i].File = l, p
 			out.Labels[i].Held = append(out.Labels[i].Held, held)
 			continue
 		}
@@ -299,7 +307,7 @@ func disagreement(subject string, l Label) string {
 	for i, d := range l.Held {
 		parts[i] = d.Source + ": " + string(d.Verdict)
 	}
-	return fmt.Sprintf("claims sources disagree on %s in %s (%s); the match reads as unlabeled until one verdict is promoted", l.Key(), subject, strings.Join(parts, ", "))
+	return fmt.Sprintf("claims sources disagree on %s in %s (%s); %s's verdict is used", l.Key(), subject, strings.Join(parts, ", "), l.Source())
 }
 
 // Vocabulary is the first vocabulary any source has, nil when none has one.
