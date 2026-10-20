@@ -2,13 +2,15 @@
 // the label on file, the agent's hint and cause each in their own card with their own Accept
 // (UI-RULES: a hint never looks like a choice already made), then TP / FP / Unclear, the reason, a
 // note, Save and Skip, and research. Whether Save goes on to the next match is a setting in the cog.
+import type { Basis } from "../gen/research";
 import type { StateCause, claimsv1 } from "../gen/wire";
 import { provenance, researchLine } from "../shared/agent";
 import { el, type Child } from "../shared/dom";
-import { direction, isResearched, outcome } from "../shared/rows";
+import { direction, isResearched, outcome, pkgOf } from "../shared/rows";
 import { dots, justWords, labels, ruleWords } from "../shared/words";
 import type { FindingData } from "./finding-data";
 import { mutedReason, panel, reasons, seenWith, shortSource } from "./finding-words";
+import { about, money } from "./researchwords";
 import { kbd, verdict, type Verdict } from "./ui";
 
 // Draft is the form as typed, kept across a repaint (research polling redraws the page)
@@ -106,6 +108,7 @@ export function labelPanel(d: FindingData, draft: Draft, advance: boolean, on: P
   const dir = direction(row);
   const off = state.research && !state.research.available ? state.research : null;
   const line = researchLine(row);
+  const price = state.researchEstimate?.measured ? state.researchEstimate : null;
   const root = el("aside", { class: "lpanel", "data-testid": "label-panel", "data-row": row.id, "data-verdict": row.verdict },
     onFile, hintCard, causeCard,
     el("h2", { class: p.onFile || h || c ? "rule" : null }, p.heading),
@@ -121,8 +124,18 @@ export function labelPanel(d: FindingData, draft: Draft, advance: boolean, on: P
       line ? el("span", { "data-testid": "research-status", "data-state": row.research?.status }, line) : null,
       el("button", { type: "button", class: "btn", "data-variant": "ghost", "data-size": "sm", "data-testid": "research-button", "data-researched": isResearched(row), disabled: !!off, onclick: on.research,
         title: off ? `research disabled: ${off.reason}${off.command ? `; run ${off.command}` : ""}` : "an agent researches this match and leaves a hint" },
-      isResearched(row) ? "Research again " : "Research ", kbd("R"))));
+      isResearched(row) ? "Research again " : "Research ", price && el("span", { class: "costpill", "data-testid": "research-price" }, `~${money(price.mean)}`), " ", kbd("R")),
+      !off && el("span", { class: "rnote quiet", "data-testid": "research-shares" }, jobWords(d, price))));
 
   return { el: root, pick, focusReason: () => { if (!reason.disabled) reason.focus(); }, advance: (on) => { save.textContent = on ? "Save and next" : "Save"; } };
 }
 
+
+// jobWords say what one research job on the row is: how long it takes, and the sibling packages
+// that share it, so a click's reach is known before it is made
+function jobWords(d: FindingData, price: Basis | null) {
+  const shares = new Set(d.row.researchShares ?? []);
+  const names = [...new Set(d.state.subjects.flatMap((s) => s.rows).filter((r) => shares.has(r.id)).map((r) => pkgOf(r.package.ref).name))];
+  const time = price ? `, ${about(price.seconds)}` : "";
+  return names.length ? `One job${time}, shared with ${names.join(", ")}.` : `One job${time}.`;
+}
