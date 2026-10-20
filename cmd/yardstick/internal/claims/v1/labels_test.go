@@ -353,6 +353,49 @@ func TestWriter(t *testing.T) {
 	}
 }
 
+// remove drops labels by file and key, deletes a file it empties, and removes nothing when one key
+// is not there
+func TestWriterRemove(t *testing.T) {
+	dir := corpus(t)
+	file, global := filepath.Join(dir, TypeFile(debDir, "deb")), filepath.Join(dir, "global", "deb.json")
+	w := Writer{Dir: dir}
+	key := func(file, pkg, vuln string) FileKey {
+		return FileKey{File: file, Key: Key{Package: pkg, Vulnerability: vuln}}
+	}
+
+	before := read(t, file)
+	for name, keys := range map[string][]FileKey{
+		"a key not in the file":   {key(TypeFile(debDir, "deb"), zlib, "CVE-2022-37434"), key(TypeFile(debDir, "deb"), zlib, "CVE-2099-1")},
+		"a file not there":        {key(TypeFile(debDir, "rpm"), zlib, "CVE-2022-37434")},
+		"not a place in a layout": {key("images/centos/labels.json", zlib, "CVE-2022-37434")},
+	} {
+		if err := w.Remove(keys); err == nil {
+			t.Errorf("%s: expected the remove refused", name)
+		}
+		if read(t, file) != before {
+			t.Fatalf("%s: expected the file unchanged", name)
+		}
+	}
+
+	if err := w.Remove([]FileKey{
+		key(TypeFile(debDir, "deb"), zlib, "CVE-2022-37434"),
+		key(TypeFile(debDir, "deb"), ncurse, "CVE-2023-29491"),
+		key(GlobalFile("deb"), "pkg:deb/debian/libxml2@2.7.8.dfsg-2+squeeze1?distro=debian-7", "CVE-2016-1839"),
+	}); err != nil {
+		t.Fatal(err)
+	}
+	f, _ := Parse("deb.json", []byte(read(t, file)))
+	if got := keys(f); got != "CVE-2023-4911 on "+libc {
+		t.Errorf("expected only the libc label left, got %s", got)
+	}
+	if _, err := os.Stat(global); !os.IsNotExist(err) {
+		t.Errorf("expected the emptied global file deleted, got %v", err)
+	}
+	if problems, err := ValidateCorpus(dir); err != nil || len(problems) != 0 {
+		t.Errorf("expected the corpus valid after a remove, got %v %v", problems, err)
+	}
+}
+
 func keys(f *File) string {
 	var out []string
 	for _, l := range f.Labels {

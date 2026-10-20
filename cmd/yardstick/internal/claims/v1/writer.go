@@ -3,8 +3,10 @@ package v1
 import (
 	"errors"
 	"fmt"
+	"maps"
 	"os"
 	"path/filepath"
+	"slices"
 	"sort"
 	"strings"
 	"time"
@@ -240,6 +242,70 @@ func (w Writer) writeFile(root *os.Root, rel string, placed []Placed) error {
 		return err
 	}
 	return writeAtomic(root, target, data)
+}
+
+// FileKey names one label in a corpus: its corpus-relative file and its key there.
+type FileKey struct {
+	File string
+	Key  Key
+}
+
+// Remove drops labels by file and key, rewriting each file once and deleting one it leaves with no
+// labels. Every file is read and every key found before anything is written, so a key that is not
+// there removes nothing.
+func (w Writer) Remove(keys []FileKey) error {
+	byFile := map[string][]Key{}
+	for _, k := range keys {
+		if loc, ok := Locate(k.File); !ok || !loc.IsLabelFile() {
+			return fmt.Errorf("%s is not a label file in the corpus layout", k.File)
+		}
+		byFile[k.File] = append(byFile[k.File], k.Key)
+	}
+	if len(byFile) == 0 {
+		return nil
+	}
+	root, err := openCorpus(w.Dir)
+	if err != nil {
+		return err
+	}
+	defer root.Close()
+	kept := map[string]*File{}
+	for rel, ks := range byFile {
+		data, err := root.ReadFile(filepath.FromSlash(rel))
+		if err != nil {
+			return err
+		}
+		f, err := Parse(rel, data)
+		if err != nil {
+			return err
+		}
+		for _, k := range ks {
+			i := slices.IndexFunc(f.Labels, func(l Label) bool { return l.Key() == k })
+			if i < 0 {
+				return fmt.Errorf("%s: no label %s", rel, k)
+			}
+			f.Labels = slices.Delete(f.Labels, i, i+1)
+		}
+		kept[rel] = f
+	}
+	log.Infof("removing %d labels from %d files in %s", len(keys), len(kept), w.Dir)
+	for _, rel := range slices.Sorted(maps.Keys(kept)) {
+		f, target := kept[rel], filepath.FromSlash(rel)
+		if len(f.Labels) == 0 {
+			if err := root.Remove(target); err != nil {
+				return err
+			}
+			continue
+		}
+		data, err := Marshal(f)
+		if err != nil {
+			return err
+		}
+		if err := writeAtomic(root, target, data); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // mergeSubject keeps the subject a file already names, and refuses a label about another.
