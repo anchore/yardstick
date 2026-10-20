@@ -4,7 +4,7 @@
 // note, Save and Skip, the "go to the next match" switch, and research.
 import type { StateCause, claimsv1 } from "../gen/wire";
 import { provenance, researchLine } from "../shared/agent";
-import { el } from "../shared/dom";
+import { el, type Child } from "../shared/dom";
 import { direction, isResearched } from "../shared/rows";
 import { dots, justWords, labels, ruleWords } from "../shared/words";
 import type { FindingData } from "./finding-data";
@@ -34,7 +34,8 @@ const date = (s: string | undefined) => (s ? new Date(s).toLocaleDateString() : 
 const reasonText = (d: FindingData, v: string, j: string | undefined) =>
   el("span", { class: `reason${mutedReason(j) ? " muted" : ""}`, "data-testid": "reason" }, j ? justWords(d.state, v, j) : "no reason");
 
-export function labelPanel(d: FindingData, draft: Draft, advance: boolean, on: PanelActions): LabelPanel {
+// outcomes, in the queue, says what each verdict does to the row's gates
+export function labelPanel(d: FindingData, draft: Draft, advance: boolean, on: PanelActions, outcomes?: Child): LabelPanel {
   const { row, detail, state } = d;
   const p = panel(row, state.causes);
   const lv = detail.label, l = lv?.label;
@@ -109,6 +110,7 @@ export function labelPanel(d: FindingData, draft: Draft, advance: boolean, on: P
     onFile, hintCard, causeCard,
     el("h2", { class: p.onFile || h || c ? "rule" : null }, p.heading),
     el("div", { class: "segv", role: "group", "aria-label": "Verdict" }, segs),
+    outcomes && el("p", { class: "help outcomes", "data-testid": "queue-outcomes" }, outcomes),
     meaning[dir] && el("p", { class: "help", "data-testid": "label-meaning" }, meaning[dir]),
     el("label", { class: "field" }, "Reason", reason),
     el("label", { class: "field" }, "Note", note),

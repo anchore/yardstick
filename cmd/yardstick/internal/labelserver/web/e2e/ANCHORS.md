@@ -8,7 +8,7 @@ Select with `getByTestId("<testid>")`, narrow with the `data-*` identity attribu
 - Table rows are `tbody tr[data-id]` inside the table's testid; `data-id` is the row id (16 hex), or a made-up key for a row with no finding page.
 - Pick one instance by its identity attribute: `page.locator('[data-testid=check-row][data-check=f1NotWorse]')`.
 
-Routes (`route.ts`): `/ui/gates/` (level 0, `?tab=unlabeled|labels`), `/ui/gates/<gate>/` and `findings` / `labels` / `map` (level 1), `/ui/gates/<gate>/checks/<check>` (level 2), and a finding at `/ui/gates/<gate>/checks/<check>/<row>` or `/ui/gates/<gate>/findings/<row>` (level 3). Filters ride in the query: `image` (slug), `verdict`, `hint`, `pkg`, `q`, `page`. The labeling flow's screens sit beside them: `/ui/hints`, `/ui/queue` (and `/ui/queue/<row>`) and `/ui/history`, each a `placeholder` for now.
+Routes (`route.ts`): `/ui/gates/` (level 0, `?tab=unlabeled|labels`), `/ui/gates/<gate>/` and `findings` / `labels` / `map` (level 1), `/ui/gates/<gate>/checks/<check>` (level 2), and a finding at `/ui/gates/<gate>/checks/<check>/<row>` or `/ui/gates/<gate>/findings/<row>` (level 3). Filters ride in the query: `image` (slug), `verdict`, `hint`, `pkg`, `q`, `page`. The labeling flow's screens sit beside them: `/ui/hints` (a `placeholder` for now), the queue at `/ui/queue` and `/ui/queue/<row>` (`?scope=all|gate:<g>|image:<slug>`, `check`, `low=1`), and `/ui/history` (`?verdict=`, `q`, `page`).
 
 ## Shell (every screen)
 
@@ -124,3 +124,37 @@ Filter chips are buttons with `data-chip` (`all`, `unlabeled`, `tp`, `fp`, `uncl
 | testid | where | attributes |
 |---|---|---|
 | `kit-gallery`, `kit-table`, `primary` | the kit's parts | |
+
+## Queue (`/ui/queue/<row>`)
+
+The finding page in queue mode: every Finding testid above is there too, except `pager`.
+
+| testid | where | attributes |
+|---|---|---|
+| `queue-bar` | the bar under the app bar | |
+| `queue-scope` | its scope select, option values `all`, `gate:<g>`, `image:<slug>` | |
+| `queue-order` | the order it walks in (one for now) | |
+| `queue-skip` | the "Skip labeled" checkbox; on, `j` / `k` step over rows the queue labeled | `checked` |
+| `queue-progress` | "N of M done · K left" | `data-done`, `data-left` |
+| `queue-pager`, `queue-pager-previous`, `queue-pager-next` | "1 of K" and its `k` / `j` links, on a row | `data-index` (0 for a done row), `data-total` |
+| `queue-exit` | Exit (`esc`), back to the check, gate or gates the queue was entered from | |
+| `why-next` | "Why this one is next" over the content tabs | |
+| `queue-outcomes` | in the label panel, what FP and TP do to each gate | |
+| `queue-card` | a card in the finding's place | `data-card` = `boundary` / `stop` / `end` |
+| `card-gate` | one gate's outcome on a card | `data-gate`, `data-state` |
+| `card-continue` | Continue to the next gate, or Keep labeling (`⏎`) | |
+| `card-back`, `card-history` | Back to the gate or gates, and See the labels | |
+| `card-left` | the stopping point's list of rows left, one `li` each | `li[data-row]` |
+| `card-session` | the end card's line on the labels written this session | |
+
+## History (`/ui/history`)
+
+| testid | where | attributes |
+|---|---|---|
+| `history-table` | the labels, newest first, one group per day | rows `tbody tr[data-id]`; each has a `time[datetime]` |
+| `history-day` | a day's group header, "Today", "Yesterday" or the date | `data-day` (YYYY-MM-DD, local) |
+| `history-note` | a label's note, which an accepted hint carries over | |
+| `history-link` | a link to the label's finding, one per gate row it sits on | `data-gate`, `data-row` |
+| `page-info`, `page-next`, `page-prev` | the pager | |
+
+Verdict chips are buttons with `data-chip` (`all`, `tp`, `fp`, `unclear`) and `aria-pressed`.

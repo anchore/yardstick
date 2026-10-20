@@ -14,9 +14,12 @@ import { gateList } from "./data";
 import { findingView } from "./finding";
 import { gateView } from "./gate";
 import { gatesView } from "./gates";
+import { historyView } from "./history";
 import { gateItems, nextGate } from "./goto";
 import { kitView } from "./kit";
 import { openPalette } from "./palette";
+import { queueView } from "./queue";
+import { queueFor } from "./queuelist";
 import { crumbs, formatRoute, gateOf, inGate, parseRoute, up, type Route } from "./route";
 import { renderShell, type View } from "./shell";
 
@@ -48,7 +51,9 @@ function render() {
         : next.level === "gate" ? gateView(host, next, nav)
           : next.level === "check" ? checkView(host, next, nav)
             : next.level === "finding" ? findingView(host, next, nav)
-              : placeholder(next);
+              : next.level === "queue" ? queueView(host, next, nav)
+                : next.level === "history" ? historyView(host, next, nav)
+                  : placeholder(next);
 }
 
 // placeholder is a labeling flow screen its next wave builds
@@ -105,6 +110,12 @@ document.addEventListener("keydown", (e) => {
   if (e.altKey && e.code !== "KeyJ" && e.code !== "KeyK") return;
   if (view.key?.(e)) {
     e.preventDefault();
+    return;
+  }
+  // n enters the queue at the next open row in this screen's scope (queuelist.ts queueFor)
+  if (e.key === "n" && !e.altKey && route) {
+    e.preventDefault();
+    nav(queueFor(route));
     return;
   }
   // Esc walks up one crumb (UI-RULES 4)

@@ -111,8 +111,19 @@ func historyLabels(src *claims.Source, rows map[string][]GateRow) ([]HistoryLabe
 	return out, err
 }
 
-// handleHistory answers with the labels in the writable sources, newest first, paged by offset= and
-// limit= as GET labels is.
+// historyText says a label holds the lowercase text in its vulnerability, package, image, reason,
+// author or a note.
+func historyText(l HistoryLabel, text string) bool {
+	for _, s := range []string{l.Label.Vulnerability, l.Package.PURL, l.ImageName, l.Label.Justification, l.Label.Author} {
+		if strings.Contains(strings.ToLower(s), text) {
+			return true
+		}
+	}
+	return slices.ContainsFunc(l.Label.Notes, func(n claimsv1.Note) bool { return strings.Contains(strings.ToLower(n.Text), text) })
+}
+
+// handleHistory answers with the labels in the writable sources, newest first, filtered by
+// verdict= and q= and paged by offset= and limit= as GET labels is.
 func (s *Server) handleHistory(w http.ResponseWriter, req *http.Request) {
 	lq, code, err := parseLabelQuery(req.URL.Query(), nil)
 	if err != nil {
@@ -133,7 +144,11 @@ func (s *Server) handleHistory(w http.ResponseWriter, req *http.Request) {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
-		labels = append(labels, ls...)
+		for _, l := range ls {
+			if (lq.verdict == "" || string(l.Label.Verdict) == lq.verdict) && (lq.text == "" || historyText(l, lq.text)) {
+				labels = append(labels, l)
+			}
+		}
 	}
 	slices.SortStableFunc(labels, func(a, b HistoryLabel) int { return strings.Compare(b.Label.LastUpdated, a.Label.LastUpdated) })
 	out.Total = len(labels)

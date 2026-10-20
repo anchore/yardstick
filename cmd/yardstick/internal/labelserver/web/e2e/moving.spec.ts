@@ -11,27 +11,31 @@ const item = (page: Page, group: string, id: string) => palette(page).locator(`[
 const libgnutls = "c54934489d4ac861"; // CVE-2011-3389, labeled fp
 
 test.describe("Label next", () => {
-  // the reported bug: the right row, but "9 of 12", since the list was in report order
-  test("from the gates screen opens deb-java's first open row at 1 of 10 open", async ({ page }) => {
+  // the reported bug was "9 of 12", from a list in report order: Label next enters the queue, whose
+  // pager counts open rows from the first. Across every gate the queue starts at gzip, which alone
+  // passes deb-npm
+  const queuePager = (page: Page) => page.getByTestId("queue-pager");
+  test("from the gates screen enters the queue at its first row, 1 of 12", async ({ page }) => {
     await page.goto(gatesPage);
     await page.getByTestId("label-next").click();
-    await onFinding(page, rows.jfhA);
-    await expect(page).toHaveURL(new RegExp(`/ui/gates/deb-java/findings/${rows.jfhA}$`));
-    await expect(pager(page)).toHaveText(/1 of 10 open/);
-    await expect(pager(page)).toHaveAttribute("data-index", "1");
+    await onFinding(page, rows.gzip);
+    await expect(page).toHaveURL(new RegExp(`/ui/queue/${rows.gzip}$`));
+    await expect(queuePager(page)).toHaveText(/1 of 12/);
+    await expect(queuePager(page)).toHaveAttribute("data-index", "1");
   });
 
-  test("and n on a gate do the same", async ({ page }) => {
+  test("and n on a gate enter it at that gate's first row", async ({ page }) => {
     await page.goto(gatePage());
     await page.getByTestId("label-next").click();
     await onFinding(page, rows.jfhA);
-    await expect(pager(page)).toHaveText(/1 of 10 open/);
+    await expect(page).toHaveURL(new RegExp(`/ui/queue/${rows.jfhA}\\?scope=gate%3Adeb-java$`));
+    await expect(queuePager(page)).toHaveText(/1 of 12/);
 
     await page.goto(gatePage("deb-npm"));
     await expect(page.getByTestId("check-row")).toHaveCount(1);
     await page.keyboard.press("n");
-    await expect(page).toHaveURL(/\/ui\/gates\/deb-npm\/findings\//);
-    await expect(pager(page)).toHaveText(/1 of 3 open/);
+    await expect(page).toHaveURL(new RegExp(`/ui/queue/${rows.gzip}\\?scope=gate%3Adeb-npm$`));
+    await expect(queuePager(page)).toHaveText(/1 of 12/);
   });
 });
 
@@ -144,7 +148,7 @@ test.describe("the go-to palette", () => {
     await expect(page.getByTestId("breadcrumb")).toHaveText(/^Gates\s*›\s*History$/);
 
     // the flow's screens load by URL too, and Esc goes up to Gates
-    for (const [path, title] of [["/ui/hints", "Agent hints"], ["/ui/queue", "Labeling"], [`/ui/queue/${rows.tarHand}`, "Labeling"]]) {
+    for (const [path, title] of [["/ui/hints", "Agent hints"]]) {
       await page.goto(path);
       await expect(page.getByTestId("title")).toHaveText(title);
       await expect(page.getByTestId("placeholder")).toBeVisible();

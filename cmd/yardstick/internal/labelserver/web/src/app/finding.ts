@@ -4,7 +4,7 @@
 // map page's tile, reorganized.
 import type { claimsv1 } from "../gen/wire";
 import * as api from "../shared/api";
-import { el, toast } from "../shared/dom";
+import { el, toast, type Child } from "../shared/dom";
 import { records, matchPath } from "../shared/matchpath";
 import { imageRelease } from "../shared/names";
 import { decoded, direction, pkgOf } from "../shared/rows";
@@ -19,6 +19,18 @@ import { renderShell, type Nav, type View } from "./shell";
 import { kbd, verdict, type Verdict } from "./ui";
 
 type FindingRoute = Extract<Route, { level: "finding" }>;
+
+// QueueMode is the queue's hold on the page (queue.ts): its bar, why the row is next, the outcome
+// lines under the verdicts, and where j / k, Skip and Save and next go
+export interface QueueMode {
+  route: Route;                                  // the queue's own, which the page stays live on
+  bar: Child;
+  why: Child;
+  outcomes: Child;
+  step: (dir: 1 | -1, all: boolean) => void;     // j / k, Skip, and ⌥j / ⌥k over every row
+  next: (rows: string[], text: string, how: "hint" | "hand") => Promise<void>;
+  key: (e: KeyboardEvent) => boolean;            // n, Esc
+}
 
 // the tab is the reader's standing choice, kept in this browser
 const tabKey = "yardstick.findingTab";
@@ -44,8 +56,8 @@ let views = 0;   // the newest finding view; research polling stops when its vie
 // the last list loaded, so j and k pressed again before the next finding loads still walk it
 let lastList: { key: string; items: Item[] } | null = null;
 
-export function findingView(host: HTMLElement, r: FindingRoute, nav: Nav): View {
-  const gen = ++views, path = formatRoute(r).split("?")[0];
+export function findingView(host: HTMLElement, r: FindingRoute, nav: Nav, q?: QueueMode): View {
+  const gen = ++views, path = formatRoute(q?.route ?? r).split("?")[0];
   // live is this view still on screen: no newer finding view, and the URL still names this row
   const live = () => gen === views && location.pathname === path;
   const listKey = formatRoute({ ...r, row: "" });
@@ -82,7 +94,7 @@ export function findingView(host: HTMLElement, r: FindingRoute, nav: Nav): View 
     const pager = el("span", { class: "pager", "data-testid": "pager", "data-index": pos.index + 1, "data-total": pos.total, "data-open": pos.open },
       pageLink(pos.prev, "k", "previous"), where, pageLink(pos.next, "j", "next"));
     const aliases = (row.aliases ?? []).filter((a) => a !== row.vulnerability);
-    lp = labelPanel(d, draft, advancing(), { save, accept, acceptAll, skip: () => go(pos.next, "last one in this list"), research, advance: setAdvancing });
+    lp = labelPanel(d, draft, advancing(), { save, accept, acceptAll, skip: () => (q ? q.step(1, false) : go(pos.next, "last one in this list")), research, advance: setAdvancing }, q?.outcomes);
     renderShell(host, r, {
       title: row.vulnerability,
       row: row.vulnerability,
@@ -96,10 +108,11 @@ export function findingView(host: HTMLElement, r: FindingRoute, nav: Nav): View 
           el("span", { class: "img", title: d.image.ref, "data-testid": "finding-image" }, d.image.name),
           " · ", el("span", { class: "change", "data-testid": "finding-direction" }, directionWords[dir]),
           aliases.length ? ` · alias ${aliases.join(", ")}` : "")),
-      crumbEnd: pager,
+      crumbEnd: q ? null : pager,
+      bar: q?.bar,
       meta: state.scans.gate,
       body: el("div", { class: "finding", "data-testid": "finding", "data-row": row.id, "data-verdict": row.verdict },
-        el("div", { class: "fcontent" }, tabs(d)), lp.el),
+        el("div", { class: "fcontent" }, q?.why, tabs(d)), lp.el),
     });
   }
 
@@ -110,17 +123,18 @@ export function findingView(host: HTMLElement, r: FindingRoute, nav: Nav): View 
   // ---------- writes ----------
 
   // after moves on to the next open finding of the list when the switch is on, else redraws this one
-  async function after(rows: string[], text: string) {
+  async function after(rows: string[], text: string, how: "hint" | "hand") {
     const list = d?.list ?? [];
     Object.assign(draft, { verdict: undefined, reason: undefined, note: "" });
+    if (q && advancing()) return q.next(rows, text, how);
     const next = advancing() ? nextOpen(list, r.row, rows) : undefined;
     if (next) { toast(text); nav(at(next)); return; }
     toast(advancing() ? `${text} · nothing left to label in this list` : text);
     await load();
   }
-  async function write(rows: string[], text: string, call: () => Promise<unknown>) {
+  async function write(rows: string[], text: string, call: () => Promise<unknown>, how: "hint" | "hand" = "hint") {
     try { await call(); } catch (e) { toast((e as Error).message, true); return; }
-    await after(rows, text);
+    await after(rows, text, how);
   }
   const said = (v: string) => `${labels[v]?.glyph ?? ""} ${labels[v]?.word ?? v}`;
 
@@ -131,7 +145,7 @@ export function findingView(host: HTMLElement, r: FindingRoute, nav: Nav): View 
     if (v !== "tp" && !draft.reason) { lp?.focusReason(); return toast(`${labels[v].word} needs a reason: pick one`); }
     const id = d.row.id;
     void write([id], `${d.row.vulnerability}: ${said(v)}${draft.reason ? ` · ${justWords(d.state, v, draft.reason)}` : ""}`,
-      () => api.labels(r.gate, { rows: [id], verdict: v, justification: draft.reason ?? "", note: draft.note, scope: "subject" }));
+      () => api.labels(r.gate, { rows: [id], verdict: v, justification: draft.reason ?? "", note: draft.note, scope: "subject" }), "hand");
   }
   // accept takes the row's own hint, else accepts its cause for this row alone
   function accept() {
@@ -166,6 +180,14 @@ export function findingView(host: HTMLElement, r: FindingRoute, nav: Nav): View 
   // ---------- keys (UI-RULES: the same at every level) ----------
 
   function key(e: KeyboardEvent): boolean {
+    // in the queue, j and k walk the queue, and Enter saves unless a control has the focus
+    if (q) {
+      if (e.altKey && (e.code === "KeyJ" || e.code === "KeyK")) { q.step(e.code === "KeyJ" ? 1 : -1, true); return true; }
+      if (e.key === "j" || e.key === "k") { q.step(e.key === "j" ? 1 : -1, false); return true; }
+      const t = e.target as Element;
+      if (e.key === "Enter" && d && (t === document.body || t.closest?.("[data-testid=verdict-button]"))) { save(); return true; }
+      if (q.key(e)) return true;
+    }
     const list = d?.list ?? (lastList?.key === listKey ? lastList.items : null);
     if (!list) return false;
     // ⌥j and ⌥k walk every row, labeled or not; e.code, since ⌥ changes e.key on a Mac
@@ -179,7 +201,6 @@ export function findingView(host: HTMLElement, r: FindingRoute, nav: Nav): View 
     switch (e.key) {
       case "j": go(pos.next, "last one in this list"); return true;
       case "k": go(pos.prev, "first one in this list"); return true;
-      case "n": go(nextOpen(list, r.row), "nothing left to label in this list"); return true;
     }
     if (!d) return false;
     switch (e.key) {

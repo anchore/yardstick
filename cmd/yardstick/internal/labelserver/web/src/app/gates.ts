@@ -4,18 +4,17 @@ import type { CrossFinding, GateListItem, SharedState } from "../gen/wire";
 import { el, fill } from "../shared/dom";
 import { pkgOf } from "../shared/rows";
 import { plural } from "../shared/words";
-import { acceptCross, everyLabel, gateList, gateState, labelCross, shared } from "./data";
+import { acceptCross, everyLabel, gateList, labelCross, shared } from "./data";
 import { hintWords, labelPicker } from "./findings";
 import { labelsTable, type LRow } from "./labelstable";
-import { gateRows, labelText, mergeLabels, nextOpen, pageInfo, shortSource, square, sumTally, type WideLabel } from "./listing";
+import { labelText, mergeLabels, pageInfo, shortSource, square, sumTally, type WideLabel } from "./listing";
 import { failed, listCursor, loading, primary, shown } from "./lists";
+import { queueFor } from "./queuelist";
 import { formatRoute, withFilters, type Route } from "./route";
 import { renderShell, type Nav, type View } from "./shell";
 import { filterRows } from "./table";
 import { dataTable } from "./tableview";
 import { couldMove, hint, imageName, status, type State as Status } from "./ui";
-
-const findingHref = (gate: string, row: string) => formatRoute({ level: "finding", gate, check: null, row, filters: {} });
 
 const day = (iso: string) => {
   const d = new Date(iso);
@@ -27,28 +26,21 @@ export function gatesView(host: HTMLElement, r0: Route & { level: "gates" }, nav
   const alive = shown(r);
   // a filter change before the data is in draws the screen again
   const out: View = { update: () => false };
-  const load = () => Promise.all([gateList(), shared(), everyLabel()]).then(async ([list, sh, byGate]) => {
-    // next is in the gate of the finding whose label moves the most gates, at that gate's first
-    // open row, so its finding page's pager starts at 1
-    const gate = sh.findings[0]?.in[0]?.gate;
-    const first = gate ? nextOpen(gateRows(await gateState(gate))) : undefined;
-    const next = gate && first?.row ? { gate, row: first.row } : undefined;
+  const load = () => Promise.all([gateList(), shared(), everyLabel()]).then(([list, sh, byGate]) => {
     if (!alive()) return;
     const labels = mergeLabels(byGate);
     const body = el("div", { class: "screen" });
     renderShell(host, r, {
       title: "Gates",
-      actions: primary("Label next unlabeled", next ? findingHref(next.gate, next.row) : null),
+      // "Label next" enters the queue across every gate
+      actions: primary("Label next unlabeled", sh.findings.length ? formatRoute(queueFor(r)) : null),
       tabCounts: { gates: list.gates.length, unlabeled: sh.findings.length, labels: labels.length },
       meta: [...new Set(labels.map((l) => shortSource(l.source)))].join(" + "),
       body,
     });
     const tab = r.tab === "unlabeled" ? unlabeledTab(sh, r, nav, load) : r.tab === "labels" ? labelsTab(labels, r, nav) : gatesTab(list.gates);
     fill(body, tab.el);
-    out.key = (e) => {
-      if (e.key === "n" && next) { nav({ level: "finding", gate: next.gate, check: null, row: next.row, filters: {} }); return true; }
-      return tab.key(e);
-    };
+    out.key = (e) => tab.key(e);
     out.update = (n) => { r = n as typeof r; return tab.update?.(n) ?? false; };
   }).catch((e) => alive() && renderShell(host, r, { title: "Gates", body: failed(e) }));
   renderShell(host, r, { title: "Gates", body: loading() });

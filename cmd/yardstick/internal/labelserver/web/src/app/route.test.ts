@@ -41,6 +41,12 @@ describe("formatRoute", () => {
   test("the labeling flow's screens sit beside /ui/gates/", () => {
     expect(routes.slice(-4).map(formatRoute)).toEqual(["/ui/hints", "/ui/queue", "/ui/queue/e1af7851f0e60bb4?image=core", "/ui/history"]);
   });
+  test("a queue keeps its scope, check and low in the query; all is the default", () => {
+    const q: Route = { level: "queue", row: "e3bfd3b0b0c30ee6", scope: "gate:deb-java", check: "f1NotWorse", low: true, filters: {} };
+    expect(formatRoute(q)).toBe("/ui/queue/e3bfd3b0b0c30ee6?scope=gate%3Adeb-java&check=f1NotWorse&low=1");
+    expect(parse(formatRoute(q))).toEqual(q);
+    expect(formatRoute({ level: "queue", scope: "all", filters: {} })).toBe("/ui/queue");
+  });
   test("page 1 stays out of the URL", () => {
     expect(formatRoute({ level: "gate", gate: "g", tab: "labels", filters: { page: 1 } })).toBe("/ui/gates/g/labels");
   });

@@ -66,7 +66,9 @@ test.describe("a label from the finding page", () => {
     await expect(page.getByTestId("toast")).toContainText("nothing left to label in this list");
     await expect(page.getByTestId("label-panel")).toHaveAttribute("data-verdict", "tp");
     expect(labelsOf("CVE-2026-3184").map((l) => l.package.replace(/.*\//, "")).sort()).toEqual(["libblkid1", "libmount1", "mount", "util-linux"]);
+    // n enters the queue: this check's open rows first, then the gate's
     await page.keyboard.press("n");
-    await expect(page.getByTestId("toast")).toContainText("nothing left to label in this list");
+    await expect(page).toHaveURL(/\/ui\/queue\/[0-9a-f]{16}\?scope=gate%3Adeb-java&check=unjudgedChangesAtMost$/);
+    await expect(page.getByTestId("queue-bar")).toBeVisible();
   });
 });

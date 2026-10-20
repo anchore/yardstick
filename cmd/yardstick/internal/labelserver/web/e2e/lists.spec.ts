@@ -144,11 +144,11 @@ test("Label as… on the gate's Findings tab labels the rows selected", async ({
   await expect(table.locator(`tr[data-id="${rows.tarHand}"] [data-testid=verdict]`)).toHaveText("FP");
 });
 
-test("n on a gate opens the next unlabeled finding", async ({ page }) => {
+test("n on a gate filtered to an image enters the queue for that image", async ({ page }) => {
   await page.goto(`/ui/gates/deb-java/?image=${images.java.slug}`);
   await expect(page.getByTestId("check-row")).toHaveCount(4);
   await page.keyboard.press("n");
-  await expect(page).toHaveURL(new RegExp(`/ui/gates/deb-java/findings/${rows.jfhA}\\?image=${images.java.slug}$`));
+  await expect(page).toHaveURL(new RegExp(`/ui/queue/${rows.jfhA}\\?scope=image%3A${images.java.slug}$`));
 });
 
 test("the scan map's blocks open the Findings tab filtered to their package", async ({ page }) => {

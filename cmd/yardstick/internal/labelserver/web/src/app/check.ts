@@ -11,6 +11,7 @@ import { noCounts } from "./images";
 import { checkRows, nextOpen, type FRow } from "./listing";
 import { failed, loading, primary, shown } from "./lists";
 import { imageRail } from "./rail";
+import { queueFor } from "./queuelist";
 import { formatRoute, withFilters, type Route } from "./route";
 import { renderShell, type Nav, type View } from "./shell";
 import { imageName, status, type State as Status } from "./ui";
@@ -42,13 +43,12 @@ export function checkView(host: HTMLElement, r0: CheckRoute, nav: Nav): View {
     const list = findingsList({ gate, route: r, nav, vocab: st.vocabulary, reload: load, extra: [toggle, group], testid: "check-table",
       open: (x) => x.row && nav({ level: "finding", gate, check, row: x.row, filters: r.filters }) });
     const next = () => nextOpen(shownRows) ?? nextOpen(rows);
-    const nextRoute = (x: FRow): Route => ({ level: "finding", gate, check, row: x.row!, filters: r.filters });
 
     const n = checkCounts(st, c, null), first = next();
     const shell = renderShell(host, r, {
       title: check, status: status(c.state as Status, true),
       sub: f.note || `${c.description.charAt(0).toUpperCase()}${c.description.slice(1)}. ${sentenceCase(countWords(n))}.`,
-      actions: [checkMeter(c), primary("Label next", first ? formatRoute(nextRoute(first)) : null)],
+      actions: [checkMeter(c), primary("Label next", first ? formatRoute(queueFor(r)) : null)],
       meta: st.scans.gate.split("/").pop(),
       rail,
       body: el("div", { class: "screen" }, list.el),
@@ -63,11 +63,7 @@ export function checkView(host: HTMLElement, r0: CheckRoute, nav: Nav): View {
     };
     update(r);
     out.update = update;
-    out.key = (e) => {
-      const x = e.key === "n" ? next() : null;
-      if (x) { nav(nextRoute(x)); return true; }
-      return list.table.key(e) || rail.key(e);
-    };
+    out.key = (e) => list.table.key(e) || rail.key(e);
   }).catch((e) => alive() && renderShell(host, r, { title: check, body: failed(e) }));
   renderShell(host, r, { title: check, body: loading() });
   load();

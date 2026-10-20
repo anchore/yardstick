@@ -30,6 +30,7 @@ export interface ShellView {
   row?: string;          // the finding's crumb, its vulnerability ID, once known
   crumbEnd?: Child;      // the breadcrumb row's right end, such as a finding's pager
   meta?: Child;          // the app bar's right side
+  bar?: Child;           // under the app bar, such as the queue's
 }
 
 export interface Shell {
@@ -71,6 +72,7 @@ export function renderShell(host: HTMLElement, r: Route, v: ShellView): Shell {
       el("span", { class: "sp" }),
       el("span", { class: "meta" }, v.meta),
       el("button", { type: "button", class: "btn goto", "data-variant": "ghost", "data-size": "sm", "data-testid": "goto-button", onclick: openPalette }, "Go to… ", kbd(/Mac|iP/.test(navigator.platform) ? "⌘K" : "Ctrl K"))),
+    v.bar,
     el("main", { class: "page" },
       v.crumbEnd ? el("div", { class: "crumbrow" }, breadcrumb, el("span", { class: "sp" }), v.crumbEnd) : breadcrumb,
       el("div", { class: "titlerow", "data-testid": "title-row" },

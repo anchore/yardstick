@@ -8,7 +8,8 @@ import { crossByGate, type FRow } from "./listing";
 
 const cache = new Map<string, Promise<unknown>>();
 
-async function getJSON<T>(path: string): Promise<T> {
+// getJSON is a GET that skips the cache, for what must be fresh (the queue after a write)
+export async function getJSON<T>(path: string): Promise<T> {
   const r = await fetch(path);
   if (!r.ok) throw new Error(`${r.status}: ${(await r.text()).trim() || r.statusText}`);
   return r.json() as Promise<T>;

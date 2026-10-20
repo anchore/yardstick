@@ -235,6 +235,10 @@ func TestE2ELabelingFlow(t *testing.T) {
 	if got := queueLines(q); !slices.Equal(got, []string{"e3bfd3b0b0c30ee6 decides", "24160b879ac36bf5 none"}) || outcomes["deb-java"] != "undecided" || outcomes["deb-npm"] != "pass" || q.Settled {
 		t.Errorf("queue after accepting every hint: %v %v settled %v", got, outcomes, q.Settled)
 	}
+	// tar CVE-2026-18508 is deb-java's last open row: fp passes it, tp fails the check on new false negatives
+	if eff := q.Entries[0].In[0].Effect; eff == nil || eff.IfFP.Outcome != "pass" || len(eff.IfFP.Fails) != 0 || !slices.Equal(eff.IfTP.Fails, []string{"noNewFalseNegatives"}) {
+		t.Errorf("the last deb-java row's effect: %+v", eff)
+	}
 	if left := hints(t, h, ""); len(left.Hints) != 0 {
 		t.Errorf("hints after accepting all: %d", len(left.Hints))
 	}
@@ -272,6 +276,17 @@ func TestE2ELabelingFlow(t *testing.T) {
 	get(t, h, "/api/history?offset=10&limit=5", &hist)
 	if hist.Total != 13 || len(hist.Labels) != 3 {
 		t.Errorf("history's last page: %d of %d", len(hist.Labels), hist.Total)
+	}
+	// filtered by verdict and by text, as the history page asks
+	hist = labelserver.History{}
+	get(t, h, "/api/history?verdict=unclear", &hist)
+	if hist.Total != 1 || hist.Labels[0].Label.Vulnerability != "GHSA-vc5p-v9hr-52mj" {
+		t.Errorf("history's unclear labels: %+v", hist.Labels)
+	}
+	hist = labelserver.History{}
+	get(t, h, "/api/history?q=GZIP", &hist)
+	if hist.Total != 1 || hist.Labels[0].Package.Name != "gzip" {
+		t.Errorf("history matching gzip: %+v", hist.Labels)
 	}
 
 	// a low-confidence hint stays out of review unless asked for, and out of the queue's entries

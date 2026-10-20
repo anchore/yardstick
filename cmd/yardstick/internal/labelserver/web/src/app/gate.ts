@@ -11,6 +11,7 @@ import { labelsTable } from "./labelstable";
 import { gateRows, nextOpen, pageSize, sumTally, type FRow } from "./listing";
 import { failed, listCursor, loading, primary, shown } from "./lists";
 import { imageRail } from "./rail";
+import { queueFor } from "./queuelist";
 import { formatRoute, withFilters, type Route } from "./route";
 import { scanMap } from "./scanmap";
 import { renderShell, type Nav, type View } from "./shell";
@@ -49,13 +50,12 @@ export function gateView(host: HTMLElement, r0: GateRoute, nav: Nav): View {
     const rail = imageRail({ images: railed, selected: imageOf(r.filters.image)?.slug ?? null, scope: r.tab === "labels" ? "labels" : "gate",
       onSelect: (slug) => nav(withFilters(r, { image: slug ?? undefined })) });
     const next = () => nextOpen(rows.filter((x) => !r.filters.image || x.image.slug === r.filters.image));
-    const nextRoute = (x: FRow): Route => ({ level: "finding", gate, check: null, row: x.row!, filters: r.filters.image ? { image: r.filters.image } : {} });
     const n = next();
     const head = gateHead(st);
     const body = el("div", { class: "screen" });
     const shell = renderShell(host, r, {
       title: gate, status: head.status, sub: head.sub, meta: head.meta,
-      actions: primary("Label next", n ? formatRoute(nextRoute(n)) : null),
+      actions: primary("Label next", n ? formatRoute(queueFor(r)) : null),
       above: verdictBar(sumTally(st.subjects.map((s) => s.changes))),
       rail,
       tabCounts: { checks: st.gate?.result?.checks.length ?? 0, findings: rows.length, labels: all.total },
@@ -77,11 +77,7 @@ export function gateView(host: HTMLElement, r0: GateRoute, nav: Nav): View {
     };
     update(r);
     out.update = update;
-    out.key = (e) => {
-      const x = e.key === "n" ? next() : null;
-      if (x) { nav(nextRoute(x)); return true; }
-      return tab.key(e) || rail.key(e);
-    };
+    out.key = (e) => tab.key(e) || rail.key(e);
   }).catch((e) => alive() && renderShell(host, r, { title: gate, body: failed(e) }));
   renderShell(host, r, { title: gate, body: loading() });
   load();
