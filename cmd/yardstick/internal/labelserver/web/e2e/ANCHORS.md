@@ -21,9 +21,9 @@ Routes (`route.ts`): `/ui/gates/` (level 0, `?tab=unlabeled|labels`), `/ui/gates
 | `goto-button` | "Go to…" in the app bar, which opens the palette like `⌘K` / `ctrl+K` | |
 | `settings`, `settings-button` | the settings cog at the app bar's right end (Basecoat's popover) and its trigger, named "Settings" | `aria-expanded` on the button |
 | `settings-panel` | the open popover; keys pressed in it stay in it, and `Esc` closes it | `aria-hidden` while closed |
-| `advance-toggle`, `advance-checkbox` | "After labeling, go to the next match"; off, Save says "Save" and stays on the match, in the queue too | `checked` |
-| `queue-skip` | "Queue: skip labeled rows"; on, the queue's `j` / `k` step over rows it labeled | `checked` |
-| `settings-theme` | the theme radio group | |
+| `advance-toggle`, `advance-checkbox` | the "Go to the next match" row and its switch (a checkbox with `role="switch"`); off, Save says "Save" and stays on the match, in the queue too | `checked` |
+| `queue-skip` | the "Skip labeled rows" switch; on, the queue's `j` / `k` step over rows it labeled | `checked` |
+| `settings-theme` | the theme radio group, drawn as a segmented control | |
 | `theme-option` | System, Light or Dark | `value` (`system`, `light`, `dark`), `checked` |
 | `palette` | the go-to palette (Basecoat's command), visible while open | |
 | `palette-input` | its search box | |

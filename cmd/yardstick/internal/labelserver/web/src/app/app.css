@@ -77,10 +77,30 @@ a[role="tab"] { text-decoration: none; }
 /* ---------- moving between gates: the gate crumb's switcher and the go-to palette ---------- */
 
 .appbar .goto, .appbar .settings > .btn { color: var(--muted-foreground); }
-.settings [data-popover] { width: 280px; gap: 16px; }
-.settings .label { gap: 8px; font-weight: 400; line-height: 1.4; cursor: pointer; }
-.settings fieldset { display: grid; gap: 8px; margin: 0; padding: 0; border: 0; }
-.settings legend { margin-bottom: 8px; font-weight: 500; }
+
+/* the settings cog's popover: groups under a muted caps label (the label panel's), rows that are
+   one click target each, and the theme as a segmented control like the label panel's verdicts */
+.settings > [data-popover] { width: 320px; padding: 6px; gap: 0; }
+.settings section { display: grid; gap: 2px; padding: 4px 0; }
+.settings section + section { border-top: 1px solid var(--border); margin-top: 4px; padding-top: 8px; }
+.settings h3 { margin: 0; padding: 6px 10px 4px; font-size: 11px; text-transform: uppercase; letter-spacing: .07em; color: var(--muted-foreground); font-weight: 600; }
+.settings .srow { display: flex; align-items: center; gap: 16px; padding: 8px 10px; border-radius: 8px; cursor: pointer; }
+.settings .srow:hover { background: var(--accent); }
+.settings .stext { flex: 1; display: grid; gap: 2px; min-width: 0; }
+.settings .sname { font-size: 13.5px; font-weight: 500; line-height: 1.3; }
+.settings .sdesc { font-size: 12px; line-height: 1.4; color: var(--muted-foreground); }
+/* Basecoat's switch, at its own size rather than the app's 15px checkbox */
+.settings input[role="switch"] { width: 32px; height: 18.4px; cursor: pointer; }
+.settings .seg { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 2px; margin: 4px 10px 8px; padding: 3px; border: 1px solid var(--border); border-radius: 9px; background: var(--muted); }
+.settings .seg label { position: relative; display: flex; align-items: center; justify-content: center; gap: 6px; height: 28px; border-radius: 6px; font-size: 13px; font-weight: 500; color: var(--muted-foreground); }
+.settings .seg label:hover { color: var(--foreground); }
+.settings .seg svg { width: 14px; height: 14px; }
+.settings .seg input { position: absolute; inset: 0; margin: 0; opacity: 0; cursor: pointer; }
+.settings .seg label:has(:checked) { background: var(--background); color: var(--foreground); box-shadow: 0 1px 2px rgba(0, 0, 0, .08), 0 0 0 1px var(--border); }
+/* in dark the picked segment is lifted above the track rather than sunk below it */
+.dark .settings .seg label:has(:checked) { background: color-mix(in oklab, var(--foreground) 14%, var(--muted)); }
+.settings .seg label:has(:focus-visible) { outline: 2px solid var(--ring); outline-offset: 1px; }
+.settings .where { margin: 0; padding: 8px 10px 4px; border-top: 1px solid var(--border); font-size: 12px; color: var(--faint); }
 .gate-switch { margin-left: 4px; }
 .gate-switch > .btn { height: 24px; padding: 0 8px; color: var(--muted-foreground); }
 .gate-switch > .btn::after { content: "▾"; }
