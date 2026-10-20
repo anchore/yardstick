@@ -34,7 +34,7 @@ Routes (`route.ts`): `/ui/gates/` (level 0, `?tab=unlabeled|labels`), `/ui/gates
 | `status` | a state badge: the gate's or check's in `title-row`, and one per gate or check row | text is the state |
 | `verdict` | a verdict badge: the finding's in `title-row`, and one per table row | text `TP`, `FP`, `unclear` or `unlabeled` |
 | `hint` | an agent hint mark in a table cell | text e.g. `TP · medium`, or `package hint` |
-| `outcome` | what a changed row does to the candidate: a table cell's pill, the unlabeled tab's question (a gate chip's when its gates disagree), a hint's by line, the label panel's | text `fixed FN`, `new FP`, `new FN`, `fixed FP`, `new FP?` or `new FN?`; `data-outcome` `good`, `bad` or `open` |
+| `outcome` | what a changed row does to the candidate: a table cell's pill, the unlabeled tab's question (a gate chip's when its gates disagree), a hint's by line | text `fixed FN`, `new FP`, `new FN`, `fixed FP`, `new FP?` or `new FN?`; `data-outcome` `good`, `bad` or `open` |
 | `tabs` | the screen's tabs (levels 0 and 1); each tab is `role=tab` | `aria-selected`, `data-tab` |
 | `scope-chip` | "image: …" beside the tabs while an image is picked | `hidden` without one |
 | `label-next` | the primary "Label next" button (a link, or disabled when nothing is open); on the gates screen only on the Unlabeled and Labels tabs, since the Gates tab's work banner carries the primary action | |
@@ -150,7 +150,7 @@ Filter chips are buttons with `data-chip` (`all`, `unlabeled`, `tp`, `fp`, `uncl
 | `cause-card` | the package hint the row is a pending member of | `data-count`, `data-verdict` |
 | `accept-all` | accept it for every member (`A`) | `data-count` |
 | `verdict-button` | TP / FP / Unclear (`t` `f` `u`) | `data-verdict`, `aria-pressed` |
-| `label-meaning` | what a TP and an FP would make the row, as two outlined `outcome` pills | |
+| `label-meaning` | what a TP and an FP would make the row, e.g. `TP → new FN · FP → fixed FP` | |
 | `reason-picker` | the reason select | |
 | `reason-option` | one reason | |
 | `note-input` | the note; Enter saves | |
