@@ -300,6 +300,20 @@ func TestClaimsSources(t *testing.T) {
 		t.Errorf("expected a local last source to take writes, got %v", err)
 	}
 
+	// a path after the repository names a claims directory in it, at a ref
+	srcs, err := Sources(nil, []string{"github.com/anchore/vunnel/tests/quality/claims@main"})
+	if err != nil || len(srcs) != 1 || *srcs[0].Remote != (Remote{Repository: "github.com/anchore/vunnel", Path: "tests/quality/claims", Ref: "main"}) {
+		t.Errorf("expected a path-qualified reference, got %+v %v", srcs, err)
+	}
+	for _, bad := range []string{"github.com/anchore/vunnel/../x@main", "github.com/anchore/vunnel/claims/@main", "nope@main"} {
+		if _, err := Sources(nil, []string{bad}); err == nil || !strings.Contains(err.Error(), bad) {
+			t.Errorf("expected %s refused, got %v", bad, err)
+		}
+	}
+	if _, err := Sources(nil, []string{"nope"}); err == nil || !strings.Contains(err.Error(), "github.com/<owner>/<repo>/<path>@<ref>") {
+		t.Errorf("expected the refusal to name both reference forms, got %v", err)
+	}
+
 	// a remote last source is fine to read, and refused when the invocation writes labels
 	if _, err := Load(path, Options{Checks: registry}); err != nil {
 		t.Errorf("expected a read-only load against a remote source, got %v", err)

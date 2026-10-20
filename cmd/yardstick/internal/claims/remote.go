@@ -5,10 +5,13 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
+	"io/fs"
 	"net/http"
 	"os"
+	"path"
 	"path/filepath"
 	"regexp"
 	"strings"
@@ -36,6 +39,9 @@ var (
 	defaultURL    = DefaultURL
 	commitPattern = regexp.MustCompile(`^[0-9a-f]{40}$`)
 	httpClient    = &http.Client{Timeout: 2 * time.Minute}
+	// githubAPI is where a claims directory in a GitHub repository is resolved and downloaded from,
+	// a variable for the same reason
+	githubAPI = "https://api.github.com"
 )
 
 // pointer is a published JSON object naming a snapshot.
@@ -65,7 +71,8 @@ func openRemote(s gatefile.Source) (*Source, error) {
 	log.Infof("opening remote claims source %s, resolved to snapshot %s", s.Locator, p.Digest)
 	// resolve accepts only sha256:<64 lowercase hex>, so the digest is safe in a path and a URL
 	hexDigest := strings.TrimPrefix(p.Digest, "sha256:")
-	f, size, downloaded, err := openSnapshot(base+"/claims/snapshots/"+hexDigest+".zip", p.Digest, details(s.Locator, p))
+	final := filepath.Join(cache.Dir("claims"), hexDigest+".zip")
+	f, size, downloaded, err := openSnapshot(base+"/claims/snapshots/"+hexDigest+".zip", final, p.Digest, details(s.Locator, p))
 	if err != nil {
 		return nil, fmt.Errorf("claims source %s: snapshot %s: %w", s.Locator, p.Digest, err)
 	}
@@ -75,6 +82,94 @@ func openRemote(s gatefile.Source) (*Source, error) {
 		return nil, fmt.Errorf("claims source %s: snapshot %s: %w", s.Locator, p.Digest, err)
 	}
 	return &Source{Locator: s.Locator, Kind: Remote, FS: zr, Digest: p.Digest, Commit: p.Commit, Downloaded: downloaded, read: map[string]string{}}, nil
+}
+
+// openArchive reads a claims directory in a GitHub repository: the ref is resolved to its commit,
+// and that commit's archive is opened in place from the cache, downloaded first when it is not
+// there, the way a snapshot is. A commit names its archive's content, so @main re-resolves on
+// every open and downloads only when the commit moved.
+func openArchive(s gatefile.Source) (*Source, error) {
+	r := s.Remote
+	host, repo, _ := strings.Cut(r.Repository, "/")
+	if host != "github.com" {
+		return nil, fmt.Errorf("claims source %s: a claims directory is read only from a github.com repository", s.Locator)
+	}
+	commit := r.Ref
+	if !commitPattern.MatchString(commit) {
+		resolving := bus.StartTask(event.ResolveClaims, "%s", s.Locator)
+		var err error
+		commit, err = resolveCommit(repo, r.Ref)
+		resolving.Done(err)
+		if err != nil {
+			return nil, fmt.Errorf("claims source %s: %w", s.Locator, err)
+		}
+	}
+	log.Infof("opening claims directory %s, resolved to commit %s", s.Locator, commit)
+	fail := func(err error) error {
+		return fmt.Errorf("claims source %s: commit %s: %w", s.Locator, commit, err)
+	}
+	// the commit is checked hex and the repository is the gate file's [A-Za-z0-9_.-] segments, so
+	// both are safe in a file name and a URL
+	final := filepath.Join(cache.Dir("claims"), "github-"+strings.ReplaceAll(repo, "/", "-")+"-"+commit+".zip")
+	f, size, downloaded, err := openSnapshot(githubAPI+"/repos/"+repo+"/zipball/"+commit, final, "", []string{s.Locator, "commit " + commit})
+	if err != nil {
+		return nil, fail(err)
+	}
+	zr, err := zip.NewReader(f, size)
+	if err != nil {
+		return nil, fail(err)
+	}
+	// GitHub's archive holds the repository under one top-level directory, <owner>-<repo>-<short sha>
+	top, err := fs.ReadDir(zr, ".")
+	if err != nil || len(top) != 1 || !top[0].IsDir() {
+		return nil, fail(errors.New("the archive is not one top-level directory"))
+	}
+	dir := path.Join(top[0].Name(), r.Path)
+	if info, err := fs.Stat(zr, dir); err != nil || !info.IsDir() {
+		return nil, fmt.Errorf("claims source %s: %s at %s has no directory %s", s.Locator, r.Repository, r.Ref, r.Path)
+	}
+	sub, err := fs.Sub(zr, dir)
+	if err != nil {
+		return nil, fail(err)
+	}
+	return &Source{Locator: s.Locator, Kind: Remote, FS: sub, Commit: commit, Downloaded: downloaded, read: map[string]string{}}, nil
+}
+
+// resolveCommit asks GitHub which commit a branch, tag or short sha names.
+func resolveCommit(repo, r string) (string, error) {
+	u := githubAPI + "/repos/" + repo + "/commits/" + r
+	req, err := http.NewRequest(http.MethodGet, u, nil) //nolint:noctx // a short read; the client has a timeout
+	if err != nil {
+		return "", err
+	}
+	req.Header.Set("Accept", "application/vnd.github.sha")
+	resp, err := do(req)
+	if err != nil {
+		return "", err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		return "", fmt.Errorf("GET %s: %s", u, resp.Status)
+	}
+	body, err := io.ReadAll(io.LimitReader(resp.Body, 128))
+	if err != nil {
+		return "", fmt.Errorf("GET %s: %w", u, err)
+	}
+	// the commit becomes part of a cache path and a URL
+	commit := strings.TrimSpace(string(body))
+	if !commitPattern.MatchString(commit) {
+		return "", fmt.Errorf("GET %s: %q is not a 40-character lowercase hex sha", u, commit)
+	}
+	return commit, nil
+}
+
+// do sends a request, with GITHUB_TOKEN as its credentials when it goes to GitHub's API. The
+// client drops them on the redirect from there to the archive host.
+func do(req *http.Request) (*http.Response, error) {
+	if t := os.Getenv("GITHUB_TOKEN"); t != "" && strings.HasPrefix(req.URL.String(), githubAPI+"/") {
+		req.Header.Set("Authorization", "Bearer "+t)
+	}
+	return httpClient.Do(req) //nolint:gosec // every caller builds the URL from a fixed host and checked path segments
 }
 
 // Details names a remote source's snapshot in full, as the line under its download does.
@@ -88,6 +183,10 @@ func details(locator string, p pointer) []string {
 	d := []string{locator}
 	if p.Commit != "" {
 		d = append(d, "commit "+p.Commit)
+	}
+	if p.Digest == "" {
+		// a claims directory in a repository is named by its commit alone
+		return d
 	}
 	return append(d, p.Digest)
 }
@@ -144,24 +243,23 @@ func getJSON(u string, v any) error {
 	return nil
 }
 
-// openSnapshot opens a snapshot's zip from the cache, downloading it first when it is not there, and
+// openSnapshot opens a zip from the cache at final, downloading it first when it is not there, and
 // says whether it did. No byte of a snapshot is read before the whole zip is on disk and its sha256
-// is the digest it was published under.
-func openSnapshot(url, digest string, details []string) (*os.File, int64, bool, error) {
-	dir := cache.Dir("claims")
-	final := filepath.Join(dir, strings.TrimPrefix(digest, "sha256:")+".zip")
+// is the digest it was published under; a repository archive, which has no published digest, is
+// read once it is on disk whole.
+func openSnapshot(url, final, digest string, details []string) (*os.File, int64, bool, error) {
 	downloaded := false
 	if _, err := os.Stat(final); err != nil {
-		log.Infof("downloading claims snapshot %s", digest)
+		log.Infof("downloading claims %s", details[0])
 		task := bus.StartDetailedTask(event.DownloadClaims, "", details)
-		err := download(url, digest, dir, final)
+		err := download(url, digest, filepath.Dir(final), final)
 		task.Done(err)
 		if err != nil {
 			return nil, 0, false, err
 		}
 		downloaded = true
 	} else {
-		log.Infof("using cached claims snapshot %s", digest)
+		log.Infof("using cached claims %s", filepath.Base(final))
 		cache.Touch(final)
 	}
 	f, err := os.Open(final)
@@ -180,7 +278,7 @@ func openSnapshot(url, digest string, details []string) (*os.File, int64, bool, 
 const staleDownload = time.Hour
 
 // download fetches the whole zip into a temp file beside final, hashing it as it is written, and
-// renames it into place only when the digest matches. A failed, cut off or mismatched download is
+// renames it into place only when the digest matches, or with no digest once it is whole. A failed, cut off or mismatched download is
 // deleted, so nothing of it stays in the cache.
 func download(url, digest, dir, final string) error {
 	defer log.Timed("downloading and verifying %s", url)()
@@ -194,7 +292,12 @@ func download(url, digest, dir, final string) error {
 	}
 	defer os.Remove(tmp.Name())
 	defer tmp.Close()
-	resp, err := httpClient.Get(url) //nolint:noctx,gosec // the host is YARDSTICK_CLAIMS_URL or DefaultURL and the path a checked digest
+	// the host is YARDSTICK_CLAIMS_URL, DefaultURL or githubAPI, and the path a checked digest or commit
+	req, err := http.NewRequest(http.MethodGet, url, nil) //nolint:noctx,gosec // the client has a timeout
+	if err != nil {
+		return err
+	}
+	resp, err := do(req)
 	if err != nil {
 		return err
 	}
@@ -211,10 +314,10 @@ func download(url, digest, dir, final string) error {
 	if err := tmp.Close(); err != nil {
 		return err
 	}
-	if got := "sha256:" + hex.EncodeToString(h.Sum(nil)); got != digest {
+	if got := "sha256:" + hex.EncodeToString(h.Sum(nil)); digest != "" && got != digest {
 		return fmt.Errorf("the download's digest is %s, not %s as published; it was deleted", got, digest)
 	}
-	log.Infof("verified claims snapshot %s, %d bytes", digest, n)
+	log.Infof("downloaded claims %s, %d bytes", filepath.Base(final), n)
 	return os.Rename(tmp.Name(), final)
 }
 

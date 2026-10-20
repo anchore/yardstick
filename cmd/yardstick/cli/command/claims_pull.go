@@ -18,10 +18,13 @@ func ClaimsPull(app clio.Application) *cobra.Command {
 		Long: `pull resolves each published claims source to its snapshot, downloads it into the cache when it is
 not there and checks its digest, the same as any command that reads the source would on first
 use. With no arguments it pulls the app config's remote sources; local directories are skipped.
-Snapshots are read from YARDSTICK_CLAIMS_URL, or ` + claims.DefaultURL + ` when it is unset.`,
+Snapshots are read from YARDSTICK_CLAIMS_URL, or ` + claims.DefaultURL + ` when it is unset. A reference
+with a path after the repository is that claims directory at the ref, read from the GitHub
+archive of the commit it resolves to (GITHUB_TOKEN is sent when set).`,
 		Example: `  yardstick claims pull
   yardstick claims pull github.com/anchore/match-claims@main
-  yardstick claims pull github.com/anchore/match-claims@sha256:<hex>`,
+  yardstick claims pull github.com/anchore/match-claims@sha256:<hex>
+  yardstick claims pull github.com/anchore/vunnel/tests/quality/claims@main`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			// arguments replace the app config's sources rather than adding to them
 			var app *gatefile.AppConfig

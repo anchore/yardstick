@@ -244,7 +244,7 @@ func snapshot(t *testing.T, open opener) {
 	if !strings.HasPrefix(first, "sha256:") || id() != first {
 		t.Fatalf("expected a stable digest, got %s", first)
 	}
-	remote := open(t, root).Kind == Remote
+	published := open(t, root).Digest != ""
 	edit := func(rel, old, new string) {
 		p := filepath.Join(root, filepath.FromSlash(rel))
 		data, _ := os.ReadFile(p)
@@ -254,7 +254,7 @@ func snapshot(t *testing.T, open opener) {
 	}
 	edit(claimsv1.TypeFile(otherDir, "deb"), `"verdict": "tp"`, `"verdict": "fp"`)
 	// a published snapshot is identified by the whole zip's digest, so any edit is a new one
-	if changed := id() != first; changed != remote {
+	if changed := id() != first; changed != published {
 		t.Errorf("expected a file the gate did not read to change the identity only of a published snapshot, changed: %v", changed)
 	}
 	first = id()

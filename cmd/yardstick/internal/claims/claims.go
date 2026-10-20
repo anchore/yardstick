@@ -23,7 +23,7 @@ import (
 // Kinds of source.
 const (
 	Corpus = "corpus" // a local directory in the corpus layout
-	Remote = "remote" // a published snapshot
+	Remote = "remote" // a published snapshot, or a claims directory in a GitHub repository
 )
 
 // Source is one claims source, read as a file system in the corpus layout.
@@ -45,7 +45,10 @@ type Source struct {
 // Open opens a gate's claims source.
 func Open(s gatefile.Source) (*Source, error) {
 	defer log.Timed("opening claims source %s", s.Locator)()
-	if s.Remote != nil {
+	switch {
+	case s.Remote != nil && s.Remote.Path != "":
+		return openArchive(s)
+	case s.Remote != nil:
 		return openRemote(s)
 	}
 	log.Infof("opening local claims source %s", s.Locator)
@@ -88,10 +91,10 @@ func (s *Source) Read() []string {
 	return out
 }
 
-// Snapshot identifies what was read: a remote source's snapshot digest, or for a local one a
+// Snapshot identifies what was read: a published snapshot's digest, or for any other source a
 // content hash over the files read, which changes exactly when one of them does.
 func (s *Source) Snapshot() string {
-	if s.Kind == Remote {
+	if s.Digest != "" {
 		return s.Digest
 	}
 	h := sha256.New()

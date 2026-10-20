@@ -10,6 +10,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io/fs"
 	"math"
 	"os"
 	"path/filepath"
@@ -67,17 +68,19 @@ type Catalog struct {
 	Env      map[string]string `yaml:"env" json:"env,omitempty"`
 }
 
-// Source is one claims source: a local directory or a published reference.
+// Source is one claims source: a local directory or a reference.
 type Source struct {
 	Locator string `json:"locator"`
-	// Remote is set for <host>/<owner>/<repo>@<ref>; the locator is then the reference as written.
+	// Remote is set for <host>/<owner>/<repo>[/<path>]@<ref>; the locator is then the reference as written.
 	Remote *Remote `json:"remote,omitempty"`
 }
 
-// Remote is a published claims reference, <host>/<owner>/<repo>@<ref>.
+// Remote is a claims reference, <host>/<owner>/<repo>@<ref> for the published snapshot, or
+// <host>/<owner>/<repo>/<path>@<ref> for a claims directory in that repository.
 type Remote struct {
-	Repository string `json:"repository"` // <host>/<owner>/<repo>
-	Ref        string `json:"ref"`        // main, or a commit or snapshot digest
+	Repository string `json:"repository"`     // <host>/<owner>/<repo>
+	Path       string `json:"path,omitempty"` // the claims directory in the repository; empty for the published snapshot
+	Ref        string `json:"ref"`            // main, or a commit or snapshot digest
 }
 
 // Subject is one subject entry: a reference, its name, and an optional package filter.
@@ -132,7 +135,7 @@ var pinnedEnv = []string{"GRYPE_DB_AUTO_UPDATE", "GRYPE_DB_VALIDATE_AGE", "GRYPE
 
 var (
 	validName      = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._-]*$`)
-	remotePattern  = regexp.MustCompile(`^([a-z0-9.-]+\.[a-z]{2,}/[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+)@([A-Za-z0-9._:-]+)$`)
+	remotePattern  = regexp.MustCompile(`^([a-z0-9.-]+\.[a-z]{2,}/[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+)(?:/([A-Za-z0-9_./-]+))?@([A-Za-z0-9._:-]+)$`)
 	platformFormat = regexp.MustCompile(`^[a-z0-9]+/[a-z0-9_]+(/[a-z0-9]+)?$`)
 )
 
@@ -448,7 +451,12 @@ func claims(listed []string, opts Options, dir string, errs *problems) []Source 
 	var out []Source
 	add := func(s, base, from string) {
 		if m := remotePattern.FindStringSubmatch(s); m != nil {
-			out = append(out, Source{Locator: s, Remote: &Remote{Repository: m[1], Ref: m[2]}})
+			// the path becomes a path inside the repository's archive, so it is held to fs.ValidPath
+			if m[2] != "" && !fs.ValidPath(m[2]) {
+				errs.addf("claims source %q names the path %q, which is not a clean relative path", s, m[2])
+				return
+			}
+			out = append(out, Source{Locator: s, Remote: &Remote{Repository: m[1], Path: m[2], Ref: m[3]}})
 			return
 		}
 		p, err := canonical(resolve(base, s))
@@ -458,7 +466,7 @@ func claims(listed []string, opts Options, dir string, errs *problems) []Source 
 			p = createWithin(base, p, from)
 		}
 		if info, statErr := os.Stat(p); err != nil || statErr != nil || !info.IsDir() {
-			errs.addf("claims source %q%s is neither an existing directory nor a reference like github.com/<owner>/<repo>@main", s, from)
+			errs.addf("claims source %q%s is neither an existing directory nor a reference: github.com/<owner>/<repo>@main for the published snapshot, or github.com/<owner>/<repo>/<path>@<ref> for a claims directory in that repository", s, from)
 			return
 		}
 		out = append(out, Source{Locator: p})

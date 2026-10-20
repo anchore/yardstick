@@ -26,8 +26,8 @@ import (
 )
 
 // bundle zips a corpus directory the way the publish workflow does: entries sorted, paths
-// relative to the corpus root, one fixed time and mode.
-func bundle(t *testing.T, root string) []byte {
+// relative to the corpus root under prefix, one fixed time and mode.
+func bundle(t *testing.T, root, prefix string) []byte {
 	t.Helper()
 	var paths []string
 	err := filepath.WalkDir(root, func(p string, d fs.DirEntry, err error) error {
@@ -44,7 +44,7 @@ func bundle(t *testing.T, root string) []byte {
 	var buf bytes.Buffer
 	zw := zip.NewWriter(&buf)
 	for _, p := range paths {
-		h := &zip.FileHeader{Name: p, Method: zip.Deflate, Modified: time.Date(1980, 1, 1, 0, 0, 0, 0, time.UTC)}
+		h := &zip.FileHeader{Name: prefix + p, Method: zip.Deflate, Modified: time.Date(1980, 1, 1, 0, 0, 0, 0, time.UTC)}
 		h.SetMode(0o644)
 		w, err := zw.CreateHeader(h)
 		if err != nil {
@@ -117,7 +117,7 @@ func (c *countingWriter) Write(p []byte) (int, error) {
 // publish puts a corpus up as a snapshot, returning its digest.
 func (h *host) publish(t *testing.T, root string) string {
 	t.Helper()
-	data := bundle(t, root)
+	data := bundle(t, root, "")
 	sum := sha256.Sum256(data)
 	h.mu.Lock()
 	defer h.mu.Unlock()
@@ -364,5 +364,145 @@ func TestRemoteDigestsAreHex(t *testing.T) {
 				t.Errorf("the cache was written: %v", entries)
 			}
 		})
+	}
+}
+
+// github stands in for GitHub's API: refs resolved to commits, each commit's archive holding a
+// corpus under tests/quality/claims, and a log of every request with its credentials.
+type github struct {
+	*httptest.Server
+	mu       sync.Mutex
+	refs     map[string]string // ref to commit
+	archives map[string][]byte // commit to zipball
+	requests []string
+}
+
+func newGitHub(t *testing.T) *github {
+	t.Helper()
+	g := &github{refs: map[string]string{}, archives: map[string][]byte{}}
+	g.Server = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		g.mu.Lock()
+		defer g.mu.Unlock()
+		g.requests = append(g.requests, r.URL.Path+" "+r.Header.Get("Authorization"))
+		if ref, ok := strings.CutPrefix(r.URL.Path, "/repos/anchore/vunnel/commits/"); ok && r.Header.Get("Accept") == "application/vnd.github.sha" {
+			if c, ok := g.refs[ref]; ok {
+				_, _ = io.WriteString(w, c)
+				return
+			}
+		}
+		if data, ok := g.archives[strings.TrimPrefix(r.URL.Path, "/repos/anchore/vunnel/zipball/")]; ok {
+			_, _ = w.Write(data)
+			return
+		}
+		http.NotFound(w, r)
+	}))
+	t.Cleanup(g.Close)
+	orig := githubAPI
+	githubAPI = g.URL
+	t.Cleanup(func() { githubAPI = orig })
+	return g
+}
+
+// push makes root the claims directory at ref, returning the commit.
+func (g *github) push(t *testing.T, ref, root string) string {
+	t.Helper()
+	data := bundle(t, root, "anchore-vunnel-0000000/tests/quality/claims/")
+	sum := sha256.Sum256(data)
+	commit := hex.EncodeToString(sum[:20])
+	g.mu.Lock()
+	g.refs[ref], g.archives[commit] = commit, data
+	g.mu.Unlock()
+	return commit
+}
+
+func openArchiveAt(t *testing.T, p, ref string) (*Source, error) {
+	t.Helper()
+	return Open(gatefile.Source{Locator: "github.com/anchore/vunnel/" + p + "@" + ref, Remote: &gatefile.Remote{Repository: "github.com/anchore/vunnel", Path: p, Ref: ref}})
+}
+
+// a claims directory in another repository passes the suite every source kind does
+func TestRepositoryClaimsDirectory(t *testing.T) {
+	g := newGitHub(t)
+	conformance(t, func(t *testing.T, root string) *Source {
+		t.Setenv("YARDSTICK_CACHE_DIR", t.TempDir())
+		g.push(t, "main", root)
+		s, err := openArchiveAt(t, "tests/quality/claims", "main")
+		if err != nil {
+			t.Fatal(err)
+		}
+		return s
+	})
+}
+
+// @main re-resolves on every open and downloads an archive once per commit
+func TestRepositoryArchiveCachedByCommit(t *testing.T) {
+	cacheDir := t.TempDir()
+	t.Setenv("YARDSTICK_CACHE_DIR", cacheDir)
+	t.Setenv("GITHUB_TOKEN", "")
+	g := newGitHub(t)
+	first := g.push(t, "main", corpus(t, at(claimsv1.TypeFile(dir, "deb"), label(libudv, "CVE-2020-13776", claimsv1.FP))))
+	downloads := func() (n int) {
+		g.mu.Lock()
+		defer g.mu.Unlock()
+		for _, r := range g.requests {
+			if strings.Contains(r, "/zipball/") {
+				n++
+			}
+		}
+		return n
+	}
+	for range 2 {
+		s, err := openArchiveAt(t, "tests/quality/claims", "main")
+		if err != nil || s.Commit != first {
+			t.Fatalf("expected commit %s, got %v %+v", first, err, s)
+		}
+	}
+	if downloads() != 1 {
+		t.Errorf("expected one download of an unchanged commit, got %v", g.requests)
+	}
+
+	// main moves: the next open downloads the new commit's archive
+	second := g.push(t, "main", corpus(t, at(claimsv1.TypeFile(dir, "deb"), label(libudv, "CVE-2020-13776", claimsv1.TP))))
+	s, err := openArchiveAt(t, "tests/quality/claims", "main")
+	if err != nil || s.Commit != second || !s.Downloaded || downloads() != 2 {
+		t.Fatalf("expected the moved main downloaded, got %v %+v %v", err, s, g.requests)
+	}
+	got, err := setOf(t, s).Read(Subject{Name: "test-image", Dir: dir, Types: []string{"deb"}})
+	if err != nil || len(got.Labels) != 1 || got.Labels[0].Verdict != claimsv1.TP {
+		t.Errorf("expected the new commit's label, got %+v %v", got, err)
+	}
+
+	// a full commit is read from the cache without asking GitHub anything
+	g.mu.Lock()
+	g.requests = nil
+	g.mu.Unlock()
+	if s, err := openArchiveAt(t, "tests/quality/claims", first); err != nil || s.Downloaded || len(g.requests) != 0 {
+		t.Errorf("expected a cached commit opened offline, got %v %v", err, g.requests)
+	}
+
+	// GITHUB_TOKEN goes with every request when it is set
+	t.Setenv("GITHUB_TOKEN", "s3cret")
+	t.Setenv("YARDSTICK_CACHE_DIR", t.TempDir())
+	if _, err := openArchiveAt(t, "tests/quality/claims", "main"); err != nil {
+		t.Fatal(err)
+	}
+	for _, r := range g.requests {
+		if !strings.HasSuffix(r, " Bearer s3cret") {
+			t.Errorf("expected the token sent, got %q", r)
+		}
+	}
+}
+
+// a path the archive does not hold is an error naming the repository, ref and path
+func TestRepositoryPathMissing(t *testing.T) {
+	t.Setenv("YARDSTICK_CACHE_DIR", t.TempDir())
+	g := newGitHub(t)
+	g.push(t, "main", corpus(t))
+	_, err := openArchiveAt(t, "tests/quality/nope", "main")
+	if err == nil || !strings.Contains(err.Error(), "github.com/anchore/vunnel at main has no directory tests/quality/nope") {
+		t.Errorf("expected the repository, ref and path named, got %v", err)
+	}
+	if _, err := openArchiveAt(t, "tests/quality/claims", "gone"); err == nil || !strings.Contains(err.Error(), "404") {
+		t.Errorf("expected an unknown ref refused, got %v", err)
 	}
 }
