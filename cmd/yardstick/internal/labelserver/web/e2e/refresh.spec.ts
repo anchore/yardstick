@@ -155,4 +155,17 @@ test.describe("the finding page", () => {
     await expect(note).toHaveValue("checked the changelog too");
     await kept();
   });
+
+  test("an open gate switcher stays open while research polls the row", async ({ page }) => {
+    test.setTimeout(120_000);
+    await openFinding(page, rows.tarHand);
+    await page.keyboard.press("R");
+    await expect(page.getByTestId("toast")).toContainText("research started");
+    await page.getByTestId("gate-switch-button").click();
+    const option = page.locator("[data-testid=gate-option][data-gate=deb-npm]");
+    await expect(option).toBeVisible();
+    await expect(page.getByTestId("hint-card")).toHaveAttribute("data-verdict", "tp", { timeout: 60_000 });
+    await expect(page.getByTestId("gate-switch-button")).toHaveAttribute("aria-expanded", "true");
+    await expect(option).toBeVisible();
+  });
 });
