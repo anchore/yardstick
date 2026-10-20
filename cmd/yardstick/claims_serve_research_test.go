@@ -159,6 +159,44 @@ func TestServeResearchRunsThePluginSkill(t *testing.T) {
 	}
 }
 
+func TestServeResearchLogRendersClaudesJSON(t *testing.T) {
+	fixtures, _ := filepath.Abs(filepath.Join("internal", "research", "testdata")) // before serving moves to its workspace
+	s, runner, _ := servedWithResearch(t, "v0.17.0")
+	tar := s.tarRow()
+	var c struct{ Jobs []string }
+	s.research(`{"rows":["`+tar.ID+`"]}`, &c)
+	runner.Wait()
+	url := "/api/research/" + tar.ID + "/log"
+	for _, tt := range []struct{ name, fixture, query, want string }{
+		{"plain text as it is", "", "", "args: -p /yardstick:research-vuln"}, // the stub claude's own log
+		{"a stream as text", "claude-stream-tool.jsonl", "", "> Bash: seq 1 8\n    1\n"},
+		{"json mode's result and cost", "claude-result.json", "", "ok\n\n-- success: $0.00, 1 turns, 2s\n"},
+		{"raw untouched", "claude-stream.jsonl", "?raw=1", ""},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			if tt.fixture != "" {
+				data, err := os.ReadFile(filepath.Join(fixtures, tt.fixture))
+				if err != nil {
+					t.Fatal(err)
+				}
+				writeFile(t, runner.LogPath(tar.ID), string(data))
+				if tt.want == "" {
+					tt.want = string(data)
+				}
+			}
+			rec := s.do(http.MethodGet, url+tt.query, "", "")
+			got := rec.Body.String()
+			ok := strings.Contains(got, tt.want)
+			if tt.query != "" {
+				ok = got == tt.want
+			}
+			if rec.Code != http.StatusOK || !ok {
+				t.Errorf("expected %q, got %d %q", tt.want, rec.Code, got)
+			}
+		})
+	}
+}
+
 func TestServeResearchDisabledWithoutTheRightPlugin(t *testing.T) {
 	s, _, _ := servedWithResearch(t, "0.18.0")
 	var st researchState

@@ -396,7 +396,8 @@ func (s *Server) handleCancelResearch(w http.ResponseWriter, req *http.Request) 
 	writeJSON(w, CancelResponse{cancelled, refused})
 }
 
-// handleResearchLog serves the end of a job's log.
+// handleResearchLog serves the end of a job's log, as text when claude wrote it as JSON (see
+// research.RenderLog). ?raw=1 serves the whole file as it is.
 func (s *Server) handleResearchLog(w http.ResponseWriter, req *http.Request) {
 	if s.opts.Research == nil {
 		http.Error(w, "research isn't configured", http.StatusNotImplemented)
@@ -418,9 +419,12 @@ func (s *Server) handleResearchLog(w http.ResponseWriter, req *http.Request) {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	const tail = 64 << 10
-	if len(data) > tail {
-		data = data[len(data)-tail:]
+	// raw is the file as written, whole; otherwise the end of it rendered
+	if req.URL.Query().Get("raw") != "1" {
+		const tail = 64 << 10
+		if data = research.RenderLog(data); len(data) > tail {
+			data = data[len(data)-tail:]
+		}
 	}
 	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
 	w.Header().Set("X-Content-Type-Options", "nosniff")
