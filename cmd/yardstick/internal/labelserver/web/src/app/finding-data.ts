@@ -35,7 +35,7 @@ export async function loadFinding(gate: string, id: string, check: string | null
     state, detail, matches,
     // the state's row carries what the lists do (the gate effect); the row endpoint's the same fields
     row: sub?.rows.find((r) => r.id === id) ?? detail.row,
-    list: cf ? fromCheck(cf.findings, filters) : fromState(state, filters),
+    list: cf ? fromCheck(cf, state, filters) : fromState(state, filters),
     checkEffect: cf?.findings.find((f) => f.row === id)?.effect,
     image: { name: sub?.name ?? "", slug: sub?.slug ?? "", ref: detail.subject.replace(/^(oci|docker|registry):/, "") },
   };

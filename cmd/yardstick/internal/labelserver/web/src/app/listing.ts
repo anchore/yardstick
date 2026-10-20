@@ -4,6 +4,7 @@
 import type { CheckFindings, CrossFinding, GateLabel, ImageRef, State, Tally } from "../gen/wire";
 import { pkgOf, srcPkg } from "../shared/rows";
 import type { Filters, VerdictFilter } from "./route";
+import { filterRows } from "./table";
 import type { Verdict } from "./ui";
 
 // FHint is a row's pending agent suggestion: its own proposal, or a cause (package hint) listing it
@@ -29,7 +30,7 @@ export interface FRow {
 
 const effectOf = (e: string | undefined): Effect => (e === "decides" || e === "could-move" || e === "counted" ? e : "");
 const verdictOf = (v: string | undefined): Verdict => (v === "tp" || v === "fp" || v === "unclear" ? v : "unlabeled");
-const isOpen = (r: FRow) => r.label === "unlabeled" || r.label === "unclear";
+export const isOpen = (r: FRow) => r.label === "unlabeled" || r.label === "unclear";
 
 // gateRows are a gate's changed matches (one setup reports them) from its /state, in image order
 export function gateRows(st: State): FRow[] {
@@ -86,6 +87,15 @@ export function chipCounts(rows: FRow[]): Record<Chip, number> {
   for (const r of rows) for (const c of chips) if (inChip(r, c)) n[c]++;
   return n;
 }
+
+// scopedRows are the rows a findings table's image, package and search filters leave, in its
+// order, which its chips count; image is the URL's image when the gate has it, else null
+export const scopedRows = (rows: FRow[], f: Filters, image: string | null) =>
+  filterRows(rows.filter((x) => (!image || x.image.slug === image) && (!f.pkg || x.src === f.pkg || x.pkg === f.pkg)), f.q ?? "", rowText);
+
+// shownRows are the rows a findings table shows under the URL's filters, in its order. The finding
+// page's j and k walk these same rows, so this is the one place a findings filter is decided.
+export const shownRows = (rows: FRow[], f: Filters, image: string | null) => scopedRows(rows, f, image).filter((x) => inChip(x, chipOf(f)));
 
 // nextOpen is the first unlabeled (or unclear) row with a finding page, preferring one whose label
 // can still move a check

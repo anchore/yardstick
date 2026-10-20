@@ -1,6 +1,8 @@
 import { describe, expect, test } from "bun:test";
-import type { Finding, State, StateRow } from "../gen/wire";
+import type { CheckFindings, Finding, State, StateRow } from "../gen/wire";
+import { checkRows, gateRows, shownRows } from "./listing";
 import { fromCheck, fromState, nextOpen, position } from "./neighbors";
+import type { Filters } from "./route";
 
 const img = (slug: string) => ({ name: slug.replace(/-(\w+)$/, ":$1"), slug, ref: `ghcr.io/x/${slug}` });
 const f = (row: string | undefined, image: string, vuln: string, pkg: string, label: string | null, hint = false): Finding => ({
@@ -15,21 +17,24 @@ const findings = [
   f("d", "java-e363e44", "CVE-2011-3389", "libgnutls30", "fp"),
 ];
 const ids = (xs: { id: string }[]) => xs.map((x) => x.id);
+const cf = { findings } as CheckFindings;
+const gate = { subjects: [{ slug: "deb-617d48d" }, { slug: "java-e363e44" }] } as State;
+const check = (f: Filters) => fromCheck(cf, gate, f);
 
 describe("fromCheck", () => {
   test("keeps the check's order and drops what no finding page shows", () => {
-    expect(ids(fromCheck(findings, {}))).toEqual(["a", "b", "c", "d"]);
+    expect(ids(check({}))).toEqual(["a", "b", "c", "d"]);
   });
   test("filters by image, verdict, hint and search as the table does", () => {
-    expect(ids(fromCheck(findings, { image: "java-e363e44" }))).toEqual(["c", "d"]);
-    expect(ids(fromCheck(findings, { verdict: "unlabeled" }))).toEqual(["a", "b"]);
-    expect(ids(fromCheck(findings, { verdict: "unclear" }))).toEqual(["c"]);
-    expect(ids(fromCheck(findings, { hint: "yes" }))).toEqual(["a", "c"]);
-    expect(ids(fromCheck(findings, { q: "tar 2026" }))).toEqual(["b"]);
-    expect(ids(fromCheck(findings, { q: "java" }))).toEqual(["c", "d"]);
+    expect(ids(check({ image: "java-e363e44" }))).toEqual(["c", "d"]);
+    expect(ids(check({ verdict: "unlabeled" }))).toEqual(["a", "b"]);
+    expect(ids(check({ verdict: "unclear" }))).toEqual(["c"]);
+    expect(ids(check({ hint: "yes" }))).toEqual(["a", "c"]);
+    expect(ids(check({ q: "tar 2026" }))).toEqual(["b"]);
+    expect(ids(check({ q: "java" }))).toEqual(["c", "d"]);
   });
   test("unclear stays open, tp and fp don't", () => {
-    expect(fromCheck(findings, {}).map((x) => x.open)).toEqual([true, true, true, false]);
+    expect(check({}).map((x) => x.open)).toEqual([true, true, true, false]);
   });
 });
 
@@ -37,6 +42,7 @@ describe("fromState", () => {
   const row = (id: string, vuln: string, ref: string, verdict: string, changed = true, hint?: string): StateRow =>
     ({ id, vulnerability: vuln, package: { ref }, verdict, inCandidate: true, inReference: !changed, hint: hint ? { id: "h", verdict: "tp", status: hint } : undefined } as StateRow);
   const s = {
+    scans: { subjects: [] },
     causes: [{ id: "c1", pending: ["u1"] }],
     subjects: [
       { name: "deb:617d48d", slug: "deb-617d48d", rows: [row("t1", "CVE-2005-2541", "pkg:deb/debian/tar@1.34", "unlabeled", true, "pending"), row("same", "CVE-1", "pkg:deb/debian/x@1", "unlabeled", false), row("u1", "CVE-2026-3184", "pkg:deb/debian/util-linux@2.38", "unlabeled")] },
@@ -79,5 +85,32 @@ describe("nextOpen", () => {
   });
   test("off the list, starts from the top", () => {
     expect(nextOpen(items, "z")).toBe("a");
+  });
+});
+
+// the finding page walks what the table shows: the same rows, filter and order, pkg and the purl
+// search included, which the page's own filter once lacked
+describe("j and k walk the table's rows", () => {
+  const filters: Filters[] = [{}, { image: "java-e363e44" }, { verdict: "unlabeled" }, { hint: "yes" }, { q: "tar 2026" }, { pkg: "tar" }, { q: "pkg:maven" }, { image: "nope" }, { image: "deb-617d48d", verdict: "unlabeled", hint: "yes" }];
+  const purl = (pkg: string) => `pkg:${pkg === "log4j-core" ? "maven/org.apache.logging.log4j" : "deb/debian"}/${pkg}@1.0`;
+  const withPurl = { findings: findings.map((x) => ({ ...x, package: { ...x.package, purl: purl(x.package.name) } })) } as CheckFindings;
+  for (const f of filters) {
+    test(`on a check, ${JSON.stringify(f)}`, () => {
+      const table = shownRows(checkRows(withPurl), f, f.image === "nope" ? null : f.image ?? null).flatMap((x) => (x.row ? [x.row] : []));
+      expect(ids(fromCheck(withPurl, gate, f))).toEqual(table);
+    });
+  }
+  test("the gate's Findings tab", () => {
+    const st = {
+      scans: { subjects: [] }, causes: [],
+      subjects: [{ name: "deb:1", slug: "deb-1", rows: [
+        { id: "a", vulnerability: "CVE-1", package: { ref: "pkg:deb/debian/tar@1.34%2Bdfsg" }, verdict: "unlabeled", inCandidate: true, inReference: false },
+        { id: "b", vulnerability: "CVE-2", package: { ref: "pkg:deb/debian/mount@2.38" }, sourcePackage: "util-linux", verdict: "fp", inCandidate: false, inReference: true },
+      ] }],
+    } as unknown as State;
+    for (const f of [{}, { pkg: "util-linux" }, { q: "1.34+dfsg" }, { verdict: "fp" } as Filters]) {
+      expect(ids(fromState(st, f))).toEqual(shownRows(gateRows(st), f, null).map((x) => x.id));
+    }
+    expect(ids(fromState(st, { pkg: "util-linux" }))).toEqual(["b"]);
   });
 });
