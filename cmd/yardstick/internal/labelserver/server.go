@@ -51,7 +51,8 @@
 // The /ui/gates/ tables, new and not delta's:
 //
 //	state.subjects[].changes  ← Tally over the subject's rows only one setup reports: verdictOf, and
-//	                            hinted for an open row with a pending proposal or pending cause member
+//	                            hinted for an unlabeled row with a pending proposal or pending cause member;
+//	                            gates[].changes in GET /api/gates is the same, per subject
 //	checks/{c}/findings       ← analysis.Check of the gate: per subject its FailsOn (effect decides when
 //	                            that subject fails the check, else counted) and Rows, plus any open row
 //	                            whose analysis.Effect narrows or could flip it (could-move when a tp or
