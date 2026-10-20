@@ -82,7 +82,10 @@
 //	POST hints/accept         ← Proposal.Label and Cause.Label per row as the single accepts, placed by
 //	                            labelwrite.Place and written once per writable source, file and key
 //	history                   ← every label file in each gate's writable source (claims.Set.Writer,
-//	                            the last source), rows from the pairing's labels held by that source
+//	                            the last source), rows from the pairing's labels held by that source;
+//	                            since= on lastUpdated, started the server's start
+//	POST history/revert       ← claimsv1.Writer.Remove from a writable source; a write's labels are
+//	                            the keys it wrote, for undoing it
 //
 //	row.research, researchLevel, researched, researchedBy, hint.origin
 //	                          ← research.Job records under .yardstick/research/jobs/, as in delta;
@@ -106,6 +109,7 @@ import (
 	"net/url"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/anchore/yardstick/cmd/yardstick/internal/agentstore"
 	"github.com/anchore/yardstick/cmd/yardstick/internal/gatefile"
@@ -148,10 +152,11 @@ type Options struct {
 }
 
 type Server struct {
-	ctx   context.Context
-	opts  Options
-	token string
-	mu    sync.Mutex // serializes writes
+	ctx     context.Context
+	opts    Options
+	token   string
+	started time.Time  // to the second, as labels stamp lastUpdated
+	mu      sync.Mutex // serializes writes
 
 	gatesMu sync.Mutex
 	gates   map[string]*entry // by gate name, loaded on first use
@@ -163,7 +168,7 @@ func New(ctx context.Context, opts Options) (*Server, error) {
 	if _, err := rand.Read(b); err != nil {
 		return nil, err
 	}
-	return &Server{ctx: ctx, opts: opts, token: hex.EncodeToString(b), gates: map[string]*entry{}}, nil
+	return &Server{ctx: ctx, opts: opts, token: hex.EncodeToString(b), started: time.Now().UTC().Truncate(time.Second), gates: map[string]*entry{}}, nil
 }
 
 // Token is the write token pages carry.
@@ -198,6 +203,7 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("GET /api/hints", s.handleHints)
 	mux.HandleFunc("POST /api/hints/accept", s.authorized(s.handleAcceptHints))
 	mux.HandleFunc("GET /api/history", s.handleHistory)
+	mux.HandleFunc("POST /api/history/revert", s.authorized(s.handleRevert))
 	const g = "/api/gates/{gate}"
 	mux.HandleFunc("GET "+g+"/state", s.handleState)
 	mux.HandleFunc("GET "+g+"/checks/{check}/findings", s.handleCheckFindings)

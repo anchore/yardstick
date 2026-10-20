@@ -36,6 +36,7 @@ func global(scope string) (bool, error) {
 type pending struct {
 	placed    []claimsv1.Placed
 	overrides []agentstore.Override
+	keys      []LabelKey // what write wrote, once each
 }
 
 // add places a label about a row, with seenIn from the setup that reported it.
@@ -57,6 +58,7 @@ func (p *pending) add(e *entry, r *rowRef, l claimsv1.Label, glob bool) error {
 // write writes the batch into the gate's writable claims source, then the override records. The
 // writer checks every label before writing any.
 func (s *Server) write(w http.ResponseWriter, v *view, p *pending) bool {
+	p.keys = []LabelKey{}
 	if len(p.placed) == 0 {
 		return true
 	}
@@ -67,6 +69,11 @@ func (s *Server) write(w http.ResponseWriter, v *view, p *pending) bool {
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return false
+	}
+	for _, pl := range p.placed {
+		if k := (LabelKey{Source: wr.Dir, File: pl.File, Package: pl.Label.Package, Vulnerability: pl.Label.Vulnerability}); !slices.Contains(p.keys, k) {
+			p.keys = append(p.keys, k)
+		}
 	}
 	if len(p.overrides) > 0 {
 		if err := s.opts.Store.Overrides.Add(p.overrides...); err != nil {
@@ -163,7 +170,7 @@ func (s *Server) handleLabels(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 	log.Infof("wrote %d %s label(s), %d overriding an agent", len(batch.placed), verdict, len(overridden))
-	writeJSON(w, LabelsResponse{len(batch.placed), overridden})
+	writeJSON(w, LabelsResponse{len(batch.placed), overridden, batch.keys})
 }
 
 // overrides are the records a person's label on a row makes against the row's pending hint and
@@ -227,7 +234,7 @@ func (s *Server) handleAccept(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 	log.Infof("accepted %d proposal(s)", len(batch.placed))
-	writeJSON(w, AcceptResponse{len(batch.placed)})
+	writeJSON(w, AcceptResponse{len(batch.placed), batch.keys})
 }
 
 type SkippedRow struct {
@@ -285,7 +292,7 @@ func (s *Server) handleAcceptCause(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 	log.Infof("accepted cause %s for %d row(s)", cv.ID, len(batch.placed))
-	writeJSON(w, AcceptCauseResponse{len(batch.placed), skipped})
+	writeJSON(w, AcceptCauseResponse{len(batch.placed), skipped, batch.keys})
 }
 
 // handlePreview answers with the gate's result as if the given rows were labeled so, e.g.
@@ -326,17 +333,20 @@ func (s *Server) handlePreview(w http.ResponseWriter, req *http.Request) {
 
 // LabelsResponse is the answer to POST labels: the rows written, and those that overrode a hint.
 type LabelsResponse struct {
-	Written    int      `json:"written"`
-	Overridden []string `json:"overridden"`
+	Written    int        `json:"written"`
+	Overridden []string   `json:"overridden"`
+	Labels     []LabelKey `json:"labels"` // what POST /api/history/revert takes to undo the write
 }
 
 // AcceptResponse is the answer to accepting a hint.
 type AcceptResponse struct {
-	Written int `json:"written"`
+	Written int        `json:"written"`
+	Labels  []LabelKey `json:"labels"`
 }
 
 // AcceptCauseResponse is the answer to accepting a cause.
 type AcceptCauseResponse struct {
 	Written int          `json:"written"`
 	Skipped []SkippedRow `json:"skipped"`
+	Labels  []LabelKey   `json:"labels"`
 }

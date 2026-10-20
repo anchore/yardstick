@@ -6,10 +6,12 @@ import (
 	"path"
 	"slices"
 	"strings"
+	"time"
 
 	"github.com/anchore/yardstick/cmd/yardstick/internal/analysis"
 	"github.com/anchore/yardstick/cmd/yardstick/internal/claims"
 	claimsv1 "github.com/anchore/yardstick/cmd/yardstick/internal/claims/v1"
+	"github.com/anchore/yardstick/cmd/yardstick/internal/log"
 	"github.com/anchore/yardstick/cmd/yardstick/internal/pairing"
 	"github.com/anchore/yardstick/cmd/yardstick/internal/purl"
 )
@@ -20,6 +22,25 @@ type History struct {
 	Total   int            `json:"total"`
 	Sources []string       `json:"sources"`
 	Labels  []HistoryLabel `json:"labels"`
+	// Started is when this server started (RFC 3339), which since=start means.
+	Started string `json:"started"`
+}
+
+// LabelKey names one label in a writable claims source: what a write wrote, and what
+// POST /api/history/revert removes.
+type LabelKey struct {
+	Source        string `json:"source"`
+	File          string `json:"file"` // corpus-relative
+	Package       string `json:"package"`
+	Vulnerability string `json:"vulnerability"`
+}
+
+type RevertRequest struct {
+	Labels []LabelKey `json:"labels"`
+}
+
+type RevertResponse struct {
+	Removed int `json:"removed"`
 }
 
 // HistoryLabel is one label as its file holds it, and the rows it pairs in each gate.
@@ -123,19 +144,31 @@ func historyText(l HistoryLabel, text string) bool {
 }
 
 // handleHistory answers with the labels in the writable sources, newest first, filtered by
-// verdict= and q= and paged by offset= and limit= as GET labels is.
+// verdict= and q= and paged by offset= and limit= as GET labels is. since= keeps the labels last
+// updated at or after a time (RFC 3339, or start for the server's start).
 func (s *Server) handleHistory(w http.ResponseWriter, req *http.Request) {
 	lq, code, err := parseLabelQuery(req.URL.Query(), nil)
 	if err != nil {
 		http.Error(w, err.Error(), code)
 		return
 	}
+	var since time.Time
+	switch v := req.URL.Query().Get("since"); v {
+	case "":
+	case "start":
+		since = s.started
+	default:
+		if since, err = time.Parse(time.RFC3339, v); err != nil {
+			http.Error(w, "since must be start or an RFC 3339 time", http.StatusBadRequest)
+			return
+		}
+	}
 	sources, rows, err := s.historyRows()
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	out := History{Sources: []string{}, Labels: []HistoryLabel{}}
+	out := History{Sources: []string{}, Labels: []HistoryLabel{}, Started: s.started.Format(time.RFC3339)}
 	var labels []HistoryLabel
 	for _, src := range sources {
 		out.Sources = append(out.Sources, src.Locator)
@@ -145,7 +178,9 @@ func (s *Server) handleHistory(w http.ResponseWriter, req *http.Request) {
 			return
 		}
 		for _, l := range ls {
-			if (lq.verdict == "" || string(l.Label.Verdict) == lq.verdict) && (lq.text == "" || historyText(l, lq.text)) {
+			// a label with no parsable time is older than any since
+			at, _ := time.Parse(time.RFC3339, l.Label.LastUpdated)
+			if (lq.verdict == "" || string(l.Label.Verdict) == lq.verdict) && (lq.text == "" || historyText(l, lq.text)) && !at.Before(since) {
 				labels = append(labels, l)
 			}
 		}
@@ -156,4 +191,49 @@ func (s *Server) handleHistory(w http.ResponseWriter, req *http.Request) {
 		out.Labels = labels[lq.offset:min(len(labels), lq.offset+lq.limit)]
 	}
 	writeJSON(w, out)
+}
+
+// handleRevert removes labels from the writable sources, undoing what a write wrote: a label held
+// by an earlier source then decides again. Nothing is removed when any key names a source that is
+// not writable or a label that is not there.
+func (s *Server) handleRevert(w http.ResponseWriter, req *http.Request) {
+	var body RevertRequest
+	if !decode(w, req, &body) {
+		return
+	}
+	if len(body.Labels) == 0 {
+		http.Error(w, "no labels given", http.StatusBadRequest)
+		return
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	sources, _, err := s.historyRows()
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	bySource := map[string][]claimsv1.FileKey{}
+	for _, k := range body.Labels {
+		if !slices.ContainsFunc(sources, func(x *claims.Source) bool { return x.Locator == k.Source }) {
+			http.Error(w, k.Source+" is not a writable claims source", http.StatusBadRequest)
+			return
+		}
+		if fk := (claimsv1.FileKey{File: k.File, Key: claimsv1.Key{Package: k.Package, Vulnerability: k.Vulnerability}}); !slices.Contains(bySource[k.Source], fk) {
+			bySource[k.Source] = append(bySource[k.Source], fk)
+		}
+	}
+	// ponytail: checked per source, so a second source refusing leaves the first's removals; one
+	// writable source is the usual workspace
+	n := 0
+	for _, src := range sources {
+		if ks := bySource[src.Locator]; len(ks) > 0 {
+			if err := (claimsv1.Writer{Dir: src.Dir}).Remove(ks); err != nil {
+				http.Error(w, err.Error(), http.StatusBadRequest)
+				return
+			}
+			n += len(ks)
+		}
+	}
+	log.Infof("reverted %d label(s)", n)
+	writeJSON(w, RevertResponse{n})
 }

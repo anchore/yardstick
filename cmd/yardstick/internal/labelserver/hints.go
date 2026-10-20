@@ -226,6 +226,7 @@ type AcceptedLabel struct {
 type HintsAcceptResponse struct {
 	Written []AcceptedLabel `json:"written"`
 	Skipped []SkippedRow    `json:"skipped"`
+	Labels  []LabelKey      `json:"labels"` // what POST /api/history/revert takes to undo the accept
 }
 
 // hintAccept is a hints accept as it is collected: each label once, and every hint seen.
@@ -329,7 +330,7 @@ func (a *hintAccept) touched(rowGates map[string][]string) {
 // covers (by writable source, file and key), and nothing is written when any label is refused.
 func (s *Server) handleAcceptHints(w http.ResponseWriter, req *http.Request) {
 	a := &hintAccept{author: s.opts.Author, now: time.Now().UTC(), found: map[string]bool{}, written: map[string]int{},
-		out: HintsAcceptResponse{Written: []AcceptedLabel{}, Skipped: []SkippedRow{}}}
+		out: HintsAcceptResponse{Written: []AcceptedLabel{}, Skipped: []SkippedRow{}, Labels: []LabelKey{}}}
 	if !decode(w, req, &a.HintsAcceptRequest) {
 		return
 	}
@@ -384,6 +385,11 @@ func (s *Server) handleAcceptHints(w http.ResponseWriter, req *http.Request) {
 	for _, gb := range batches {
 		if !s.write(w, gb.v, gb.p) {
 			return
+		}
+		for _, k := range gb.p.keys {
+			if !slices.Contains(a.out.Labels, k) {
+				a.out.Labels = append(a.out.Labels, k)
+			}
 		}
 	}
 	a.touched(rowGates)

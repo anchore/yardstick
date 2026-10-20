@@ -314,3 +314,120 @@ func TestE2ELabelingFlow(t *testing.T) {
 		t.Errorf("the babel entry with low: %+v", q.Entries)
 	}
 }
+
+// rowVerdict is a row's verdict in a gate's state.
+func rowVerdict(t *testing.T, h http.Handler, gate, row string) string {
+	t.Helper()
+	var st state
+	get(t, h, "/api/gates/"+gate+"/state", &st)
+	for _, s := range st.Subjects {
+		for _, r := range s.Rows {
+			if r.Row == row {
+				return r.Verdict
+			}
+		}
+	}
+	t.Fatalf("no row %s in %s", row, gate)
+	return ""
+}
+
+// undo through history: a write's keys revert it, since= reads lastUpdated, and once the writable
+// source's label is gone the label an earlier source holds decides the row again
+func TestE2EHistoryUndo(t *testing.T) {
+	srv, dir, _, _ := e2eServer(t)
+	h := srv.Handler()
+	const gzip = "5e50fe5b2007001a"
+	history := func(query string) labelserver.History {
+		t.Helper()
+		var out labelserver.History
+		get(t, h, "/api/history"+query, &out)
+		return out
+	}
+
+	// the seeded labels predate the server, so since=start shows none of them
+	if hist := history("?since=start"); hist.Total != 0 || hist.Started == "" {
+		t.Errorf("history since start: %d labels, started %q", hist.Total, hist.Started)
+	}
+	if code := post(t, h, srv.Token(), "/api/gates/deb-npm/labels", labelserver.LabelsRequest{Rows: []string{gzip}, Verdict: "fp", Justification: "fix-installed"}, nil); code != http.StatusOK {
+		t.Fatalf("label gzip fp: %d", code)
+	}
+	// the gzip fp, old, in a corpus read before ./claims as well: deb-npm's sources are now two
+	var hist labelserver.History
+	if hist = history("?since=start"); hist.Total != 1 {
+		t.Fatalf("history after the fp: %d", hist.Total)
+	}
+	file, written := hist.Labels[0].File, hist.Labels[0].Label.LastUpdated
+	claimsFile := filepath.Join(dir, "claims", filepath.FromSlash(file))
+	data, err := os.ReadFile(claimsFile)
+	if err != nil {
+		t.Fatal(err)
+	}
+	data = []byte(strings.ReplaceAll(string(data), written, "2026-01-01T00:00:00Z"))
+	for _, p := range []string{claimsFile, filepath.Join(dir, "corpus", filepath.FromSlash(file))} {
+		if err := os.MkdirAll(filepath.Dir(p), 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(p, data, 0o600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	gateFile := filepath.Join(dir, "gates", "deb-npm.yaml")
+	gate, err := os.ReadFile(gateFile)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(gateFile, []byte(strings.Replace(string(gate), "claims: [../claims]", "claims: [../corpus, ../claims]", 1)), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if hist = history("?since=start"); hist.Total != 0 || history("").Total != 5 {
+		t.Errorf("history once the fp is old: %d since start, %d in all", hist.Total, history("").Total)
+	}
+	if v := rowVerdict(t, h, "deb-npm", gzip); v != "fp" {
+		t.Fatalf("gzip with both sources fp: %s", v)
+	}
+
+	// a tp in ./claims replaces the fp there, keeping its firstIssued, and the sources disagree
+	var res labelserver.LabelsResponse
+	if code := post(t, h, srv.Token(), "/api/gates/deb-npm/labels", labelserver.LabelsRequest{Rows: []string{gzip}, Verdict: "tp"}, &res); code != http.StatusOK || len(res.Labels) != 1 {
+		t.Fatalf("label gzip tp: %d %+v", code, res.Labels)
+	}
+	if k := res.Labels[0]; k.File != file || k.Vulnerability != "CVE-2026-41992" || !strings.HasPrefix(k.Package, "pkg:deb/debian/gzip@") {
+		t.Errorf("the tp's key: %+v", k)
+	}
+	if hist = history("?since=start"); hist.Total != 1 || hist.Labels[0].Label.FirstIssued != "2026-01-01T00:00:00Z" || hist.Labels[0].Label.Verdict != "tp" {
+		t.Errorf("history since start after the replace: %+v", hist.Labels)
+	}
+	if hist = history("?since=2099-01-01T00:00:00Z"); hist.Total != 0 {
+		t.Errorf("history since a later time: %d", hist.Total)
+	}
+	if v := rowVerdict(t, h, "deb-npm", gzip); v != "unlabeled" {
+		t.Errorf("gzip with the sources disagreeing: %s", v)
+	}
+
+	revert := func(token string, keys []labelserver.LabelKey) int {
+		t.Helper()
+		return post(t, h, token, "/api/history/revert", labelserver.RevertRequest{Labels: keys}, nil)
+	}
+	if code := revert("", res.Labels); code != http.StatusForbidden {
+		t.Errorf("revert without the token: %d", code)
+	}
+	other := res.Labels[0]
+	other.Source = filepath.Join(dir, "corpus")
+	if code := revert(srv.Token(), []labelserver.LabelKey{other}); code != http.StatusBadRequest {
+		t.Errorf("revert from a source that is not writable: %d", code)
+	}
+	var rev labelserver.RevertResponse
+	if code := post(t, h, srv.Token(), "/api/history/revert", labelserver.RevertRequest{Labels: res.Labels}, &rev); code != http.StatusOK || rev.Removed != 1 {
+		t.Fatalf("revert the tp: %d %+v", code, rev)
+	}
+	// the corpus's fp decides again, and ./claims no longer holds the key
+	if v := rowVerdict(t, h, "deb-npm", gzip); v != "fp" {
+		t.Errorf("gzip after the revert: %s", v)
+	}
+	if hist = history(""); hist.Total != 4 || slices.ContainsFunc(hist.Labels, func(l labelserver.HistoryLabel) bool { return l.Label.Vulnerability == "CVE-2026-41992" }) {
+		t.Errorf("history after the revert: %d", hist.Total)
+	}
+	if code := revert(srv.Token(), res.Labels); code != http.StatusBadRequest {
+		t.Errorf("revert of a label no longer in ./claims: %d", code)
+	}
+}
