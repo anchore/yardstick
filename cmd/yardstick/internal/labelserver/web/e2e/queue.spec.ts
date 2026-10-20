@@ -80,11 +80,15 @@ test("n from the gates screen labels the seed through the queue until every gate
   await expect(cardGate(page, "deb-java")).toHaveAttribute("data-state", "pass");
   await expect(page.getByTestId("card-session")).toContainText("10 labels written this session, closing 12 matches: 10 from hints, 2 by hand.");
 
-  // history: every label on disk, the written ones first, newest first, each linking to its finding
+  // history: what this server wrote, then with All time every label on disk, the written ones first,
+  // newest first, each linking to its finding
   await page.getByTestId("card-history").click();
   await expect(page).toHaveURL(/\/ui\/history$/);
   await expect(page.getByTestId("breadcrumb")).toHaveText(/^Gates\s*›\s*History$/);
   const table = page.getByTestId("history-table");
+  await expect(table.locator("tbody tr[data-id]")).toHaveCount(flipped.length + 1);
+  await page.getByTestId("history-since").selectOption("all");
+  await expect(page).toHaveURL(/\/ui\/history\?since=all$/);
   await expect(table.locator("tbody tr[data-id]")).toHaveCount(seeded.length + flipped.length + 1);
   const times = await table.locator("time").evaluateAll((ts) => ts.map((t) => t.getAttribute("datetime")!));
   expect(times).toEqual([...times].sort().reverse());
@@ -95,10 +99,12 @@ test("n from the gates screen labels the seed through the queue until every gate
 
   // filters: by verdict, then by text
   await page.locator("[data-chip=unclear]").click();
-  await expect(page).toHaveURL(/\/ui\/history\?verdict=unclear$/);
+  await expect(page).toHaveURL(/\/ui\/history\?verdict=unclear&since=all$/);
   await expect(table.locator("tbody tr[data-id]")).toHaveCount(1);
   await page.locator("[data-chip=all]").click();
   await page.getByRole("searchbox", { name: "Filter history" }).fill("gzip");
+  await expect(page).toHaveURL(/\/ui\/history\?q=gzip&since=all$/);
+  await expect(table.locator("tbody tr[data-id]").filter({ hasText: "CVE-2026-41992" })).toHaveCount(1);
   await expect(table.locator("tbody tr[data-id]")).toHaveCount(1);
   await table.locator("tbody tr[data-id]").getByTestId("history-link").first().click();
   await onFinding(page, rows.gzip);

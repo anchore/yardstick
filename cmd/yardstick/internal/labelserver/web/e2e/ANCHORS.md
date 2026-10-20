@@ -8,7 +8,7 @@ Select with `getByTestId("<testid>")`, narrow with the `data-*` identity attribu
 - Table rows are `tbody tr[data-id]` inside the table's testid; `data-id` is the row id (16 hex), or a made-up key for a row with no finding page.
 - Pick one instance by its identity attribute: `page.locator('[data-testid=check-row][data-check=f1NotWorse]')`.
 
-Routes (`route.ts`): `/ui/gates/` (level 0, `?tab=unlabeled|labels`), `/ui/gates/<gate>/` and `findings` / `labels` / `map` (level 1), `/ui/gates/<gate>/checks/<check>` (level 2), and a finding at `/ui/gates/<gate>/checks/<check>/<row>` or `/ui/gates/<gate>/findings/<row>` (level 3). Filters ride in the query: `image` (slug), `verdict`, `hint`, `pkg`, `q`, `page`. The labeling flow's screens sit beside them: hint review at `/ui/hints?gate=&image=&low=1`, the queue at `/ui/queue` and `/ui/queue/<row>` (`?scope=all|gate:<g>|image:<slug>`, `check`, `low=1`), and `/ui/history` (`?verdict=`, `q`, `page`). `h` on any screen opens hint review for the gate and image on screen; `n` enters the queue for the screen's scope.
+Routes (`route.ts`): `/ui/gates/` (level 0, `?tab=unlabeled|labels`), `/ui/gates/<gate>/` and `findings` / `labels` / `map` (level 1), `/ui/gates/<gate>/checks/<check>` (level 2), and a finding at `/ui/gates/<gate>/checks/<check>/<row>` or `/ui/gates/<gate>/findings/<row>` (level 3). Filters ride in the query: `image` (slug), `verdict`, `hint`, `pkg`, `q`, `page`. The labeling flow's screens sit beside them: hint review at `/ui/hints?gate=&image=&low=1`, the queue at `/ui/queue` and `/ui/queue/<row>` (`?scope=all|gate:<g>|image:<slug>`, `check`, `low=1`), and `/ui/history` (`?verdict=`, `q`, `page`, `since=all|<RFC 3339 time>`, left out for since the server started). `h` on any screen opens hint review for the gate and image on screen; `n` enters the queue for the screen's scope.
 
 ## Shell (every screen)
 
@@ -41,6 +41,7 @@ Routes (`route.ts`): `/ui/gates/` (level 0, `?tab=unlabeled|labels`), `/ui/gates
 | `loading`, `load-error` | the body while loading, or when it failed | |
 | `placeholder` | the body of a screen with nothing to show: an unknown URL, a finding that isn't there, a queue row that isn't open | |
 | `toast` | transient message | visible while `hidden` is off |
+| `toast-action` | Undo in a write's toast: removes the labels that write wrote | |
 
 ## Image rail (levels 1 and 2)
 
@@ -191,6 +192,13 @@ The finding page in queue mode: every Finding testid above is there too, except 
 | `history-day` | a day's group header, "Today", "Yesterday" or the date | `data-day` (YYYY-MM-DD, local) |
 | `history-note` | a label's note, which an accepted hint carries over | |
 | `history-link` | a link to the label's finding, one per gate row it sits on | `data-gate`, `data-row` |
+| `history-since` | the since select: `start` (since the server started, the default), `pick` (a time) or `all` | |
+| `history-since-time` | the picked time, a `datetime-local` input shown with `pick` | |
+| `history-remove` | Remove on a row: takes the label out of ./claims at once | |
+| `history-remove-selected` | "Remove selected (N)" in the `bulk-bar` while rows are checked | |
+| `history-remove-all` | "Remove all N shown": every label the filters match, on every page | `disabled` with none |
+| `history-confirm` | the in-page confirm before removing more than one label; `Esc` closes it | |
+| `history-confirm-remove`, `history-confirm-cancel` | its Remove N labels and Cancel | |
 | `page-info`, `page-next`, `page-prev` | the pager | |
 
 Verdict chips are buttons with `data-chip` (`all`, `tp`, `fp`, `unclear`) and `aria-pressed`.

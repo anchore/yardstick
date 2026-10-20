@@ -4,7 +4,8 @@ import { label, labelsOf, onFinding, openFinding, rows } from "./helpers";
 
 // /ui/history on the seed's four labels: libgnutls (global fp), libc6 (tp), tar CVE-2026-5704 (fp
 // with a note) and log4j's vc5p (unclear with a note). They all carry lastUpdated 2026-10-19T22:24:43Z,
-// so the day group depends on the browser's time zone.
+// so the day group depends on the browser's time zone, and they predate the server, so these open
+// history with since=all (history-undo.spec.ts covers the default).
 test.use({ timezoneId: "UTC" });
 
 const table = (page: Page) => page.getByTestId("history-table");
@@ -13,7 +14,7 @@ const chip = (page: Page, v: string) => page.locator(`[data-chip=${v}]`);
 const search = (page: Page) => page.getByRole("searchbox", { name: "Filter history" });
 const line = (page: Page, vuln: string) => lines(page).filter({ hasText: vuln });
 
-async function openHistory(page: Page, query = "") {
+async function openHistory(page: Page, query = "?since=all") {
   await page.goto(`/ui/history${query}`);
   await expect(page.getByTestId("page-info")).toBeVisible();
 }
@@ -71,7 +72,7 @@ test.describe("filters", () => {
     await openHistory(page);
     await chip(page, "fp").click();
     await search(page).fill("fix-installed");
-    await expect(page).toHaveURL(/\/ui\/history\?verdict=fp&q=fix-installed$/);
+    await expect(page).toHaveURL(/\/ui\/history\?verdict=fp&q=fix-installed&since=all$/);
     await expect(lines(page)).toHaveCount(2);
     await page.reload();
     await expect(page.getByTestId("page-info")).toBeVisible();
@@ -79,7 +80,7 @@ test.describe("filters", () => {
     await expect(chip(page, "fp")).toHaveAttribute("aria-pressed", "true");
     await expect(lines(page)).toHaveCount(2);
 
-    await openHistory(page, "?verdict=unclear&q=JNDI");
+    await openHistory(page, "?verdict=unclear&q=JNDI&since=all");
     await expect(search(page)).toHaveValue("JNDI");
     await expect(lines(page)).toHaveCount(1);
   });
@@ -161,6 +162,7 @@ test.describe("paging", () => {
       url.searchParams.set("offset", "0");
       url.searchParams.delete("verdict");
       url.searchParams.delete("q");
+      url.searchParams.delete("since");
       const res = await route.fetch({ url: url.toString() }), body = await res.json();
       const real = body.labels;
       const all = Array.from({ length: 120 }, (_, i) => {
@@ -186,14 +188,14 @@ test.describe("paging", () => {
     await expect(page.getByTestId("page-info")).toHaveText("51–100 of 120");
     await expect(page.getByTestId("page-prev")).toBeVisible();
     await expect(page.getByTestId("page-next")).toBeVisible();
-    expect(asked).toContain("?offset=50&limit=50");
+    expect(asked).toContain("?since=start&offset=50&limit=50");
 
     await page.getByTestId("page-next").click();
     await expect(page).toHaveURL(/\/ui\/history\?page=3$/);
     await expect(page.getByTestId("page-info")).toHaveText("101–120 of 120");
     await expect(lines(page)).toHaveCount(20);
     await expect(page.getByTestId("page-next")).toHaveCount(0);
-    expect(asked).toContain("?offset=100&limit=50");
+    expect(asked).toContain("?since=start&offset=100&limit=50");
 
     await page.getByTestId("page-prev").click();
     await expect(page.getByTestId("page-info")).toHaveText("51–100 of 120");
