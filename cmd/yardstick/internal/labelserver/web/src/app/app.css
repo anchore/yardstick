@@ -281,6 +281,9 @@ a[role="tab"] { text-decoration: none; }
   .layout:has(> .rail:not([hidden])) { grid-template-columns: minmax(0, 1fr); }
   .rail { position: static; }
   .appbar, .page { padding-inline: 16px; }
+  /* a phone has no ⌘K to hint at, and the cog has to stay on screen beside History */
+  .appbar { gap: 8px; }
+  .appbar .goto .kbd { display: none; }
   .rail-picker > button { min-width: 0; }
 }
 
