@@ -43,7 +43,8 @@ test("the component kit's image rail filters by number key, collapses to a dropd
 test("Esc walks up one crumb at a time, but not out of a text field", async ({ page }) => {
   await page.goto("/ui/gates/deb-java/checks/f1NotWorse/0fe9fc814bcd060a?image=core");
   const crumbs = page.getByTestId("breadcrumb");
-  await expect(crumbs).toHaveText(/Gates\s*›\s*deb-java\s*›\s*f1NotWorse\s*›\s*0fe9fc814bcd060a/);
+  // the finding's crumb is its vulnerability ID once the page has the row
+  await expect(crumbs).toHaveText(/Gates\s*›\s*deb-java\s*›\s*f1NotWorse\s*›\s*CVE-2005-2541/);
 
   await page.keyboard.press("Escape");
   await expect(page).toHaveURL(/\/ui\/gates\/deb-java\/checks\/f1NotWorse\?image=core$/);
