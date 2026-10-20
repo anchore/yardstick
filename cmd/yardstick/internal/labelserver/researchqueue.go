@@ -124,11 +124,14 @@ func (s *Server) handleResearchQueue(w http.ResponseWriter, req *http.Request) {
 		}
 		selected[g] = true
 	}
-	model := cmp.Or(body.Model, s.opts.Research.Model())
-	if err := research.CheckModel(model); err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
-		return
+	// a model given here is checked; the configured one (--research-model) is the user's own
+	if body.Model != "" {
+		if err := research.CheckModel(body.Model); err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
 	}
+	model := cmp.Or(body.Model, s.opts.Research.Model())
 	b, err := s.joinGates()
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -141,7 +144,7 @@ func (s *Server) handleResearchQueue(w http.ResponseWriter, req *http.Request) {
 	}
 	out := ResearchQueueResponse{Concurrency: s.opts.Research.Concurrency()}
 	cands, open := b.researchCandidates(idx, scope, &out.Skipped)
-	groups, start, err := b.planResearch(cands, open, selected, body.Limit, model)
+	groups, start, err := b.planResearch(cands, open, selected, body.Limit, body.Model)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -240,7 +243,7 @@ func (b *queueBuild) researchGate(f *CrossFinding, scope queueScope) string {
 
 // planResearch makes each candidate not already covered one job, its siblings with it, group by
 // group: the selected ones first, so an unselected group shows only what selecting it would add.
-// start is the selected jobs, up to limit.
+// start is the selected jobs, up to limit, on model (empty for the configured one).
 func (b *queueBuild) planResearch(cands []researchCandidate, open, selected map[string]bool, limit int, model string) ([]ResearchGroup, []planned, error) {
 	groups := []string{researchChange, researchNone}
 	if !selected[researchChange] {
