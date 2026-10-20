@@ -23,9 +23,13 @@ async function openReview(page: Page, query = "") {
 // this one request. The seed has no low-confidence hints, so the tests make them
 async function edit(page: Page, change: (hint: any) => void) {
   await page.route("**/api/hints?low=1", async (route) => {
-    const res = await route.fetch(), body = await res.json();
-    for (const h of body.hints) change(h);
-    await route.fulfill({ response: res, json: body });
+    try {
+      const res = await route.fetch(), body = await res.json();
+      for (const h of body.hints) change(h);
+      await route.fulfill({ response: res, json: body });
+    } catch {
+      // the page went on (a goto) while the top bar's chip was still reading: nothing waits on it
+    }
   });
 }
 const vulnOf = (h: any) => h.rows[0].vulnerability;

@@ -163,15 +163,19 @@ test.describe("paging", () => {
       url.searchParams.delete("verdict");
       url.searchParams.delete("q");
       url.searchParams.delete("since");
-      const res = await route.fetch({ url: url.toString() }), body = await res.json();
-      const real = body.labels;
-      const all = Array.from({ length: 120 }, (_, i) => {
-        const l = structuredClone(real[i % real.length]);
-        l.label.vulnerability = `CVE-2099-${String(i).padStart(4, "0")}`;
-        return l;
-      });
-      const offset = Number(asked0.get("offset")), limit = Number(asked0.get("limit"));
-      await route.fulfill({ response: res, json: { ...body, total: 120, labels: all.slice(offset, offset + limit) } });
+      try {
+        const res = await route.fetch({ url: url.toString() }), body = await res.json();
+        const real = body.labels;
+        const all = Array.from({ length: 120 }, (_, i) => {
+          const l = structuredClone(real[i % real.length]);
+          l.label.vulnerability = `CVE-2099-${String(i).padStart(4, "0")}`;
+          return l;
+        });
+        const offset = Number(asked0.get("offset")), limit = Number(asked0.get("limit"));
+        await route.fulfill({ response: res, json: { ...body, total: 120, labels: all.slice(offset, offset + limit) } });
+      } catch {
+        // the app bar's count reads here too, and a goto can leave its read behind: nothing waits on it
+      }
     });
     return asked;
   }
