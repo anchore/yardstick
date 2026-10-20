@@ -165,7 +165,12 @@ export function queueView(host: HTMLElement, r: QueueRoute, nav: Nav): View {
 
   // ---------- load ----------
 
-  async function load() {
+  // page is the row the finding page is on, with its queue mode, which a refresh updates in place
+  let page: { row: string; mode: QueueMode; view: View } | null = null;
+
+  // load reads the queue and shows the route's row; again is a refresh after a write, which keeps
+  // the finding page on the same row and hands it the queue's new bar
+  async function load(again = false) {
     let q: Queue;
     try { q = await fetchQueue(r); } catch (e) {
       if (alive()) renderShell(host, r, { title: "Labeling", body: failed(e) });
@@ -187,11 +192,12 @@ export function queueView(host: HTMLElement, r: QueueRoute, nav: Nav): View {
       return;
     }
     const items = walk(q.entries, s.done);
-    const mode: QueueMode = {
+    const reuse = again && page?.row === row ? page : null;
+    const mode: QueueMode = Object.assign(reuse?.mode ?? ({} as QueueMode), {
       route: r,
       bar: bar(q, items),
-      // "skip labeled" moves the pager, so the bar is drawn again in place, leaving the cog open
-      prefs() { const b = bar(q, items); (mode.bar as Element).replaceWith(b); mode.bar = b; },
+      // "skip labeled" moves the pager, so the bar is made again and the page drawn over it
+      prefs() { mode.bar = bar(q, items); },
       why: e && el("div", { class: "why-next", "data-testid": "why-next" }, el("b", {}, "Why this one is next"), el("span", {}, whyNext(e, gate, q.gates))),
       outcomes: e && outcomeLines(e),
       step(dir, all) {
@@ -209,10 +215,14 @@ export function queueView(host: HTMLElement, r: QueueRoute, nav: Nav): View {
         }
         return false;
       },
-    };
-    out.key = findingView(host, { level: "finding", gate, check: null, row, filters: {} }, nav, mode).key;
+    } satisfies QueueMode);
+    if (reuse) return reuse.view.refresh?.();
+    const view = findingView(host, { level: "finding", gate, check: null, row, filters: {} }, nav, mode);
+    page = { row, mode, view };
+    out.key = view.key;
   }
 
+  out.refresh = () => load(true);
   renderShell(host, r, { title: "Labeling", body: loading() });
   void load();
   return out;

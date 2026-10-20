@@ -4,13 +4,13 @@
 // map page's tile, reorganized.
 import type { claimsv1, LabelKey } from "../gen/wire";
 import * as api from "../shared/api";
-import { el, toast, type Child } from "../shared/dom";
+import { el, fill, toast, type Child } from "../shared/dom";
 import { records, matchPath } from "../shared/matchpath";
 import { imageRelease, releaseName } from "../shared/names";
 import { decoded, direction, pkgOf } from "../shared/rows";
 import { dirWords, justWords, labels, plural, ruleWords, whyText } from "../shared/words";
 import { kick } from "./activity";
-import { forget, written } from "./data";
+import { changed, forget, written } from "./data";
 import { loadFinding, researching, type FindingData } from "./finding-data";
 import { effect, mutedReason, pendingCause, seenWith, shortSource, type Dir } from "./finding-words";
 import { labelPanel, type Draft, type LabelPanel } from "./labelpanel";
@@ -60,7 +60,10 @@ export function findingView(host: HTMLElement, r: FindingRoute, nav: Nav, q?: Qu
   const live = () => gen === views && location.pathname === path;
   const listKey = formatRoute({ ...r, row: "" });
   let d: FindingData | null = null;
-  let lp: LabelPanel | null = null;
+  // the label panel and the page body are built with the first data and kept, so a repaint (a save
+  // that stays, research polling) leaves the form's focus, caret and draft alone
+  let lp: LabelPanel | null = null, body: HTMLElement | null = null, shownKey = "", shownWhy: Child = null;
+  const content = el("div", { class: "fcontent" });
   const draft: Draft = { note: "" };
   const at = (row: string): Route => ({ ...r, row });
   const go = (row: string | undefined, none: string) => (row ? nav(at(row)) : toast(none));
@@ -82,6 +85,9 @@ export function findingView(host: HTMLElement, r: FindingRoute, nav: Nav, q?: Qu
     }
   }
 
+  // nextRow is Skip's way on, from the list as last read
+  const nextRow = () => (d ? position(d.list, r.row).next : undefined);
+
   function paint() {
     if (!d) return;
     const { row, state } = d;
@@ -96,7 +102,14 @@ export function findingView(host: HTMLElement, r: FindingRoute, nav: Nav, q?: Qu
     const pager = el("span", { class: "pager", "data-testid": "pager", "data-index": pos.index + 1, "data-total": pos.total, "data-open": pos.open },
       pageLink(pos.prev, "previous"), where, pageLink(pos.next, "next"));
     const aliases = (row.aliases ?? []).filter((a) => a !== row.vulnerability);
-    lp = labelPanel(d, draft, advancing(), { save, accept, acceptAll, skip: () => (q ? q.step(1, false) : go(pos.next, "last one in this list")), research, cancelResearch }, q?.outcomes);
+    if (lp) lp.update(d, q?.outcomes);
+    else lp = labelPanel(d, draft, advancing(), { save, accept, acceptAll, skip: () => (q ? q.step(1, false) : go(nextRow(), "last one in this list")), research, cancelResearch }, q?.outcomes);
+    body ??= el("div", { class: "finding", "data-testid": "finding" }, content, lp.el);
+    body.dataset.row = row.id;
+    body.dataset.verdict = row.verdict;
+    // the content tabs are drawn again only when what they show changed, not on each research poll
+    const key = JSON.stringify([row.why, row.gate, d.detail, d.matches]);
+    if (key !== shownKey || q?.why !== shownWhy) { shownKey = key; shownWhy = q?.why; fill(content, q?.why, tabs(d)); }
     renderShell(host, r, {
       title: row.vulnerability,
       row: row.vulnerability,
@@ -117,10 +130,9 @@ export function findingView(host: HTMLElement, r: FindingRoute, nav: Nav, q?: Qu
           aliases.length ? el("span", {}, `alias ${aliases.join(", ")}`) : "")),
       crumbEnd: q ? null : pager,
       bar: q?.bar,
-      prefs: () => { lp?.advance(advancing()); q?.prefs(); },
+      prefs: () => { lp?.advance(advancing()); if (q) { q.prefs(); paint(); } },
       meta: state.scans.gate,
-      body: el("div", { class: "finding", "data-testid": "finding", "data-row": row.id, "data-verdict": row.verdict },
-        el("div", { class: "fcontent" }, q?.why, tabs(d)), lp.el),
+      body,
     });
   }
 
@@ -147,7 +159,8 @@ export function findingView(host: HTMLElement, r: FindingRoute, nav: Nav, q?: Qu
     const next = advancing() ? nextOpen(list, r.row, rows) : undefined;
     if (next) { written(text, keys); nav(at(next)); return; }
     written(advancing() ? `${text} · nothing left to label in this list` : text, keys);
-    await load();
+    // staying on the row: the screen refreshes in place, as after any write (main.ts)
+    changed();
   }
   async function write(rows: string[], text: string, call: () => Promise<{ labels: LabelKey[] }>, how: "hint" | "hand" = "hint") {
     let keys: LabelKey[];
@@ -251,7 +264,7 @@ export function findingView(host: HTMLElement, r: FindingRoute, nav: Nav, q?: Qu
   }
 
   void load();
-  return { key };
+  return { key, refresh: load };
 }
 
 // ---------- the content tabs ----------
