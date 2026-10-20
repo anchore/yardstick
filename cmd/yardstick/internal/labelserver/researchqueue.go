@@ -251,7 +251,7 @@ func (b *queueBuild) researchCandidates(idx *researchIndex, scope queueScope, on
 	var cands []researchCandidate
 	open := map[string]bool{}
 	for _, id := range b.j.order {
-		// low keeps every hint on the entry, so a low-confidence one still counts as a hint
+		// low keeps every hint on the entry, so an unclear one still counts as a hint
 		q, ok := b.entry(id, scope, true)
 		if !ok {
 			continue

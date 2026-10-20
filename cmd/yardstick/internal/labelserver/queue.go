@@ -144,10 +144,10 @@ func (b *queueBuild) entry(id string, scope queueScope, low bool) (queued, bool)
 	if primary == nil {
 		return queued{}, false
 	}
-	if !low && f.Hint != nil && f.Hint.Confidence == lowConfidence {
+	if !low && f.Hint != nil && f.Hint.Verdict == claimsv1.Unclear {
 		f.Hint = nil
 	}
-	if !low && f.Cause != nil && f.Cause.Confidence == lowConfidence {
+	if !low && f.Cause != nil && f.Cause.Verdict == claimsv1.Unclear {
 		f.Cause = nil
 	}
 	r := b.views[primary.Gate].rows[id]
@@ -168,7 +168,7 @@ func (b *queueBuild) entry(id string, scope queueScope, low bool) (queued, bool)
 // handleQueue answers with the open rows in scope, ordered: rows that decide a gate first, then by
 // gate (fewest open rows first), by image, and in report order; rows that change nothing last. A
 // row in several gates sorts by the closest to done of its gates in scope. low=1 keeps
-// low-confidence hints, which are dropped from entries otherwise.
+// unclear hints, which are dropped from entries otherwise.
 func (s *Server) handleQueue(w http.ResponseWriter, req *http.Request) {
 	scope, ok := parseScope(req.URL.Query().Get("scope"))
 	if !ok {

@@ -127,7 +127,8 @@ that isn't listed under the verdict.
 Confidence: **high** when a primary fact states it (fix version vs installed, code inspection, a file
 absent from the binary, a rejected CVE, a distro not-affected with a reason; P-5); **medium** when
 inferred from version ranges or a triager's note without looking at the code (P-3, P-4), or when
-sources disagree but one is clearly better; **low** is not a confidence, it is `unclear` (P-2). A
+sources disagree but one is clearly better; **low** is not a confidence, it is `unclear` (P-2), and an
+`unclear` leaves `confidence` empty, since it claims nothing to be sure of (`propose` refuses one). A
 tracker's needs-triage, under-investigation or end-of-support "ignored" is noise, not a signal.
 Severity and "assume vulnerable" policies never change the verdict (P-1).
 

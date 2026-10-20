@@ -26,10 +26,8 @@ const (
 
 var groupRank = map[string]int{groupDecides: 0, groupNeeded: 1, groupNone: 2}
 
-// lowConfidence is the lowest confidence a proposal or cause states (agentstore: high, medium, low)
-const lowConfidence = "low"
-
-// HintsResponse is GET /api/hints. Low counts the low-confidence hints left out (low=0).
+// HintsResponse is GET /api/hints. Low counts the unclear hints left out (low=0): accepting one
+// closes nothing, so they stay out of a batch decision unless asked for.
 type HintsResponse struct {
 	Hints []HintEntry `json:"hints"`
 	Low   int         `json:"low"`
@@ -179,8 +177,8 @@ func (h *HintEntry) group(gates map[string]judged) {
 	}
 }
 
-// handleHints answers with every pending hint, filtered by gate= and image= (a slug), low-confidence
-// ones only with low=1. Grouped: decides, needed, none, each in the order first seen.
+// handleHints answers with every pending hint, filtered by gate= and image= (a slug), unclear ones
+// only with low=1. Grouped: decides, needed, none, each in the order first seen.
 func (s *Server) handleHints(w http.ResponseWriter, req *http.Request) {
 	q := req.URL.Query()
 	gate, image, low := q.Get("gate"), q.Get("image"), q.Get("low") == "1"
@@ -195,7 +193,7 @@ func (s *Server) handleHints(w http.ResponseWriter, req *http.Request) {
 			(image != "" && !slices.ContainsFunc(h.Rows, func(r HintRow) bool { return r.Image.Slug == image })) {
 			continue
 		}
-		if h.Confidence == lowConfidence && !low {
+		if h.Verdict == claimsv1.Unclear && !low {
 			out.Low++
 			continue
 		}

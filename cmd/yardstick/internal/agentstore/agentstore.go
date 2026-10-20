@@ -108,6 +108,9 @@ func (l *Log[T]) Current() ([]T, error) {
 		if v.schema() != Schema {
 			return nil, fmt.Errorf("%s line %d: schema %q; this yardstick reads %s", l.path, n, v.schema(), Schema)
 		}
+		if n, ok := any(&v).(interface{ normalize() }); ok {
+			n.normalize()
+		}
 		if _, ok := byKey[v.key()]; !ok {
 			order = append(order, v.key())
 		}

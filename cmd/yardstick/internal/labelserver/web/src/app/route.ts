@@ -46,7 +46,7 @@ export type Route =
   | { level: "kit"; filters: Filters }
   | { level: "hints"; filters: Filters }
   // scope is all, gate:<gate> or image:<slug> (all when absent); check, with a gate scope, puts that
-  // check's open rows first; low keeps low-confidence hints
+  // check's open rows first; low keeps unclear hints
   | { level: "queue"; row?: string; scope?: string; check?: string; low?: boolean; filters: Filters }
   | { level: "history"; filters: Filters }
   // scope is the queue's: all, gate:<gate> or image:<slug>; check (with a gate scope) takes the

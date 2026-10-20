@@ -331,15 +331,29 @@ func checkMembers(members []Member) error {
 	return nil
 }
 
-// problems is a call's vocabulary and policy problems, and a low-confidence tp or fp, which the
-// policy does not allow: that is an unclear, saying what would settle it.
+// problems is a call's vocabulary and policy problems, a low-confidence tp or fp, which the policy
+// does not allow (that is an unclear, saying what would settle it), and an unclear with a confidence.
 func problems(v *claimsv1.Vocabulary, l claimsv1.Label, confidence string) []string {
 	if v == nil {
 		return []string{"no " + claimsv1.VocabularyFile + " to check the call against"}
 	}
 	out := v.Problems(l, confidence)
-	if confidence == "low" && l.Verdict != claimsv1.Unclear {
+	switch {
+	case confidence == "low" && l.Verdict != claimsv1.Unclear:
 		out = append(out, fmt.Sprintf("a low-confidence %s is not allowed; propose unclear and say what would settle it in openQuestions", l.Verdict))
+	case confidence != "" && l.Verdict == claimsv1.Unclear:
+		out = append(out, "an unclear carries no confidence, since it claims nothing to be sure of; drop it and say what would settle it in openQuestions")
 	}
 	return out
 }
+
+// dropUnclearConfidence clears the confidence an unclear call was recorded with before the policy
+// refused one, so a store written then reads as one written now.
+func dropUnclearConfidence(v claimsv1.Verdict, confidence *string) {
+	if v == claimsv1.Unclear {
+		*confidence = ""
+	}
+}
+
+func (p *Proposal) normalize() { dropUnclearConfidence(p.Verdict, &p.Confidence) }
+func (c *Cause) normalize()    { dropUnclearConfidence(c.Verdict, &c.Confidence) }

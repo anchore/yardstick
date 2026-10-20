@@ -743,8 +743,9 @@ def main() -> None:
     props = []
     for r in rows:
         s = r["suggestion"]
-        p = {"row": r["row_id"], "verdict": s["verdict"], "confidence": s["confidence"], "note": s["note"],
-             "author": {"skill": SKILL, "model": args.model}}
+        p = {"row": r["row_id"], "verdict": s["verdict"], "note": s["note"], "author": {"skill": SKILL, "model": args.model}}
+        if s["verdict"] != "unclear":
+            p["confidence"] = s["confidence"]  # an unclear carries none; propose refuses one
         if s.get("why"):
             p["justification"] = s["why"]["kind"]
         if ev := evidence(s["rule"], s["facts"], (s.get("why") or {}).get("text", "")):
@@ -834,7 +835,8 @@ def write_causes(out: Path, rows: list[dict], props: dict[str, dict], model: str
         pkgs = sorted({r["name"] for r, _ in members})
         pr = POLICY.get(rule) or {}
         # the rule's own justification keeps the id it always had, so reruns still supersede
-        slug = re.sub(r"[^a-z0-9]+", "-", (f"{src}-{rule}-{verdict}-{conf}-{side}" + (f"-{why}" if why and why != pr.get("justification") else "")).lower()).strip("-")
+        # an unclear's id keeps the "low" it was written with before unclear dropped its confidence
+        slug = re.sub(r"[^a-z0-9]+", "-", (f"{src}-{rule}-{verdict}-{conf or 'low'}-{side}" + (f"-{why}" if why and why != pr.get("justification") else "")).lower()).strip("-")
         title = (pr.get("title") or pr.get("basis") or rule or "reviewer judgement") + f": {len(vulns)} {'vulnerability' if len(vulns) == 1 else 'vulnerabilities'} on {src}"
         note = (f"{len(members)} findings ({len(vulns)} vulnerabilities across {', '.join(pkgs[:6])}{'…' if len(pkgs) > 6 else ''}) share rule {rule or 'judgement'}: "
                 f"{common}" + (f" ({n} of {len(members)} members carry this exact note; the rest differ only in versions)" if n < len(members) else ""))
@@ -872,7 +874,7 @@ def write_proposals_md(out: Path, rows: list[dict], groups: dict) -> None:
         items = []
         for n, rs in enumerate(groups.values(), 1):
             ps = [props[r["row_id"]] for r in rs if r["row_id"] in props]
-            if ps and ps[0].get("confidence") == conf:
+            if ps and (ps[0].get("confidence") or "low") == conf:  # an unclear has none, and is the low section
                 items.append((n, rs, ps))
         if not items:
             continue

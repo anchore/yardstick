@@ -221,6 +221,7 @@ sample of ten **high** groups, decide whether to keep, change or downgrade the s
 Apply what you decide by group number; the helper rewrites `proposals.jsonl`, `proposals.md` and
 `causes.jsonl` (a cause follows its members' rule and verdict, so editing a group moves it), and
 clamps your confidence to the rule's ceiling in the policy (a rule-less judgement is capped at medium).
+An `unclear` carries no confidence, so the helper drops it, and a tp or fp it has none for needs `--confidence`.
 `--evidence kind[:text]` sets the evidence kind; a rule with one in the policy fills it in when you give none, and
 `judgement/prior-claims-pattern` needs one from you:
 
@@ -232,7 +233,7 @@ python3 -I ${CLAUDE_PLUGIN_ROOT}/scripts/yardstick-triage-edit.py <dir> 3 7-9 --
 python3 -I ${CLAUDE_PLUGIN_ROOT}/scripts/yardstick-triage-edit.py <dir> 46 --name libssl1.1 --verdict fp --confidence medium \
     --rule judgement/linked-system-library --evidence vulnerable_code_not_present:"in libcrypto1.1, which has its own finding" \
     --note "the bug is in libcrypto; libssl1.1 links the system libcrypto1.1, whose row carries the verdict"
-python3 -I ${CLAUDE_PLUGIN_ROOT}/scripts/yardstick-triage-edit.py <dir> row:3d5d9ed7d8095adf --verdict unclear --confidence low --question "…"
+python3 -I ${CLAUDE_PLUGIN_ROOT}/scripts/yardstick-triage-edit.py <dir> row:3d5d9ed7d8095adf --verdict unclear --question "…"
 python3 -I ${CLAUDE_PLUGIN_ROOT}/scripts/yardstick-triage-edit.py <dir> 13 --question "Does IO::Uncompress::Unzip ship in perl-base, or only in perl-modules?"
 ```
 

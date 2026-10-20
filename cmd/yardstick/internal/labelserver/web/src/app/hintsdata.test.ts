@@ -31,8 +31,8 @@ describe("the review page's scope", () => {
     expect(parseScope("?low=0")).toEqual({});
   });
 
-  test("filters by gate and image, and counts the low-confidence hints it leaves out", () => {
-    const low = hint("low", "tp", [["l1", java, "x"]], ["deb-java"], { confidence: "low" });
+  test("filters by gate and image, and counts the unclear hints it leaves out", () => {
+    const low = hint("low", "unclear", [["l1", java, "x"]], ["deb-java"], { confidence: "" });
     expect(inScope([...all, low], {}).hints).toHaveLength(5);
     expect(inScope([...all, low], {}).low).toBe(1);
     expect(inScope([...all, low], { low: true }).hints).toHaveLength(6);

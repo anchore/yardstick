@@ -49,7 +49,7 @@ def main() -> None:
     ap.add_argument("groups", nargs="+", help="group numbers, ranges, or row:<id>")
     ap.add_argument("--name", action="append", help="only rows for this binary package (repeatable)")
     ap.add_argument("--verdict", choices=["tp", "fp", "unclear"])
-    ap.add_argument("--confidence", choices=["high", "medium", "low"])
+    ap.add_argument("--confidence", choices=["high", "medium"])
     ap.add_argument("--note")
     ap.add_argument("--rule")
     ap.add_argument("--evidence", dest="why", help="JUSTIFICATION[:TEXT]; justifications are listed by `yardstick claims policy`")
@@ -117,7 +117,11 @@ def main() -> None:
             p["evidence"] = [ev] + (p.get("evidence") or [])[1:]
         else:
             p.pop("evidence", None)  # an evidence entry needs a fact, so a rule nothing observed for is dropped
-        if evidence.CONF_RANK[p.get("confidence", "low")] > evidence.CONF_RANK[ceiling]:
+        if p["verdict"] == "unclear":
+            p.pop("confidence", None)  # an unclear carries none; propose refuses one
+        elif not p.get("confidence"):
+            sys.exit(f"a {p['verdict']} needs a confidence: pass --confidence high or medium")
+        elif evidence.CONF_RANK[p["confidence"]] > evidence.CONF_RANK[ceiling]:
             print(f"group {args.groups}: confidence clamped to {ceiling}, the ceiling for {rule or 'a rule-less judgement'} in the policy")
             p["confidence"] = ceiling
         if args.note:

@@ -132,6 +132,11 @@ func TestProblems(t *testing.T) {
 	}
 	wrongVerdict := proposal("p", "CVE-2023-1", claimsv1.TP, "debian/installed-has-fix", "high")
 	wrongVerdict.Justification = "fix-newer"
+	unclear := func(confidence string) Proposal {
+		p := proposal("p", "CVE-2023-1", claimsv1.Unclear, "", confidence)
+		p.Justification, p.Evidence = "not-assessed", nil
+		return p
+	}
 	for name, tt := range map[string]struct {
 		p    Proposal
 		want string
@@ -141,6 +146,8 @@ func TestProblems(t *testing.T) {
 		"rule of the other":  {wrongVerdict, "supports fp, not tp"},
 		"unknown rule":       {proposal("p", "CVE-2023-1", claimsv1.FP, "debian/guess", "medium"), `rule "debian/guess" is not listed`},
 		"low-confidence fp":  {proposal("p", "CVE-2023-1", claimsv1.FP, "", "low"), "a low-confidence fp is not allowed"},
+		"unclear":            {unclear(""), ""},
+		"unclear, confident": {unclear("medium"), "an unclear carries no confidence"},
 		"unlisted namespace": {proposal("p", "GHSA-xxxx", claimsv1.FP, "", ""), `namespace "GHSA"`},
 	} {
 		got := strings.Join(tt.p.Problems(v), "; ")
@@ -151,5 +158,28 @@ func TestProblems(t *testing.T) {
 	cause := Cause{Verdict: claimsv1.FP, Justification: "fix-installed", Confidence: "high", Evidence: proposal("p", "CVE-1", claimsv1.FP, "cna/installed-past-range", "").Evidence}
 	if got := cause.Problems(v); len(got) != 1 || !strings.Contains(got[0], "ceiling") {
 		t.Errorf("expected a cause over its rule's ceiling flagged, got %v", got)
+	}
+}
+
+// an unclear recorded with a confidence, before the policy refused one, reads back without it
+func TestCurrentDropsUnclearConfidence(t *testing.T) {
+	s := Open(t.TempDir())
+	p := proposal("p1", "CVE-2023-1", claimsv1.Unclear, "", "medium")
+	p.Justification, p.Evidence = "not-assessed", nil
+	c := Cause{Schema: Schema, ID: "c1", Gate: "deb", Title: "t", SourcePackage: "zlib", Members: []Member{{Row: "r", Vulnerability: "CVE-2023-1", Package: "pkg:deb/debian/zlib1g@1.2.13"}},
+		Verdict: claimsv1.Unclear, Justification: "not-assessed", Confidence: "low", Author: p.Author, Timestamp: now}
+	if err := s.Proposals.Add(p); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.Causes.Add(c); err != nil {
+		t.Fatal(err)
+	}
+	ps, err := s.Proposals.Current()
+	if err != nil || len(ps) != 1 || ps[0].Confidence != "" {
+		t.Errorf("expected the proposal's confidence dropped, got %+v %v", ps, err)
+	}
+	cs, err := s.Causes.Current()
+	if err != nil || len(cs) != 1 || cs[0].Confidence != "" {
+		t.Errorf("expected the cause's confidence dropped, got %+v %v", cs, err)
 	}
 }

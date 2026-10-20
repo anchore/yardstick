@@ -3,7 +3,7 @@ import { expect, test } from "./fixtures";
 import { checkPage, gatePage, gatesPage, images, labelsOf, openFinding, label, rows } from "./helpers";
 
 // the edges around hint review (hints-review.spec.ts has the main flow): selection states, image and
-// gate scope, low confidence, the banner and rail once hints are gone or left out, and the hints
+// gate scope, unclear hints, the banner and rail once hints are gone or left out, and the hints
 // that replace a person's label beyond vc5p's seeded one
 
 const item = (page: Page, vuln: string) => page.getByTestId("hint-item").filter({ hasText: vuln });
@@ -20,7 +20,7 @@ async function openReview(page: Page, query = "") {
 }
 
 // edit changes the hints the page gets, which the review, the banner and the rail all read from
-// this one request. The seed has no low-confidence hints, so the tests make them
+// this one request. The seed has no unclear hints, so the tests make them
 async function edit(page: Page, change: (hint: any) => void) {
   await page.route("**/api/hints?low=1", async (route) => {
     try {
@@ -110,15 +110,15 @@ test.describe("scope", () => {
   });
 });
 
-test.describe("low confidence", () => {
+test.describe("unclear hints", () => {
   test("the count is plural, says so when there are none, and low=1 in the URL keeps the toggle checked", async ({ page }) => {
     await openReview(page);
-    await expect(page.getByTestId("hint-low-count")).toHaveText("no low-confidence hints");
+    await expect(page.getByTestId("hint-low-count")).toHaveText("no unclear hints");
 
-    await edit(page, (h) => { if ([gzip, tar].includes(vulnOf(h))) h.confidence = "low"; });
+    await edit(page, (h) => { if ([gzip, tar].includes(vulnOf(h))) { h.verdict = "unclear"; h.confidence = ""; } });
     await openReview(page);
     await expect(page.getByTestId("hint-item")).toHaveCount(3);
-    await expect(page.getByTestId("hint-low-count")).toHaveText("2 low-confidence hints hidden");
+    await expect(page.getByTestId("hint-low-count")).toHaveText("2 unclear hints hidden");
 
     await openReview(page, "?low=1");
     await expect(page.getByTestId("hint-low-toggle")).toBeChecked();
@@ -127,11 +127,11 @@ test.describe("low confidence", () => {
     for (const v of [gzip, tar]) await expect(box(page, v)).not.toBeChecked();
   });
 
-  test("a low-confidence cause leaves the util-linux hint out", async ({ page }) => {
-    await edit(page, (h) => { if (h.kind === "cause") h.confidence = "low"; });
+  test("an unclear cause leaves the util-linux hint out", async ({ page }) => {
+    await edit(page, (h) => { if (h.kind === "cause") { h.verdict = "unclear"; h.confidence = ""; } });
     await openReview(page);
     await expect(page.getByTestId("hint-item")).toHaveCount(4);
-    await expect(page.getByTestId("hint-low-count")).toHaveText("1 low-confidence hint hidden");
+    await expect(page.getByTestId("hint-low-count")).toHaveText("1 unclear hint hidden");
     await expect(item(page, "CVE-2026-3184")).toHaveCount(0);
     // it was the only hint in the needed group
     await expect(group(page, "needed")).toHaveCount(0);
@@ -148,8 +148,8 @@ test.describe("low confidence", () => {
     await expect(accept(page)).toHaveText("Accept 3 hints on 7 matches");
   });
 
-  test("a low hint checked by hand is written", async ({ page }) => {
-    await edit(page, (h) => { if (vulnOf(h) === gzip) h.confidence = "low"; });
+  test("an unclear hint checked by hand is written", async ({ page }) => {
+    await edit(page, (h) => { if (vulnOf(h) === gzip) { h.verdict = "unclear"; h.confidence = ""; } });
     await openReview(page, "?low=1");
     await expect(box(page, gzip)).not.toBeChecked();
     await box(page, gzip).check();
@@ -162,11 +162,11 @@ test.describe("low confidence", () => {
 });
 
 test.describe("the work banner", () => {
-  test("a low-confidence hint is left out of the count and says so", async ({ page }) => {
-    await edit(page, (h) => { if (vulnOf(h) === gzip) h.confidence = "low"; });
+  test("an unclear hint is left out of the count and says so", async ({ page }) => {
+    await edit(page, (h) => { if (vulnOf(h) === gzip) { h.verdict = "unclear"; h.confidence = ""; } });
     await page.goto(gatesPage);
     await expect(page.getByTestId("review-hints")).toContainText("Review 4 hints");
-    await expect(page.getByTestId("work-foot")).toHaveText(/ 1 low-confidence hint left out\.$/);
+    await expect(page.getByTestId("work-foot")).toHaveText(/ 1 unclear hint left out\.$/);
     await page.goto(gatePage("deb-npm"));
     await expect(page.getByTestId("rail-review-all")).toHaveText("Review all 1 hint");
   });

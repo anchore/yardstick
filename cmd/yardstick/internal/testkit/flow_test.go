@@ -294,10 +294,10 @@ func TestE2ELabelingFlow(t *testing.T) {
 		t.Errorf("history matching gzip: %+v", hist.Labels)
 	}
 
-	// a low-confidence hint stays out of review unless asked for, and out of the queue's entries
+	// an unclear hint stays out of review unless asked for, and out of the queue's entries
 	cmd := exec.Command(bin, "claims", "agent", "propose", "--gate", "deb-npm")
 	cmd.Dir, cmd.Env = dir, append(os.Environ(), "YARDSTICK_CACHE_DIR="+filepath.Join(tools, "cache"))
-	cmd.Stdin = strings.NewReader(`{"row":"24160b879ac36bf5","verdict":"unclear","justification":"not-assessed","confidence":"low","author":{"skill":"triage-deltas","model":"e2e"}}`)
+	cmd.Stdin = strings.NewReader(`{"row":"24160b879ac36bf5","verdict":"unclear","justification":"not-assessed","author":{"skill":"triage-deltas","model":"e2e"}}`)
 	if out, err := cmd.CombinedOutput(); err != nil {
 		t.Fatalf("propose: %v\n%s", err, out)
 	}
@@ -308,7 +308,7 @@ func TestE2ELabelingFlow(t *testing.T) {
 		t.Errorf("hints with low: %+v", with.Hints)
 	}
 	if q = queue(t, h, "?scope=image:"+npmSlug); len(q.Entries) != 1 || q.Entries[0].Hint != nil {
-		t.Errorf("the babel entry keeps its low hint: %+v", q.Entries)
+		t.Errorf("the babel entry keeps its unclear hint: %+v", q.Entries)
 	}
 	if q = queue(t, h, "?scope=image:"+npmSlug+"&low=1"); len(q.Entries) != 1 || q.Entries[0].Hint == nil {
 		t.Errorf("the babel entry with low: %+v", q.Entries)

@@ -6,7 +6,7 @@ import { doing, inFlight, type Doing } from "../shared/agent";
 import { plural } from "../shared/words";
 import type { State as Status } from "./ui";
 
-// HintScope is the review page's query: a gate, an image (slug), and whether low-confidence hints show
+// HintScope is the review page's query: a gate, an image (slug), and whether unclear hints show
 export interface HintScope { gate?: string; image?: string; low?: boolean }
 
 export function hintsHref(s: HintScope): string {
@@ -27,7 +27,8 @@ export function parseScope(search: string): HintScope {
   return s;
 }
 
-export const isLow = (h: HintEntry) => h.confidence === "low";
+// isLow is an unclear hint: accepting one closes nothing, so review leaves it out unless asked (low=1)
+export const isLow = (h: HintEntry) => h.verdict === "unclear";
 
 // preselected says whether a hint starts checked: medium confidence and up, and never one that
 // would replace a label a person wrote
@@ -37,7 +38,7 @@ const inGate = (h: HintEntry, gate?: string) => !gate || h.gates.some((g) => g.g
 const onImage = (h: HintEntry, image?: string) => !image || h.rows.some((r) => r.image.slug === image);
 
 // inScope is what the review page lists for a scope, as GET /api/hints filters, and how many
-// low-confidence hints it leaves out
+// unclear hints it leaves out
 export function inScope(all: HintEntry[], s: HintScope): { hints: HintEntry[]; low: number } {
   const hints: HintEntry[] = [];
   let low = 0;

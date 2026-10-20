@@ -238,7 +238,7 @@ label UI shows them as hints. A proposal is never a label and never counts for s
 person accepts it. Nothing is recorded unless every line is valid.
 
 Each line is a label's fields (package, vulnerability, verdict, justification, evidence, note)
-plus confidence (high, medium or low), openQuestions and author{name,kind,skill,model}. Unknown
+plus confidence (high or medium, and none on an unclear), openQuestions and author{name,kind,skill,model}. Unknown
 fields are refused. For convenience:
   - "row": a row id from yardstick score -o json stands in for subject, package and vulnerability
   - schema, id, timestamp and gate are filled in, and author.kind defaults to agent
@@ -246,7 +246,7 @@ fields are refused. For convenience:
 
 A proposal is checked against the claims vocabulary and the labeling policy: a justification or
 evidence rule that is not listed, a rule of the other verdict, a confidence above the rule's
-ceiling, or a low-confidence tp or fp is refused. A proposal about the same match as an earlier
+ceiling, a low-confidence tp or fp, or an unclear with any confidence is refused. A proposal about the same match as an earlier
 one supersedes it. Each recorded proposal prints as id, verdict, vulnerability, package and
 subject, tab separated.`,
 		Example: `  echo '{"row":"12f096fe9f1d02ba","verdict":"fp","justification":"fix-installed","confidence":"high",

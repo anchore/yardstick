@@ -104,12 +104,12 @@ test.describe("hint review", () => {
     await expect(tableRow(page, "research-table", rows.tarHand).getByTestId("research-job")).toHaveAttribute("data-group", "change");
   });
 
-  test("low-confidence hints are hidden until asked for, and never preselected", async ({ page }) => {
-    // the seed has none, so make gzip's low
+  test("unclear hints are hidden until asked for, and never preselected", async ({ page }) => {
+    // the seed has none, so make gzip's unclear
     await page.route("**/api/hints?low=1", async (route) => {
       try {
         const res = await route.fetch(), body = await res.json();
-        for (const h of body.hints) if (h.rows[0].vulnerability === "CVE-2026-41992") h.confidence = "low";
+        for (const h of body.hints) if (h.rows[0].vulnerability === "CVE-2026-41992") { h.verdict = "unclear"; h.confidence = ""; }
         await route.fulfill({ response: res, json: body });
       } catch {
         // the page went on while the top bar's chip was still reading: nothing waits on it
@@ -117,12 +117,12 @@ test.describe("hint review", () => {
     });
     await openReview(page);
     await expect(page.getByTestId("hint-item")).toHaveCount(4);
-    await expect(page.getByTestId("hint-low-count")).toHaveText("1 low-confidence hint hidden");
+    await expect(page.getByTestId("hint-low-count")).toHaveText("1 unclear hint hidden");
     await expect(page.getByTestId("hint-low-toggle")).not.toBeChecked();
     await page.getByTestId("hint-low-toggle").check();
     await expect(page).toHaveURL(/\/ui\/hints\?low=1$/);
     await expect(page.getByTestId("hint-item")).toHaveCount(5);
-    await expect(item(page, "CVE-2026-41992")).toHaveAttribute("data-confidence", "low");
+    await expect(item(page, "CVE-2026-41992")).toHaveAttribute("data-verdict", "unclear");
     await expect(box(page, "CVE-2026-41992")).not.toBeChecked();
     await page.getByTestId("hint-low-toggle").uncheck();
     await expect(page.getByTestId("hint-item")).toHaveCount(4);

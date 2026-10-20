@@ -199,7 +199,7 @@ export function workBanner(list: GateList): Work {
         .map((x) => ({ gate: g.id, row: x.row!, vuln: x.vuln, pkg: x.pkg }));
       return rest.length ? waitWords(g.id, rest, hints.length > 0) : "";
     }));
-    fill(foot, [lead, ...waits.filter(Boolean), low > 0 && `${plural(low, "low-confidence hint")} left out.`].filter(Boolean).join(" "));
+    fill(foot, [lead, ...waits.filter(Boolean), low > 0 && `${plural(low, "unclear hint")} left out.`].filter(Boolean).join(" "));
   }
 
   work({ open: 0, hinted: 0, needYou: 0 }, 1, null, null);

@@ -96,7 +96,7 @@ Routes (`route.ts`): `/ui/gates/` (level 0, `?tab=unlabeled|labels`), `/ui/gates
 | testid | where | attributes |
 |---|---|---|
 | `hint-gate-chip` | a gate chip in the title row, a link; "All gates" first | `data-gate` (empty for all), `aria-pressed` |
-| `hint-low-toggle`, `hint-low-count` | "Show low confidence" and how many it hides | |
+| `hint-low-toggle`, `hint-low-count` | "Show unclear" and how many unclear hints it hides | |
 | `hint-group` | a group of hints by what accepting one alone does | `data-group` = decides / needed / none |
 | `hint-group-toggle` | its select-all checkbox | `indeterminate` while partly checked |
 | `hint-item` | one hint | `data-hint` (id), `data-group`, `data-verdict`, `data-confidence`, `data-replaces` |

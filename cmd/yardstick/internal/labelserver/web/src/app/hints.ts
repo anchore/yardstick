@@ -26,14 +26,14 @@ async function call<T>(path: string, body?: unknown): Promise<T> {
   return r.json() as Promise<T>;
 }
 
-// fetchHints is every pending hint, low confidence included; the pages filter (hintsdata inScope).
+// fetchHints is every pending hint, unclear included; the pages filter (hintsdata inScope).
 // Not cached: a hint is gone once accepted anywhere.
 export const fetchHints = () => call<HintsResponse>("/api/hints?low=1");
 
 // preview is a gate's result as if rows were labeled so; nothing is written
 export const preview = (gate: string, labels: Record<string, string>) => call<GateResult>(`/api/gates/${encodeURIComponent(gate)}/preview`, { labels });
 
-// fetchQueue is every open row across gates, one per row id, low-confidence hints kept
+// fetchQueue is every open row across gates, one per row id, unclear hints kept
 export const fetchQueue = () => call<Queue>("/api/queue?low=1");
 
 const acceptHints = (hints: string[]) => call<HintsAcceptResponse>("/api/hints/accept", { hints });
@@ -99,8 +99,8 @@ export function hintsView(host: HTMLElement, r0: Route & { level: "hints" }, _na
     const lowBox: HTMLInputElement = el("input", { type: "checkbox", checked: !!scope.low, "data-testid": "hint-low-toggle",
       onchange: () => go(hintsHref({ ...scope, low: lowBox.checked })) });
     const filters = el("div", { class: "filters" },
-      el("label", { class: "label lowtoggle" }, lowBox, "Show low confidence"),
-      el("span", { class: "muted", "data-testid": "hint-low-count" }, low ? `${plural(low, "low-confidence hint")} hidden` : scope.low ? "" : "no low-confidence hints"));
+      el("label", { class: "label lowtoggle" }, lowBox, "Show unclear"),
+      el("span", { class: "muted", "data-testid": "hint-low-count" }, low ? `${plural(low, "unclear hint")} hidden` : scope.low ? "" : "no unclear hints"));
 
     // the hint rows, each with its checkbox, and each group's select-all
     const boxes = new Map<string, HTMLInputElement>();
