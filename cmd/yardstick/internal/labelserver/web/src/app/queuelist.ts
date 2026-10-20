@@ -15,7 +15,10 @@ export interface DoneRow { row: string; gate: string }
 // anywhere else every gate
 export function queueFor(r: Route): QueueRoute {
   if (r.level === "queue") return { level: "queue", scope: r.scope, check: r.check, low: r.low, filters: {} };
-  if (r.level === "research") return r.scope ? { level: "queue", scope: r.scope, filters: {} } : { level: "queue", filters: {} };
+  if (r.level === "research") {
+    const scope = r.filters.image ? `image:${r.filters.image}` : r.scope;
+    return scope ? { level: "queue", scope, filters: {} } : { level: "queue", filters: {} };
+  }
   if (r.level !== "gate" && r.level !== "check" && r.level !== "finding") return { level: "queue", filters: {} };
   if (r.filters.image) return { level: "queue", scope: `image:${r.filters.image}`, filters: {} };
   const check = r.level === "check" ? r.check : r.level === "finding" ? r.check ?? undefined : undefined;

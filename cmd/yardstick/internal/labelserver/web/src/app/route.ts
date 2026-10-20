@@ -13,8 +13,8 @@
 // /ui/research/jobs                                   every research job (jobs.ts)
 // /ui/queue[/<row>]?scope=&check=&low=                the queue, one open row at a time (queue.ts)
 //
-// Filters ride in the query string on every level: image (slug), verdict, hint, pkg, q, page, and
-// history's since.
+// Filters ride in the query string on every level: image (slug), verdict, hint, pkg, q, page,
+// history's since and research's chip.
 
 export const base = "/ui/gates/";
 
@@ -34,6 +34,7 @@ export interface Filters {
   q?: string;              // free-text search
   page?: number;           // 1-based, left out on page 1
   since?: string;          // history: "all" or an RFC 3339 time; left out for since the server started
+  chip?: string;           // the research page's chip: change, none or checked
 }
 
 export type Route =
@@ -65,13 +66,14 @@ function query(f: Filters, extra: [string, string][] = []): string {
   if (f.q) p.set("q", f.q);
   if (f.page && f.page > 1) p.set("page", String(f.page));
   if (f.since) p.set("since", f.since);
+  if (f.chip) p.set("chip", f.chip);
   const s = p.toString();
   return s ? `?${s}` : "";
 }
 
 function parseFilters(p: URLSearchParams): Filters {
   const f: Filters = {};
-  const image = p.get("image"), verdict = p.get("verdict"), hint = p.get("hint"), pkg = p.get("pkg"), q = p.get("q"), page = Number(p.get("page")), since = p.get("since");
+  const image = p.get("image"), verdict = p.get("verdict"), hint = p.get("hint"), pkg = p.get("pkg"), q = p.get("q"), page = Number(p.get("page")), since = p.get("since"), chip = p.get("chip");
   if (image) f.image = image;
   if (verdict && (verdicts as readonly string[]).includes(verdict)) f.verdict = verdict as VerdictFilter;
   if (hint) f.hint = hint;
@@ -79,6 +81,7 @@ function parseFilters(p: URLSearchParams): Filters {
   if (q) f.q = q;
   if (Number.isInteger(page) && page > 1) f.page = page;
   if (since === "all" || (since && !Number.isNaN(Date.parse(since)))) f.since = since;
+  if (chip) f.chip = chip;
   return f;
 }
 

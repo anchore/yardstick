@@ -17,7 +17,7 @@ import type { Nav } from "./shell";
 import { dataTable, type Column, type Table } from "./tableview";
 import { couldMove, hint, imageName, outcome, verdict } from "./ui";
 
-const effectCell = (r: FRow) =>
+export const effectCell = (r: Pick<FRow, "effect">) =>
   r.effect === "could-move" ? couldMove() : r.effect ? el("span", { class: r.effect === "counted" ? "muted" : "" }, r.effect) : el("span", { class: "muted" }, "–");
 
 export const hintWords = (h: FRow["hint"]) => (h ? `${words[h.verdict]?.word ?? h.verdict}${h.confidence ? ` · ${h.confidence}` : ""}` : "");

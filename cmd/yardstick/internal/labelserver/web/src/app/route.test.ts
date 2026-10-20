@@ -25,6 +25,7 @@ const routes: Route[] = [
   { level: "research", scope: "gate:deb-java", check: "f1NotWorse", filters: {} },
   { level: "research", scope: "gate:deb-java", rows: ["e3bfd3b0b0c30ee6", "0fe9fc814bcd060a"], filters: {} },
   { level: "research", groups: ["change", "none"], filters: {} },
+  { level: "research", scope: "gate:deb-java", filters: { chip: "checked", image: "grype-quality-golang-d89207b", q: "glibc" } },
   { level: "jobs", filters: {} },
   { level: "hints", filters: {} },
   { level: "queue", filters: {} },

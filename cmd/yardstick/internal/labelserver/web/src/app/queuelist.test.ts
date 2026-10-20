@@ -12,6 +12,8 @@ describe("queueFor", () => {
   test("is every gate from the gates screen and the flow's pages", () => {
     expect(queueFor({ level: "gates", tab: "gates", filters: {} })).toEqual({ level: "queue", filters: {} });
     expect(queueFor({ level: "history", filters: {} })).toEqual({ level: "queue", filters: {} });
+    // the research page's image filter narrows it as a gate's does
+    expect(queueFor({ level: "research", scope: "gate:deb-java", filters: { image: "core" } })).toEqual({ level: "queue", scope: "image:core", filters: {} });
   });
   test("is the gate from a gate or finding, with a check's rows first from a check", () => {
     expect(queueFor({ level: "gate", gate: "deb-java", tab: "findings", filters: {} })).toEqual({ level: "queue", scope: "gate:deb-java", filters: {} });

@@ -1,11 +1,12 @@
 // researchwords.ts is how the research page, the gates banner and the finding page say what research
 // costs: money with tokens beside it, time, the basis an estimate comes from, a batch's progress,
-// what a table selection's Research covers, and the jobs page's rows.
+// what a table selection's Research covers, the research page's rows, and the jobs page's rows.
 // Pure: research.ts, banner.ts, labelpanel.ts, researchtable.ts and jobs.ts draw it.
 import type { Basis } from "../gen/research";
-import type { ResearchBatch, ResearchEstimate, ResearchGroup, ResearchJob, ResearchProgress } from "../gen/wire";
+import type { ResearchBatch, ResearchEstimate, ResearchGroup, ResearchJob, ResearchProgress, ResearchQueueResponse } from "../gen/wire";
 import { clock, failedJob, ordinal, since, type Doing } from "../shared/agent";
 import { plural } from "../shared/words";
+import type { Effect } from "./listing";
 
 export const money = (x: number) => `$${x.toFixed(2)}`;
 
@@ -85,6 +86,25 @@ export function finishedWords(b: ResearchBatch): string {
   return [stopped ? "Research stopped" : "Research finished", stopped ? `${b.done} of ${plural(b.total, "job")} done` : plural(b.total, "job"),
     money(b.spent), b.failed > 0 && `${b.failed} failed`].filter(Boolean).join(" · ");
 }
+
+// ---------- the research page's rows ----------
+
+// RRow is one open match: its group is its job's, job its job's first row, siblings the other
+// matches in that job
+export interface RRow { id: string; vuln: string; pkg: string; version: string; image: string; slug: string; gate: string; effect: Effect; group: string; job: string; siblings: number }
+
+// rowsOf are the plan's matches, one row each, in its order
+export function rowsOf(p: ResearchQueueResponse): RRow[] {
+  return p.groups.flatMap((g) => g.jobs.flatMap((j) => j.matches.map((m) => ({
+    id: m.row, vuln: m.vulnerability, pkg: m.package.name, version: m.package.version ?? "", image: j.image, slug: j.imageSlug, gate: j.gate,
+    effect: (m.effect === "none" ? "" : m.effect) as Effect, group: g.group, job: j.rows[0], siblings: j.matches.length - 1,
+  }))));
+}
+
+// rowText is what the search box matches a row against: CVE, package and image
+export const rowText = (r: RRow) => `${r.vuln} ${r.pkg} ${r.version} ${r.image}`;
+// jobsIn counts the jobs rows fall in
+export const jobsIn = (rs: RRow[]) => new Set(rs.map((r) => r.job)).size;
 
 // ---------- a table selection's Research ----------
 

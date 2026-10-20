@@ -81,5 +81,8 @@ export const columnHelp = {
   reason: "Why the verdict holds, from the claims vocabulary's justifications. A muted not-recorded means the label carries none, as most ported labels do.",
   source: "The claims source the label was read from: a repository at a ref, or a local directory. Hover a cell for the full locator.",
   note: "The label's notes. An accepted hint brings its agent's note along.",
+  researchEffect: "What a label on this match does in the gates in scope, its strongest over them.\ndecides: a TP or FP label alone changes a gate's outcome\ncould move: a TP or FP label alone changes a check's result\ncounted: a check counts it, without changing a result alone\n–: no check counts it",
+  job: "Sibling packages (the same vulnerability and source package in one image) share one research job, so checking one checks them all.\nown job: researched on its own\nshares with N: one job covers it and N more matches here",
+  price: "What its job likely costs on the model chosen, from finished jobs. A shared job shows it once, on its first match.",
   findings: "The matches this label sits on, a chip per gate (#2 when the package is in two places in one gate). none means no gate scans the match it labels.",
 };

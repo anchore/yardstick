@@ -2,7 +2,7 @@ import { rmSync } from "node:fs";
 import { join } from "node:path";
 import type { Page, Request } from "@playwright/test";
 import { expect, test, workspace } from "./fixtures";
-import { gatesPage, openFinding, rows } from "./helpers";
+import { gatesPage, images, openFinding, rows, tableRow, tableRows } from "./helpers";
 
 // research across gates (/ui/research), the gates banner's research states and a finding's price.
 // On the seed every row that can change a gate already has a hint, so tests that need such rows take
@@ -17,6 +17,7 @@ const noHints = () => {
   for (const f of ["proposals.jsonl", "causes.jsonl"]) rmSync(join(workspace, ".yardstick", f), { force: true });
 };
 const banner = (page: Page) => page.getByTestId("work-banner");
+// a research page group's header row, which holds its box
 const group = (page: Page, id: string) => page.locator(`[data-testid=research-group][data-group=${id}]`);
 const toggle = (page: Page, id: string) => group(page, id).getByTestId("research-group-toggle");
 const start = (page: Page) => page.getByTestId("research-start");
@@ -158,26 +159,34 @@ test.describe("labeling by hand never waits on research", () => {
 });
 
 test.describe("the research page", () => {
-  test("on the seed only the rows that change no outcome qualify, unchecked until chosen", async ({ page }) => {
+  const table = (page: Page) => page.getByTestId("research-table");
+  const row = (page: Page, id: string) => tableRow(page, "research-table", id);
+  const shownRows = (page: Page) => tableRows(page, "research-table");
+  const chip = (page: Page, id: string) => page.locator(`[data-chip=${id}]`);
+  const search = (page: Page) => page.getByRole("searchbox", { name: "Filter matches" });
+
+  test("on the seed only the matches that change no outcome qualify, unchecked until chosen", async ({ page }) => {
     await page.goto("/ui/research");
     await expect(group(page, "none")).toBeVisible();
-    await expect(group(page, "change")).toBeHidden();
-    await expect(group(page, "none").getByTestId("research-job")).toHaveCount(2);
+    await expect(group(page, "change")).toHaveCount(0);
+    await expect(shownRows(page)).toHaveCount(2);
     await expect(toggle(page, "none")).not.toBeChecked();
     await expect(page.getByTestId("research-skipped")).toContainText("0 matches already researched, 10 with an agent hint, 0 queued or running");
     await expect(start(page)).toBeDisabled();
-    await expect(start(page)).toHaveText("Select matches to research");
+    await expect(start(page)).toHaveText("Check matches to research");
     await toggle(page, "none").check();
     await expect(start(page)).toHaveText("Start 2 research jobs");
     await expect(page.getByTestId("research-cost")).toHaveText("$0.46");
     await expect(page.getByTestId("label-left")).toBeVisible();
   });
 
-  test("the estimate follows the groups, the model and the limit", async ({ page }) => {
+  test("the estimate follows the checks, the model and the limit", async ({ page }) => {
     noHints();
     await page.goto("/ui/research");
-    await expect(group(page, "change").getByTestId("research-job")).toHaveCount(4);
+    // "Can change a gate" arrives checked: 6 matches, the log4j pairs one job each
+    await expect(shownRows(page)).toHaveCount(12);
     await expect(toggle(page, "change")).toBeChecked();
+    await expect(group(page, "change")).toContainText("6 matches · 4 jobs · ~$0.92");
     await expect(start(page)).toHaveText("Start 4 research jobs");
     await expect(page.getByTestId("research-cost")).toHaveText("$0.92");
     await expect(page.getByTestId("research-range")).toHaveText("$0.72 to $1.12");
@@ -196,9 +205,90 @@ test.describe("the research page", () => {
     await expect(page.getByTestId("research-cost")).toHaveText("not measured");
     await expect(page.getByTestId("research-range")).toHaveText("7 jobs");
     await expect(page.getByTestId("research-unmeasured")).toBeVisible();
+    await expect(row(page, rows.babel).getByTestId("research-row-price")).toHaveText("–");
 
     await page.getByTestId("research-limit").fill("2");
     await expect(start(page)).toHaveText("Start 2 research jobs");
+  });
+
+  test("a search narrows the table and its chips' counts, and a group's box checks only what's shown", async ({ page }) => {
+    noHints();
+    await page.goto("/ui/research");
+    await page.getByTestId("bulk-bar").getByRole("button", { name: "Clear" }).click();
+    await expect(chip(page, "checked")).toContainText("Checked 0");
+    await search(page).fill("CVE-2026-3184");
+    await expect(page).toHaveURL(/[?&]q=CVE-2026-3184/);
+    await expect(shownRows(page)).toHaveCount(4);
+    await expect(chip(page, "all")).toContainText("All 4");
+    await expect(chip(page, "change")).toContainText("Can change a gate 0");
+    await expect(chip(page, "none")).toContainText("Changes no outcome 4");
+    await toggle(page, "none").check();
+    await expect(page.getByTestId("research-rows")).toHaveText("4");
+    await expect(start(page)).toHaveText("Start 1 research job");
+    // with the search gone, the group holds 4 of its 6 checked
+    await search(page).fill("");
+    await expect(shownRows(page)).toHaveCount(12);
+    await expect(toggle(page, "none")).not.toBeChecked();
+    await expect(toggle(page, "none")).toHaveJSProperty("indeterminate", true);
+    await expect(row(page, rows.babel).getByRole("checkbox")).not.toBeChecked();
+  });
+
+  test("checking a match checks every match in its job", async ({ page }) => {
+    noHints();
+    await page.goto("/ui/research");
+    await page.getByTestId("bulk-bar").getByRole("button", { name: "Clear" }).click();
+    await expect(row(page, rows.utilLinux[0]).getByTestId("research-job")).toHaveText("shares with 3");
+    await expect(row(page, rows.babel).getByTestId("research-job")).toHaveText("own job");
+    await row(page, rows.utilLinux[1]).getByRole("checkbox").check();
+    for (const id of rows.utilLinux) await expect(row(page, id).getByRole("checkbox")).toBeChecked();
+    await expect(chip(page, "checked")).toContainText("Checked 4");
+    await expect(page.getByTestId("research-bulk")).toHaveText("1 job · ~$0.23");
+    await row(page, rows.utilLinux[3]).click();
+    for (const id of rows.utilLinux) await expect(row(page, id).getByRole("checkbox")).not.toBeChecked();
+  });
+
+  test("checks survive a filter change, the bar counts the hidden ones, and Start sends exactly the checked matches", async ({ page }) => {
+    noHints();
+    await page.goto("/ui/research");
+    await expect(start(page)).toHaveText("Start 4 research jobs");
+    await chip(page, "none").click();
+    await expect(page).toHaveURL(/[?&]chip=none/);
+    await expect(shownRows(page)).toHaveCount(6);
+    await expect(page.getByTestId("research-hidden")).toContainText("6 hidden by the filter");
+    await row(page, rows.babel).getByRole("checkbox").check();
+    await page.getByTestId("research-image").selectOption(images.npm.slug);
+    await expect(page).toHaveURL(new RegExp(`[?&]image=${images.npm.slug}`));
+    await expect(shownRows(page)).toHaveCount(1);
+    // n and Label what's left follow the image filter
+    await expect(page.getByTestId("label-left")).toHaveAttribute("href", `/ui/queue?scope=image%3A${images.npm.slug}`);
+    await expect(start(page)).toHaveText("Start 5 research jobs");
+    await chip(page, "checked").click();
+    await expect(page.getByTestId("research-image")).toHaveValue(images.npm.slug);
+    await page.getByTestId("research-image").selectOption("");
+    await expect(shownRows(page)).toHaveCount(7);
+
+    let sent: Request | null = null;
+    await page.route("**/api/research", async (r) => {
+      if (r.request().postDataJSON().dryRun) return r.fallback();
+      sent = r.request();
+      return r.fulfill({ json: { groups: [], skipped: { researched: 0, hinted: 0, active: 0 }, estimate: {}, concurrency: 2, batch: "b1", jobs: ["a", "b", "c", "d", "e"] } });
+    });
+    await start(page).click();
+    await expect(page.getByTestId("toast")).toContainText("5 research jobs started");
+    await expect(page).toHaveURL(/\/ui\/gates\/$/);
+    const body = sent!.postDataJSON();
+    expect(body.rows.sort()).toEqual([rows.gzip, rows.tarDropped, rows.jfhA, rows.jfhB, rows.vc5pA, rows.vc5pB, rows.babel].sort());
+    expect(body.dryRun).toBeUndefined();
+    expect(body.model).toBe("sonnet");
+  });
+
+  test("a table selection arrives checked and alone", async ({ page }) => {
+    await page.goto(`/ui/research?scope=gate%3Adeb-java&rows=${rows.tarHand}`);
+    await expect(page.getByTestId("research-rows-chip")).toHaveText(/^1 selected match/);
+    await expect(shownRows(page)).toHaveCount(1);
+    await expect(row(page, rows.tarHand).getByRole("checkbox")).toBeChecked();
+    await expect(start(page)).toHaveText("Start 1 research job");
+    await expect(page.getByTestId("label-left")).toBeVisible();
   });
 
   test("r opens it from the gates screen, the palette has it, and n leaves it for the queue in its scope", async ({ page }) => {

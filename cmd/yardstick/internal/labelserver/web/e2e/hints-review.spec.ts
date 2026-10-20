@@ -1,6 +1,6 @@
 import type { Page } from "@playwright/test";
 import { expect, test } from "./fixtures";
-import { gatePage, gatesPage, images, labelsOf } from "./helpers";
+import { gatePage, gatesPage, images, labelsOf, rows, tableRow } from "./helpers";
 
 // hint review (/ui/hints) and its ways in: the gates page's work banner, the h key, and the image
 // rail's "Accept…". The seed's five hints are tar CVE-2005-2541 (both gates), gzip (deb-npm), the
@@ -98,10 +98,10 @@ test.describe("hint review", () => {
     // with no hint left, research of what deb-java waits on leads, and its foot is one sentence
     await expect(page.getByTestId("work-foot")).toHaveText("1 match across 1 gate can still change an outcome. The other 1 changes none.");
     await page.keyboard.press("r");
-    const job = page.locator("[data-testid=research-group][data-group=change]").getByTestId("research-job");
+    const job = page.locator("[data-testid=research-job][data-group=change]");
     await expect(job).toHaveCount(1);
     await expect(job).toHaveAttribute("data-gate", "deb-java");
-    await expect(job).toContainText("CVE-2026-18508");
+    await expect(tableRow(page, "research-table", rows.tarHand).getByTestId("research-job")).toHaveAttribute("data-group", "change");
   });
 
   test("low-confidence hints are hidden until asked for, and never preselected", async ({ page }) => {

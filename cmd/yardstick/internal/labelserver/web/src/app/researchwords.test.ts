@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import type { Basis } from "../gen/research";
-import type { ResearchBatch, ResearchGroup, ResearchJob } from "../gen/wire";
-import { about, activityWords, basisWords, batchWords, bulkPlan, bulkWords, costWords, estimate, estimateWords, finishedWords, fromWords, jobGroups, leadWords, newHints, stateWords, summary, timeWords, tokens, type BulkRow } from "./researchwords";
+import type { ResearchBatch, ResearchGroup, ResearchJob, ResearchQueueResponse } from "../gen/wire";
+import { about, activityWords, basisWords, batchWords, bulkPlan, bulkWords, costWords, estimate, estimateWords, finishedWords, fromWords, jobGroups, jobsIn, leadWords, newHints, rowsOf, rowText, stateWords, summary, timeWords, tokens, type BulkRow } from "./researchwords";
 
 // the built-in sonnet numbers (research/cost.go) and a model with no history
 const sonnet: Basis = { model: "sonnet", measured: true, source: "measured 2026-10-19", n: 23, min: 0.18, mean: 0.23, max: 0.28, tokensIn: 310_000, tokensOut: 4_700, seconds: 55 };
@@ -115,5 +115,24 @@ describe("the jobs page", () => {
   });
   test("the top bar's chip", () => {
     expect([activityWords({ running: 2, queued: 13 }), activityWords({ running: 1, queued: 0 }), activityWords({ running: 0, queued: 4 })]).toEqual(["2 researching · 13 queued", "1 researching", "4 queued"]);
+  });
+});
+
+describe("the research page's rows", () => {
+  const job = (rows: string[], effect = "decides") => ({ vulnerability: "CVE-2023-39323", package: { name: "stdlib", version: "1.16.9" }, image: "grype-quality-golang:d89207b", imageSlug: "grype-quality-golang-d89207b", gate: "grype-upgrade", rows,
+    matches: rows.map((row, i) => ({ row, vulnerability: "CVE-2023-39323", package: { name: "stdlib", version: i ? "1.18.4" : "1.16.9" }, effect })) });
+  const plan = { groups: [
+    { group: "change", selected: true, rows: 1, jobs: [job(["a"], "could-move")] },
+    { group: "none", selected: true, rows: 3, jobs: [job(["b", "c", "d"], "none")] },
+  ] } as unknown as ResearchQueueResponse;
+  test("one row per match, in the plan's order, each knowing its job and how many share it", () => {
+    const rs = rowsOf(plan);
+    expect(rs.map((r) => [r.id, r.group, r.job, r.siblings, r.effect])).toEqual([["a", "change", "a", 0, "could-move"], ["b", "none", "b", 2, ""], ["c", "none", "b", 2, ""], ["d", "none", "b", 2, ""]]);
+    expect(rs[2].version).toBe("1.18.4");
+    expect(jobsIn(rs)).toBe(2);
+    expect(jobsIn(rs.slice(1, 3))).toBe(1);
+  });
+  test("the search matches CVE, package, version and image", () => {
+    expect(rowText(rowsOf(plan)[0])).toBe("CVE-2023-39323 stdlib 1.16.9 grype-quality-golang:d89207b");
   });
 });
