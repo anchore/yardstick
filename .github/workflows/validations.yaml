@@ -80,9 +80,11 @@ jobs:
           restore-keys: |
             bun-${{ runner.os }}-
 
-      # runs Playwright in the pinned mcr.microsoft.com/playwright container, so no Node is needed here
+      # Playwright runs on the pinned bun, which installs chromium and its system packages (CI is set)
       - name: Run e2e tests
         run: make e2e
+        env:
+          FORCE_COLOR: "1"
 
       - name: Upload Playwright traces and report
         if: failure()

@@ -20,7 +20,7 @@ updates:
       # go-make module and action refs are bumped together by automation
       - dependency-name: "github.com/anchore/go-make"
 
-  # the Playwright docker image tag follows @playwright/test's version automatically (make e2e reads it from package.json)
+  # make e2e installs the chromium build @playwright/test names, so bumping it is the whole update
   - package-ecosystem: bun
     directory: "/cmd/yardstick/internal/labelserver/web"
     cooldown:

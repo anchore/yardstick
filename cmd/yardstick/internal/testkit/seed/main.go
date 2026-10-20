@@ -1,7 +1,7 @@
 // Command seed builds the label UI's end to end workspace (testkit.E2E: two scanned gates, labels
 // and agent material from testkit/testdata/e2e) and serves it. Research runs a stand-in that records a
 // proposal, never claude. It is also the yardstick CLI, as `seed yardstick ...`, so the scan and
-// the stand-in call back into it and the seed is the one binary a test container needs.
+// the stand-in call back into it and the seed is the one binary the tests need.
 package main
 
 import (

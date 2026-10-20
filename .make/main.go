@@ -72,14 +72,14 @@ func main() {
 
 		Task{
 			Name:         "e2e",
-			Description:  "run the label UI's Playwright tests in Playwright's docker image (traces in web/test-results/)",
+			Description:  "run the label UI's Playwright tests on the pinned bun (HEADED=1 shows the browser; traces in web/test-results/)",
 			Dependencies: Deps("generate"),
 			Run:          taskfile("e2e"),
 		},
 
 		Task{
 			Name:         "e2e-ui",
-			Description:  "the label UI's Playwright tests in UI mode, at http://127.0.0.1:8080",
+			Description:  "open the label UI's Playwright tests in Playwright's UI mode",
 			Dependencies: Deps("generate"),
 			Run:          taskfile("e2e-ui"),
 		},

@@ -1,11 +1,10 @@
 import { defineConfig, devices } from "@playwright/test";
 
-// make e2e runs this inside Playwright's docker image, where the seed (built for linux by make e2e)
-// builds a fresh workspace with a scanned gate and serves it
+// the seed (built by make e2e) builds a fresh workspace with a scanned gate and serves it
 const port = 7656;
-const seed = new URL("../../../../../.tmp/e2e/seed", import.meta.url).pathname;
+const tmp = new URL("../../../../../.tmp/e2e/", import.meta.url).pathname;
 // the tests read labels from the workspace on disk; workers inherit it from here
-process.env.YARDSTICK_E2E_WORKSPACE ??= "/tmp/yardstick-e2e";
+process.env.YARDSTICK_E2E_WORKSPACE ??= tmp + "workspace";
 
 export default defineConfig({
   testDir: "e2e",
@@ -17,10 +16,12 @@ export default defineConfig({
   use: {
     baseURL: `http://127.0.0.1:${port}`,
     trace: "retain-on-failure",
+    // HEADED=1 shows the browser, the same as --headed
+    headless: !process.env.HEADED,
   },
   projects: [{ name: "chromium", use: { ...devices["Desktop Chrome"] } }],
   webServer: {
-    command: `${seed} -dir ${process.env.YARDSTICK_E2E_WORKSPACE} -addr 127.0.0.1:${port}`,
+    command: `${tmp}seed -dir ${process.env.YARDSTICK_E2E_WORKSPACE} -addr 127.0.0.1:${port}`,
     url: `http://127.0.0.1:${port}/ui/map/gates/`,
     stdout: "pipe",
   },

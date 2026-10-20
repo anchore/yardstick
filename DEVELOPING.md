@@ -10,14 +10,14 @@ Fixtures under `cmd/yardstick/internal/fixture` are produced by the real, pinned
 
 ## Label UI
 
-The label UI (`claims serve`) is TypeScript under `cmd/yardstick/internal/labelserver/web/`. The built output is gitignored; the HTML stays committed in `assets/`. No Node is needed on the host: `bun`, `tygo` and `tsc` install on demand into `.tool/`, and Playwright runs in docker.
+The label UI (`claims serve`) is TypeScript under `cmd/yardstick/internal/labelserver/web/`. The built output is gitignored; the HTML stays committed in `assets/`. No Node is needed on the host: `bun`, `tygo` and `tsc` install on demand into `.tool/`, and Playwright runs on that `bun`.
 
 - `make generate` builds the UI (bun install, tygo, tsc, esbuild)
 - `make dev` runs a live-reload dev server beside `tsc --watch`: save a `.ts` file and the page reloads, save CSS and it swaps in place. It serves the workspace in the repo root (which needs a run under `.yardstick/runs/`) unless `YARDSTICK_DEV_DIR` points at another, and `ARGS` adds `claims serve` flags. A type error shows in the `tsc` output and never stops the server
 - `make dev:e2e` is `make dev` over the e2e tests' workspace (the gates, labels and hints in `SCENARIO.md`), rebuilt fresh into `.tmp/dev-e2e` on every start. Research runs the real `claude` command here, not the tests' stand-in
 - `make unit` runs the Go tests and `bun test`
-- `make e2e` runs the Playwright tests in docker (needs docker). Traces and the report land in `web/test-results/` and `web/playwright-report/`. The workspace it serves, two real gates with labels and agent hints, is described in `cmd/yardstick/internal/testkit/testdata/e2e/SCENARIO.md`; `go test ./cmd/yardstick/internal/testkit` checks that description without a browser
-- `make e2e-ui` starts Playwright UI mode at http://127.0.0.1:8080
+- `make e2e` runs the Playwright tests on the host, headless; `make e2e HEADED=1` shows the browser. The first run downloads chromium into Playwright's cache (`~/Library/Caches/ms-playwright` on macOS, `~/.cache/ms-playwright` on Linux). Traces and the report land in `web/test-results/` and `web/playwright-report/`. The workspace it serves, two real gates with labels and agent hints, is described in `cmd/yardstick/internal/testkit/testdata/e2e/SCENARIO.md`; `go test ./cmd/yardstick/internal/testkit` checks that description without a browser
+- `make e2e-ui` opens Playwright UI mode in its own window. Run a test there and pick a step to see the page at that point
 
 When e2e fails in CI, download the `playwright-results` artifact and drop its `trace.zip` on https://trace.playwright.dev. The trace loads locally in the browser and nothing is uploaded.
 

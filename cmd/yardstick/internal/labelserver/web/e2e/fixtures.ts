@@ -13,7 +13,8 @@ export const test = base.extend<{ fresh: void }>({
     const errors: string[] = [];
     page.on("pageerror", (e) => errors.push(`page error: ${e.message}`));
     page.on("console", (m) => {
-      if (m.type() === "error") errors.push(`console error: ${m.text()}`);
+      // a headed browser also asks for /favicon.ico, which the server does not have
+      if (m.type() === "error" && !m.location().url.endsWith("/favicon.ico")) errors.push(`console error: ${m.text()}`);
     });
     await use(page);
     expect(errors, "errors on the page").toEqual([]);
