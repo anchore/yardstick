@@ -243,7 +243,7 @@ func checkGateTables(t *testing.T, h http.Handler) {
 	}
 	wantImages := map[string]labelserver.Tally{
 		debSlug:  {FP: 2, Hinted: 5, Open: 6, Total: 8},
-		javaSlug: {Unclear: 2, Hinted: 4, Open: 2, Total: 4},
+		javaSlug: {Unclear: 2, Hinted: 2, Open: 2, Total: 4},
 	}
 	if f1.Check.State != "fail" || f1.Check.Threshold != 0 || !maps.Equal(f1.Images, wantImages) {
 		t.Errorf("f1NotWorse: %+v %+v", f1.Check, f1.Images)
@@ -317,5 +317,13 @@ func checkGateTables(t *testing.T, h http.Handler) {
 	get(t, h, "/api/gates/deb-java/state", &st)
 	if len(st.Subjects) != 2 || st.Subjects[0].Changes != wantImages[debSlug] || st.Subjects[1].Changes != wantImages[javaSlug] {
 		t.Errorf("deb-java state counts: %+v", st.Subjects)
+	}
+	// and the gate list's strip, the same counts per gate
+	var list labelserver.GateList
+	get(t, h, "/api/gates", &list)
+	for _, g := range list.Gates {
+		if g.ID == "deb-java" && !slices.Equal(g.Changes, []labelserver.Tally{wantImages[debSlug], wantImages[javaSlug]}) {
+			t.Errorf("deb-java gate list counts: %+v", g.Changes)
+		}
 	}
 }

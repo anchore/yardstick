@@ -31,7 +31,8 @@ type PackageInfo struct {
 }
 
 // Tally counts findings by label state. Open is unlabeled (unclear is apart), and Hinted counts
-// rows open to labeling (unlabeled or unclear) with a pending agent hint or cause.
+// the open ones with a pending agent hint or cause, so tp, fp, unclear, hinted and open less
+// hinted add up to total, which the UI's verdict bars rely on.
 type Tally struct {
 	TP      int `json:"tp"`
 	FP      int `json:"fp"`
@@ -52,9 +53,9 @@ func (t *Tally) add(verdict string, hinted bool) {
 		t.Unclear++
 	default:
 		t.Open++
-	}
-	if hinted {
-		t.Hinted++
+		if hinted {
+			t.Hinted++
+		}
 	}
 }
 
@@ -103,8 +104,8 @@ type CheckFindings struct {
 // images are the gate's subjects as the tables name them, in gate order.
 func images(e *entry, v *view) []ImageRef {
 	var out []ImageRef
-	for i, s := range summarize(e, v).Subjects {
-		out = append(out, ImageRef{Name: s.Name, Slug: s.Slug, Ref: e.rec.Subjects[i].Name})
+	for _, s := range summarize(e, v).Subjects {
+		out = append(out, ImageRef(s))
 	}
 	return out
 }
