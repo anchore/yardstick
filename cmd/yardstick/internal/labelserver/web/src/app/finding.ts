@@ -10,6 +10,7 @@ import { imageRelease } from "../shared/names";
 import { direction, pkgOf } from "../shared/rows";
 import { autoAdvance, setAutoAdvance } from "../shared/tile";
 import { dirWords, justWords, labels, plural, ruleWords, whyText } from "../shared/words";
+import { forget } from "./data";
 import { loadFinding, researching, type FindingData } from "./finding-data";
 import { directionWords, effect, mutedReason, pendingCause, seenWith, shortSource, type Dir } from "./finding-words";
 import { labelPanel, type Draft, type LabelPanel } from "./labelpanel";
@@ -56,6 +57,8 @@ export function findingView(host: HTMLElement, r: FindingRoute, nav: Nav): View 
 
   async function load() {
     const mine = ++current;
+    // this page writes and researches outside data.ts, so the lists read fresh after it
+    forget();
     try {
       const next = await loadFinding(r.gate, r.row, r.check, r.filters);
       if (mine !== current || !live()) return;

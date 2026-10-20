@@ -25,6 +25,9 @@ function once<T>(path: string): Promise<T> {
   return p;
 }
 
+// forget drops every cached GET, for a write made outside this module (the finding page's)
+export const forget = () => cache.clear();
+
 const g = (gate: string) => `/api/gates/${encodeURIComponent(gate)}`;
 
 export const gateList = () => once<GateList>("/api/gates");
