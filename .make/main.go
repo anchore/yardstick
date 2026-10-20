@@ -2,6 +2,7 @@ package main
 
 import (
 	"os"
+	"path/filepath"
 
 	. "github.com/anchore/go-make"
 	"github.com/anchore/go-make/file"
@@ -34,8 +35,8 @@ func main() {
 	Makefile(
 		golint.Tasks(),
 		goreleaser.Tasks(),
-		// the label server's tests fetch the built UI
-		gotest.Tasks().DependsOn("generate"),
+		// the label server's tests fetch the built UI; test/cli runs real grype, under make cli
+		gotest.Tasks(gotest.ExcludeGlob("**/test/**")).DependsOn("generate"),
 		// make unit also runs the label UI's unit tests (web/bunfig.toml roots them at src/)
 		Task{
 			Name:         "unit:web",
@@ -89,6 +90,15 @@ func main() {
 			Description:  "open the label UI's Playwright tests in Playwright's UI mode",
 			Dependencies: Deps("generate"),
 			Run:          taskfile("e2e-ui"),
+		},
+
+		Task{
+			Name:        "cli",
+			Description: "run the CLI workflow tests in test/cli: real grype releases and labels on DBs built from a few vunnel records (cache in .tmp/cli/cache)",
+			Run: func() {
+				Run("go test -count=1 -timeout 15m -v ./test/cli",
+					run.Env("YARDSTICK_CACHE_DIR", filepath.Join(file.Cwd(), ".tmp", "cli", "cache")), run.Stdout(os.Stdout))
+			},
 		},
 
 		Task{

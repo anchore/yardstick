@@ -8,6 +8,10 @@ The main tasks are `lint`, `format`, `lint-fix`, `unit` and `snapshot`. `make he
 
 Fixtures under `cmd/yardstick/internal/fixture` are produced by the real, pinned syft, grype, vexctl and oras, never written by hand. `make fixtures` regenerates them and needs docker.
 
+## CLI tests
+
+`make cli` runs `test/cli`: a few scenarios, each a real yardstick workflow from start to finish (run gates, label on the CLI, record proposals, re-score) with real grype releases and the published claims, on a small DB each scenario builds from a few real vunnel records. The grype releases, the claims snapshot and the SBOMs are cached in `.tmp/cli/cache`; `make unit` skips the package. Each scenario's records, gates and measured outcomes are in `test/cli/testdata/<scenario>/`, starting at its `SCENARIO.md`. `test/cli/generate.sh` re-extracts the records with grype's own fixture tool and needs local vunnel workspaces (`VUNNEL_DATA`); set `YARDSTICK_BINARY_LOCATION` to test a build rather than this checkout.
+
 ## Label UI
 
 The label UI (`claims serve`) is TypeScript under `cmd/yardstick/internal/labelserver/web/`. The built output is gitignored; the HTML stays committed in `assets/`. No Node is needed on the host: `bun`, `tygo` and `tsc` install on demand into `.tool/`, and Playwright runs on that `bun`.
