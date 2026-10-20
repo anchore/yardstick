@@ -63,7 +63,7 @@ export function historyView(host: HTMLElement, r0: HistoryRoute, nav: Nav): View
         title: (l) => (l.label.notes ?? []).map((n) => `${n.author}: ${n.text}`).join("\n"), truncate: true, help: columnHelp.note },
       { key: "author", label: "Author", cell: (l) => l.label.author, title: (l) => l.label.author, truncate: true },
       { key: "time", label: "Time", cell: (l) => el("time", { datetime: l.label.lastUpdated, title: l.label.lastUpdated }, time(l.label.lastUpdated)), num: true },
-      { key: "findings", label: "Findings", cell: (l) => (l.rows.length ? el("span", { class: "gates" }, l.rows.map((g, i) => {
+      { key: "findings", label: "Matches", cell: (l) => (l.rows.length ? el("span", { class: "gates" }, l.rows.map((g, i) => {
         // a label on a package in two places (log4j's two jars) sits on two rows of one gate
         const n = l.rows.slice(0, i + 1).filter((x) => x.gate === g.gate).length;
         return el("a", { class: "gchip", href: findingHref(g.gate, g.row), title: g.row, "data-testid": "history-link", "data-gate": g.gate, "data-row": g.row }, n > 1 ? `${g.gate} #${n}` : g.gate);
@@ -115,8 +115,10 @@ export function historyView(host: HTMLElement, r0: HistoryRoute, nav: Nav): View
     removeAll.disabled = !total;
     fill(removeAll, total > 1 ? `Remove all ${total.toLocaleString()} shown` : "Remove all shown");
     fill(empty, f.since ? "No labels match." : "No labels written since the server started. Pick an earlier time, or All time.");
-    fill(chipRow, chips.map(([v, w]) => el("button", { type: "button", class: "chip", "aria-pressed": String((f.verdict ?? "all") === v), "data-chip": v,
-      onclick: () => nav(withFilters(r, { verdict: v === "all" ? undefined : v as Verdict })) }, w)));
+    const chip = ([v, w]: [string, string]) => el("button", { type: "button", class: "chip", "aria-pressed": String((f.verdict ?? "all") === v), "data-chip": v,
+      onclick: () => nav(withFilters(r, { verdict: v === "all" ? undefined : v as Verdict })) }, w);
+    // "All" stands alone and the verdicts share a group, as on the match tables
+    fill(chipRow, el("div", { class: "chip-group" }, chip(chips[0])), el("div", { class: "chip-group" }, chips.slice(1).map(chip)));
     const pi = pageInfo(h.total, f.page);
     const link = (page: number, text: string, testid: string) => el("a", { href: formatRoute(withFilters(r, { page })), "data-testid": testid }, text);
     fill(foot, el("span", { "data-testid": "page-info" }, h.total ? `${pi.from.toLocaleString()}–${pi.to.toLocaleString()} of ${h.total.toLocaleString()}` : "0 labels"),

@@ -86,7 +86,7 @@ test.describe("image scope", () => {
     await page.goto(gatePage());
     await railImage(page, "java").click();
     await expect(page).toHaveURL(new RegExp(`\\?image=${images.java.slug}$`));
-    await page.getByTestId("tabs").getByRole("tab", { name: /Findings/ }).click();
+    await page.getByTestId("tabs").getByRole("tab", { name: /Matches/ }).click();
     await expect(page).toHaveURL(new RegExp(`/findings\\?image=${images.java.slug}$`));
     await expect(tableRows(page, "findings-table")).toHaveCount(4);
     await page.getByTestId("scope-chip").getByRole("button", { name: "Clear image filter" }).click();

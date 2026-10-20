@@ -135,7 +135,7 @@ export function acceptCross(fs: CrossFinding[]) {
       const a = f.in.find((x) => x.gate === f.cause!.gate);
       if (a) add(await api.acceptCause(a.gate, f.cause!.id, [a.row]));
     }
-    if (!n && !withHint.length) throw new Error("no agent hint to accept on the findings selected");
+    if (!n && !withHint.length) throw new Error("no agent hint to accept on the matches selected");
     return `✦ ${plural(n, "agent hint")} accepted as your labels`;
   });
 }

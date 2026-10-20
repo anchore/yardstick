@@ -167,8 +167,8 @@ export function jobGroups(jobs: ResearchJob[]): JobGroups {
 // many rows, a finding page
 export function fromWords(j: ResearchJob): string {
   if (j.from === "research") return `research page${j.batch ? ` · batch ${j.batch.slice(0, 8)}` : ""}`;
-  if (j.from === "table") return `findings table${j.rows.length > 1 ? ` · ${j.rows.length} rows` : ""}`;
-  if (j.from === "finding") return "finding page";
+  if (j.from === "table") return `matches table${j.rows.length > 1 ? ` · ${j.rows.length} rows` : ""}`;
+  if (j.from === "finding") return "match page";
   return j.batch ? `batch ${j.batch.slice(0, 8)}` : "not recorded";
 }
 

@@ -115,15 +115,15 @@ test.describe("the go-to palette", () => {
     await expect(imgs).toHaveCount(3);
     await expect(imgs.filter({ hasText: images.deb.name })).toContainText(/deb-(java|npm) \d+ open · deb-(java|npm) \d+ open/);
     for (const a of ["hints", "queue", "research", "history"]) await expect(item(page, "Actions", a)).toBeVisible();
-    await expect(palette(page).locator("[data-group=Findings]")).toHaveCount(0);
+    await expect(palette(page).locator("[data-group=Matches]")).toHaveCount(0);
 
     // the tar row is in both gates and is one finding
     await page.getByTestId("palette-input").fill("CVE-2005-2541");
-    await expect(palette(page).locator("[data-group=Findings]")).toHaveCount(1);
+    await expect(palette(page).locator("[data-group=Matches]")).toHaveCount(1);
     // in gate list order, which two scans across a minute boundary swap
-    await expect(item(page, "Findings", rows.tarDropped)).toContainText(/deb-java, deb-npm|deb-npm, deb-java/);
+    await expect(item(page, "Matches", rows.tarDropped)).toContainText(/deb-java, deb-npm|deb-npm, deb-java/);
     await page.getByTestId("palette-input").fill("babel");
-    await expect(item(page, "Findings", rows.babel)).toBeVisible();
+    await expect(item(page, "Matches", rows.babel)).toBeVisible();
 
     // keyboard only: the first match is active and Enter goes there
     await page.getByTestId("palette-input").fill("tar 18508");
@@ -158,9 +158,9 @@ test.describe("the go-to palette", () => {
 
   test("never opens while typing in a field", async ({ page }) => {
     await page.goto(`${gatePage()}findings`);
-    await page.getByRole("searchbox", { name: "Filter findings" }).fill("tar");
+    await page.getByRole("searchbox", { name: "Filter matches" }).fill("tar");
     await page.keyboard.press("Control+k");
     await expect(palette(page)).toBeHidden();
-    await expect(page.getByRole("searchbox", { name: "Filter findings" })).toBeFocused();
+    await expect(page.getByRole("searchbox", { name: "Filter matches" })).toBeFocused();
   });
 });

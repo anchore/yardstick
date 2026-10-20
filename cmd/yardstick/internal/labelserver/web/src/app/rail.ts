@@ -86,7 +86,7 @@ export function imageRail(o: RailOptions): Rail {
   const collapse = el("button", { type: "button", class: "btn", "data-variant": "ghost", "data-size": "sm", title: "Collapse to a dropdown", "data-testid": "rail-collapse", onclick: () => setMode(true) }, "⇤ collapse");
   const rail = el("nav", { class: "rail", "aria-label": scope === "check" ? "Images in this check" : "Images", "data-testid": "image-rail" },
     el("div", { class: "rail-head" }, filter, collapse),
-    el("div", { class: "rail-sort" }, el("span", {}, scope === "check" ? "this check's findings" : scope === "labels" ? "labels per image" : "per image"), sortBtn),
+    el("div", { class: "rail-sort" }, el("span", {}, scope === "check" ? "this check's matches" : scope === "labels" ? "labels per image" : "per image"), sortBtn),
     head, list);
 
   // the dropdown: Basecoat's combobox, the variant whose trigger is a button and whose search box

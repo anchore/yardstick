@@ -269,7 +269,7 @@ function tabs(d: FindingData) {
     buttons.forEach((b) => b.setAttribute("aria-selected", String(b.dataset.tab === t)));
     panels.forEach((p) => (p.hidden = p.id !== `fp-${t}`));
   }
-  return el("div", { class: "tabs ftabs", "data-testid": "finding-tabs" }, el("nav", { role: "tablist", "data-variant": "line", "aria-orientation": "horizontal", "aria-label": "About this finding" }, buttons), panels);
+  return el("div", { class: "tabs ftabs", "data-testid": "finding-tabs" }, el("nav", { role: "tablist", "data-variant": "line", "aria-orientation": "horizontal", "aria-label": "About this match" }, buttons), panels);
 }
 
 const cap = (s: string) => s[0].toUpperCase() + s.slice(1);

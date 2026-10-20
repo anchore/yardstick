@@ -27,7 +27,7 @@ export function nextGate(gates: GateItem[], current: string | null, step: 1 | -1
 
 // ---------- the palette ----------
 
-export type Group = "Gates" | "Images" | "Checks" | "Findings" | "Actions";
+export type Group = "Gates" | "Images" | "Checks" | "Matches" | "Actions";
 
 export interface Entry {
   group: Group;
@@ -84,7 +84,7 @@ export function findingEntries(states: GateStates[]): Entry[] {
       if (!r.row) continue;
       const have = by.get(r.row);
       if (have) { have.gates.push(gate); continue; }
-      by.set(r.row, { group: "Findings", id: r.row, text: r.vuln, verdict: r.label, gates: [gate],
+      by.set(r.row, { group: "Matches", id: r.row, text: r.vuln, verdict: r.label, gates: [gate],
         // by ID or package only: the seed's image names hold "tar" and "util-linux" too
         detail: `${r.pkg} ${r.version} · ${r.image.name}`, search: `${r.vuln} ${r.pkg} ${r.version} ${r.purl}`,
         href: formatRoute({ level: "finding", gate, check: null, row: r.row, filters: {} }) });
@@ -123,4 +123,4 @@ export function matching(entries: Entry[], findings: Entry[], q: string): { show
   return { shown: [...filterRows(entries, q, (e) => e.search), ...f.slice(0, findingLimit)], more: Math.max(0, f.length - findingLimit) };
 }
 
-export const moreWords = (n: number) => `${plural(n, "more finding")} match; type more to narrow it`;
+export const moreWords = (n: number) => `${plural(n, "more match", "more matches")}; type more to narrow it`;

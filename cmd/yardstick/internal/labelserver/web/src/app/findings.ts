@@ -10,7 +10,7 @@ import { el, fill, toast } from "../shared/dom";
 import { outcome as outcomeOf, outcomeRank } from "../shared/rows";
 import { columnHelp as help, labels as words } from "../shared/words";
 import { acceptHints, labelOptions, labelRows } from "./data";
-import { chipCounts, chipFilters, chipOf, chips, chipWords, effectRank, inChip, isOpen, scopedRows, shownRows, type FRow } from "./listing";
+import { chipCounts, chipFilters, chipGroups, chipOf, chipWords, effectRank, inChip, isOpen, scopedRows, shownRows, type FRow } from "./listing";
 import { bulkResearch, cellFor, follow, started, type Research } from "./researchtable";
 import { withFilters, type Route } from "./route";
 import type { Nav } from "./shell";
@@ -80,7 +80,7 @@ export function findingsList(o: FindingsOptions): FindingsList {
   const columns = findingColumns.map((c): Column<FRow> => (c.key !== "hint" ? c : { ...c,
     cell: (x) => cellFor({ hint: x.hint && hint(hintWords(x.hint)), research: x.research, open: isOpen(x), researched: !!x.researched }, o.research,
       x.row ? () => void start([x.row!]) : null) }));
-  const search: HTMLInputElement = el("input", { class: "input search", type: "search", placeholder: "Filter by CVE, package, image…", "aria-label": "Filter findings", value: r.filters.q ?? "",
+  const search: HTMLInputElement = el("input", { class: "input search", type: "search", placeholder: "Filter by CVE, package, image…", "aria-label": "Filter matches", value: r.filters.q ?? "",
     oninput: () => o.nav(withFilters(r, { q: search.value }), true) });
   const chipRow = el("div", { class: "chips", role: "group", "aria-label": "Filter by label" });
   // the scan map's package filter, shown while it's on with a way off
@@ -100,7 +100,7 @@ export function findingsList(o: FindingsOptions): FindingsList {
         rs.why,
       ];
     } },
-    foot: (shown) => `${shown.length.toLocaleString()} ${shown.length === 1 ? "finding" : "findings"}`,
+    foot: (shown) => `${shown.length.toLocaleString()} ${shown.length === 1 ? "match" : "matches"}`,
   });
 
   const out: FindingsList = {
@@ -120,7 +120,8 @@ export function findingsList(o: FindingsOptions): FindingsList {
       const busy = scoped.filter((x) => inChip(x, "researching")).length;
       const chip = (c: typeof on, count: number) => el("button", { type: "button", class: "chip", "aria-pressed": String(c === on), "data-chip": c,
         onclick: () => o.nav(withFilters(r, chipFilters(c))) }, chipWords[c], " ", el("b", {}, count.toLocaleString()));
-      fill(chipRow, chips.map((c) => chip(c, n[c])), (busy > 0 || on === "researching") && chip("researching", busy));
+      fill(chipRow, chipGroups.map((g, i) => el("div", { class: "chip-group" }, g.map((c) => chip(c, n[c])),
+        i === chipGroups.length - 1 && (busy > 0 || on === "researching") && chip("researching", busy))));
       const shown = shownRows(all, r.filters, image);
       table.update(shown, image ? ["image"] : []);
       return shown;

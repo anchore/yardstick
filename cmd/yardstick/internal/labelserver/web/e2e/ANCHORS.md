@@ -28,7 +28,7 @@ Routes (`route.ts`): `/ui/gates/` (level 0, `?tab=unlabeled|labels`), `/ui/gates
 | `theme-option` | System, Light or Dark | `value` (`system`, `light`, `dark`), `checked` |
 | `palette` | the go-to palette (Basecoat's command), visible while open | |
 | `palette-input` | its search box | |
-| `palette-item` | one entry, a link | `data-group` (`Gates`, `Images`, `Checks`, `Findings`, `Actions`), `data-id` (gate, image ref, `<gate>/<check>`, row id, or `hints` / `queue` / `research` / `history` / `jobs`, and `research-gate` on a gate, check or finding, `research-check` on a check) |
+| `palette-item` | one entry, a link | `data-group` (`Gates`, `Images`, `Checks`, `Matches`, `Actions`), `data-id` (gate, image ref, `<gate>/<check>`, row id, or `hints` / `queue` / `research` / `history` / `jobs`, and `research-gate` on a gate, check or finding, `research-check` on a check) |
 | `palette-more` | how many more findings match than are shown | |
 | `title-row` | the title line | |
 | `title` | the screen's `h1` | |

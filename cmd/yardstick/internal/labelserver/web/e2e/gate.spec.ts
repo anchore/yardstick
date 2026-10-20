@@ -25,7 +25,7 @@ test.describe("deb-java", () => {
     // open is unlabeled or unclear, so java's two unclear vc5p rows count
     await expect(railImage(page, "deb")).toContainText("6 open · 8");
     await expect(railImage(page, "java")).toContainText("4 open · 4");
-    await expect(page.getByTestId("tabs").getByRole("tab", { name: /Findings/ })).toContainText("12");
+    await expect(page.getByTestId("tabs").getByRole("tab", { name: /Matches/ })).toContainText("12");
   });
 
   test("a check lists the labels that decide it as well as what is open, with the agent's hints", async ({ page }) => {

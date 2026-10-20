@@ -92,6 +92,9 @@ export const rowText = (r: FRow) => `${r.vuln} ${r.pkg} ${r.version} ${r.purl} $
 // in chips, whose counts are always shown
 export type Chip = VerdictFilter | "all" | "hint" | "researching";
 export const chips = ["all", "unlabeled", "tp", "fp", "unclear", "hint"] as const satisfies Chip[];
+// chipGroups are the chips as rendered: one button group per kind of filter, the label states
+// together and the agent's (Has hint, then Researching when it shows) together
+export const chipGroups: (typeof chips)[number][][] = [["all"], ["unlabeled", "tp", "fp", "unclear"], ["hint"]];
 export const chipWords: Record<Chip, string> = { all: "All", unlabeled: "Unlabeled", tp: "TP", fp: "FP", unclear: "Unclear", hint: "Has hint", researching: "Researching" };
 
 export const chipOf = (f: Filters): Chip => (f.hint === "yes" ? "hint" : f.hint === "researching" ? "researching" : f.verdict ?? "all");

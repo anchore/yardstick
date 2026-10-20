@@ -22,7 +22,7 @@ async function openPalette(page: Page) {
 test.describe("keys typed into a field", () => {
   test("the Findings search takes n h J 2 j as text, and only q changes in the URL", async ({ page }) => {
     await page.goto(`${gatePage()}findings`);
-    const search = page.getByRole("searchbox", { name: "Filter findings" });
+    const search = page.getByRole("searchbox", { name: "Filter matches" });
     await search.click();
     await search.pressSequentially(typed);
     await expect(search).toHaveValue(typed);
@@ -119,13 +119,13 @@ test.describe("palette queries", () => {
     await page.goto(gatesPage);
     await openPalette(page);
     await input(page).fill("cve-2026-18508");
-    await expect(item(page, "Findings", rows.tarHand)).toBeVisible();
+    await expect(item(page, "Matches", rows.tarHand)).toBeVisible();
     // two jars, two rows
     await input(page).fill("GHSA-jfh8");
-    await expect(group(page, "Findings")).toHaveCount(2);
+    await expect(group(page, "Matches")).toHaveCount(2);
     // jfh8 and vc5p, two jars each
     await input(page).fill("log4j-core");
-    await expect(group(page, "Findings")).toHaveCount(4);
+    await expect(group(page, "Matches")).toHaveCount(4);
   });
 
   test("a gate's name finds the gate, its check, the images it scans and no findings", async ({ page }) => {
@@ -136,14 +136,14 @@ test.describe("palette queries", () => {
     await expect(group(page, "Checks")).toHaveCount(1);
     await expect(item(page, "Checks", "deb-npm/unjudgedChangesAtMost")).toBeVisible();
     await expect(group(page, "Images")).toHaveCount(2);
-    await expect(group(page, "Findings")).toHaveCount(0);
+    await expect(group(page, "Matches")).toHaveCount(0);
   });
 
   test("a labeled finding shows its verdict", async ({ page }) => {
     await page.goto(gatesPage);
     await openPalette(page);
     await input(page).fill("CVE-2011-3389");
-    await expect(item(page, "Findings", "c54934489d4ac861").getByTestId("verdict")).toHaveText("FP");
+    await expect(item(page, "Matches", "c54934489d4ac861").getByTestId("verdict")).toHaveText("FP");
   });
 });
 
@@ -222,7 +222,7 @@ test.describe("palette destinations", () => {
 test.describe("between gates", () => {
   test("⇧J on a gate's Findings tab keeps the tab, and wraps round with two gates", async ({ page }) => {
     await page.goto(`${gatePage()}findings`);
-    await expect(page.getByRole("searchbox", { name: "Filter findings" })).toBeVisible();
+    await expect(page.getByRole("searchbox", { name: "Filter matches" })).toBeVisible();
     await page.keyboard.press("Shift+J");
     await expect(page).toHaveURL(/\/ui\/gates\/deb-npm\/findings$/);
     await page.keyboard.press("Shift+J");
@@ -290,7 +290,7 @@ test.describe("the gate crumb switcher", () => {
 
   test("from the Findings tab an option links to the same tab", async ({ page }) => {
     await page.goto(`${gatePage()}findings`);
-    await expect(page.getByRole("searchbox", { name: "Filter findings" })).toBeVisible();
+    await expect(page.getByRole("searchbox", { name: "Filter matches" })).toBeVisible();
     await page.getByTestId("gate-switch-button").click();
     await expect(option(page, "deb-npm")).toHaveAttribute("href", "/ui/gates/deb-npm/findings");
     await option(page, "deb-npm").click();

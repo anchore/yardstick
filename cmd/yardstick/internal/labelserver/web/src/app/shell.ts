@@ -43,7 +43,7 @@ export interface Shell {
   retab(r: Route): void;
 }
 
-const tabWords: Record<string, string> = { gates: "Gates", unlabeled: "Unlabeled", labels: "Labels", checks: "Checks", findings: "Findings", map: "Scan map" };
+const tabWords: Record<string, string> = { gates: "Gates", unlabeled: "Unlabeled", labels: "Labels", checks: "Checks", findings: "Matches", map: "Scan map" };
 
 // tabsFor is the route's tabs, each keeping only the image filter
 function tabsFor(r: Route): { id: string; href: string; on: boolean }[] {

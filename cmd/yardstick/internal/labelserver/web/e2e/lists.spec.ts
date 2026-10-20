@@ -24,7 +24,7 @@ test("the gates screen lists each gate with its images, and its tabs list the op
   await tabs.getByRole("tab", { name: /Unlabeled/ }).click();
   await expect(page).toHaveURL(/\/ui\/gates\/\?tab=unlabeled$/);
   await expect(tableRows(page, "unlabeled-table")).toHaveCount(10);
-  await page.getByRole("searchbox", { name: "Filter findings" }).fill("log4j");
+  await page.getByRole("searchbox", { name: "Filter matches" }).fill("log4j");
   await expect(tableRows(page, "unlabeled-table")).toHaveCount(2);
 
   // deb's labels count in both gates and are listed once

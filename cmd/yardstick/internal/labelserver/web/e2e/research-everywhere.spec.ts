@@ -106,7 +106,7 @@ test.describe("the Agent hint cell", () => {
     await page.goto("/ui/research/jobs");
     const row = page.getByTestId("job-row").first();
     await expect(row).toHaveAttribute("data-state", "done");
-    await expect(row).toContainText("findings table");
+    await expect(row).toContainText("matches table");
     await expect(row.getByTestId("hint")).toHaveText("TP · medium");
     await expect(page.getByTestId("jobs-review")).toHaveText(/^Review 1 new hint/);
   });
@@ -250,8 +250,8 @@ test.describe("the jobs page", () => {
     await expect(row("j-q1")).toContainText("1st");
     await expect(row("j-q2")).toContainText("2nd");
     await expect(row("j-run")).toContainText("research page · batch 3f9a21c0");
-    await expect(row("j-q2")).toContainText("findings table · 2 rows");
-    await expect(row("j-done")).toContainText("finding page");
+    await expect(row("j-q2")).toContainText("matches table · 2 rows");
+    await expect(row("j-done")).toContainText("match page");
     await expect(row("j-done").getByTestId("hint")).toHaveText("FP · medium");
     await expect(row("j-done")).toContainText("$0.24");
     await expect(row("j-fail")).toContainText("exit 1: no hint written");

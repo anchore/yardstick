@@ -237,6 +237,13 @@ a[role="tab"] { text-decoration: none; }
 .chip b { font-weight: 600; color: var(--foreground); font-variant-numeric: tabular-nums; }
 .chip[aria-pressed="true"] { background: var(--muted); color: var(--foreground); }
 .chip:focus-visible { outline: 2px solid var(--ring); outline-offset: 1px; }
+/* related chips join into one segmented group; the groups sit side by side with the .chips gap */
+.chip-group { display: inline-flex; }
+.chip-group .chip { border-radius: 0; }
+.chip-group .chip + .chip { border-left: none; }
+.chip-group .chip:first-child { border-radius: 8px 0 0 8px; }
+.chip-group .chip:last-child { border-radius: 0 8px 8px 0; }
+.chip-group .chip:only-child { border-radius: 8px; }
 
 .dt { border: 1px solid var(--border); border-radius: 10px; overflow: hidden; box-shadow: 0 1px 2px rgba(0, 0, 0, .04); background: var(--card); }
 .dt-scroll { overflow-x: auto; }

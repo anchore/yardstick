@@ -26,7 +26,7 @@ test.describe("every gate", () => {
   test("the Unlabeled tab lists the ten open findings, the tar one in both gates", async ({ page }) => {
     await openUnlabeled(page);
     await expect(unlabeled(page)).toHaveCount(10);
-    await expect(page.getByTestId("unlabeled-table")).toContainText("10 open findings");
+    await expect(page.getByTestId("unlabeled-table")).toContainText("10 open matches");
     const tar = finding(page, "CVE-2005-2541");
     await expect(tar).toContainText("deb-java");
     await expect(tar).toContainText("deb-npm");

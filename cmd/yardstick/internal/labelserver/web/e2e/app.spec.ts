@@ -52,7 +52,7 @@ test("Esc walks up one crumb at a time, but not out of a text field", async ({ p
   await expect(page.getByTestId("tabs").getByRole("tab", { name: "Checks" })).toHaveAttribute("aria-selected", "true");
 
   await page.goto("/ui/gates/_kit");
-  await page.getByRole("searchbox", { name: "Filter findings" }).fill("curl");
+  await page.getByRole("searchbox", { name: "Filter matches" }).fill("curl");
   await page.keyboard.press("Escape");
   await expect(page).toHaveURL(/\/_kit\?q=curl$/);
   await page.keyboard.press("Escape");

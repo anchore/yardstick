@@ -71,7 +71,7 @@ const inChip = (row: Finding, c: Chip) => c === "all" || (c === "hint" ? !!row.h
 export function kitView(host: HTMLElement, r0: Route, nav: Nav): View {
   let r = r0;
   const rail = imageRail({ images, selected: r.filters.image ?? null, onSelect: (slug) => nav(withFilters(r, { image: slug ?? undefined })) });
-  const search: HTMLInputElement = el("input", { class: "input search", type: "search", placeholder: "Filter by CVE, package, image…", "aria-label": "Filter findings", value: r.filters.q ?? "",
+  const search: HTMLInputElement = el("input", { class: "input search", type: "search", placeholder: "Filter by CVE, package, image…", "aria-label": "Filter matches", value: r.filters.q ?? "",
     oninput: () => { nav(withFilters(r, { q: search.value }), true); } });
   const chips = el("div", { class: "chips", role: "group", "aria-label": "Filter by label" });
   const table = dataTable<Finding>({
@@ -80,7 +80,7 @@ export function kitView(host: HTMLElement, r0: Route, nav: Nav): View {
       el("button", { type: "button", class: "btn", "data-variant": "outline", "data-size": "sm", onclick: clear }, `Accept hints (${ids.length})`),
       el("button", { type: "button", class: "btn", "data-variant": "outline", "data-size": "sm", onclick: clear }, "Label as…"),
     ] },
-    foot: (shown) => `${shown.length} ${shown.length === 1 ? "finding" : "findings"} · Group by: none · Sort: click a column`,
+    foot: (shown) => `${shown.length} ${shown.length === 1 ? "match" : "matches"} · Group by: none · Sort: click a column`,
     testid: "kit-table",
   });
 
@@ -103,7 +103,7 @@ export function kitView(host: HTMLElement, r0: Route, nav: Nav): View {
           el("button", { type: "button", class: "btn", "data-variant": "ghost" }, "Open")),
         line("Tabs", el("div", { class: "tabs" }, el("div", { role: "tablist" },
           el("button", { type: "button", role: "tab", "aria-selected": "true" }, "Checks ", el("span", { class: "ct" }, "4")),
-          el("button", { type: "button", role: "tab", "aria-selected": "false" }, "Findings ", el("span", { class: "ct" }, "58")),
+          el("button", { type: "button", role: "tab", "aria-selected": "false" }, "Matches ", el("span", { class: "ct" }, "58")),
           el("button", { type: "button", role: "tab", "aria-selected": "false" }, "Labels ", el("span", { class: "ct" }, "2,466"))))),
         line("Meter",
           meter({ value: 0.5, limit: 0, state: "fail", caption: [el("b", {}, "0.500"), " worse · limit 0"] }),

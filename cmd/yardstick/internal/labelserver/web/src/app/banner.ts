@@ -71,7 +71,7 @@ export function workBanner(list: GateList): Work {
   function work(n: ReturnType<typeof workNumbers>, pending: number, plan: ResearchQueueResponse | null, last: ResearchBatch | null) {
     banner.dataset.research = last ? "finished" : "none";
     fill(caps, last ? finishedWords(last) : `Open work across ${plural(gates.length, "gate")}`);
-    fill(bigs, big(nums.open, "open findings"), big(nums.hinted, "have an agent hint"), big(nums.need, "need you"));
+    fill(bigs, big(nums.open, "open matches"), big(nums.hinted, "have an agent hint"), big(nums.need, "need you"));
     stack([["hinted", n.hinted, "hinted, ready to review"], ["you", n.needYou, "no hint"]]);
     cancel.hidden = true;
     review.hidden = !pending;

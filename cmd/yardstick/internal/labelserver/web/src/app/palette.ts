@@ -8,7 +8,7 @@ import { actions, checkEntries, findingEntries, gateEntries, gateItems, imageEnt
 import { parseRoute } from "./route";
 import { kbd, status, verdict } from "./ui";
 
-const groups: Group[] = ["Gates", "Images", "Checks", "Findings", "Actions"];
+const groups: Group[] = ["Gates", "Images", "Checks", "Matches", "Actions"];
 
 let palette: { dialog: HTMLDialogElement; open(): void } | null = null;
 
@@ -19,7 +19,7 @@ export function openPalette() {
 
 function build() {
   let entries: Entry[] = actions, findings: Entry[] = [], seq = 0;
-  const input = el("input", { type: "text", placeholder: "Go to a gate, image, check or finding…", autocomplete: "off", spellcheck: "false",
+  const input = el("input", { type: "text", placeholder: "Go to a gate, image, check or match…", autocomplete: "off", spellcheck: "false",
     role: "combobox", "aria-expanded": "true", "aria-controls": "palette-menu", "aria-autocomplete": "list", "aria-label": "Go to", "data-testid": "palette-input" });
   const menu = el("div", { role: "menu", id: "palette-menu", "aria-orientation": "vertical", "data-empty": "Nothing matches." });
   // the testid is on the command: the dialog itself has no box, its command is fixed in place
@@ -38,7 +38,7 @@ function build() {
       const es = shown.filter((e) => e.group === g);
       return es.length > 0 && el("div", { role: "group", "aria-labelledby": `palette-${g}` },
         el("span", { role: "heading", id: `palette-${g}` }, g), es.map(item),
-        g === "Findings" && more > 0 && el("p", { class: "more", "data-testid": "palette-more" }, moreWords(more)));
+        g === "Matches" && more > 0 && el("p", { class: "more", "data-testid": "palette-more" }, moreWords(more)));
     }));
     // Basecoat takes the new items and makes the first one active; it isn't wired up until the
     // dialog has been in the document a moment

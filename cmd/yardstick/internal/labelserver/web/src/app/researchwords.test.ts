@@ -97,8 +97,8 @@ describe("the jobs page", () => {
   });
   test("each row says where it started, its state, time and cost", () => {
     expect(fromWords(job("a", { from: "research", batch: "3f9a21c0deadbeef" }))).toBe("research page · batch 3f9a21c0");
-    expect(fromWords(job("a", { from: "table", rows: ["x", "y"] }))).toBe("findings table · 2 rows");
-    expect(fromWords(job("a", { from: "finding" }))).toBe("finding page");
+    expect(fromWords(job("a", { from: "table", rows: ["x", "y"] }))).toBe("matches table · 2 rows");
+    expect(fromWords(job("a", { from: "finding" }))).toBe("match page");
     expect(fromWords(job("a"))).toBe("not recorded");
     expect([stateWords(job("a", { status: "queued", position: 3 })), stateWords(job("a", { status: "timed-out" })), stateWords(job("a", { status: "cancelled" }))]).toEqual(["3rd", "failed", "cancelled"]);
     const now = Date.parse("2026-10-20T10:01:00Z");

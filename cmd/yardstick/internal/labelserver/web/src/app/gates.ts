@@ -144,10 +144,10 @@ function unlabeledTab(sh0: SharedState, st: State | undefined, r0: Route, nav: N
         rs.why,
       ];
     } },
-    foot: (shown) => plural(shown.length, "open finding"),
+    foot: (shown) => plural(shown.length, "open match", "open matches"),
     empty: "Nothing open bears on a gate.",
   });
-  const search: HTMLInputElement = el("input", { class: "input search", type: "search", placeholder: "Filter by CVE, package, image, gate…", "aria-label": "Filter findings", value: r.filters.q ?? "",
+  const search: HTMLInputElement = el("input", { class: "input search", type: "search", placeholder: "Filter by CVE, package, image, gate…", "aria-label": "Filter matches", value: r.filters.q ?? "",
     oninput: () => nav(withFilters(r, { q: search.value }), true) });
   function update(n: Route) {
     r = n;

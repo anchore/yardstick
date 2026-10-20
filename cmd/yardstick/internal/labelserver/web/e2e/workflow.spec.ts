@@ -108,7 +108,7 @@ test("a tar label in one gate moves the other", async ({ page }) => {
   await page.goto(gatePage("deb-java"));
   await expect(railImage(page, "deb")).toContainText("5 open · 8");
   await expect(outcome(page)).toHaveText("fail");
-  await page.getByTestId("tabs").getByRole("tab", { name: /Findings/ }).click();
+  await page.getByTestId("tabs").getByRole("tab", { name: /Matches/ }).click();
   await expect(tableRow(page, "findings-table", rows.tarDropped).getByTestId("verdict")).toHaveText("FP");
 });
 
