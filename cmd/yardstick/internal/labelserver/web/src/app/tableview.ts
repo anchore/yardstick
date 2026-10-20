@@ -43,8 +43,11 @@ export interface TableOptions<T> {
   sort?: Sort | null;
   onSort?: (s: Sort) => void;
   group?: { key: (row: T) => string; header: (key: string, rows: T[]) => Child } | null;
-  // with select, rows get checkboxes, and bulk is the bar's actions while any are checked
-  select?: { bulk: (ids: string[], clear: () => void) => Child };
+  // with select, rows get checkboxes, and bulk is the bar's actions while any are checked. keep holds
+  // the checks on rows a new filter hides (the research page builds one batch across searches),
+  // link is the rows checked and unchecked with a row (research: every match in its job), and
+  // changed hears the checked rows after every draw
+  select?: { bulk: (ids: string[], clear: () => void) => Child; keep?: boolean; link?: (id: string) => string[]; changed?: (ids: string[]) => void };
   open?: (row: T) => void;      // a click on the row, outside its checkbox
   empty?: Child;
   foot?: (shown: T[]) => Child;
@@ -57,6 +60,8 @@ export interface Table<T> {
   // hides the columns named
   update(rows: T[], hide?: string[]): void;
   selected(): string[];
+  // check checks or unchecks rows (and the rows linked to them), as their boxes would
+  check(ids: string[], on: boolean): void;
   clear(): void;
   // regroup draws the rows under other group headers, or none
   regroup(g: TableOptions<T>["group"]): void;
@@ -75,10 +80,7 @@ export function dataTable<T>(o: TableOptions<T>): Table<T> {
   const bulkActions = el("span", { class: "bulk-actions" });
   const bulk = el("div", { class: "bulk", hidden: true, "data-testid": "bulk-bar" }, bulkCount, el("span", { class: "sp" }), bulkActions,
     el("button", { type: "button", class: "btn", "data-variant": "ghost", "data-size": "sm", onclick: () => clear() }, "Clear"));
-  const all = el("input", { type: "checkbox", "aria-label": "Select every row shown", onchange: () => {
-    for (const r of rows) if (all.checked) chosen.add(o.id(r)); else chosen.delete(o.id(r));
-    draw();
-  } });
+  const all: HTMLInputElement = el("input", { type: "checkbox", "aria-label": "Select every row shown", onchange: () => check(rows.map(o.id), all.checked) });
   const thead = el("thead");
   const tbody = el("tbody");
   const foot = el("div", { class: "dt-foot" });
@@ -119,9 +121,12 @@ export function dataTable<T>(o: TableOptions<T>): Table<T> {
   }
 
   function draw() {
-    // a checked row the new filter hides is unchecked, so a bulk action only reaches rows on screen
-    const ids = new Set(rows.map(o.id));
-    for (const id of chosen) if (!ids.has(id)) chosen.delete(id);
+    // a checked row the new filter hides is unchecked, so a bulk action only reaches rows on screen,
+    // unless the table keeps checks
+    if (!o.select?.keep) {
+      const ids = new Set(rows.map(o.id));
+      for (const id of chosen) if (!ids.has(id)) chosen.delete(id);
+    }
     const col = sort && o.columns.find((c) => c.key === sort!.key);
     const shown = col?.sort ? sortRows(rows, col.sort, sort!.dir) : rows;
     const span = cols().length + (o.select ? 1 : 0);
@@ -134,18 +139,22 @@ export function dataTable<T>(o: TableOptions<T>): Table<T> {
     cursor = Math.min(cursor, order.length - 1);
     mark();
     all.checked = shown.length > 0 && shown.every((r) => chosen.has(o.id(r)));
-    all.indeterminate = !all.checked && chosen.size > 0;
+    all.indeterminate = !all.checked && shown.some((r) => chosen.has(o.id(r)));
     bulk.hidden = chosen.size === 0;
     bulkCount.textContent = `${chosen.size} selected`;
     if (o.select && chosen.size) fill(bulkActions, o.select.bulk([...chosen], clear));
     fill(foot, o.foot ? o.foot(shown) : `${shown.length.toLocaleString()} ${shown.length === 1 ? "row" : "rows"}`);
+    o.select?.changed?.([...chosen]);
   }
   function mark() {
     const at = cursor < 0 ? null : o.id(order[cursor]);
     for (const tr of tbody.querySelectorAll<HTMLElement>("tr[data-id]")) tr.classList.toggle("cursor", tr.dataset.id === at);
   }
   function toggle(id: string) {
-    if (chosen.has(id)) chosen.delete(id); else chosen.add(id);
+    check([id], !chosen.has(id));
+  }
+  function check(ids: string[], on: boolean) {
+    for (const id of ids) for (const x of o.select?.link?.(id) ?? [id]) if (on) chosen.add(x); else chosen.delete(x);
     draw();
   }
   function clear() {
@@ -158,6 +167,7 @@ export function dataTable<T>(o: TableOptions<T>): Table<T> {
     el: root,
     update(next, h = []) { rows = next; hide = new Set(h); draw(); },
     selected: () => [...chosen],
+    check,
     clear,
     regroup(g) { o.group = g; draw(); },
     key(e) {
