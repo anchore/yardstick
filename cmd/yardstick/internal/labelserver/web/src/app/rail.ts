@@ -43,7 +43,7 @@ function setCollapsed(on: boolean) {
 // countText is an item's count column
 function countText(c: Counts, scope: Scope) {
   if (scope === "labels") return c.total ? plural(c.total, "label") : "no labels";
-  if (scope === "hints") return c.total ? plural(c.total, "hinted row") : "no hints";
+  if (scope === "hints") return c.total ? plural(c.total, "hinted match", "hinted matches") : "no hints";
   if (c.total === 0) return scope === "check" ? "none here" : "no changes";
   if (openOf(c) === 0 && scope === "check") return `${c.total} here`;
   return [el("b", {}, String(openOf(c))), ` open · ${c.total}`];

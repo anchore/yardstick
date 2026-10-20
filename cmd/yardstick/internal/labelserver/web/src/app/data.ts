@@ -69,7 +69,7 @@ async function write(what: () => Promise<string>) {
 export function acceptHints(gate: string, rows: FRow[]) {
   return write(async () => {
     const hinted = rows.filter((r) => r.row && r.hint);
-    if (!hinted.length) throw new Error("no agent hint to accept on the rows selected");
+    if (!hinted.length) throw new Error("no agent hint to accept on the matches selected");
     const proposals = hinted.filter((r) => r.hint!.kind === "proposal").map((r) => r.row!);
     const causes = new Map<string, string[]>();
     const st = hinted.some((r) => r.hint!.kind === "cause" && !r.hint!.cause) ? await gateState(gate) : null;

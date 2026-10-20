@@ -33,7 +33,7 @@ test.describe("hint review", () => {
     await expect(item(page, "CVE-2005-2541").getByTestId("outcome")).toHaveText("fixed FP");
     await expect(item(page, "GHSA-jfh8-c2jp-5v3q").getByTestId("outcome")).toHaveText("fixed FN");
     // tar in both gates is one row
-    await expect(accept(page)).toHaveText("Accept 4 hints on 8 rows");
+    await expect(accept(page)).toHaveText("Accept 4 hints on 8 matches");
 
     // together they pass deb-npm and lift deb-java to undecided
     await expect(impactGate(page, "deb-npm")).toHaveAttribute("data-before", "undecided");
@@ -42,7 +42,7 @@ test.describe("hint review", () => {
     await expect(impactGate(page, "deb-java")).toHaveAttribute("data-after", "undecided");
     const left = page.getByTestId("impact-left");
     await expect(left).toContainText("tar CVE-2026-18508");
-    await expect(left).toContainText("log4j-core GHSA-vc5p-v9hr-52mj (2 rows)");
+    await expect(left).toContainText("log4j-core GHSA-vc5p-v9hr-52mj (2 matches)");
     await expect(left).toContainText("hint unchecked");
     await expect(left).toContainText("traverse GHSA-67hx-6x53-jw92");
   });
@@ -51,7 +51,7 @@ test.describe("hint review", () => {
     await openReview(page);
     await expect(impactCheck(page, "deb-java", "noNewFalsePositives")).toHaveAttribute("data-after", "undecided");
     await box(page, "GHSA-vc5p-v9hr-52mj").check();
-    await expect(accept(page)).toHaveText("Accept 5 hints on 10 rows");
+    await expect(accept(page)).toHaveText("Accept 5 hints on 10 matches");
     await expect(impactCheck(page, "deb-java", "noNewFalsePositives")).toHaveAttribute("data-after", "pass");
     await expect(page.getByTestId("impact-left")).not.toContainText("GHSA-vc5p");
 
@@ -62,7 +62,7 @@ test.describe("hint review", () => {
     // a group's checkbox selects every hint in it
     await page.locator("[data-testid=hint-group][data-group=decides] [data-testid=hint-group-toggle]").check();
     await expect(box(page, "GHSA-vc5p-v9hr-52mj")).toBeChecked();
-    await expect(accept(page)).toHaveText("Accept 5 hints on 10 rows");
+    await expect(accept(page)).toHaveText("Accept 5 hints on 10 matches");
   });
 
   test("accepting writes the labels SCENARIO.md predicts; deb-npm passes and deb-java waits on tar CVE-2026-18508", async ({ page }) => {
@@ -95,7 +95,7 @@ test.describe("hint review", () => {
     await expect(gateRow(page, "deb-java").getByTestId("gate-unlabeled")).toHaveText(/^1 open/);
     await expect(page.getByTestId("work-open")).toHaveText("2");
     await expect(page.getByTestId("work-need")).toHaveText("2");
-    await expect(page.getByTestId("work-foot")).toContainText("deb-java then waits on 1 row with no hint: tar CVE-2026-18508.");
+    await expect(page.getByTestId("work-foot")).toContainText("deb-java then waits on 1 match with no hint: tar CVE-2026-18508.");
   });
 
   test("low-confidence hints are hidden until asked for, and never preselected", async ({ page }) => {
@@ -141,7 +141,7 @@ test.describe("the work banner", () => {
     await expect(outcome(page, "deb-npm")).toHaveAttribute("data-after", "pass");
     await expect(outcome(page, "deb-java")).toHaveAttribute("data-before", "fail");
     await expect(outcome(page, "deb-java")).toHaveAttribute("data-after", "undecided");
-    await expect(page.getByTestId("work-foot")).toHaveText("deb-java then waits on 1 row with no hint: tar CVE-2026-18508.");
+    await expect(page.getByTestId("work-foot")).toHaveText("deb-java then waits on 1 match with no hint: tar CVE-2026-18508.");
     // per gate in rows: deb-java's 10 open rows, 9 of them hinted
     await expect(gateRow(page, "deb-java").getByTestId("gate-work")).toHaveText(/^9 hinted · 1 needs you\s*4 hints · undecided on hints alone$/);
     await expect(gateRow(page, "deb-npm").getByTestId("gate-work")).toHaveText(/^2 hinted · 1 needs you\s*2 hints · passes on hints alone$/);
@@ -175,9 +175,9 @@ test("the rail counts each image's hints, flags the one replacing a label, and A
   await page.goto(gatePage("deb-java"));
   const act = (image: keyof typeof images) => page.locator(`[data-testid=rail-act][data-image="${images[image].slug}"]`);
   await expect(page.getByTestId("rail-review-all")).toHaveText("Review all 4 hints");
-  await expect(act("deb").getByTestId("rail-hints")).toHaveText("2 hints on 5 rows");
+  await expect(act("deb").getByTestId("rail-hints")).toHaveText("2 hints on 5 matches");
   await expect(act("deb").getByTestId("rail-replaces")).toHaveCount(0);
-  await expect(act("java").getByTestId("rail-hints")).toHaveText("2 hints on 4 rows");
+  await expect(act("java").getByTestId("rail-hints")).toHaveText("2 hints on 4 matches");
   await expect(act("java").getByTestId("rail-replaces")).toHaveText("1 overrides a label");
   await act("java").getByTestId("rail-accept").click();
   await expect(page).toHaveURL(`/ui/hints?gate=deb-java&image=${images.java.slug}`);

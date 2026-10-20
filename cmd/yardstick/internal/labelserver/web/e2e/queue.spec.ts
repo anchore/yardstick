@@ -34,7 +34,7 @@ test("n from the gates screen labels the seed through the queue until every gate
   // the first row: gzip, deb-npm's, with why it's next and what each verdict does
   await onFinding(page, rows.gzip);
   await expect(page.getByTestId("queue-progress")).toHaveText("0 of 12 done · 12 left");
-  await expect(page.getByTestId("why-next")).toContainText("deb-npm is undecided, with 3 open rows. A label here decides it: either label passes it.");
+  await expect(page.getByTestId("why-next")).toContainText("deb-npm is undecided, with 3 open matches. A label here decides it: either label passes it.");
   await expect(page.getByTestId("queue-outcomes")).toHaveText("FP: deb-npm passes. TP: deb-npm passes.");
   await expect(page.getByTestId("breadcrumb")).toContainText("deb-npm");
   await page.keyboard.press("a");
@@ -43,7 +43,7 @@ test("n from the gates screen labels the seed through the queue until every gate
   await expect(card(page)).toHaveAttribute("data-card", "boundary");
   await expect(page.getByTestId("title")).toHaveText("deb-npm passes");
   await expect(cardGate(page, "deb-npm")).toHaveAttribute("data-state", "pass");
-  await expect(card(page)).toContainText("Next in the queue: deb-java, 10 open rows.");
+  await expect(card(page)).toContainText("Next in the queue: deb-java, 10 open matches.");
   await page.keyboard.press("Enter");
   await onFinding(page, rows.jfhA);
   await expect(page.getByTestId("breadcrumb")).toContainText("deb-java");
@@ -78,7 +78,7 @@ test("n from the gates screen labels the seed through the queue until every gate
   await label(page, "f", "fix-installed");
   await expect(card(page)).toHaveAttribute("data-card", "end");
   await expect(cardGate(page, "deb-java")).toHaveAttribute("data-state", "pass");
-  await expect(page.getByTestId("card-session")).toContainText("10 labels written this session, closing 12 rows: 10 from hints, 2 by hand.");
+  await expect(page.getByTestId("card-session")).toContainText("10 labels written this session, closing 12 matches: 10 from hints, 2 by hand.");
 
   // history: every label on disk, the written ones first, newest first, each linking to its finding
   await page.getByTestId("card-history").click();

@@ -126,7 +126,7 @@ export function stillOpen(rows: OpenRow[], shown: HintEntry[], selected: Set<str
     if (!x.gates.includes(r.gate)) x.gates.push(r.gate);
     out.set(key, x);
   }
-  return [...out.values()].map(({ rows: rs, ...x }) => (rs.size > 1 ? { ...x, text: `${x.text} (${rs.size} rows)` } : x));
+  return [...out.values()].map(({ rows: rs, ...x }) => (rs.size > 1 ? { ...x, text: `${x.text} (${rs.size} matches)` } : x));
 }
 
 // aloneWords is what accepting every hint does to a gate, from its outcome now and after
@@ -154,5 +154,5 @@ export function workNumbers(rows: CrossFinding[]): Work {
 export function waitWords(gate: string, left: OpenRow[], show = 3): string {
   const names = left.slice(0, show).map((r) => `${r.pkg} ${r.vuln}`).join(", ");
   const more = left.length > show ? ` and ${left.length - show} more` : "";
-  return `${gate} then waits on ${plural(left.length, "row")} with no hint: ${names}${more}.`;
+  return `${gate} then waits on ${plural(left.length, "match", "matches")} with no hint: ${names}${more}.`;
 }

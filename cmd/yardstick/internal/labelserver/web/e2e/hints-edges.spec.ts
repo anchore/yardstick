@@ -141,7 +141,7 @@ test.describe("low confidence", () => {
     await openReview(page);
     await expect(item(page, gzip)).toHaveAttribute("data-confidence", "");
     await expect(box(page, gzip)).not.toBeChecked();
-    await expect(accept(page)).toHaveText("Accept 3 hints on 7 rows");
+    await expect(accept(page)).toHaveText("Accept 3 hints on 7 matches");
   });
 
   test("a low hint checked by hand is written", async ({ page }) => {
@@ -196,7 +196,7 @@ test.describe("the image rail", () => {
   test("deb-npm's rail counts its two hints, and Review all scopes review to the gate", async ({ page }) => {
     await page.goto(gatePage("deb-npm"));
     await expect(page.getByTestId("rail-review-all")).toHaveText("Review all 2 hints");
-    await expect(railAct(page, "deb").getByTestId("rail-hints")).toHaveText("2 hints on 2 rows");
+    await expect(railAct(page, "deb").getByTestId("rail-hints")).toHaveText("2 hints on 2 matches");
     await expect(railAct(page, "npm")).toHaveCount(0);
     await page.getByTestId("rail-review-all").click();
     await expect(page).toHaveURL("/ui/hints?gate=deb-npm");
@@ -235,7 +235,7 @@ test.describe("hints that replace a person's label", () => {
     await expect(item(page, "GHSA-jfh8-c2jp-5v3q")).toHaveAttribute("data-replaces", "true");
     await expect(box(page, "GHSA-jfh8-c2jp-5v3q")).not.toBeChecked();
     await expect(item(page, "GHSA-jfh8-c2jp-5v3q").getByTestId("hint-replaces")).toHaveText('replaces an unclear label: "check the jar"');
-    await expect(accept(page)).toHaveText("Accept 3 hints on 6 rows");
+    await expect(accept(page)).toHaveText("Accept 3 hints on 6 matches");
 
     // both java hints now override a label
     await page.goto(gatePage());

@@ -27,7 +27,7 @@ function decideClause(a: CrossAppearance): string {
 // entry's per-gate ifTP / ifFP outcomes
 export function whyNext(e: QueueEntry, gate: string, gates: QueueGate[]): string {
   const g = gates.find((x) => x.name === gate), rows = g?.rows ?? 0;
-  const where = `${gate} ${is[g?.outcome ?? ""] ?? g?.outcome ?? "has no outcome"}${rows <= 1 ? " and this is its only open row." : `, with ${plural(rows, "open row")}.`}`;
+  const where = `${gate} ${is[g?.outcome ?? ""] ?? g?.outcome ?? "has no outcome"}${rows <= 1 ? " and this is its only open match." : `, with ${plural(rows, "open match", "open matches")}.`}`;
   const moving = e.in.filter(changes);
   if (moving.length === 1) {
     const a = moving[0];
@@ -64,13 +64,13 @@ export interface Boundary { gate: string; before?: string; after: string; left: 
 // boundaryWords are the card after a gate's last open row in the queue: its new outcome, and the
 // next gate
 export function boundaryWords(b: Boundary) {
-  const rows = plural(b.left, "row"), one = b.left === 1;
+  const rows = plural(b.left, "match", "matches"), one = b.left === 1;
   const left = !b.left ? "" : b.settled ? ` The ${rows} left in ${b.gate} ${one ? "changes" : "change"} nothing, so ${one ? "it comes" : "they come"} last.`
     : ` ${rows} left in ${b.gate}; the queue comes back to ${one ? "it" : "them"}.`;
-  const why = b.nextSettled ? ` None of its rows changes ${b.next}'s outcome.` : "";
+  const why = b.nextSettled ? ` None of its matches changes ${b.next}'s outcome.` : "";
   return {
     headline: `${b.gate} ${is[b.after] ?? b.after}`,
-    foot: `Next in the queue: ${b.next}, ${plural(b.nextRows, "open row")}.${why}${left}`,
+    foot: `Next in the queue: ${b.next}, ${plural(b.nextRows, "open match", "open matches")}.${why}${left}`,
   };
 }
 
@@ -78,11 +78,11 @@ export function boundaryWords(b: Boundary) {
 // (one label can close a row in several gates, so the two counts differ)
 export function sessionWords(labels: number, hints: number, hand: number) {
   const how = [hints && `${hints} from hints`, hand && `${hand} by hand`].filter(Boolean).join(", ");
-  return `${plural(labels, "label")} written this session${how ? `, closing ${plural(hints + hand, "row")}: ${how}` : ""}.`;
+  return `${plural(labels, "label")} written this session${how ? `, closing ${plural(hints + hand, "match", "matches")}: ${how}` : ""}.`;
 }
 
 // settledWords is the stopping point's line: what's left changes nothing
-export const settledWords = (left: number) => `The ${plural(left, "row")} left ${left === 1 ? "changes" : "change"} no outcome; label ${left === 1 ? "it" : "them"} or stop here.`;
+export const settledWords = (left: number) => `The ${plural(left, "match", "matches")} left ${left === 1 ? "changes" : "change"} no outcome; label ${left === 1 ? "it" : "them"} or stop here.`;
 
 // ---------- history ----------
 

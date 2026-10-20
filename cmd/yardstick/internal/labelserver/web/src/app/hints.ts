@@ -43,8 +43,8 @@ function go(href: string) {
 
 const groups: { id: string; title: string; sub: string }[] = [
   { id: "decides", title: "Decide a gate", sub: "accepting one of these changes a gate's outcome on its own" },
-  { id: "needed", title: "Needed to decide a gate", sub: "each closes open rows a gate that isn't passing counts" },
-  { id: "none", title: "Close a row, no outcome change", sub: "accepting these changes no gate's outcome" },
+  { id: "needed", title: "Needed to decide a gate", sub: "each closes open matches a gate that isn't passing counts" },
+  { id: "none", title: "Close a match, no outcome change", sub: "accepting these changes no gate's outcome" },
 ];
 
 const andList = (xs: string[]) => (xs.length < 2 ? xs.join("") : `${xs.slice(0, -1).join(", ")} and ${xs.at(-1)}`);
@@ -124,7 +124,7 @@ export function hintsView(host: HTMLElement, r0: Route & { level: "hints" }, _na
 
     const shell = renderShell(host, r, {
       title: "Agent hints",
-      sub: hints.length ? `${plural(hints.length, "hint")} on ${plural(rowCount(hints), "row")} · ${uniq(hints.map((h) => h.skill || h.author.skill || "agent")).join(", ")}` : undefined,
+      sub: hints.length ? `${plural(hints.length, "hint")} on ${plural(rowCount(hints), "match", "matches")} · ${uniq(hints.map((h) => h.skill || h.author.skill || "agent")).join(", ")}` : undefined,
       actions: chips,
       rail,
       body: el("div", { class: "screen" }, filters,
@@ -151,7 +151,7 @@ export function hintsView(host: HTMLElement, r0: Route & { level: "hints" }, _na
         t.box.indeterminate = n > 0 && n < t.ids.length;
       }
       const rows = rowCount(sel);
-      fill(accept, sel.length ? `Accept ${plural(sel.length, "hint")} on ${plural(rows, "row")}` : "Select hints to accept");
+      fill(accept, sel.length ? `Accept ${plural(sel.length, "hint")} on ${plural(rows, "match", "matches")}` : "Select hints to accept");
       accept.disabled = !sel.length;
       accept.dataset.hints = String(sel.length);
       accept.dataset.rows = String(rows);
@@ -181,7 +181,7 @@ export function hintsView(host: HTMLElement, r0: Route & { level: "hints" }, _na
       accept.disabled = true;
       try {
         const res = await acceptHints(ids);
-        toast(`✦ ${plural(res.written.length, "label")} written from ${plural(ids.length, "hint")}${res.skipped.length ? `, ${plural(res.skipped.length, "row")} skipped` : ""}`);
+        toast(`✦ ${plural(res.written.length, "label")} written from ${plural(ids.length, "hint")}${res.skipped.length ? `, ${plural(res.skipped.length, "match", "matches")} skipped` : ""}`);
       } catch (e) {
         toast((e as Error).message, true);
       }
@@ -213,7 +213,7 @@ function hintRow(h: HintEntry, boxes: Map<string, HTMLInputElement>, on: boolean
   boxes.set(h.id, box);
   const first = h.rows[0], gates = h.gates.map((g) => g.gate);
   const pkgs = uniq(h.rows.map((x) => x.package.name)), imgs = uniq(h.rows.map((x) => x.image.name));
-  const rows = h.rows.length > 1 ? plural(h.rows.length, "row") : "";
+  const rows = h.rows.length > 1 ? plural(h.rows.length, "match", "matches") : "";
   const replaced = h.rows.find((x) => x.label)?.label;
   return el("label", { class: "hrow", "data-testid": "hint-item", "data-hint": h.id, "data-group": h.group, "data-verdict": h.verdict, "data-confidence": h.confidence ?? "", "data-replaces": h.replaces },
     box,
@@ -228,7 +228,7 @@ function hintRow(h: HintEntry, boxes: Map<string, HTMLInputElement>, on: boolean
     el("div", { class: "fx" },
       h.gates.map((g): Child => (g.after !== g.outcome
         ? el("span", { class: "could-move" }, `${g.gate} ${g.outcome} → ${g.after}`)
-        : el("span", {}, `${g.gate}: closes ${plural(g.rows.length, "open row")}`))),
+        : el("span", {}, `${g.gate}: closes ${plural(g.rows.length, "open match", "open matches")}`))),
       h.replaces && el("span", { class: "flag", "data-testid": "hint-replaces" },
         `replaces ${replaced ? `an ${replaced.verdict === "unclear" ? "unclear" : words[replaced.verdict]?.word ?? replaced.verdict} label` : "a label"}${replaced?.note ? `: "${replaced.note}"` : ""}`),
       h.replaces && el("small", {}, "left unchecked: it overrides a person")));
@@ -261,7 +261,7 @@ export function railHints(rail: Rail, gate: string) {
       (slug) => {
         const x = per.get(slug);
         return x && [
-          el("span", { class: "hint", "data-testid": "rail-hints" }, `${plural(x.hints, "hint")} on ${plural(x.rows, "row")}`),
+          el("span", { class: "hint", "data-testid": "rail-hints" }, `${plural(x.hints, "hint")} on ${plural(x.rows, "match", "matches")}`),
           x.replaces > 0 && el("span", { class: "flag", "data-testid": "rail-replaces" }, `${x.replaces} ${x.replaces === 1 ? "overrides" : "override"} a label`),
           el("a", { class: "btn", "data-variant": "outline", "data-size": "sm", href: hintsHref({ gate, image: slug }), "data-testid": "rail-accept", "data-image": slug }, "Accept…"),
         ];

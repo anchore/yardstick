@@ -64,7 +64,7 @@ export function settings(changed?: () => void) {
     el("section", { "aria-labelledby": `${id}-lab` },
       el("h3", { id: `${id}-lab` }, "Labeling"),
       toggle(advanceKey, "advance-checkbox", "Go to the next match", "Save becomes “Save and next”.", "advance-toggle"),
-      toggle(skipKey, "queue-skip", "Skip labeled rows", "In the queue, j and k step over them.")),
+      toggle(skipKey, "queue-skip", "Skip labeled matches", "In the queue, j and k step over them.")),
     el("section", {},
       el("h3", { id: `${id}-theme` }, "Theme"),
       // native radios under one name, so the arrow keys move the choice; each input covers its

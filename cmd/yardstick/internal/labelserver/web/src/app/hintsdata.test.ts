@@ -87,7 +87,7 @@ describe("stillOpen", () => {
   test("lists rows with no hint and each unchecked hint once, across gates", () => {
     expect(stillOpen(open, all, new Set(["tar", "gzip", "util", "jfh8"]))).toEqual([
       { text: "tar CVE-2026-18508", gates: ["deb-java"], why: "no hint" },
-      { text: "log4j-core V-vc5p (2 rows)", gates: ["deb-java"], why: "hint unchecked" },
+      { text: "log4j-core V-vc5p (2 matches)", gates: ["deb-java"], why: "hint unchecked" },
       { text: "@babel/traverse GHSA-67hx", gates: ["deb-npm"], why: "no hint" },
     ]);
   });
@@ -114,6 +114,6 @@ test("workNumbers count findings once across rows, hinted by a proposal or a cau
 
 test("waitWords name the first few rows a gate still waits on", () => {
   const r = (n: number) => ({ gate: "g", row: `r${n}`, vuln: `CVE-${n}`, pkg: "p" });
-  expect(waitWords("deb-java", [r(1)])).toBe("deb-java then waits on 1 row with no hint: p CVE-1.");
-  expect(waitWords("g", [r(1), r(2), r(3), r(4)])).toBe("g then waits on 4 rows with no hint: p CVE-1, p CVE-2, p CVE-3 and 1 more.");
+  expect(waitWords("deb-java", [r(1)])).toBe("deb-java then waits on 1 match with no hint: p CVE-1.");
+  expect(waitWords("g", [r(1), r(2), r(3), r(4)])).toBe("g then waits on 4 matches with no hint: p CVE-1, p CVE-2, p CVE-3 and 1 more.");
 });

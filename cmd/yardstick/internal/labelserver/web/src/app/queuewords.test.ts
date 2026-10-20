@@ -15,27 +15,27 @@ const lastTar = entry("e3bfd3b0b0c30ee6", "decides", at("deb-java", "undecided",
 describe("whyNext", () => {
   test("a gate's only open row, which decides it", () => {
     expect(whyNext(lastTar, "deb-java", [gate("deb-java", "undecided", 1)]))
-      .toBe("deb-java is undecided and this is its only open row. A label here decides it: FP passes it; TP fails noNewFalseNegatives.");
+      .toBe("deb-java is undecided and this is its only open match. A label here decides it: FP passes it; TP fails noNewFalseNegatives.");
   });
   test("a row either label decides the same way", () => {
     const gzip = entry("5e50fe5b2007001a", "decides", at("deb-npm", "undecided", "pass", "pass"));
-    expect(whyNext(gzip, "deb-npm", [gate("deb-npm", "undecided", 3)])).toBe("deb-npm is undecided, with 3 open rows. A label here decides it: either label passes it.");
+    expect(whyNext(gzip, "deb-npm", [gate("deb-npm", "undecided", 3)])).toBe("deb-npm is undecided, with 3 open matches. A label here decides it: either label passes it.");
   });
   test("a row whose label leaves one way unmoved", () => {
     const jfh = entry("e1af7851f0e60bb4", "decides", at("deb-java", "fail", "undecided", "fail"));
-    expect(whyNext(jfh, "deb-java", [gate("deb-java", "fail", 10)])).toBe("deb-java fails, with 10 open rows. A label here decides it: FP leaves it failing; TP leaves it undecided.");
+    expect(whyNext(jfh, "deb-java", [gate("deb-java", "fail", 10)])).toBe("deb-java fails, with 10 open matches. A label here decides it: FP leaves it failing; TP leaves it undecided.");
   });
   test("a row that only counts toward a check", () => {
     const ul = entry("9f5eb52729c83cc1", "counted", at("deb-java", "fail", "fail", "fail"));
-    expect(whyNext(ul, "deb-java", [gate("deb-java", "fail", 6)])).toBe("deb-java fails, with 6 open rows. No label here changes an outcome on its own, but it counts toward unjudgedChangesAtMost.");
+    expect(whyNext(ul, "deb-java", [gate("deb-java", "fail", 6)])).toBe("deb-java fails, with 6 open matches. No label here changes an outcome on its own, but it counts toward unjudgedChangesAtMost.");
   });
   test("a row that changes nothing says so plainly", () => {
     const babel = entry("24160b879ac36bf5", "none", at("deb-npm", "pass"));
-    expect(whyNext(babel, "deb-npm", [gate("deb-npm", "pass", 1, true)])).toBe("deb-npm passes and this is its only open row. No label here changes any gate's outcome: its gate is decided either way.");
+    expect(whyNext(babel, "deb-npm", [gate("deb-npm", "pass", 1, true)])).toBe("deb-npm passes and this is its only open match. No label here changes any gate's outcome: its gate is decided either way.");
   });
   test("a row in two gates names the one it decides", () => {
     const tar = entry("0fe9fc814bcd060a", "decides", at("deb-npm", "undecided", "pass", "pass"), at("deb-java", "fail", "fail", "fail"));
-    expect(whyNext(tar, "deb-java", [gate("deb-npm", "undecided", 3), gate("deb-java", "fail", 10)])).toBe("deb-java fails, with 10 open rows. A label here decides deb-npm: either label passes it.");
+    expect(whyNext(tar, "deb-java", [gate("deb-npm", "undecided", 3), gate("deb-java", "fail", 10)])).toBe("deb-java fails, with 10 open matches. A label here decides deb-npm: either label passes it.");
   });
 });
 
@@ -62,12 +62,12 @@ describe("cards", () => {
   test("the boundary card says the gate's outcome and what's next", () => {
     const w = boundaryWords({ gate: "deb-npm", before: "undecided", after: "pass", left: 2, settled: true, next: "deb-java", nextRows: 9, nextSettled: false });
     expect(w.headline).toBe("deb-npm passes");
-    expect(w.foot).toBe("Next in the queue: deb-java, 9 open rows. The 2 rows left in deb-npm change nothing, so they come last.");
+    expect(w.foot).toBe("Next in the queue: deb-java, 9 open matches. The 2 matches left in deb-npm change nothing, so they come last.");
     expect(boundaryWords({ gate: "deb-java", after: "fail", left: 1, settled: false, next: "deb-npm", nextRows: 1, nextSettled: true }).foot)
-      .toBe("Next in the queue: deb-npm, 1 open row. None of its rows changes deb-npm's outcome. 1 row left in deb-java; the queue comes back to it.");
+      .toBe("Next in the queue: deb-npm, 1 open match. None of its matches changes deb-npm's outcome. 1 match left in deb-java; the queue comes back to it.");
   });
   test("the end card counts what the session wrote", () => {
-    expect(sessionWords(9, 10, 1)).toBe("9 labels written this session, closing 11 rows: 10 from hints, 1 by hand.");
+    expect(sessionWords(9, 10, 1)).toBe("9 labels written this session, closing 11 matches: 10 from hints, 1 by hand.");
     expect(sessionWords(0, 0, 0)).toBe("0 labels written this session.");
   });
 });

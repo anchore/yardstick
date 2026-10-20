@@ -56,7 +56,7 @@ export function whyText(w: report.Reason | undefined, dir: string): string {
     case "record/same-but-unmatched": return `the ${other} DB has the same record and its grype still didn't match: a matcher or config difference`;
     case "match-type/cpe-only": return "the reporting side matched by CPE only";
     case "matcher/changed": return "the matcher changed";
-    case "unexplained": return "unexplained by the data on the row";
+    case "unexplained": return "unexplained by the data on the match";
     default: return w.key;
   }
 }

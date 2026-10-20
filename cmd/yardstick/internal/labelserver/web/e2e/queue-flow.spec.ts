@@ -61,9 +61,9 @@ test.describe("entering and leaving", () => {
   test("a row that isn't open says so and links to the queue's next row; Esc exits", async ({ page }) => {
     const tar5704 = "6d210210168e93db"; // labeled fp in the seed
     await page.goto(queueRow(tar5704));
-    await expect(page.getByTestId("placeholder")).toContainText("This row isn't open in this queue.");
+    await expect(page.getByTestId("placeholder")).toContainText("This match isn't open in this queue.");
     await expect(page.getByTestId("label-panel")).toHaveCount(0);
-    await page.getByTestId("placeholder").getByRole("link", { name: "Start the queue from its next row" }).click();
+    await page.getByTestId("placeholder").getByRole("link", { name: "Start the queue from its next match" }).click();
     await onFinding(page, rows.gzip);
 
     await page.goto(queueRow(tar5704));
@@ -87,7 +87,7 @@ test.describe("image queues", () => {
     await expect(progress(page)).toHaveText("2 of 4 done · 2 left");
     await page.keyboard.press("a");
     await expect(card(page)).toHaveAttribute("data-card", "end");
-    await expect(page.getByTestId("card-session")).toContainText("2 labels written this session, closing 4 rows: 4 from hints.");
+    await expect(page.getByTestId("card-session")).toContainText("2 labels written this session, closing 4 matches: 4 from hints.");
     await page.getByTestId("card-back").click();
     await expect(page).toHaveURL(/\/ui\/gates\/$/);
   });
@@ -167,13 +167,13 @@ test.describe("why this one is next", () => {
   test("tar CVE-2026-18508 on the fresh seed moves no outcome on its own", async ({ page }) => {
     await page.goto(queueRow(rows.tarHand));
     await onFinding(page, rows.tarHand);
-    await expect(whyText(page)).toHaveText("deb-java fails, with 10 open rows. No label here changes an outcome on its own, but it counts toward unjudgedChangesAtMost.");
+    await expect(whyText(page)).toHaveText("deb-java fails, with 10 open matches. No label here changes an outcome on its own, but it counts toward unjudgedChangesAtMost.");
   });
 
   test("tar CVE-2005-2541 in deb-java's queue decides deb-npm", async ({ page }) => {
     await page.goto(queueRow(rows.tarDropped, "gate:deb-java"));
     await onFinding(page, rows.tarDropped);
-    await expect(whyText(page)).toHaveText("deb-java fails, with 10 open rows. A label here decides deb-npm: either label passes it.");
+    await expect(whyText(page)).toHaveText("deb-java fails, with 10 open matches. A label here decides deb-npm: either label passes it.");
   });
 
   test("pins: tar CVE-2026-18508 says a label decides deb-java while FP leaves it undecided", {
@@ -187,7 +187,7 @@ test.describe("why this one is next", () => {
     // the current wording, contradiction and all; a fix rewrites these two lines
     await page.goto(queueRow(rows.tarHand, "gate:deb-java"));
     await onFinding(page, rows.tarHand);
-    await expect(whyText(page)).toHaveText("deb-java is undecided, with 8 open rows. A label here decides it: FP leaves it undecided; TP fails noNewFalseNegatives.");
+    await expect(whyText(page)).toHaveText("deb-java is undecided, with 8 open matches. A label here decides it: FP leaves it undecided; TP fails noNewFalseNegatives.");
     await expect(page.getByTestId("queue-outcomes")).toHaveText("FP: deb-java stays undecided. TP: deb-java fails noNewFalseNegatives.");
   });
 
@@ -195,7 +195,7 @@ test.describe("why this one is next", () => {
     await reviewAccept(page);
     await page.goto(queueRow(rows.tarHand));
     await onFinding(page, rows.tarHand);
-    await expect(whyText(page)).toHaveText("deb-java is undecided and this is its only open row. A label here decides it: FP passes it; TP fails noNewFalseNegatives.");
+    await expect(whyText(page)).toHaveText("deb-java is undecided and this is its only open match. A label here decides it: FP passes it; TP fails noNewFalseNegatives.");
   });
 });
 
@@ -220,7 +220,7 @@ test.describe("cards", () => {
     await expect(left).toHaveCount(2);
     await expect(left.and(page.locator(`[data-row="${rows.gzip}"]`))).toHaveCount(1);
     await expect(left.and(page.locator(`[data-row="${rows.babel}"]`))).toHaveCount(1);
-    await expect(card(page)).toContainText("The 2 rows left change no outcome; label them or stop here.");
+    await expect(card(page)).toContainText("The 2 matches left change no outcome; label them or stop here.");
 
     await page.keyboard.press("Enter");
     await onFinding(page, rows.gzip);

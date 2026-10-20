@@ -270,7 +270,7 @@ test.describe("between gates", () => {
     await page.goto(gatePage());
     await expect(page.getByTestId("check-row")).toHaveCount(4);
     await page.keyboard.press("Shift+J");
-    await expect(page.getByTestId("toast")).toContainText("no other gate has open rows");
+    await expect(page.getByTestId("toast")).toContainText("no other gate has open matches");
     await expect(page).toHaveURL(/\/ui\/gates\/deb-java\/$/);
   });
 });

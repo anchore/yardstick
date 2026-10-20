@@ -79,7 +79,7 @@ async function stepGate(step: 1 | -1) {
   const r = route;
   if (!r) return;
   const gate = nextGate(gateItems(await gateList()), gateOf(r), step);
-  if (gate) nav(inGate(r, gate)); else toast("no other gate has open rows");
+  if (gate) nav(inGate(r, gate)); else toast("no other gate has open matches");
 }
 
 document.addEventListener("keydown", (e) => {

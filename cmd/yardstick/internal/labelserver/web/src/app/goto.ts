@@ -95,7 +95,7 @@ export function findingEntries(states: GateStates[]): Entry[] {
 
 export const actions: Entry[] = [
   { group: "Actions", id: "hints", text: "Review hints", detail: "every pending agent hint, with what it does to each gate", href: "/ui/hints", search: "review hints agent accept", key: "h" },
-  { group: "Actions", id: "queue", text: "Label what's left", detail: "one open row at a time, across gates", href: "/ui/queue", search: "label what's left queue next open", key: "n" },
+  { group: "Actions", id: "queue", text: "Label what's left", detail: "one open match at a time, across gates", href: "/ui/queue", search: "label what's left queue next open", key: "n" },
   { group: "Actions", id: "history", text: "History", detail: "the labels written, newest first", href: "/ui/history", search: "history labels written undo", key: undefined },
 ];
 

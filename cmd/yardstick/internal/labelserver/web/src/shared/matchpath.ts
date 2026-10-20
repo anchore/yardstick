@@ -60,7 +60,7 @@ export function steps(r: Row, side: Side, raw: GrypeMatch | undefined, rel: Rele
     out.push({ k: "result", t: "no match", sub: w === "record/same-but-unmatched" ? "same record: the matcher or its config differs" : changed ? "the record differs" : "", miss: true });
     return out;
   }
-  out.push({ k: "result", t: "no match", sub: w === "unexplained" ? "unexplained by the row's data" : "", miss: true });
+  out.push({ k: "result", t: "no match", sub: w === "unexplained" ? "unexplained by the match's data" : "", miss: true });
   return out;
 }
 

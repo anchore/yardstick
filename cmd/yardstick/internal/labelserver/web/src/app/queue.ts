@@ -177,7 +177,7 @@ export function queueView(host: HTMLElement, r: QueueRoute, nav: Nav): View {
     const gate = e ? entryGate(e, q.gates, r.scope) : s.done.find((d) => d.row === row)?.gate;
     if (!gate) {
       renderShell(host, r, { title: "Labeling", bar: bar(q, null),
-        body: el("div", { class: "placeholder", "data-testid": "placeholder" }, "This row isn't open in this queue. ", el("a", { href: formatRoute({ ...r, row: undefined }) }, "Start the queue from its next row")) });
+        body: el("div", { class: "placeholder", "data-testid": "placeholder" }, "This match isn't open in this queue. ", el("a", { href: formatRoute({ ...r, row: undefined }) }, "Start the queue from its next match")) });
       out.key = (ev) => (ev.key === "Escape" ? (exit(), true) : false);
       return;
     }
