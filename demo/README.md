@@ -1,6 +1,6 @@
 # yardstick demo
 
-One pass through the local workflow, the way someone changing grype would do it: run a gate, see it fail, fix what's a real regression, label what nobody has judged yet, and get those labels into the claims corpus as a pull request. Everything here is real output.
+One pass through the local workflow, the way someone changing grype would do it: run a gate, see it fail, fix what's a real regression, label what nobody has judged yet, and keep those labels with the change that needed them. Everything here is real output.
 
 Run everything from the repository root. The first gate run downloads two grype versions and the vulnerability DB, so it takes about two minutes. Later runs reuse the scans and take seconds.
 
@@ -174,47 +174,22 @@ An `unclear` label counts as unjudged, so the gate stays undecided until a perso
 
 The labels are worth keeping whatever the gate says, since every gate that scans this image reads them.
 
-## 6. Get the labels into the corpus
+## 6. Keep the labels with the change
 
-`claims promote` moves the scratch labels into a checkout of [anchore/match-claims](https://github.com/anchore/match-claims):
+Here `./claims` is gitignored scratch, so the labels stop at this checkout. In grype or vunnel the claims directory is committed: new labels are written straight into it and go up with the pull request that needed them. Nothing is copied into [anchore/match-claims](https://github.com/anchore/match-claims) by hand; a separate job folds grype's and vunnel's main branches back into it from time to time.
 
-```bash
-bin/yardstick claims promote claims --to ~/code/match-claims
+Each of those repos also reads the other's claims from its main branch, through a reference with a path after the repository. grype's `.yardstick.yaml` would read:
+
+```yaml
+claims:
+  - github.com/anchore/match-claims@main                # the published corpus
+  - github.com/anchore/vunnel/tests/quality/claims@main  # vunnel's claims directory on main
+  - ./claims                                            # grype's own, where new labels are written
 ```
 
-```
-✔ promoted 21 labels  into /Users/me/code/match-claims
-✔ copied SBOM         pkg/oci/registry.replicated.com/library/grype-test/sha256-3339bcd874d21fa3ca5bd20636e793c0c33bd71ace3a18a9a3b3d147b91dd000/sbom.syft.json
-```
+A reference with a path is read from the GitHub archive of the commit the ref resolves to, cached by that commit, so `@main` downloads again only when main has moved. `GITHUB_TOKEN` is sent when it's set. When two sources hold the same label, the last one wins: a correction made in the pull request takes effect right away, and the run warns that the sources disagree and names the one it used.
 
-It doesn't commit or push. In the checkout, branch, commit and run the same check the repository's CI runs on a pull request:
-
-```bash
-cd ~/code/match-claims
-git switch -c label-secureos-glibc
-git commit -s -am "label glibc-2.42 on grype-test"
-make validate-changed
-```
-
-```
-validating 1 image directories changed since origin/main
-SBOMs for syft 1.14.0: 1 have
-✔ .../match-claims/.tmp/changed is valid
-```
-
-The SBOM `promote` copied in is gitignored there: SBOMs live in R2, and the publish workflow uploads any new one. Push the branch and open the pull request.
-
-## 7. After the pull request merges
-
-The publish workflow bundles the corpus, uploads the snapshot and moves `claims/latest-v1.json` to it. Back in this repository:
-
-```bash
-bin/yardstick claims pull     # names the new snapshot
-rm -rf claims                 # the scratch labels are published now; yardstick recreates the directory
-bin/yardstick score demo/gates/grype-upgrade-stdlib-cpe.yaml
-```
-
-The verdict is the same as in step 5, now read from the published labels alone, so everyone running these gates gets it.
+SBOMs made while labeling aren't copied anywhere either. They reach R2 when the flush job runs, and until then a label read from another repo may need its SBOM rebuilt from the recipe.
 
 ## More
 

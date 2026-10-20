@@ -2,5 +2,5 @@
 # relative paths resolve against the repo root, where this file sits.
 #   - the published anchore/match-claims corpus, read from YARDSTICK_CLAIMS_URL (default https://yardstick.anchore.io)
 #   - ./claims, a gitignored scratch directory (created when missing) where new labels are
-#     written. To open a pull request with them: yardstick claims promote claims --to <match-claims checkout>
+#     written. A repo that keeps its labels commits this directory instead.
 claims: [github.com/anchore/match-claims@main, ./claims]
