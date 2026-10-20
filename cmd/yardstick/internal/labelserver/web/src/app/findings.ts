@@ -5,7 +5,7 @@ import type { Vocabulary } from "../gen/wire";
 import { el, fill } from "../shared/dom";
 import { labels as words } from "../shared/words";
 import { acceptHints, labelOptions, labelRows } from "./data";
-import { chipCounts, chipFilters, chipOf, chips, chipWords, scopedRows, shownRows, type FRow } from "./listing";
+import { chipCounts, chipFilters, chipOf, chips, chipWords, effectRank, scopedRows, shownRows, type FRow } from "./listing";
 import { withFilters, type Route } from "./route";
 import type { Nav } from "./shell";
 import { dataTable, type Column, type Table } from "./tableview";
@@ -23,7 +23,7 @@ export const findingColumns: Column<FRow>[] = [
   { key: "image", label: "Image", cell: (r) => imageName(r.image.name, r.image.ref), sort: (r) => r.image.name, title: (r) => r.image.ref, truncate: true },
   { key: "change", label: "Change", cell: (r) => el("span", { class: "change" }, r.change === "added" ? "+ added" : r.change === "dropped" ? "− dropped" : r.change), sort: (r) => r.change },
   { key: "hint", label: "Agent hint", cell: (r) => (r.hint ? hint(hintWords(r.hint)) : el("span", { class: "muted" }, "–")), sort: (r) => hintWords(r.hint) },
-  { key: "effect", label: "Effect", cell: effectCell, sort: (r) => ["decides", "could-move", "counted", ""].indexOf(r.effect) },
+  { key: "effect", label: "Effect", cell: effectCell, sort: (r) => effectRank(r.effect) },
 ];
 
 // labelPicker is the "Label as…" control: picking a verdict (and reason) calls on with it

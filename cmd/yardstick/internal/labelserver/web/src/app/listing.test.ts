@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import type { CheckFindings, GateLabel, State } from "../gen/wire";
-import { checkRows, chipCounts, chipFilters, chipOf, gateRows, inChip, mergeLabels, nextOpen, pageInfo, shortSource, square, sumTally, type FRow } from "./listing";
+import { checkRows, chipCounts, chipFilters, chipOf, effectRank, gateRows, inChip, mergeLabels, nextOpen, pageInfo, shortSource, square, sumTally, type FRow } from "./listing";
 
 const img = { name: "grype-quality-java-log4j-two-jars:e363e44", slug: "grype-quality-java-log4j-two-jars-e363e44", ref: "oci:ghcr.io/anchore/test-images/grype-quality-java-log4j-two-jars:e363e44@sha256:e363" };
 
@@ -20,6 +20,19 @@ describe("chips", () => {
     expect(nextOpen([row("x", "tp"), row("y", "unlabeled"), row("z", "unclear", { effect: "could-move" })])?.id).toBe("z");
     expect(nextOpen([row("x", "tp"), row("y", "unlabeled")])?.id).toBe("y");
     expect(nextOpen([row("x", "tp"), row("n", "unlabeled", { row: undefined })])).toBeUndefined();
+  });
+});
+
+describe("effect order", () => {
+  test("ranks decides, could-move, counted, then none", () => {
+    expect((["", "counted", "decides", "could-move"] as const).map(effectRank)).toEqual([3, 2, 0, 1]);
+  });
+  test("a gate's rows sort by it and keep report order within an effect", () => {
+    const r = (id: string, effect: string) => ({ id, vulnerability: id, package: { ref: "pkg:deb/debian/tar@1.34" }, verdict: "unlabeled", inCandidate: true, inReference: false, effect });
+    const st = { scans: { subjects: [] }, causes: [],
+      subjects: [{ name: "a", slug: "a", rows: [r("c1", "counted"), r("n1", ""), r("m1", "could-move")] }, { name: "b", slug: "b", rows: [r("c2", "counted"), r("m2", "could-move"), r("d1", "decides")] }],
+    } as unknown as State;
+    expect(gateRows(st).map((x) => x.id)).toEqual(["d1", "m1", "m2", "c1", "c2", "n1"]);
   });
 });
 
@@ -64,13 +77,14 @@ describe("rows", () => {
         { id: "r4", vulnerability: "GHSA-4", package: { ref: "pkg:deb/debian/libc6@2.36" }, verdict: "tp", inCandidate: true, inReference: true },
       ] }],
     } as unknown as State;
+    // by effect, as a check's table is: decides, could-move, counted
     const rs = gateRows(st);
     expect(rs.map((r) => `${r.id} ${r.label} ${r.change} ${r.effect} ${r.hint?.kind ?? "-"} ${r.src}`)).toEqual([
-      "r1 unlabeled added could-move proposal log4j-core",
       "r2 fp dropped decides - tar",
+      "r1 unlabeled added could-move proposal log4j-core",
       "r3 unlabeled added counted cause util-linux",
     ]);
-    expect(rs[0]).toMatchObject({ pkg: "log4j-core", version: "2.14.1", image: img });
+    expect(rs[1]).toMatchObject({ pkg: "log4j-core", version: "2.14.1", image: img });
     expect(rs[2].hint).toEqual({ verdict: "tp", confidence: "medium", kind: "cause", cause: "c1" });
   });
 

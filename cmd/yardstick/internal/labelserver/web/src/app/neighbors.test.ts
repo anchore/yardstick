@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import type { CheckFindings, Finding, State, StateRow } from "../gen/wire";
-import { checkRows, gateRows, shownRows } from "./listing";
+import { checkRows, gateRows, nextOpen as nextOpenRow, shownRows } from "./listing";
 import { fromCheck, fromState, nextOpen, position } from "./neighbors";
 import type { Filters } from "./route";
 
@@ -49,7 +49,7 @@ describe("fromState", () => {
       { name: "java:e363e44", slug: "java-e363e44", rows: [row("j1", "GHSA-jfh8-c2jp-5v3q", "pkg:maven/org.apache.logging.log4j/log4j-core@2.14.1", "tp")] },
     ],
   } as unknown as State;
-  test("is every changed row in report order", () => {
+  test("is every changed row in report order when no row has an effect", () => {
     expect(ids(fromState(s, {}))).toEqual(["t1", "u1", "j1"]);
   });
   test("counts a pending cause member as hinted", () => {
@@ -65,11 +65,48 @@ describe("fromState", () => {
 describe("position", () => {
   const items = ["a", "b", "c"].map((id) => ({ id, open: true }));
   test("names the rows either side", () => {
-    expect(position(items, "b")).toEqual({ index: 1, total: 3, prev: "a", next: "c" });
-    expect(position(items, "a")).toEqual({ index: 0, total: 3, prev: undefined, next: "b" });
+    expect(position(items, "b")).toEqual({ index: 1, total: 3, open: true, prev: "a", next: "c" });
+    expect(position(items, "a")).toEqual({ index: 0, total: 3, open: true, prev: undefined, next: "b" });
   });
   test("off the list, j goes to the first and k to the last", () => {
-    expect(position(items, "z")).toEqual({ index: -1, total: 3, prev: "c", next: "a" });
+    expect(position(items, "z")).toEqual({ index: -1, total: 3, open: true, prev: "c", next: "a" });
+  });
+
+  // a, c and e are open; b and d are labeled
+  const mixed = ["a", "b", "c", "d", "e"].map((id) => ({ id, open: "ace".includes(id) }));
+  test("j and k walk the open rows only, and the pager counts them", () => {
+    expect(position(mixed, "a")).toEqual({ index: 0, total: 3, open: true, prev: undefined, next: "c" });
+    expect(position(mixed, "c")).toEqual({ index: 1, total: 3, open: true, prev: "a", next: "e" });
+  });
+  test("from a labeled row, j and k go to the nearest open rows", () => {
+    expect(position(mixed, "d")).toEqual({ index: -1, total: 3, open: true, prev: "c", next: "e" });
+  });
+  test("⌥j and ⌥k walk every row", () => {
+    expect(position(mixed, "c", true)).toEqual({ index: 2, total: 5, open: false, prev: "b", next: "d" });
+  });
+  test("a list with nothing open, such as one filtered to TP, walks every row", () => {
+    const labeled = mixed.map((x) => ({ ...x, open: false }));
+    expect(position(labeled, "b")).toEqual({ index: 1, total: 5, open: false, prev: "a", next: "c" });
+  });
+});
+
+// the reported bug: "Label next" opened the right row at "9 of 12", because the gate's list was in
+// report order while "next" picked by effect
+describe("Label next lands at the top of what j walks", () => {
+  const row = (id: string, verdict: string, effect: string) =>
+    ({ id, vulnerability: id, package: { ref: "pkg:deb/debian/tar@1.34" }, verdict, inCandidate: true, inReference: false, effect });
+  const s = { scans: { subjects: [] }, causes: [], subjects: [
+    { name: "deb:1", slug: "deb-1", rows: [row("t1", "unlabeled", "counted"), row("f1", "fp", "counted"), row("t2", "unlabeled", "counted")] },
+    { name: "java:1", slug: "java-1", rows: [row("j0", "tp", "decides"), row("j1", "unlabeled", "could-move"), row("j2", "unclear", "could-move")] },
+  ] } as unknown as State;
+  test("on the gate's list", () => {
+    const next = nextOpenRow(gateRows(s))!;
+    expect(next.id).toBe("j1");
+    expect(position(fromState(s, {}), next.id!)).toMatchObject({ index: 0, total: 4, open: true, next: "j2" });
+  });
+  test("on a check's list, which the server sorts the same way", () => {
+    const next = nextOpenRow(checkRows(cf))!;
+    expect(position(check({}), next.row!)).toMatchObject({ index: 0, open: true });
   });
 });
 

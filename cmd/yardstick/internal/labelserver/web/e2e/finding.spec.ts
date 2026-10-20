@@ -106,10 +106,11 @@ test("Save and next lands on the next unlabeled finding of the filtered list", a
 test("j and k walk the check's list, and the gate's Findings list off a gate route", async ({ page }) => {
   await page.goto(`${f1}/${rows.jfhA}`);
   const pager = page.getByTestId("pager");
-  await expect(pager).toHaveText(/1 of 12/);
+  // f1NotWorse lists 12 rows, 10 of them open; j and k walk the open ones
+  await expect(pager).toHaveText(/1 of 10 open/);
   await page.keyboard.press("j");
   await expect(page).toHaveURL(new RegExp(`${f1}/${rows.jfhB}$`));
-  await expect(pager).toHaveText(/2 of 12/);
+  await expect(pager).toHaveText(/2 of 10 open/);
   await page.getByTestId("pager-next").click();
   await expect(page).toHaveURL(new RegExp(`${f1}/${rows.vc5pA}$`));
   await page.keyboard.press("k");
@@ -118,10 +119,10 @@ test("j and k walk the check's list, and the gate's Findings list off a gate rou
   await page.keyboard.press("k");
   await expect(page.getByTestId("toast")).toContainText("first one in this list");
 
-  // from the gate's Findings tab, the list is every changed row in report order
+  // from the gate's Findings tab, the list is every changed row by effect, then in report order
   await page.goto(`/ui/gates/deb-java/findings/${rows.jfhA}?image=${images.java.slug}`);
   await expect(page.getByTestId("breadcrumb")).toHaveText(/^Gates\s*›\s*deb-java\s*›\s*GHSA-jfh8-c2jp-5v3q$/);
-  await expect(pager).toHaveText(/1 of 4/);
+  await expect(pager).toHaveText(/1 of 4 open/);
   await page.keyboard.press("j");
   await expect(page).toHaveURL(new RegExp(`/findings/${rows.jfhB}\\?image=${images.java.slug}$`));
 });

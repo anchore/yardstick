@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { crumbs, formatRoute, parseRoute, up, withFilters, type Route } from "./route";
+import { crumbs, formatRoute, inGate, parseRoute, up, withFilters, type Route } from "./route";
 
 // parse splits a URL the way location does
 function parse(url: string) {
@@ -20,6 +20,10 @@ const routes: Route[] = [
   { level: "finding", gate: "grype-upgrade", check: "f1NotWorse", row: "3e91c0a7d2b4f816", filters: { image: "core", verdict: "tp" } },
   { level: "finding", gate: "grype-upgrade", check: null, row: "3e91c0a7d2b4f816", filters: {} },
   { level: "gate", gate: "deb-java", tab: "findings", filters: { pkg: "org.apache.logging.log4j" } },
+  { level: "hints", filters: {} },
+  { level: "queue", filters: {} },
+  { level: "queue", row: "e1af7851f0e60bb4", filters: { image: "core" } },
+  { level: "history", filters: {} },
 ];
 
 describe("formatRoute", () => {
@@ -33,6 +37,9 @@ describe("formatRoute", () => {
     expect(formatRoute(routes[8])).toBe("/ui/gates/grype-upgrade/checks/f1NotWorse?hint=yes");
     expect(formatRoute(routes[9])).toBe("/ui/gates/grype-upgrade/checks/f1NotWorse/3e91c0a7d2b4f816?image=core&verdict=tp");
     expect(formatRoute(routes[10])).toBe("/ui/gates/grype-upgrade/findings/3e91c0a7d2b4f816");
+  });
+  test("the labeling flow's screens sit beside /ui/gates/", () => {
+    expect(routes.slice(-4).map(formatRoute)).toEqual(["/ui/hints", "/ui/queue", "/ui/queue/e1af7851f0e60bb4?image=core", "/ui/history"]);
   });
   test("page 1 stays out of the URL", () => {
     expect(formatRoute({ level: "gate", gate: "g", tab: "labels", filters: { page: 1 } })).toBe("/ui/gates/g/labels");
@@ -51,7 +58,7 @@ describe("parseRoute", () => {
     expect(parse("/ui/gates/?tab=nope&verdict=maybe&page=x&foo=1")).toEqual({ level: "gates", tab: "gates", filters: {} });
   });
   test("paths outside the app are null", () => {
-    for (const p of ["/ui/map/gates/", "/ui/gates/g/nope", "/ui/gates/g/checks", "/ui/gates/g/checks/c/r/extra", "/ui/gates/g/findings/r/x", "/ui/gates/%E0%A4%A/"]) {
+    for (const p of ["/ui/map/gates/", "/ui/hints/x", "/ui/queue/a/b", "/ui/historyx", "/ui/gates/g/nope", "/ui/gates/g/checks", "/ui/gates/g/checks/c/r/extra", "/ui/gates/g/findings/r/x", "/ui/gates/%E0%A4%A/"]) {
       expect(parse(p)).toBeNull();
     }
   });
@@ -75,6 +82,17 @@ describe("up and crumbs", () => {
     expect(crumbs(routes[9], "CVE-2019-13139").map((c) => c.label)).toEqual(["Gates", "grype-upgrade", "f1NotWorse", "CVE-2019-13139"]);
     expect(crumbs(routes[10]).map((c) => c.label)).toEqual(["Gates", "grype-upgrade", "3e91c0a7d2b4f816"]);
     expect(crumbs(routes[0])).toEqual([{ label: "Gates", href: "/ui/gates/" }]);
+  });
+});
+
+describe("inGate", () => {
+  test("a gate screen keeps its tab in the other gate, anything else goes to its Checks", () => {
+    expect(formatRoute(inGate(routes[6], "deb-npm"))).toBe("/ui/gates/deb-npm/labels");
+    for (const r of [routes[0], routes[8], routes[9], routes.at(-1)!]) expect(formatRoute(inGate(r, "deb-npm"))).toBe("/ui/gates/deb-npm/");
+  });
+  test("the gate crumb names its gate, and the flow's screens sit under Gates", () => {
+    expect(crumbs(routes[9]).map((c) => c.gate ?? "-")).toEqual(["-", "grype-upgrade", "-", "-"]);
+    expect(crumbs(routes.at(-1)!).map((c) => c.label)).toEqual(["Gates", "History"]);
   });
 });
 

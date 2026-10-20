@@ -8,7 +8,7 @@ Select with `getByTestId("<testid>")`, narrow with the `data-*` identity attribu
 - Table rows are `tbody tr[data-id]` inside the table's testid; `data-id` is the row id (16 hex), or a made-up key for a row with no finding page.
 - Pick one instance by its identity attribute: `page.locator('[data-testid=check-row][data-check=f1NotWorse]')`.
 
-Routes (`route.ts`): `/ui/gates/` (level 0, `?tab=unlabeled|labels`), `/ui/gates/<gate>/` and `findings` / `labels` / `map` (level 1), `/ui/gates/<gate>/checks/<check>` (level 2), and a finding at `/ui/gates/<gate>/checks/<check>/<row>` or `/ui/gates/<gate>/findings/<row>` (level 3). Filters ride in the query: `image` (slug), `verdict`, `hint`, `pkg`, `q`, `page`.
+Routes (`route.ts`): `/ui/gates/` (level 0, `?tab=unlabeled|labels`), `/ui/gates/<gate>/` and `findings` / `labels` / `map` (level 1), `/ui/gates/<gate>/checks/<check>` (level 2), and a finding at `/ui/gates/<gate>/checks/<check>/<row>` or `/ui/gates/<gate>/findings/<row>` (level 3). Filters ride in the query: `image` (slug), `verdict`, `hint`, `pkg`, `q`, `page`. The labeling flow's screens sit beside them: `/ui/hints`, `/ui/queue` (and `/ui/queue/<row>`) and `/ui/history`, each a `placeholder` for now.
 
 ## Shell (every screen)
 
@@ -16,6 +16,13 @@ Routes (`route.ts`): `/ui/gates/` (level 0, `?tab=unlabeled|labels`), `/ui/gates
 |---|---|---|
 | `app-bar` | the bar at the top | |
 | `breadcrumb` | the crumbs; each crumb above the current one is a link | |
+| `gate-switch`, `gate-switch-button` | the gate crumb's switcher and its ▾ trigger; the menu is filled as it opens | |
+| `gate-option` | one gate in the switcher, a link to the same level there | `data-gate`, `data-state`, `data-open` (unlabeled and unclear rows), `aria-current` on this gate |
+| `goto-button` | "Go to…" in the app bar, which opens the palette like `⌘K` / `ctrl+K` | |
+| `palette` | the go-to palette (Basecoat's command), visible while open | |
+| `palette-input` | its search box | |
+| `palette-item` | one entry, a link | `data-group` (`Gates`, `Images`, `Checks`, `Findings`, `Actions`), `data-id` (gate, image ref, `<gate>/<check>`, row id, or `hints` / `queue` / `history`) |
+| `palette-more` | how many more findings match than are shown | |
 | `title-row` | the title line | |
 | `title` | the screen's `h1` | |
 | `status` | a state badge: the gate's or check's in `title-row`, and one per gate or check row | text is the state |
@@ -81,7 +88,7 @@ Filter chips are buttons with `data-chip` (`all`, `unlabeled`, `tp`, `fp`, `uncl
 
 | testid | where | attributes |
 |---|---|---|
-| `pager` | "N of M" beside the breadcrumb | `data-index` (1-based, 0 when the filters leave it out), `data-total` |
+| `pager` | "N of M open" beside the breadcrumb: the open rows `j` / `k` walk, or every row when none is open | `data-index` (1-based among them, 0 for a labeled row or one the filters leave out), `data-total`, `data-open` |
 | `pager-previous`, `pager-next` | its `k` / `j` links | |
 | `finding-effect` | what its label does, in the title row | `data-effect` = decides / could-move |
 | `finding-sub`, `finding-package`, `finding-image`, `finding-direction` | the subtitle and its parts | `finding-image` has the full ref in `title` |

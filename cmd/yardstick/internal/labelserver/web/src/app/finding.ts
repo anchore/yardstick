@@ -76,9 +76,11 @@ export function findingView(host: HTMLElement, r: FindingRoute, nav: Nav): View 
     const { row, state } = d;
     const dir = direction(row) as Dir, pk = pkgOf(row.package.ref);
     const eff = effect({ check: r.check, checkEffect: d.checkEffect, row, checks: state.gate?.result?.checks ?? [] });
-    const pos = position(d.list, row.id);
-    const pager = el("span", { class: "pager", "data-testid": "pager", "data-index": pos.index + 1, "data-total": pos.total },
-      pageLink(pos.prev, "k", "previous"), pos.index >= 0 ? `${pos.index + 1} of ${pos.total}` : `not in this list of ${pos.total}`, pageLink(pos.next, "j", "next"));
+    // the pager counts what j and k walk: the list's open rows, or every row when none is open
+    const pos = position(d.list, row.id), of = `${pos.total}${pos.open ? " open" : ""}`;
+    const where = pos.index >= 0 ? `${pos.index + 1} of ${of}` : `${d.list.some((x) => x.id === row.id) ? "labeled" : "not in this list"} · ${of}`;
+    const pager = el("span", { class: "pager", "data-testid": "pager", "data-index": pos.index + 1, "data-total": pos.total, "data-open": pos.open },
+      pageLink(pos.prev, "k", "previous"), where, pageLink(pos.next, "j", "next"));
     const aliases = (row.aliases ?? []).filter((a) => a !== row.vulnerability);
     lp = labelPanel(d, draft, advancing(), { save, accept, acceptAll, skip: () => go(pos.next, "last one in this list"), research, advance: setAdvancing });
     renderShell(host, r, {
@@ -166,6 +168,13 @@ export function findingView(host: HTMLElement, r: FindingRoute, nav: Nav): View 
   function key(e: KeyboardEvent): boolean {
     const list = d?.list ?? (lastList?.key === listKey ? lastList.items : null);
     if (!list) return false;
+    // ⌥j and ⌥k walk every row, labeled or not; e.code, since ⌥ changes e.key on a Mac
+    if (e.altKey) {
+      const pos = position(list, r.row, true);
+      if (e.code === "KeyJ") { go(pos.next, "last one in this list"); return true; }
+      if (e.code === "KeyK") { go(pos.prev, "first one in this list"); return true; }
+      return false;
+    }
     const pos = position(list, r.row);
     switch (e.key) {
       case "j": go(pos.next, "last one in this list"); return true;

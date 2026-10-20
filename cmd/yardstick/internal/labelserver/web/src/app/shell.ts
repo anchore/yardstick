@@ -3,6 +3,9 @@
 import { el, fill, type Child } from "../shared/dom";
 import type { Rail } from "./rail";
 import { crumbs, formatRoute, gateTabs, gatesTabs, type Route } from "./route";
+import { openPalette } from "./palette";
+import { gateSwitch } from "./switcher";
+import { kbd } from "./ui";
 
 // View is what main.ts keeps of the screen on show: its keys, and a way to take a change of filters
 // in place (true when it did) rather than being drawn again
@@ -51,7 +54,7 @@ export function renderShell(host: HTMLElement, r: Route, v: ShellView): Shell {
   const breadcrumb = el("nav", { class: "breadcrumb", "aria-label": "Breadcrumb", "data-testid": "breadcrumb" },
     el("ol", {}, trail.map((c, i) => [
       i > 0 && el("li", { "aria-hidden": "true", class: "sep" }, "›"),
-      el("li", {}, i === trail.length - 1 ? el("span", { "aria-current": "page" }, c.label) : el("a", { href: c.href }, c.label)),
+      el("li", {}, i === trail.length - 1 ? el("span", { "aria-current": "page" }, c.label) : el("a", { href: c.href }, c.label), c.gate && gateSwitch(r, c.gate)),
     ])));
 
   const tabs = tabsFor(r);
@@ -66,7 +69,8 @@ export function renderShell(host: HTMLElement, r: Route, v: ShellView): Shell {
     el("header", { class: "appbar", "data-testid": "app-bar" },
       el("a", { class: "brand", href: "/ui/gates/" }, "yardstick ", el("span", {}, "claims")),
       el("span", { class: "sp" }),
-      el("span", { class: "meta" }, v.meta)),
+      el("span", { class: "meta" }, v.meta),
+      el("button", { type: "button", class: "btn goto", "data-variant": "ghost", "data-size": "sm", "data-testid": "goto-button", onclick: openPalette }, "Go to… ", kbd(/Mac|iP/.test(navigator.platform) ? "⌘K" : "Ctrl K"))),
     el("main", { class: "page" },
       v.crumbEnd ? el("div", { class: "crumbrow" }, breadcrumb, el("span", { class: "sp" }), v.crumbEnd) : breadcrumb,
       el("div", { class: "titlerow", "data-testid": "title-row" },

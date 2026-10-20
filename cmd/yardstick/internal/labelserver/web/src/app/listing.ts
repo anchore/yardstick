@@ -4,7 +4,7 @@
 import type { CheckFindings, CrossFinding, GateLabel, ImageRef, State, Tally } from "../gen/wire";
 import { pkgOf, srcPkg } from "../shared/rows";
 import type { Filters, VerdictFilter } from "./route";
-import { filterRows } from "./table";
+import { filterRows, sortRows } from "./table";
 import type { Verdict } from "./ui";
 
 // FHint is a row's pending agent suggestion: its own proposal, or a cause (package hint) listing it
@@ -28,11 +28,16 @@ export interface FRow {
   effect: Effect;
 }
 
+// effectRank orders findings the way the server's check findings are (gateapi.go effectRank):
+// decides, could-move, counted, then none
+export const effectRank = (e: Effect) => ["decides", "could-move", "counted", ""].indexOf(e);
+
 const effectOf = (e: string | undefined): Effect => (e === "decides" || e === "could-move" || e === "counted" ? e : "");
 const verdictOf = (v: string | undefined): Verdict => (v === "tp" || v === "fp" || v === "unclear" ? v : "unlabeled");
 export const isOpen = (r: FRow) => r.label === "unlabeled" || r.label === "unclear";
 
-// gateRows are a gate's changed matches (one setup reports them) from its /state, in image order
+// gateRows are a gate's changed matches (one setup reports them) from its /state, by effect like a
+// check's table, then in report order, so "next" (the first open row) is the first row j walks to
 export function gateRows(st: State): FRow[] {
   const out: FRow[] = [];
   st.subjects.forEach((s, si) => {
@@ -52,7 +57,7 @@ export function gateRows(st: State): FRow[] {
       });
     }
   });
-  return out;
+  return sortRows(out, (r) => effectRank(r.effect));
 }
 
 // checkRows are a check's findings from its findings API
@@ -98,7 +103,7 @@ export const scopedRows = (rows: FRow[], f: Filters, image: string | null) =>
 export const shownRows = (rows: FRow[], f: Filters, image: string | null) => scopedRows(rows, f, image).filter((x) => inChip(x, chipOf(f)));
 
 // nextOpen is the first unlabeled (or unclear) row with a finding page, preferring one whose label
-// can still move a check
+// can still move a check; on a list in effect order that is its first open row
 export const nextOpen = (rows: FRow[]) =>
   rows.find((r) => r.row && isOpen(r) && (r.effect === "could-move" || r.effect === "decides")) ?? rows.find((r) => r.row && isOpen(r));
 

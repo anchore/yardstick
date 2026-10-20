@@ -1,0 +1,163 @@
+import { expect, test } from "./fixtures";
+import { checkPage, gatePage, gatesPage, images, onFinding, rows } from "./helpers";
+import type { Page } from "@playwright/test";
+
+// moving through the work: "Label next" lands at the top of what j walks, j and k skip labeled
+// rows, ⇧J / ⇧K and the gate crumb move between gates, and ⌘K goes anywhere. The seed's two gates
+// are listed newest scan first, which can swap, so with two gates "the next one" is the other.
+const pager = (page: Page) => page.getByTestId("pager");
+const palette = (page: Page) => page.getByTestId("palette");
+const item = (page: Page, group: string, id: string) => palette(page).locator(`[data-testid=palette-item][data-group=${group}][data-id="${id}"]`);
+const libgnutls = "c54934489d4ac861"; // CVE-2011-3389, labeled fp
+
+test.describe("Label next", () => {
+  // the reported bug: the right row, but "9 of 12", since the list was in report order
+  test("from the gates screen opens deb-java's first open row at 1 of 10 open", async ({ page }) => {
+    await page.goto(gatesPage);
+    await page.getByTestId("label-next").click();
+    await onFinding(page, rows.jfhA);
+    await expect(page).toHaveURL(new RegExp(`/ui/gates/deb-java/findings/${rows.jfhA}$`));
+    await expect(pager(page)).toHaveText(/1 of 10 open/);
+    await expect(pager(page)).toHaveAttribute("data-index", "1");
+  });
+
+  test("and n on a gate do the same", async ({ page }) => {
+    await page.goto(gatePage());
+    await page.getByTestId("label-next").click();
+    await onFinding(page, rows.jfhA);
+    await expect(pager(page)).toHaveText(/1 of 10 open/);
+
+    await page.goto(gatePage("deb-npm"));
+    await expect(page.getByTestId("check-row")).toHaveCount(1);
+    await page.keyboard.press("n");
+    await expect(page).toHaveURL(/\/ui\/gates\/deb-npm\/findings\//);
+    await expect(pager(page)).toHaveText(/1 of 3 open/);
+  });
+});
+
+test("j and k skip labeled rows, ⌥j and ⌥k walk every row", async ({ page }) => {
+  // the gate's Findings list by effect: log4j's four, then d257 (libblkid1), the labeled
+  // libgnutls fp, then 781d (libmount1)
+  const findings = "/ui/gates/deb-java/findings";
+  await page.goto(`${findings}/${rows.utilLinux[1]}`);
+  await expect(pager(page)).toHaveText(/5 of 10 open/);
+  await page.keyboard.press("j");
+  await onFinding(page, rows.utilLinux[2]);
+  await expect(pager(page)).toHaveText(/6 of 10 open/);
+
+  await page.keyboard.press("Alt+k");
+  await onFinding(page, libgnutls);
+  await expect(pager(page)).toHaveText(/labeled · 10 open/);
+  await expect(pager(page)).toHaveAttribute("data-index", "0");
+  // from a labeled row, j and k go to the nearest open rows
+  await page.keyboard.press("k");
+  await onFinding(page, rows.utilLinux[1]);
+  await page.keyboard.press("Alt+j");
+  await onFinding(page, libgnutls);
+  await page.keyboard.press("j");
+  await onFinding(page, rows.utilLinux[2]);
+});
+
+test.describe("between gates", () => {
+  test("⇧J and ⇧K go to the other gate with open rows, keeping the tab or going up to the gate", async ({ page }) => {
+    await page.goto(`${gatePage()}labels`);
+    await expect(page.getByTestId("labels-table")).toBeVisible();
+    await page.keyboard.press("Shift+J");
+    await expect(page).toHaveURL(/\/ui\/gates\/deb-npm\/labels$/);
+    await page.keyboard.press("Shift+K");
+    await expect(page).toHaveURL(/\/ui\/gates\/deb-java\/labels$/);
+
+    await page.goto(checkPage("f1NotWorse"));
+    await expect(page.getByTestId("check-table")).toBeVisible();
+    await page.keyboard.press("Shift+J");
+    await expect(page).toHaveURL(/\/ui\/gates\/deb-npm\/$/);
+    await expect(page.getByTestId("check-row")).toHaveCount(1);
+  });
+
+  test("the gate crumb is a switcher listing every gate with its outcome and open rows", async ({ page }) => {
+    await page.goto(checkPage("f1NotWorse"));
+    await expect(page.getByTestId("check-table")).toBeVisible();
+    await page.getByTestId("gate-switch-button").click();
+    const option = (gate: string) => page.locator(`[data-testid=gate-option][data-gate=${gate}]`);
+    await expect(option("deb-java")).toHaveAttribute("aria-current", "true");
+    await expect(option("deb-java")).toHaveAttribute("data-open", "10");
+    await expect(option("deb-npm")).toHaveAttribute("data-state", "undecided");
+    await expect(option("deb-npm")).toContainText("3 open");
+
+    // Esc closes the menu and leaves the screen alone
+    await page.keyboard.press("Escape");
+    await expect(option("deb-npm")).toBeHidden();
+    await expect(page).toHaveURL(new RegExp(`${checkPage("f1NotWorse")}$`));
+
+    await page.getByTestId("gate-switch-button").click();
+    await option("deb-npm").click();
+    await expect(page).toHaveURL(/\/ui\/gates\/deb-npm\/$/);
+    await expect(page.getByTestId("check-row")).toHaveCount(1);
+  });
+});
+
+test.describe("the go-to palette", () => {
+  test("lists gates, each image once, checks and actions, and finds findings by ID or package", async ({ page }) => {
+    await page.goto(gatesPage);
+    await expect(page.getByTestId("gate-row")).toHaveCount(2);
+    await page.keyboard.press("Control+k");
+    await expect(palette(page)).toBeVisible();
+    await expect(page.getByTestId("palette-input")).toBeFocused();
+    await expect(item(page, "Gates", "deb-npm")).toBeVisible();
+    await expect(item(page, "Checks", "deb-java/f1NotWorse")).toBeVisible();
+    // deb is in both gates and listed once
+    const imgs = palette(page).locator("[data-testid=palette-item][data-group=Images]");
+    await expect(imgs).toHaveCount(3);
+    await expect(imgs.filter({ hasText: images.deb.name })).toContainText(/deb-(java|npm) \d+ open · deb-(java|npm) \d+ open/);
+    for (const a of ["hints", "queue", "history"]) await expect(item(page, "Actions", a)).toBeVisible();
+    await expect(palette(page).locator("[data-group=Findings]")).toHaveCount(0);
+
+    // the tar row is in both gates and is one finding
+    await page.getByTestId("palette-input").fill("CVE-2005-2541");
+    await expect(palette(page).locator("[data-group=Findings]")).toHaveCount(1);
+    await expect(item(page, "Findings", rows.tarDropped)).toContainText("deb-java, deb-npm");
+    await page.getByTestId("palette-input").fill("babel");
+    await expect(item(page, "Findings", rows.babel)).toBeVisible();
+
+    // keyboard only: the first match is active and Enter goes there
+    await page.getByTestId("palette-input").fill("tar 18508");
+    await page.keyboard.press("Enter");
+    await expect(palette(page)).toBeHidden();
+    await onFinding(page, rows.tarHand);
+    await expect(page).toHaveURL(new RegExp(`/ui/gates/deb-java/findings/${rows.tarHand}$`));
+  });
+
+  test("opens from any screen, closes on Esc, and goes to the flow's screens", async ({ page }) => {
+    await page.goto(checkPage("f1NotWorse"));
+    await expect(page.getByTestId("check-table")).toBeVisible();
+    await page.keyboard.press("Meta+k");
+    await expect(palette(page)).toBeVisible();
+    await page.keyboard.press("Escape");
+    await expect(palette(page)).toBeHidden();
+    await expect(page).toHaveURL(new RegExp(`${checkPage("f1NotWorse")}$`));
+
+    await page.getByTestId("goto-button").click();
+    await page.getByTestId("palette-input").fill("history");
+    await page.keyboard.press("Enter");
+    await expect(page).toHaveURL(/\/ui\/history$/);
+    await expect(page.getByTestId("title")).toHaveText("History");
+    await expect(page.getByTestId("breadcrumb")).toHaveText(/^Gates\s*›\s*History$/);
+
+    // the flow's screens load by URL too, and Esc goes up to Gates
+    for (const [path, title] of [["/ui/hints", "Agent hints"], ["/ui/queue", "Labeling"], [`/ui/queue/${rows.tarHand}`, "Labeling"]]) {
+      await page.goto(path);
+      await expect(page.getByTestId("title")).toHaveText(title);
+      await expect(page.getByTestId("placeholder")).toBeVisible();
+    }
+    await page.keyboard.press("Escape");
+    await expect(page).toHaveURL(/\/ui\/gates\/$/);
+  });
+
+  test("never opens while typing in a field", async ({ page }) => {
+    await page.goto(`${gatePage()}findings`);
+    await page.getByRole("searchbox", { name: "Filter findings" }).fill("tar");
+    await page.keyboard.press("Control+k");
+    await expect(palette(page)).toBeHidden();
+    await expect(page.getByRole("searchbox", { name: "Filter findings" })).toBeFocused();
+  });
+});

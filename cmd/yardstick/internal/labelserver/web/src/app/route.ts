@@ -8,6 +8,8 @@
 // /ui/gates/<gate>/checks/<check>/<row>               finding, reached from a check (level 3)
 // /ui/gates/<gate>/findings/<row>                     finding, reached from the gate's Findings tab
 // /ui/gates/_kit                                      the component kit (not linked from anywhere)
+// /ui/hints, /ui/queue[/<row>], /ui/history           the labeling flow's screens, placeholders until
+//                                                     its next wave builds them
 //
 // Filters ride in the query string on every level: image (slug), verdict, hint, pkg, q, page.
 
@@ -36,7 +38,10 @@ export type Route =
   | { level: "check"; gate: string; check: string; filters: Filters }
   // check is null for a finding opened from the gate's Findings tab
   | { level: "finding"; gate: string; check: string | null; row: string; filters: Filters }
-  | { level: "kit"; filters: Filters };
+  | { level: "kit"; filters: Filters }
+  | { level: "hints"; filters: Filters }
+  | { level: "queue"; row?: string; filters: Filters }
+  | { level: "history"; filters: Filters };
 
 const seg = (s: string) => encodeURIComponent(s);
 
@@ -75,13 +80,24 @@ export function formatRoute(r: Route): string {
       const list = r.check == null ? "findings" : `checks/${seg(r.check)}`;
       return `${base}${seg(r.gate)}/${list}/${seg(r.row)}${query(r.filters)}`;
     }
+    case "hints": case "history": return `/ui/${r.level}${query(r.filters)}`;
+    case "queue": return `/ui/queue${r.row ? `/${seg(r.row)}` : ""}${query(r.filters)}`;
   }
 }
 
 // parseRoute is the route a location names, or null for a path outside the app's
 export function parseRoute(pathname: string, search = ""): Route | null {
-  if (!pathname.startsWith(base)) return null;
   const params = new URLSearchParams(search), filters = parseFilters(params);
+  const flow = /^\/ui\/(?:(hints|history)|queue(?:\/([^/]+))?)\/?$/.exec(pathname);
+  if (flow) {
+    if (flow[1]) return { level: flow[1] as "hints" | "history", filters };
+    try {
+      return flow[2] ? { level: "queue", row: decodeURIComponent(flow[2]), filters } : { level: "queue", filters };
+    } catch {
+      return null;
+    }
+  }
+  if (!pathname.startsWith(base)) return null;
   let p: string[];
   try {
     p = pathname.slice(base.length).split("/").filter(Boolean).map(decodeURIComponent);
@@ -109,7 +125,7 @@ export function parseRoute(pathname: string, search = ""): Route | null {
 export function up(r: Route): Route | null {
   switch (r.level) {
     case "gates": return null;
-    case "kit": return { level: "gates", tab: "gates", filters: {} };
+    case "kit": case "hints": case "queue": case "history": return { level: "gates", tab: "gates", filters: {} };
     case "gate": return { level: "gates", tab: "gates", filters: {} };
     case "check": return { level: "gate", gate: r.gate, tab: "checks", filters: r.filters.image ? { image: r.filters.image } : {} };
     case "finding":
@@ -119,14 +135,15 @@ export function up(r: Route): Route | null {
   }
 }
 
-export interface Crumb { label: string; href: string }
+// a gate's crumb names its gate, which the shell gives a switcher
+export interface Crumb { label: string; href: string; gate?: string }
 
 // crumbs is the breadcrumb, nouns only, top first; the last one is the current page. Each crumb is
 // where Esc goes from the one after it, so a finding's gate crumb returns to the tab it came from.
 // row names the finding's crumb (its vulnerability ID) when the caller knows it, else the row id.
 export function crumbs(r: Route, row?: string): Crumb[] {
   const out: Crumb[] = [];
-  for (let at: Route | null = r; at; at = up(at)) out.unshift({ label: label(at, row), href: formatRoute(at) });
+  for (let at: Route | null = r; at; at = up(at)) out.unshift({ label: label(at, row), href: formatRoute(at), ...(at.level === "gate" && { gate: at.gate }) });
   return out;
 }
 
@@ -137,8 +154,18 @@ function label(r: Route, row?: string): string {
     case "gate": return r.gate;
     case "check": return r.check;
     case "finding": return row || r.row;
+    case "hints": return "Agent hints";
+    case "queue": return "Labeling";
+    case "history": return "History";
   }
 }
+
+// gateOf is the gate a route is in, or null above or outside every gate
+export const gateOf = (r: Route) => ("gate" in r ? r.gate : null);
+
+// inGate is the route r becomes in another gate (the crumb switcher, ⇧J and ⇧K): a gate screen
+// keeps its tab, and anything deeper or outside a gate goes to the gate's Checks
+export const inGate = (r: Route, gate: string): Route => ({ level: "gate", gate, tab: r.level === "gate" ? r.tab : "checks", filters: {} });
 
 // withFilters is the same route with its filters changed; a filter set to undefined is dropped,
 // and the page goes back to 1 unless the change is the page
