@@ -4,7 +4,8 @@
 // goto.ts's, every word of the query, so the command runs in its manual filter mode.
 import { el, fill, toast } from "../shared/dom";
 import { gateList, gateState } from "./data";
-import { actions, checkEntries, findingEntries, gateEntries, gateItems, imageEntries, matching, moreWords, type Entry, type Group } from "./goto";
+import { actions, checkEntries, findingEntries, gateEntries, gateItems, imageEntries, matching, moreWords, routeActions, type Entry, type Group } from "./goto";
+import { parseRoute } from "./route";
 import { kbd, status, verdict } from "./ui";
 
 const groups: Group[] = ["Gates", "Images", "Checks", "Findings", "Actions"];
@@ -49,6 +50,9 @@ function build() {
   return {
     dialog,
     async open() {
+      // the screen's own actions (research this gate, this check) come first among the actions
+      const here = routeActions(parseRoute(location.pathname, location.search)), acts = [...here, ...actions];
+      entries = acts;
       input.value = "";
       draw();
       dialog.showModal();
@@ -56,10 +60,10 @@ function build() {
       // gates and images from the list, then checks and findings from each gate's state
       try {
         const list = await gateList();
-        entries = [...gateEntries(gateItems(list)), ...imageEntries(list), ...actions];
+        entries = [...gateEntries(gateItems(list)), ...imageEntries(list), ...acts];
         draw();
         const states = await Promise.all(list.gates.filter((g) => !g.error).map(async (g) => ({ gate: g.id, state: await gateState(g.id) })));
-        entries = [...gateEntries(gateItems(list)), ...imageEntries(list), ...checkEntries(states), ...actions];
+        entries = [...gateEntries(gateItems(list)), ...imageEntries(list), ...checkEntries(states), ...acts];
         findings = findingEntries(states);
         if (dialog.open) draw();
       } catch (e) {

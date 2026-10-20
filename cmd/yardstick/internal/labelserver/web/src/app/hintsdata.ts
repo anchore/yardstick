@@ -1,7 +1,8 @@
 // hintsdata.ts is hint review's logic: the review page's scope in its URL, which hints start
 // checked, what a selection labels in each gate's preview, what stays open after it, and the work
 // numbers the gates page leads with. Pure: hints.ts and banner.ts draw it.
-import type { CrossFinding, HintEntry } from "../gen/wire";
+import type { CrossFinding, HintEntry, ResearchSummary } from "../gen/wire";
+import { doing, inFlight, type Doing } from "../shared/agent";
 import { plural } from "../shared/words";
 import type { State as Status } from "./ui";
 
@@ -99,12 +100,12 @@ export function imageHints(hs: HintEntry[], gate: string): Map<string, ImageHint
   return out;
 }
 
-// OpenRow is an open row of a gate, as "still open" lists it
-export interface OpenRow { gate: string; row: string; vuln: string; pkg: string }
+// OpenRow is an open row of a gate, as "still open" lists it, with its newest research job
+export interface OpenRow { gate: string; row: string; vuln: string; pkg: string; research?: ResearchSummary }
 
 // Left is one line of what stays open after a selection: a hint left unchecked (with its rows), or
-// a row no shown hint covers
-export interface Left { text: string; gates: string[]; why: string }
+// a row no shown hint covers, marked with its job when one is in flight on it
+export interface Left { text: string; gates: string[]; why: string; job?: Doing }
 
 // stillOpen is what stays open in the gates' open rows once the selected hints are accepted, in
 // the rows' order, each row once however many gates it is in
@@ -121,6 +122,7 @@ export function stillOpen(rows: OpenRow[], shown: HintEntry[], selected: Set<str
       text: h ? `${h.rows[0].package.name} ${h.rows[0].vulnerability}` : `${r.pkg} ${r.vuln}`,
       gates: [], rows: new Set<string>(),
       why: !h ? "no hint" : selected.has(h.id) ? "its hint closes nothing" : "hint unchecked",
+      ...(!h && inFlight(r.research) && { job: doing(r.research, { open: true, researched: false }) }),
     };
     x.rows.add(r.row);
     if (!x.gates.includes(r.gate)) x.gates.push(r.gate);

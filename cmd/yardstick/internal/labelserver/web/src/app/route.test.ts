@@ -22,6 +22,10 @@ const routes: Route[] = [
   { level: "gate", gate: "deb-java", tab: "findings", filters: { pkg: "org.apache.logging.log4j" } },
   { level: "research", filters: {} },
   { level: "research", scope: "gate:deb-java", filters: {} },
+  { level: "research", scope: "gate:deb-java", check: "f1NotWorse", filters: {} },
+  { level: "research", scope: "gate:deb-java", rows: ["e3bfd3b0b0c30ee6", "0fe9fc814bcd060a"], filters: {} },
+  { level: "research", groups: ["change", "none"], filters: {} },
+  { level: "jobs", filters: {} },
   { level: "hints", filters: {} },
   { level: "queue", filters: {} },
   { level: "queue", row: "e1af7851f0e60bb4", filters: { image: "core" } },
@@ -61,6 +65,12 @@ describe("formatRoute", () => {
     expect(formatRoute({ level: "research", scope: "gate:deb-java", filters: {} })).toBe("/ui/research?scope=gate%3Adeb-java");
     expect(formatRoute({ level: "research", scope: "all", filters: {} })).toBe("/ui/research");
     expect(crumbs({ level: "research", filters: {} }).map((c) => c.label)).toEqual(["Gates", "Research"]);
+    expect(formatRoute({ level: "research", scope: "gate:deb-java", check: "f1NotWorse", rows: ["a", "b"], groups: ["none"], filters: {} }))
+      .toBe("/ui/research?scope=gate%3Adeb-java&check=f1NotWorse&rows=a%2Cb&groups=none");
+  });
+  test("the jobs page sits under research", () => {
+    expect(formatRoute({ level: "jobs", filters: {} })).toBe("/ui/research/jobs");
+    expect(crumbs({ level: "jobs", filters: {} }).map((c) => c.label)).toEqual(["Gates", "Research", "Jobs"]);
   });
   test("page 1 stays out of the URL", () => {
     expect(formatRoute({ level: "gate", gate: "g", tab: "labels", filters: { page: 1 } })).toBe("/ui/gates/g/labels");

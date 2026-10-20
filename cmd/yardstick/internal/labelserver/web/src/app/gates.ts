@@ -1,11 +1,13 @@
 // gates.ts is level 0, /ui/gates/: every gate in the workspace, one per row, with tabs for the open
 // findings across gates (today's every-gate queue, as a table) and every label in the workspace.
-import type { CrossFinding, GateListItem, SharedState } from "../gen/wire";
-import { el, fill } from "../shared/dom";
+import type { CrossFinding, GateListItem, SharedState, State } from "../gen/wire";
+import * as api from "../shared/api";
+import { doing, inFlight } from "../shared/agent";
+import { el, fill, toast } from "../shared/dom";
 import { outcome as outcomeOf, pkgOf } from "../shared/rows";
 import { plural, sideWords } from "../shared/words";
 import { workBanner, type Work } from "./banner";
-import { acceptCross, everyLabel, gateList, labelCross, shared } from "./data";
+import { acceptCross, everyLabel, freshShared, gateList, gateState, labelCross, shared } from "./data";
 import { hintWords, labelPicker } from "./findings";
 import { labelsTable, type LRow } from "./labelstable";
 import { openOf } from "./images";
@@ -13,6 +15,7 @@ import { labelText, mergeLabels, pageInfo, shortSource, square, sumTally, type W
 import { failed, listCursor, loading, primary, shown } from "./lists";
 import { queueFor } from "./queuelist";
 import { formatRoute, withFilters, type Route } from "./route";
+import { bulkResearch, cellFor, follow, researchOf, started, type Research } from "./researchtable";
 import { renderShell, type Nav, type View } from "./shell";
 import { filterRows } from "./table";
 import { dataTable } from "./tableview";
@@ -28,7 +31,9 @@ export function gatesView(host: HTMLElement, r0: Route & { level: "gates" }, nav
   const alive = shown(r);
   // a filter change before the data is in draws the screen again
   const out: View = { update: () => false };
-  const load = () => Promise.all([gateList(), shared(), everyLabel()]).then(([list, sh, byGate]) => {
+  // the Unlabeled tab prices research by a gate's state: one job costs the same in every gate
+  const firstState = () => gateList().then((l) => { const g = l.gates.find((x) => !x.error); return g ? gateState(g.id) : undefined; });
+  const load = () => Promise.all([gateList(), shared(), everyLabel(), r.tab === "unlabeled" ? firstState() : undefined]).then(([list, sh, byGate, st]) => {
     if (!alive()) return;
     const labels = mergeLabels(byGate);
     const body = el("div", { class: "screen" });
@@ -42,7 +47,7 @@ export function gatesView(host: HTMLElement, r0: Route & { level: "gates" }, nav
       meta: [...new Set(labels.map((l) => shortSource(l.source)))].join(" + "),
       body,
     });
-    const tab = r.tab === "unlabeled" ? unlabeledTab(sh, r, nav, load) : r.tab === "labels" ? labelsTab(labels, r, nav) : gatesTab(list.gates, work);
+    const tab = r.tab === "unlabeled" ? unlabeledTab(sh, st, r, nav, load) : r.tab === "labels" ? labelsTab(labels, r, nav) : gatesTab(list.gates, work);
     fill(body, tab.el);
     out.key = (e) => tab.key(e);
     out.update = (n) => { r = n as typeof r; return tab.update?.(n) ?? false; };
@@ -87,10 +92,33 @@ function gatesCell(f: CrossFinding) {
     }));
 }
 
-// unlabeledTab is every open finding across gates, the ones whose label decides the most gates first
-function unlabeledTab(sh: SharedState, r0: Route, nav: Nav, reload: () => void): Tab {
-  let r = r0;
-  const byKey = new Map(sh.findings.map((f) => [f.key, f]));
+// rowsOf are a finding's rows, one per gate's appearance, each once
+const rowsOf = (fs: CrossFinding[]) => [...new Set(fs.flatMap((f) => f.in.map((a) => a.row)))];
+const crossHint = (f: CrossFinding) => (f.hint?.status === "pending" ? hint(hintWords({ verdict: f.hint.verdict, confidence: f.hint.confidence, kind: "proposal" })) : f.cause ? hint("package hint") : null);
+const crossDoing = (f: CrossFinding) => doing(f.research, { open: true, researched: f.research?.status === "done" });
+
+// unlabeledTab is every open finding across gates, the ones whose label decides the most gates
+// first. Research here runs each finding once, under the gate the research page would pick.
+function unlabeledTab(sh0: SharedState, st: State | undefined, r0: Route, nav: Nav, reload: () => void): Tab {
+  let r = r0, sh = sh0;
+  let byKey = new Map(sh.findings.map((f) => [f.key, f]));
+  const research: Research = researchOf(st);
+  const redraw = async () => {
+    sh = await freshShared();
+    byKey = new Map(sh.findings.map((f) => [f.key, f]));
+    update(r);
+  };
+  async function start(fs: CrossFinding[]) {
+    try {
+      const res = await api.researchQueue({ rows: rowsOf(fs) });
+      started(res.jobs?.length ?? 0, res.skipped.active);
+    } catch (e) {
+      toast((e as Error).message, true);
+      return false;
+    }
+    await redraw().catch(() => undefined);
+    return true;
+  }
   const table = dataTable<CrossFinding>({
     testid: "unlabeled-table", id: (f) => f.key, rows: [],
     open: (f) => f.in[0] && nav({ level: "finding", gate: f.in[0].gate, check: null, row: f.in[0].row, filters: {} }),
@@ -99,16 +127,21 @@ function unlabeledTab(sh: SharedState, r0: Route, nav: Nav, reload: () => void):
       { key: "package", label: "Package", cell: (f) => { const p = pkgOf(f.package.ref); return el("span", { class: "mono" }, p.name, " ", el("small", {}, p.version)); }, sort: (f) => pkgOf(f.package.ref).name, title: (f) => f.package.ref, truncate: true },
       { key: "image", label: "Image", cell: (f) => imageName(f.image), sort: (f) => f.image, title: (f) => f.image, truncate: true },
       { key: "gates", label: "Gates", cell: gatesCell, sort: (f) => f.in.length, title: (f) => f.in.map((a) => `${a.gate}: ${sideWords[a.dir]}`).join(", "), truncate: true },
-      { key: "hint", label: "Agent hint", cell: (f) => (f.hint?.status === "pending" ? hint(hintWords({ verdict: f.hint.verdict, confidence: f.hint.confidence, kind: "proposal" })) : f.cause ? hint("package hint") : el("span", { class: "muted" }, "–")), sort: (f) => f.hint?.verdict ?? (f.cause ? "~" : "") },
+      { key: "hint", label: "Agent hint", cell: (f) => cellFor({ hint: crossHint(f), research: f.research, open: true, researched: f.research?.status === "done" }, research, () => void start([f])), sort: (f) => f.hint?.verdict ?? (f.cause ? "~" : "") },
       { key: "effect", label: "Effect", cell: (f) => (f.flips ? [couldMove(), el("small", {}, ` in ${plural(f.flips, "gate")}`)] : el("span", { class: "muted" }, `bears on ${plural(f.bears, "gate")}`)), sort: (f) => f.flips * 100 + f.bears, num: false },
     ],
     select: { bulk: (ids, clear) => {
       const fs = ids.map((k) => byKey.get(k)).filter((f): f is CrossFinding => !!f);
       const hinted = fs.filter((f) => f.hint?.status === "pending" || f.cause).length;
+      // a finding's job covers its siblings: the same vulnerability and source package in its image
+      const rs = bulkResearch(fs.map((f) => ({ id: f.key, open: true, hinted: !!crossHint(f), doing: crossDoing(f).kind, job: `${f.image}|${f.sourcePackage}|${f.vulnerability}` })), research,
+        { start: (keys) => start(keys.map((k) => byKey.get(k)!)), clear, page: (keys) => nav({ level: "research", rows: rowsOf(keys.map((k) => byKey.get(k)!)), filters: {} }) });
       return [
-        el("button", { type: "button", class: "btn", "data-variant": "outline", "data-size": "sm", "data-testid": "bulk-accept", disabled: !hinted,
+        rs.button,
+        el("button", { type: "button", class: `btn${!rs.leads && hinted ? " go" : ""}`, "data-variant": "outline", "data-size": "sm", "data-testid": "bulk-accept", disabled: !hinted,
           onclick: async () => { if (await acceptCross(fs)) clear(); reload(); } }, `Accept hints (${hinted})`),
         labelPicker(sh.vocabulary, async (v, j) => { if (await labelCross(fs, v, j)) clear(); reload(); }),
+        rs.why,
       ];
     } },
     foot: (shown) => plural(shown.length, "open finding"),
@@ -116,12 +149,13 @@ function unlabeledTab(sh: SharedState, r0: Route, nav: Nav, reload: () => void):
   });
   const search: HTMLInputElement = el("input", { class: "input search", type: "search", placeholder: "Filter by CVE, package, image, gate…", "aria-label": "Filter findings", value: r.filters.q ?? "",
     oninput: () => nav(withFilters(r, { q: search.value }), true) });
-  const update = (n: Route) => {
+  function update(n: Route) {
     r = n;
     table.update(filterRows(sh.findings, r.filters.q ?? "", crossText));
     return true;
-  };
+  }
   update(r);
+  follow(table.el, () => sh.findings.some((f) => inFlight(f.research)), redraw);
   return { el: [el("div", { class: "filters" }, el("p", { class: "help" }, "Labels are about a match, not a gate: one label counts in every gate that reports it."), search), table.el], key: table.key, update };
 }
 

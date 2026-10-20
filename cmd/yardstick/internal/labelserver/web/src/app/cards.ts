@@ -29,8 +29,9 @@ export function boundaryCard(o: { label: string; gate: string; before?: string; 
     el("div", { class: "acts" }, button([`Continue to ${o.next} `, kbd("⏎")], "card-continue", true, o.go!), button(`Back to ${o.gate}`, "card-back", false, o.back)));
 }
 
-// stopCard is the stopping point: every gate's outcome, and the rows left, none of which changes one
-export function stopCard(o: { gates: QueueGate[]; left: QueueEntry[]; foot: string } & CardActions) {
+// stopCard is the stopping point: every gate's outcome, and the rows left, none of which changes one;
+// research is the way to have an agent look at them first
+export function stopCard(o: { gates: QueueGate[]; left: QueueEntry[]; foot: string; research?: Child } & CardActions) {
   return card("stop", "Stopping point",
     el("div", { class: "outc" }, o.gates.map((g) => outcomeRow(g.name, g.outcome))),
     el("p", { class: "foot" }, o.foot),
@@ -38,7 +39,7 @@ export function stopCard(o: { gates: QueueGate[]; left: QueueEntry[]; foot: stri
       const p = pkgOf(e.package.ref);
       return el("li", { "data-row": e.row }, el("b", {}, e.vulnerability), " ", el("span", { class: "mono" }, `${p.name} ${p.version}`), el("small", {}, ` · ${e.in.map((a) => a.gate).join(", ")} · changes no outcome`));
     })),
-    el("div", { class: "acts" }, button(["Keep labeling ", kbd("⏎")], "card-continue", true, o.go!), button("Back to gates", "card-back", false, o.back)));
+    el("div", { class: "acts" }, button(["Keep labeling ", kbd("⏎")], "card-continue", true, o.go!), o.research, button("Back to gates", "card-back", false, o.back)));
 }
 
 // endCard is the queue with nothing open: every gate's outcome and what this session wrote

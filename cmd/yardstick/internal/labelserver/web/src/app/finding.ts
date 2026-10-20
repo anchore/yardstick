@@ -9,6 +9,7 @@ import { records, matchPath } from "../shared/matchpath";
 import { imageRelease, releaseName } from "../shared/names";
 import { decoded, direction, pkgOf } from "../shared/rows";
 import { dirWords, justWords, labels, plural, ruleWords, whyText } from "../shared/words";
+import { kick } from "./activity";
 import { forget, written } from "./data";
 import { loadFinding, researching, type FindingData } from "./finding-data";
 import { effect, mutedReason, pendingCause, seenWith, shortSource, type Dir } from "./finding-words";
@@ -74,6 +75,7 @@ export function findingView(host: HTMLElement, r: FindingRoute, nav: Nav, q?: Qu
       d = next;
       lastList = { key: listKey, items: next.list };
       paint();
+      if (researching(next.row)) void follow();
     } catch (e) {
       if (mine !== current || !live()) return;
       renderShell(host, r, { title: "Not found", body: el("div", { class: "placeholder", "data-testid": "placeholder" }, (e as Error).message) });
@@ -94,7 +96,7 @@ export function findingView(host: HTMLElement, r: FindingRoute, nav: Nav, q?: Qu
     const pager = el("span", { class: "pager", "data-testid": "pager", "data-index": pos.index + 1, "data-total": pos.total, "data-open": pos.open },
       pageLink(pos.prev, "previous"), where, pageLink(pos.next, "next"));
     const aliases = (row.aliases ?? []).filter((a) => a !== row.vulnerability);
-    lp = labelPanel(d, draft, advancing(), { save, accept, acceptAll, skip: () => (q ? q.step(1, false) : go(pos.next, "last one in this list")), research }, q?.outcomes);
+    lp = labelPanel(d, draft, advancing(), { save, accept, acceptAll, skip: () => (q ? q.step(1, false) : go(pos.next, "last one in this list")), research, cancelResearch }, q?.outcomes);
     renderShell(host, r, {
       title: row.vulnerability,
       row: row.vulnerability,
@@ -184,13 +186,31 @@ export function findingView(host: HTMLElement, r: FindingRoute, nav: Nav, q?: Qu
     if (!d) return;
     const off = d.state.research && !d.state.research.available ? d.state.research : null;
     if (off) return toast(`research disabled: ${off.reason}${off.command ? `; run ${off.command}` : ""}`, true);
-    try { await api.research(r.gate, { rows: [d.row.id] }); } catch (e) { return toast((e as Error).message, true); }
+    try { await api.research(r.gate, { rows: [d.row.id], from: "finding" }); } catch (e) { return toast((e as Error).message, true); }
     toast("research started; what it finds arrives as an agent hint");
+    void kick();
     await load();
-    for (let i = 0; i < 90 && d && researching(d.row) && live(); i++) {
+    await follow();
+  }
+  // follow redraws while a job is queued or running on the row, however it was started
+  let following = false;
+  async function follow() {
+    if (following) return;
+    following = true;
+    for (let i = 0; i < 300 && d && researching(d.row) && live(); i++) {
       await sleep(2000);
       if (live()) await load();
     }
+    following = false;
+  }
+  async function cancelResearch() {
+    if (!d) return;
+    try {
+      const res = await api.cancelResearch(r.gate, [d.row.id]);
+      toast(res.cancelled.length ? "research cancelled" : res.notCancelled[0]?.why ?? "nothing to cancel");
+    } catch (e) { return toast((e as Error).message, true); }
+    void kick();
+    await load();
   }
 
   // ---------- keys (UI-RULES: the same at every level) ----------

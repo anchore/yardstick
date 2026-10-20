@@ -4,13 +4,14 @@
 // note, Save and Skip, and research. Whether Save goes on to the next match is a setting in the cog.
 import type { Basis } from "../gen/research";
 import type { StateCause, claimsv1 } from "../gen/wire";
-import { provenance, researchLine } from "../shared/agent";
+import { doing, inFlight, jobHref, provenance, researchLine } from "../shared/agent";
 import { el, type Child } from "../shared/dom";
 import { direction, isResearched, outcome, pkgOf } from "../shared/rows";
 import { dots, justWords, labels, ruleWords } from "../shared/words";
 import type { FindingData } from "./finding-data";
 import { mutedReason, panel, reasons, seenWith, shortSource } from "./finding-words";
 import { about, money } from "./researchwords";
+import { tick } from "./researchtable";
 import type { GateLines } from "./queuewords";
 import { kbd, verdict, type Verdict } from "./ui";
 
@@ -23,6 +24,7 @@ export interface PanelActions {
   acceptAll: (c: StateCause) => void;
   skip: () => void;
   research: () => void;
+  cancelResearch: () => void;
 }
 
 export interface LabelPanel {
@@ -119,7 +121,7 @@ export function labelPanel(d: FindingData, draft: Draft, advance: boolean, on: P
     el("label", { class: "field" }, "Note", note),
     el("div", { class: "acts" }, save, el("button", { type: "button", class: "btn", "data-variant": "outline", "data-testid": "skip-button", onclick: on.skip }, "Skip ", kbd("j"))),
     el("div", { class: "research", "data-testid": "research-foot" },
-      line ? el("span", { "data-testid": "research-status", "data-state": row.research?.status }, line) : null,
+      line ? researchStatus(row, line, on.cancelResearch) : null,
       el("button", { type: "button", class: "btn", "data-variant": "ghost", "data-size": "sm", "data-testid": "research-button", "data-researched": isResearched(row), disabled: !!off, onclick: on.research,
         title: off ? `research disabled: ${off.reason}${off.command ? `; run ${off.command}` : ""}` : "an agent researches this match and leaves a hint" },
       isResearched(row) ? "Research again " : "Research ", price && el("span", { class: "costpill", "data-testid": "research-price" }, `~${money(price.mean)}`), " ", kbd("R")),
@@ -128,6 +130,21 @@ export function labelPanel(d: FindingData, draft: Draft, advance: boolean, on: P
   return { el: root, pick, focusReason: () => { if (!reason.disabled) reason.focus(); }, advance: (on) => { save.textContent = on ? "Save and next" : "Save"; } };
 }
 
+
+// researchStatus is the row's research line: while a job is queued or running, in the table cell's
+// words and glyphs with the way to the job (and its log once it runs) and Cancel
+function researchStatus(row: FindingData["row"], line: string, cancel: () => void) {
+  const j = row.research!;
+  if (!inFlight(j)) return el("span", { "data-testid": "research-status", "data-state": j.status }, line);
+  const d = doing(j, { open: true, researched: false }), running = j.status === "running";
+  if (running) tick();
+  return el("span", { class: "rline" },
+    el("span", { class: `rs ${running ? "run" : "q"}`, "data-testid": "research-status", "data-state": j.status }, `${d.word} `,
+      el("small", running ? { "data-since": j.started } : {}, d.small), running && j.model && el("small", {}, ` · ${j.model[0].toUpperCase()}${j.model.slice(1)}`)),
+    el("a", { class: "lk", href: jobHref(j.job), "data-testid": "research-job-link" }, "view job"),
+    running && el("a", { class: "lk", href: `/api/research/${encodeURIComponent(j.job)}/log`, target: "_blank", rel: "noopener" }, "log"),
+    j.cancellable && el("button", { type: "button", class: "lk", "data-testid": "research-cancel-row", onclick: cancel }, "cancel"));
+}
 
 // jobWords say what one research job on the row is: how long it takes, and the sibling packages
 // that share it, so a click's reach is known before it is made

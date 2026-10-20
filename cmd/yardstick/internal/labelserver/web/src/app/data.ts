@@ -29,12 +29,21 @@ function once<T>(path: string): Promise<T> {
 // forget drops every cached GET, for a write made outside this module (the finding page's)
 export const forget = () => cache.clear();
 
+// fresh is a cached GET read again, for a list following research in flight
+function fresh<T>(path: string): Promise<T> {
+  cache.delete(path);
+  return once<T>(path);
+}
+
 const g = (gate: string) => `/api/gates/${encodeURIComponent(gate)}`;
 
 export const gateList = () => once<GateList>("/api/gates");
 export const shared = () => once<SharedState>("/api/gates/shared");
 export const gateState = (gate: string) => once<State>(`${g(gate)}/state`);
 export const checkFindings = (gate: string, check: string) => once<CheckFindings>(`${g(gate)}/checks/${encodeURIComponent(check)}/findings`);
+export const freshState = (gate: string) => fresh<State>(`${g(gate)}/state`);
+export const freshFindings = (gate: string, check: string) => fresh<CheckFindings>(`${g(gate)}/checks/${encodeURIComponent(check)}/findings`);
+export const freshShared = () => fresh<SharedState>("/api/gates/shared");
 
 export interface LabelQuery { verdict?: string; image?: string; q?: string; offset?: number; limit?: number }
 export function gateLabels(gate: string, q: LabelQuery = {}) {

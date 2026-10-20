@@ -205,8 +205,8 @@ func (s *Server) Handler() http.Handler {
 			s.servePage(w, "assets/app/index.html")
 		}
 	})
-	// the labeling flow's screens, the same page: hint review, the queue, what was written and research
-	for _, p := range []string{"/ui/hints", "/ui/queue", "/ui/queue/{row}", "/ui/history", "/ui/research"} {
+	// the labeling flow's screens, the same page: hint review, the queue, what was written, research and its jobs
+	for _, p := range []string{"/ui/hints", "/ui/queue", "/ui/queue/{row}", "/ui/history", "/ui/research", "/ui/research/jobs"} {
 		mux.HandleFunc("GET "+p, app)
 	}
 

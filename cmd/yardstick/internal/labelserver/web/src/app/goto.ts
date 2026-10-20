@@ -5,7 +5,7 @@ import { plural } from "../shared/words";
 import { openOf } from "./images";
 import { gateRows, sumTally } from "./listing";
 import { filterRows } from "./table";
-import { formatRoute } from "./route";
+import { formatRoute, gateOf, type Route } from "./route";
 import type { State as Status, Verdict } from "./ui";
 
 export interface GateItem { id: string; state: Status; open: number; total: number }
@@ -98,7 +98,20 @@ export const actions: Entry[] = [
   { group: "Actions", id: "queue", text: "Label what's left", detail: "one open match at a time, across gates", href: "/ui/queue", search: "label what's left queue next open", key: "n" },
   { group: "Actions", id: "research", text: "Research open matches", detail: "price and start research of the open matches with no hint", href: "/ui/research", search: "research open matches rows agent cost batch", key: "r" },
   { group: "Actions", id: "history", text: "History", detail: "the labels written, newest first", href: "/ui/history", search: "history labels written undo", key: undefined },
+  { group: "Actions", id: "jobs", text: "Research jobs", detail: "what research is running, waiting and done", href: "/ui/research/jobs", search: "research jobs running queued cancel log", key: undefined },
 ];
+
+// routeActions are the actions only some screens have: research this gate (on a gate, check or
+// finding) and this check (on a check)
+export function routeActions(r: Route | null): Entry[] {
+  const gate = r && gateOf(r);
+  if (!gate) return [];
+  const out: Entry[] = [{ group: "Actions", id: "research-gate", text: "Research this gate", detail: `price and start research of ${gate}'s open matches with no hint`,
+    href: formatRoute({ level: "research", scope: `gate:${gate}`, filters: {} }), search: `research this gate ${gate} agent cost` }];
+  if (r.level === "check") out.push({ group: "Actions", id: "research-check", text: "Research this check", detail: `the open matches with no hint that bear on ${r.check}`,
+    href: formatRoute({ level: "research", scope: `gate:${gate}`, check: r.check, filters: {} }), search: `research this check ${r.check} agent cost` });
+  return out;
+}
 
 // findingLimit caps the findings a query shows; a real workspace has thousands
 export const findingLimit = 30;

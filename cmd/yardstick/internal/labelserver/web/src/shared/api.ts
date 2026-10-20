@@ -1,7 +1,7 @@
 // api.ts is the write token and the per-gate API calls the finding page and the lists' writes
 // make, typed against the server's generated wire types.
 import type {
-  AcceptCauseResponse, AcceptResponse, CancelResponse, LabelKey, LabelsRequest, LabelsResponse, MatchesResponse, ResearchBatch, ResearchQueueRequest,
+  AcceptCauseResponse, AcceptResponse, CancelResponse, LabelKey, LabelsRequest, LabelsResponse, MatchesResponse, ResearchBatch, ResearchJobs, ResearchQueueRequest,
   ResearchQueueResponse, ResearchRequest, ResearchResponse, RevertResponse, RowResponse, State,
 } from "../gen/wire";
 
@@ -30,6 +30,8 @@ export const acceptCause = (gate: string, cause: string, rows: string[]) =>
   post<AcceptCauseResponse>(gate, `/package-hints/${encodeURIComponent(cause)}/accept`, { rows });
 // research takes rows, or a selection the server resolves (ResearchRequest's rows are then left out)
 export const research = (gate: string, body: Partial<ResearchRequest>) => post<ResearchResponse>(gate, "/research", body);
+// cancelResearch cancels the newest research job on each row, when this server holds it
+export const cancelResearch = (gate: string, rows: string[]) => post<CancelResponse>(gate, "/research/cancel", { rows });
 // revert removes labels from the writable claims source: a write's labels undo it
 export const revert = (labels: LabelKey[]) => postTo<RevertResponse>("/api/history/revert", { labels });
 
@@ -38,3 +40,5 @@ export const revert = (labels: LabelKey[]) => postTo<RevertResponse>("/api/histo
 export const researchQueue = (body: ResearchQueueRequest) => postTo<ResearchQueueResponse>("/api/research", body);
 export const researchBatch = () => call<ResearchBatch | null>("/api/research/batch");
 export const cancelBatch = (id: string) => postTo<CancelResponse>("/api/research/batch/cancel", { id });
+// every research job, newest first, and where the work in flight stands
+export const researchJobs = () => call<ResearchJobs>("/api/research/jobs");

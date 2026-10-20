@@ -1,6 +1,7 @@
 // shell.ts is the chrome every screen shares (UI-RULES 5): one app bar, one breadcrumb, one title
 // row, then the image rail beside the tabs and the screen's body.
 import { el, fill, type Child } from "../shared/dom";
+import { activityChip } from "./activity";
 import type { Rail } from "./rail";
 import { crumbs, formatRoute, gateTabs, gatesTabs, type Route } from "./route";
 import { openPalette } from "./palette";
@@ -73,6 +74,7 @@ export function renderShell(host: HTMLElement, r: Route, v: ShellView): Shell {
       el("a", { class: "brand", href: "/ui/gates/" }, "yardstick ", el("span", {}, "claims")),
       el("span", { class: "sp" }),
       el("span", { class: "meta" }, v.meta),
+      activityChip(),
       el("button", { type: "button", class: "btn goto", "data-variant": "ghost", "data-size": "sm", "data-testid": "goto-button", onclick: openPalette }, "Go to… ", kbd(/Mac|iP/.test(navigator.platform) ? "⌘K" : "Ctrl K")),
       settings(v.prefs)),
     v.bar,

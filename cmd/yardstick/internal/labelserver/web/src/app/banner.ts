@@ -15,6 +15,7 @@ import { gateState } from "./data";
 import { fetchHints, fetchQueue, preview } from "./hints";
 import { aloneWords, hintedRows, hintsHref, inScope, previewLabels, waitWords, workNumbers, type OpenRow } from "./hintsdata";
 import { openOf } from "./images";
+import { formatRoute } from "./route";
 import { gateRows, isOpen, sumTally } from "./listing";
 import { active, batchWords, estimate, finishedWords, leadWords, money, summary } from "./researchwords";
 import { kbd, status, verdict, type State as Status } from "./ui";
@@ -128,7 +129,7 @@ export function workBanner(list: GateList): Work {
       ? so.map((v) => el("div", { class: "r", "data-testid": "research-so-far", "data-verdict": v }, verdict(v), el("span", {}, plural(b.hints[v], "hint")),
         v === "unclear" && el("span", { class: "quiet" }, "these still need you")))
       : el("span", { class: "muted" }, "No hints yet."));
-    fill(foot, "Cancelling stops the queued jobs and the running ones. Finished hints stay.");
+    fill(foot, "Cancelling stops the queued jobs and the running ones. Finished hints stay. ", el("a", { href: "/ui/research/jobs", "data-testid": "work-jobs" }, "View jobs"));
   }
 
   // watch reads the batch until it is done, then draws the banner again with what it left
@@ -176,7 +177,9 @@ export function workBanner(list: GateList): Work {
       const jobs = run || !plan ? 0 : change?.jobs.filter((j) => j.gate === g.id).length ?? 0, e = plan && estimate(jobs, plan.estimate.basis, plan.concurrency);
       fill(cells.get(g.id)!, `${h} hinted · ${needWords(Math.max(0, open - h))}`,
         el("small", {}, count ? `${plural(count, "hint")} · ${aloneWords(before, after.get(g.id)!)}` : "no hints"),
-        jobs > 0 && e && el("span", { class: "costpill", "data-testid": "gate-research" }, e.basis.measured ? `research ~${money(e.mean)}` : `research: ${plural(jobs, "job")}`));
+        // a link inside the row's link: the browser follows the innermost one
+        jobs > 0 && e && el("a", { class: "costpill", href: formatRoute({ level: "research", scope: `gate:${g.id}`, filters: {} }), "data-testid": "gate-research" },
+          e.basis.measured ? `research ~${money(e.mean)}` : `research: ${plural(jobs, "job")}`));
     }
     if (run) return;
     if (!priced) fill(outcomes, gates.map((g) => {

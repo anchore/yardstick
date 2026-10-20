@@ -2,7 +2,7 @@
 // check's findings per image, and every finding it counts, labeled and unlabeled, in one table
 // with chips, search, "Group by" and the bulk bar.
 import { el } from "../shared/dom";
-import { checkFindings, gateState } from "./data";
+import { checkFindings, freshFindings, freshState, gateState } from "./data";
 import { findingsList, grouping, type Grouping } from "./findings";
 import { checkCounts, checkMeter, countWords, railImages } from "./gate";
 
@@ -12,7 +12,9 @@ import { checkRows, nextOpen, type FRow } from "./listing";
 import { failed, loading, primary, shown } from "./lists";
 import { railHints } from "./hints";
 import { imageRail } from "./rail";
-import { queueFor } from "./queuelist";
+import { queueFor, researchFor } from "./queuelist";
+import { scopedResearch } from "./research";
+import { researchOf } from "./researchtable";
 import { formatRoute, withFilters, type Route } from "./route";
 import { renderShell, type Nav, type View } from "./shell";
 import { imageName, status, type State as Status } from "./ui";
@@ -24,7 +26,8 @@ export function checkView(host: HTMLElement, r0: CheckRoute, nav: Nav): View {
   const { gate, check } = r, alive = shown(r), out: View = { update: () => false };
   const load = () => Promise.all([checkFindings(gate, check), gateState(gate)]).then(([f, st]) => {
     if (!alive()) return;
-    const c = f.check, rows = checkRows(f);
+    const c = f.check;
+    let rows = checkRows(f, st);
     const images = railImages(st).map((i) => ({ ...i, counts: f.images[i.slug] ?? noCounts }));
     const imageOf = (slug: string | undefined) => images.find((i) => i.slug === slug) ?? null;
     const rail = imageRail({ images, selected: imageOf(r.filters.image)?.slug ?? null, scope: "check", onSelect: (slug) => nav(withFilters(r, { image: slug ?? undefined })) });
@@ -42,15 +45,22 @@ export function checkView(host: HTMLElement, r0: CheckRoute, nav: Nav): View {
     (["none", "image", "package"] as Grouping[]).map((g) => el("option", { value: g }, `Group by: ${g}`)));
 
     let shownRows: FRow[] = [];
-    const list = findingsList({ gate, route: r, nav, vocab: st.vocabulary, reload: load, extra: [toggle, group], testid: "check-table",
+    const fresh = async () => {
+      const [nf, ns] = await Promise.all([freshFindings(gate, check), freshState(gate)]);
+      return (rows = checkRows(nf, ns));
+    };
+    const list = findingsList({ gate, route: r, nav, vocab: st.vocabulary, reload: load, extra: [toggle, group], testid: "check-table", research: researchOf(st), fresh,
       open: (x) => x.row && nav({ level: "finding", gate, check, row: x.row, filters: r.filters }) });
     const next = () => nextOpen(shownRows) ?? nextOpen(rows);
 
     const n = checkCounts(st, c, null), first = next();
+    // research of the rows that bear on this check, in its gate whatever the image filter
+    const research = scopedResearch({ key: true });
+    research.set(researchFor(r), (k, _, g) => (g === "change" ? `${k} that could move it` : `${k} that ${k === 1 ? "changes" : "change"} no outcome`));
     const shell = renderShell(host, r, {
       title: check, status: status(c.state as Status, true),
       sub: f.note || `${c.description.charAt(0).toUpperCase()}${c.description.slice(1)}. ${sentenceCase(countWords(n))}.`,
-      actions: [checkMeter(c), primary("Label next", first ? formatRoute(queueFor(r)) : null)],
+      actions: [checkMeter(c), research.el, primary("Label next", first ? formatRoute(queueFor(r)) : null)],
       meta: st.scans.gate.split("/").pop(),
       rail,
       body: el("div", { class: "screen" }, list.el),
@@ -65,7 +75,7 @@ export function checkView(host: HTMLElement, r0: CheckRoute, nav: Nav): View {
     };
     update(r);
     out.update = update;
-    out.key = (e) => list.table.key(e) || rail.key(e);
+    out.key = (e) => (e.key === "r" && research.go()) || list.table.key(e) || rail.key(e);
   }).catch((e) => alive() && renderShell(host, r, { title: check, body: failed(e) }));
   renderShell(host, r, { title: check, body: loading() });
   load();

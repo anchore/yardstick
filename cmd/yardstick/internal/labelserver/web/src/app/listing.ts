@@ -1,7 +1,8 @@
 // listing.ts is the list screens' logic: one finding row shape for every findings table, the filter
 // chips and their counts, paging, the gate list's image strip, and labels across gates. Pure: no
 // DOM; the screens draw it.
-import type { CheckFindings, CrossFinding, GateLabel, ImageRef, State, Tally } from "../gen/wire";
+import type { CheckFindings, CrossFinding, GateLabel, ImageRef, ResearchSummary, State, StateRow, Tally } from "../gen/wire";
+import { inFlight } from "../shared/agent";
 import { pkgOf, srcPkg } from "../shared/rows";
 import { openOf } from "./images";
 import type { Filters, VerdictFilter } from "./route";
@@ -27,6 +28,9 @@ export interface FRow {
   change: string;         // added, dropped, both or neither
   hint: FHint | null;
   effect: Effect;
+  research?: ResearchSummary;  // the newest research job on the row
+  researched?: boolean;        // research finished on it, whatever it left
+  shares?: string[];           // the sibling rows a research job on it covers
 }
 
 // effectRank orders findings the way the server's check findings are (gateapi.go effectRank):
@@ -55,21 +59,28 @@ export function gateRows(st: State): FRow[] {
         id: r.id, row: r.id, label, vuln: r.vulnerability, pkg: p.name, version: p.version, purl: r.package.ref, src: srcPkg(r), image,
         change: r.inCandidate ? "added" : "dropped", hint,
         effect: effectOf(r.effect), // the server's, as the check findings say it
+        research: r.research, researched: !!r.researched, shares: r.researchShares ?? [],
       });
     }
   });
   return sortRows(out, (r) => effectRank(r.effect));
 }
 
-// checkRows are a check's findings from its findings API
-export function checkRows(f: CheckFindings): FRow[] {
-  return f.findings.map((x) => ({
-    id: x.row || `${x.image.slug}|${x.package.purl}|${x.vulnerability}`, row: x.row, label: verdictOf(x.label?.verdict),
-    vuln: x.vulnerability, pkg: x.package.name || pkgOf(x.package.purl).name, version: x.package.version || pkgOf(x.package.purl).version,
-    purl: x.package.purl ?? "", src: x.package.name, image: x.image, change: x.direction,
-    hint: x.hint ? { verdict: x.hint.verdict, confidence: x.hint.confidence, kind: x.hint.kind === "cause" ? "cause" : "proposal" } : null,
-    effect: effectOf(x.effect),
-  }));
+// checkRows are a check's findings from its findings API, with the research on each row from the
+// gate's state when given
+export function checkRows(f: CheckFindings, st?: State): FRow[] {
+  const byId = new Map<string, StateRow>(st?.subjects.flatMap((s) => s.rows.map((r) => [r.id, r] as const)) ?? []);
+  return f.findings.map((x) => {
+    const s = x.row ? byId.get(x.row) : undefined;
+    return {
+      id: x.row || `${x.image.slug}|${x.package.purl}|${x.vulnerability}`, row: x.row, label: verdictOf(x.label?.verdict),
+      vuln: x.vulnerability, pkg: x.package.name || pkgOf(x.package.purl).name, version: x.package.version || pkgOf(x.package.purl).version,
+      purl: x.package.purl ?? "", src: x.package.name, image: x.image, change: x.direction,
+      hint: x.hint ? { verdict: x.hint.verdict, confidence: x.hint.confidence, kind: x.hint.kind === "cause" ? "cause" : "proposal" } : null,
+      effect: effectOf(x.effect),
+      research: s?.research, researched: !!s?.researched, shares: s?.researchShares ?? [],
+    };
+  });
 }
 
 // rowText is what the search box matches a finding against
@@ -77,19 +88,21 @@ export const rowText = (r: FRow) => `${r.vuln} ${r.pkg} ${r.version} ${r.purl} $
 
 // ---------- filter chips ----------
 
-export type Chip = VerdictFilter | "all" | "hint";
-export const chips: Chip[] = ["all", "unlabeled", "tp", "fp", "unclear", "hint"];
-export const chipWords: Record<Chip, string> = { all: "All", unlabeled: "Unlabeled", tp: "TP", fp: "FP", unclear: "Unclear", hint: "Has hint" };
+// researching is the chip shown only while some row in view has a research job on it, so it isn't
+// in chips, whose counts are always shown
+export type Chip = VerdictFilter | "all" | "hint" | "researching";
+export const chips = ["all", "unlabeled", "tp", "fp", "unclear", "hint"] as const satisfies Chip[];
+export const chipWords: Record<Chip, string> = { all: "All", unlabeled: "Unlabeled", tp: "TP", fp: "FP", unclear: "Unclear", hint: "Has hint", researching: "Researching" };
 
-export const chipOf = (f: Filters): Chip => (f.hint === "yes" ? "hint" : f.verdict ?? "all");
+export const chipOf = (f: Filters): Chip => (f.hint === "yes" ? "hint" : f.hint === "researching" ? "researching" : f.verdict ?? "all");
 export const chipFilters = (c: Chip): Partial<Filters> =>
-  c === "hint" ? { hint: "yes", verdict: undefined } : { verdict: c === "all" ? undefined : c, hint: undefined };
-export const inChip = (r: FRow, c: Chip) => c === "all" || (c === "hint" ? !!r.hint : r.label === c);
+  c === "hint" || c === "researching" ? { hint: c === "hint" ? "yes" : c, verdict: undefined } : { verdict: c === "all" ? undefined : c, hint: undefined };
+export const inChip = (r: FRow, c: Chip) => c === "all" || (c === "hint" ? !!r.hint : c === "researching" ? inFlight(r.research) : r.label === c);
 
 // chipCounts are each chip's count over rows, which the caller has already scoped to the image and
 // the search, so the counts follow them
-export function chipCounts(rows: FRow[]): Record<Chip, number> {
-  const n = Object.fromEntries(chips.map((c) => [c, 0])) as Record<Chip, number>;
+export function chipCounts(rows: FRow[]): Record<(typeof chips)[number], number> {
+  const n = Object.fromEntries(chips.map((c) => [c, 0])) as Record<(typeof chips)[number], number>;
   for (const r of rows) for (const c of chips) if (inChip(r, c)) n[c]++;
   return n;
 }

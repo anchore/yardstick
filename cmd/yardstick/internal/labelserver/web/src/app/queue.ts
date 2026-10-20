@@ -5,6 +5,7 @@
 // is queuelist.ts's and the words queuewords.ts's.
 import type { CheckFindings, History, LabelKey, Queue, QueueEntry } from "../gen/wire";
 import { el, toast } from "../shared/dom";
+import { plural } from "../shared/words";
 import { boundaryCard, endCard, stopCard } from "./cards";
 import { getJSON, written } from "./data";
 import { findingView, type QueueMode } from "./finding";
@@ -15,6 +16,7 @@ import { entryGate, exitRoute, newlyDone, ordered, pickNext, scopeGate, walk, ty
 import { boundaryWords, outcomeLines, progress, sessionLabels, sessionWords, settledWords, whyNext } from "./queuewords";
 import { formatRoute } from "./route";
 import { skipping } from "./settings";
+import { scopedResearch } from "./research";
 import { renderShell, type Nav, type View } from "./shell";
 import { kbd, status, step, type State } from "./ui";
 
@@ -131,7 +133,10 @@ export function queueView(host: HTMLElement, r: QueueRoute, nav: Nav): View {
     s.stopped = true;
     keep(s);
     const next = () => { const row = pickNext(q.entries, [], s.skipped); if (row) go(row); };
-    showCard(q, "Every gate is decided", null, stopCard({ gates: q.gates, left: q.entries, foot: settledWords(q.entries.length), back: gatesHref, go: next }), next);
+    // what's left changes no outcome, so research covers it all, priced by the queue's scope
+    const research = scopedResearch({ small: true });
+    research.set({ level: "research", ...(r.scope && r.scope !== "all" && { scope: r.scope }), filters: {} }, (n, jobs) => `the ${n} left, ${plural(jobs, "job")}`);
+    showCard(q, "Every gate is decided", null, stopCard({ gates: q.gates, left: q.entries, foot: settledWords(q.entries.length), back: gatesHref, go: next, research: research.el }), next);
   }
 
   // ---------- after a write ----------

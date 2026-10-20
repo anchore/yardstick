@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import type { Basis } from "../gen/research";
-import type { ResearchBatch, ResearchGroup } from "../gen/wire";
-import { about, basisWords, batchWords, estimate, estimateWords, finishedWords, leadWords, summary, tokens } from "./researchwords";
+import type { ResearchBatch, ResearchGroup, ResearchJob } from "../gen/wire";
+import { about, activityWords, basisWords, batchWords, bulkPlan, bulkWords, costWords, estimate, estimateWords, finishedWords, fromWords, jobGroups, leadWords, newHints, stateWords, summary, timeWords, tokens, type BulkRow } from "./researchwords";
 
 // the built-in sonnet numbers (research/cost.go) and a model with no history
 const sonnet: Basis = { model: "sonnet", measured: true, source: "measured 2026-10-19", n: 23, min: 0.18, mean: 0.23, max: 0.28, tokensIn: 310_000, tokensOut: 4_700, seconds: 55 };
@@ -59,5 +59,61 @@ describe("lead words", () => {
     expect(leadWords(change(6, "deb-npm", "deb-npm", "deb-java", "deb-java"), 6)).toBe("6 matches across 2 gates can still change an outcome. The other 6 change none.");
     expect(leadWords(change(1, "deb-java"), 1)).toBe("1 match across 1 gate can still change an outcome. The other 1 changes none.");
     expect(leadWords(change(1, "deb-java"))).toBe("1 match across 1 gate can still change an outcome.");
+  });
+});
+
+describe("a table selection's Research", () => {
+  const r = (id: string, extra: Partial<BulkRow> = {}): BulkRow => ({ id, open: true, hinted: false, doing: "offer", ...extra });
+  test("the mockup's three: one hinted, two open, priced by jobs", () => {
+    const p = bulkPlan([r("h", { hinted: true }), r("a"), r("b")]);
+    expect(p).toEqual({ rows: ["a", "b"], jobs: 2, shared: 0, skip: { hinted: 1, active: 0, researched: 0, labeled: 0 } });
+    expect(bulkWords(p, { ...sonnet, mean: 0.25, seconds: 55 }, 2)).toEqual({ button: "Research 2", price: "· ~$0.50", why: "Research skips 1 with a hint. 2 jobs, about a minute at 2 at a time.", over: false });
+  });
+  test("siblings share a job, by their share list or a job key", () => {
+    expect(bulkPlan([r("c1", { shares: ["c2"] }), r("c2", { shares: ["c1"] }), r("d")])).toMatchObject({ rows: ["c1", "c2", "d"], jobs: 2, shared: 1 });
+    expect(bulkPlan([r("x", { job: "k" }), r("y", { job: "k" })])).toMatchObject({ jobs: 1, shared: 1 });
+    expect(bulkWords(bulkPlan([r("c1", { shares: ["c2"] }), r("c2")]), opus).why).toBe("1 job, 1 sharing a sibling's.");
+  });
+  test("in flight, labeled and researched rows are skipped and named", () => {
+    const p = bulkPlan([r("run", { doing: "running", hinted: true }), r("q", { doing: "queued" }), r("l", { open: false, doing: "none" }), r("n", { doing: "nohint" }), r("f", { doing: "failed" })]);
+    expect(p).toEqual({ rows: ["f"], jobs: 1, shared: 0, skip: { hinted: 0, active: 2, researched: 1, labeled: 1 } });
+    expect(bulkWords(bulkPlan([r("q", { doing: "queued" }), r("h", { hinted: true })]), sonnet, 2)).toEqual({ button: "Research 0", price: "", why: "Nothing to research: 1 with a hint, 1 already researching.", over: false });
+  });
+  test("over ten jobs it goes through the research page", () => {
+    const w = bulkWords(bulkPlan(Array.from({ length: 11 }, (_, i) => r(`r${i}`))), sonnet, 2);
+    expect(w.over).toBe(true);
+    expect(w.button).toBe("Research 11…");
+    expect(w.why).toEndWith("More than 10, so the research page shows the estimate first.");
+  });
+});
+
+describe("the jobs page", () => {
+  const job = (id: string, extra: Partial<ResearchJob> = {}): ResearchJob =>
+    ({ id, rows: ["r1"], vulnerability: "CVE-1", package: "glibc", status: "done", command: "", dir: "", queued: "2026-10-20T10:00:00Z", hints: [], ...extra });
+  test("groups running, queued in run order and finished newest first", () => {
+    const g = jobGroups([job("q2", { status: "queued", position: 2 }), job("old", { finished: "2026-10-20T10:01:00Z" }), job("run", { status: "running" }),
+      job("q1", { status: "queued", position: 1 }), job("new", { status: "failed", finished: "2026-10-20T10:05:00Z" })]);
+    expect([g.running, g.queued, g.finished].map((x) => x.map((j) => j.id))).toEqual([["run"], ["q1", "q2"], ["new", "old"]]);
+  });
+  test("each row says where it started, its state, time and cost", () => {
+    expect(fromWords(job("a", { from: "research", batch: "3f9a21c0deadbeef" }))).toBe("research page · batch 3f9a21c0");
+    expect(fromWords(job("a", { from: "table", rows: ["x", "y"] }))).toBe("findings table · 2 rows");
+    expect(fromWords(job("a", { from: "finding" }))).toBe("finding page");
+    expect(fromWords(job("a"))).toBe("not recorded");
+    expect([stateWords(job("a", { status: "queued", position: 3 })), stateWords(job("a", { status: "timed-out" })), stateWords(job("a", { status: "cancelled" }))]).toEqual(["3rd", "failed", "cancelled"]);
+    const now = Date.parse("2026-10-20T10:01:00Z");
+    expect(timeWords(job("a", { status: "running", started: "2026-10-20T10:00:19Z" }), sonnet, 2, now)).toBe("0:41");
+    expect(timeWords(job("a", { started: "2026-10-20T10:00:00Z", finished: "2026-10-20T10:00:58Z" }), sonnet, 2)).toBe("0:58");
+    expect(timeWords(job("a", { status: "queued", position: 1 }), sonnet, 2)).toBe("~2 min");
+    expect(timeWords(job("a", { status: "cancelled" }), sonnet, 2)).toBe("–");
+    expect(costWords(job("a", { usage: { costUSD: 0.24, inputTokens: 0, cacheReadTokens: 0, cacheCreationTokens: 0, outputTokens: 0, turns: 0, durationMs: 0 } }), sonnet)).toBe("$0.24");
+    expect([costWords(job("a", { status: "queued" }), sonnet), costWords(job("a", { status: "queued" }), opus), costWords(job("a", { status: "running" }), sonnet)]).toEqual(["~$0.23", "–", "–"]);
+  });
+  test("new hints are the pending ones jobs left", () => {
+    const jobs = [job("a", { hints: [{ id: "h1", verdict: "fp" }, { id: "h2", verdict: "tp" }] }), job("b")];
+    expect(newHints(jobs, [{ id: "h2" }, { id: "skill" }])).toBe(1);
+  });
+  test("the top bar's chip", () => {
+    expect([activityWords({ running: 2, queued: 13 }), activityWords({ running: 1, queued: 0 }), activityWords({ running: 0, queued: 4 })]).toEqual(["2 researching · 13 queued", "1 researching", "4 queued"]);
   });
 });

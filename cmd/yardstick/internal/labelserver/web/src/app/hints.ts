@@ -1,7 +1,7 @@
 // hints.ts is hint review, /ui/hints?gate=&image=&low=: every pending agent hint in the scope,
 // grouped by what accepting it alone does, checked per hintsdata's preselection, beside a sticky
 // panel that previews the selection's joint effect on every gate it touches and accepts it in one go.
-import type { GateList, GateResult, HintEntry, HintsAcceptResponse, HintsResponse, Queue, State, Vocabulary } from "../gen/wire";
+import type { GateList, GateResult, HintEntry, HintsAcceptResponse, HintsResponse, Queue, ResearchJobsSummary, State, Vocabulary } from "../gen/wire";
 import { token } from "../shared/api";
 import { el, fill, toast, type Child } from "../shared/dom";
 import { dots, labels as words, plural, sideWords } from "../shared/words";
@@ -11,6 +11,9 @@ import { noCounts, type RailImage } from "./images";
 import { gateRows, isOpen } from "./listing";
 import { failed, loading, shown } from "./lists";
 import { imageRail, type Rail } from "./rail";
+import { busy, kick, latest, onJobs } from "./activity";
+import { scopedResearch } from "./research";
+import { about } from "./researchwords";
 import type { Route } from "./route";
 import { renderShell, type Nav, type View } from "./shell";
 import { imageName, outcome, status, verdict, type State as Status } from "./ui";
@@ -115,10 +118,14 @@ export function hintsView(host: HTMLElement, r0: Route & { level: "hints" }, _na
 
     const igs = el("div", { class: "igs" });
     const left = el("div", { class: "left", "data-testid": "impact-left" });
+    // the open matches in scope no agent has looked at, offered for research
+    const research = scopedResearch({ all: true, small: true });
+    research.set({ level: "research", ...(scope.image ? { scope: `image:${scope.image}` } : scope.gate ? { scope: `gate:${scope.gate}` } : {}), filters: {} },
+      (n) => `the ${n} with no job`);
     const accept: HTMLButtonElement = el("button", { type: "button", class: "btn", "data-testid": "accept-hints", onclick: () => void doAccept() });
     const impact = el("aside", { class: "impact", "data-testid": "impact", "aria-live": "polite" },
       el("h2", {}, "If you accept the selected"), igs,
-      el("div", { class: "ig" }, el("span", { class: "caps" }, "Still open after this"), left),
+      el("div", { class: "ig" }, el("span", { class: "caps" }, "Still open after this"), left, research.el),
       accept,
       el("p", { class: "foot" }, "Nothing is written until you accept. Accepted hints become labels with the agent's note, attributed to you."));
 
@@ -127,7 +134,7 @@ export function hintsView(host: HTMLElement, r0: Route & { level: "hints" }, _na
       sub: hints.length ? `${plural(hints.length, "hint")} on ${plural(rowCount(hints), "match", "matches")} · ${uniq(hints.map((h) => h.skill || h.author.skill || "agent")).join(", ")}` : undefined,
       actions: chips,
       rail,
-      body: el("div", { class: "screen" }, filters,
+      body: el("div", { class: "screen" }, onTheWay(), filters,
         hints.length
           ? el("div", { class: "review" }, el("div", { class: "hgroups" }, groupEls), impact)
           : el("div", { class: "placeholder", "data-testid": "hints-empty" }, "No pending agent hints here.")),
@@ -138,7 +145,7 @@ export function hintsView(host: HTMLElement, r0: Route & { level: "hints" }, _na
     // the open rows in scope, for what stays open
     const open: OpenRow[] = gates.flatMap((g) => gateRows(d.states.get(g.id)!)
       .filter((x) => x.row && isOpen(x) && (!scope.image || x.image.slug === scope.image))
-      .map((x) => ({ gate: g.id, row: x.row!, vuln: x.vuln, pkg: x.pkg })));
+      .map((x) => ({ gate: g.id, row: x.row!, vuln: x.vuln, pkg: x.pkg, research: x.research })));
 
     let seq = 0, timer: ReturnType<typeof setTimeout> | undefined;
     const selected = () => hints.filter((h) => boxes.get(h.id)?.checked);
@@ -156,7 +163,10 @@ export function hintsView(host: HTMLElement, r0: Route & { level: "hints" }, _na
       accept.dataset.hints = String(sel.length);
       accept.dataset.rows = String(rows);
       const items = stillOpen(open, hints, ids);
-      fill(left, items.length ? [items.slice(0, 8).map((x) => el("div", { class: "it", "data-testid": "impact-left-item" }, el("span", {}, x.text), el("small", {}, `${x.gates.join(", ")} · ${x.why}`))),
+      fill(left, items.length ? [items.slice(0, 8).map((x) => el("div", { class: "it", "data-testid": "impact-left-item" }, el("span", {}, x.text),
+        el("small", {}, `${x.gates.join(", ")} · `, x.job
+          ? el("span", { class: `rs ${x.job.kind === "running" ? "run" : "q"}`, "data-testid": "impact-left-job", "data-state": x.job.kind }, [x.job.word, x.job.small].filter(Boolean).join(" "))
+          : x.why))),
         items.length > 8 && el("small", {}, `and ${items.length - 8} more`)] : el("span", { class: "muted" }, "Nothing in scope."));
       clearTimeout(timer);
       timer = setTimeout(() => void previewAll(sel), 150);
@@ -196,6 +206,24 @@ export function hintsView(host: HTMLElement, r0: Route & { level: "hints" }, _na
   renderShell(host, r, { title: "Agent hints", body: loading() });
   load();
   return out;
+}
+
+// onTheWay is the strip saying more hints are coming while research is in flight, with the way to
+// the jobs; it follows the top bar's reads of the jobs
+function onTheWay() {
+  const strip = el("div", { class: "strip", hidden: true, "data-testid": "hints-on-the-way" });
+  const draw = (s: ResearchJobsSummary) => {
+    strip.hidden = !busy(s);
+    const doing = [s.running && `${s.running} researching`, s.queued && `${s.queued} queued`].filter(Boolean).join(", ");
+    fill(strip, el("span", { class: "rs run" }, `${s.running + s.queued} more on the way`),
+      el("span", { class: "quiet" }, [doing, s.secondsLeft && about(s.secondsLeft)].filter(Boolean).join(" · ")),
+      el("span", { class: "sp" }), el("a", { class: "lk", href: "/ui/research/jobs", "data-testid": "hints-jobs" }, "View jobs"));
+  };
+  const was = latest();
+  if (was) draw(was.summary);
+  onJobs((j) => { if (!strip.isConnected) return false; draw(j.summary); });
+  void kick();
+  return strip;
 }
 
 // byLine is what accepting the hint makes its row (a TP or FP hint), else the side that reports it,

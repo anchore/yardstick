@@ -19,10 +19,11 @@ import { hintsView } from "./hints";
 import { hintsHref } from "./hintsdata";
 import { historyView } from "./history";
 import { gateItems, nextGate } from "./goto";
+import { jobsView } from "./jobs";
 import { kitView } from "./kit";
 import { openPalette } from "./palette";
 import { queueView } from "./queue";
-import { queueFor } from "./queuelist";
+import { queueFor, researchFor } from "./queuelist";
 import { researchView } from "./research";
 import { crumbs, formatRoute, gateOf, inGate, parseRoute, up, type Route } from "./route";
 import { renderShell, type View } from "./shell";
@@ -58,7 +59,8 @@ function render() {
               : next.level === "hints" ? hintsView(host, next, nav)
                 : next.level === "queue" ? queueView(host, next, nav)
                   : next.level === "research" ? researchView(host, next, nav)
-                    : historyView(host, next, nav);
+                    : next.level === "jobs" ? jobsView(host, next, nav)
+                      : historyView(host, next, nav);
 }
 
 function notFound(): View {
@@ -115,10 +117,12 @@ document.addEventListener("keydown", (e) => {
     e.preventDefault();
     return;
   }
-  // r on the gates screen opens research of the open rows no agent has looked at (a finding's R is its own)
-  if (e.key === "r" && !e.altKey && route?.level === "gates") {
+  // r opens research of the open rows no agent has looked at, scoped as n is: from the gates screen
+  // every gate, from a gate, an image or a check theirs (their Research button takes it first, with
+  // the group it leads with). A finding's R is its own.
+  if (e.key === "r" && !e.altKey && (route?.level === "gates" || route?.level === "gate" || route?.level === "check")) {
     e.preventDefault();
-    nav({ level: "research", filters: {} });
+    nav(researchFor(route));
     return;
   }
   // n enters the queue at the next open row in this screen's scope (queuelist.ts queueFor)

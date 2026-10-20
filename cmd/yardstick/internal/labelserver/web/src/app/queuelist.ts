@@ -22,6 +22,15 @@ export function queueFor(r: Route): QueueRoute {
   return { level: "queue", scope: `gate:${r.gate}`, ...(check && { check }), filters: {} };
 }
 
+// researchFor is the research page r opens from a screen, scoped the way n is: a check's rows bearing
+// on it (in its gate, whatever the image filter), an image filter's image, a gate; anywhere else
+// every gate
+export function researchFor(r: Route): Extract<Route, { level: "research" }> {
+  if (r.level === "check") return { level: "research", scope: `gate:${r.gate}`, check: r.check, filters: {} };
+  const scope = queueFor(r).scope;
+  return scope ? { level: "research", scope, filters: {} } : { level: "research", filters: {} };
+}
+
 // scopeGate is the gate a gate scope names, or null for all and for an image
 export const scopeGate = (scope: string | undefined) => (scope?.startsWith("gate:") ? scope.slice(5) : null);
 

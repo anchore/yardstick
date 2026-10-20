@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import type { GateList, State } from "../gen/wire";
-import { actions, findingEntries, gateItems, imageEntries, matching, nextGate, type GateItem } from "./goto";
+import { actions, findingEntries, gateItems, imageEntries, matching, nextGate, routeActions, type GateItem } from "./goto";
 
 const t = (open: number, total = open) => ({ tp: 0, fp: 0, unclear: 0, hinted: 0, open, total });
 const deb = { name: "deb:617d48d", slug: "deb-617d48d", ref: "ghcr.io/x/deb:617d48d@sha256:1" };
@@ -58,11 +58,17 @@ describe("the palette", () => {
   });
   test("matches every word of the query, and findings only once there is one", () => {
     const fs = findingEntries(states);
-    expect(matching(actions, fs, "").shown.map((e) => e.id)).toEqual(["hints", "queue", "research", "history"]);
+    expect(matching(actions, fs, "").shown.map((e) => e.id)).toEqual(["hints", "queue", "research", "history", "jobs"]);
     expect(matching(actions, fs, "tar 2026").shown.map((e) => e.id)).toEqual(["e3bfd3b0b0c30ee6"]);
     expect(matching(actions, fs, "gzip").shown.map((e) => e.text)).toEqual(["CVE-2026-41992"]);
     // not by the image, whose name may hold a package's
     expect(matching(actions, fs, "deb:617d48d").shown).toEqual([]);
     expect(matching(actions, fs, "hint").shown.map((e) => e.href)).toEqual(["/ui/hints"]);
+  });
+  test("a gate, check or finding adds researching its gate, and a check that check", () => {
+    expect(routeActions({ level: "gates", tab: "gates", filters: {} })).toEqual([]);
+    expect(routeActions({ level: "finding", gate: "deb-java", check: null, row: "r", filters: {} }).map((e) => `${e.text} ${e.href}`)).toEqual(["Research this gate /ui/research?scope=gate%3Adeb-java"]);
+    expect(routeActions({ level: "check", gate: "deb-java", check: "f1NotWorse", filters: {} }).map((e) => e.href))
+      .toEqual(["/ui/research?scope=gate%3Adeb-java", "/ui/research?scope=gate%3Adeb-java&check=f1NotWorse"]);
   });
 });

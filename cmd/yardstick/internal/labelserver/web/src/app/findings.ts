@@ -1,12 +1,17 @@
 // findings.ts is the findings table the gate's Findings tab and a check share (UI-RULES: every list
 // is the same table, prefiltered): verdict chips whose counts follow the image and the search, the
-// search box, the table, and the bulk bar that accepts hints or labels the rows selected.
+// search box, the table, and the bulk bar that accepts hints, researches or labels the rows
+// selected. The Agent hint cell says what research is doing on a row and offers it
+// (researchtable.ts), and the table follows its rows' jobs while any is in flight.
 import type { Vocabulary } from "../gen/wire";
-import { el, fill } from "../shared/dom";
+import * as api from "../shared/api";
+import { doing, inFlight } from "../shared/agent";
+import { el, fill, toast } from "../shared/dom";
 import { outcome as outcomeOf, outcomeRank } from "../shared/rows";
 import { labels as words } from "../shared/words";
 import { acceptHints, labelOptions, labelRows } from "./data";
-import { chipCounts, chipFilters, chipOf, chips, chipWords, effectRank, scopedRows, shownRows, type FRow } from "./listing";
+import { chipCounts, chipFilters, chipOf, chips, chipWords, effectRank, inChip, isOpen, scopedRows, shownRows, type FRow } from "./listing";
+import { bulkResearch, cellFor, follow, started, type Research } from "./researchtable";
 import { withFilters, type Route } from "./route";
 import type { Nav } from "./shell";
 import { dataTable, type Column, type Table } from "./tableview";
@@ -45,6 +50,8 @@ export interface FindingsOptions {
   reload: () => void;         // after a write: fetch again and update
   extra?: HTMLElement[];      // more controls in the filter row, before the search box
   testid?: string;
+  research: Research;
+  fresh: () => Promise<FRow[]>; // the rows read again, for research in flight
 }
 
 export interface FindingsList {
@@ -55,46 +62,72 @@ export interface FindingsList {
 }
 
 export function findingsList(o: FindingsOptions): FindingsList {
-  let r = o.route, rows: FRow[] = [];
+  let r = o.route, rows: FRow[] = [], image: string | null = null;
   const byId = () => new Map(rows.map((x) => [x.id, x]));
+  const redraw = async () => { const next = await o.fresh(); out.update(r, next, image); };
+  // start researches rows through the gate, from a table, and shows them queued in place
+  async function start(ids: string[]) {
+    try {
+      const res = await api.research(o.gate, { rows: ids, from: "table" });
+      started(res.queued, res.skipped);
+    } catch (e) {
+      toast((e as Error).message, true);
+      return false;
+    }
+    await redraw().catch(() => undefined);
+    return true;
+  }
+  const columns = findingColumns.map((c): Column<FRow> => (c.key !== "hint" ? c : { ...c,
+    cell: (x) => cellFor({ hint: x.hint && hint(hintWords(x.hint)), research: x.research, open: isOpen(x), researched: !!x.researched }, o.research,
+      x.row ? () => void start([x.row!]) : null) }));
   const search: HTMLInputElement = el("input", { class: "input search", type: "search", placeholder: "Filter by CVE, package, image…", "aria-label": "Filter findings", value: r.filters.q ?? "",
     oninput: () => o.nav(withFilters(r, { q: search.value }), true) });
   const chipRow = el("div", { class: "chips", role: "group", "aria-label": "Filter by label" });
   // the scan map's package filter, shown while it's on with a way off
   const pkgChip = el("span", { class: "scope", hidden: true, "data-testid": "package-chip" });
   const table = dataTable<FRow>({
-    columns: findingColumns, rows: [], id: (x) => x.id, sort: null, open: o.open, testid: o.testid ?? "findings-table",
+    columns, rows: [], id: (x) => x.id, sort: null, open: o.open, testid: o.testid ?? "findings-table",
     select: { bulk: (ids, clear) => {
       const picked = ids.map((id) => byId().get(id)).filter((x): x is FRow => !!x && !!x.row);
       const hinted = picked.filter((x) => x.hint).length;
+      const rs = bulkResearch(picked.map((x) => ({ id: x.row!, open: isOpen(x), hinted: !!x.hint, doing: doing(x.research, { open: isOpen(x), researched: !!x.researched }).kind, shares: x.shares })), o.research,
+        { start, clear, page: (ids) => o.nav({ level: "research", scope: `gate:${o.gate}`, rows: ids, filters: {} }) });
       return [
-        el("button", { type: "button", class: "btn", "data-variant": "outline", "data-size": "sm", "data-testid": "bulk-accept", disabled: !hinted,
+        rs.button,
+        el("button", { type: "button", class: `btn${!rs.leads && hinted ? " go" : ""}`, "data-variant": "outline", "data-size": "sm", "data-testid": "bulk-accept", disabled: !hinted,
           onclick: async () => { if (await acceptHints(o.gate, picked)) clear(); o.reload(); } }, `Accept hints (${hinted})`),
         labelPicker(o.vocab, async (v, j) => { if (await labelRows(o.gate, picked.map((x) => x.row!), v, j)) clear(); o.reload(); }),
+        rs.why,
       ];
     } },
     foot: (shown) => `${shown.length.toLocaleString()} ${shown.length === 1 ? "finding" : "findings"}`,
   });
 
-  return {
+  const out: FindingsList = {
     el: [el("div", { class: "filters" }, chipRow, pkgChip, o.extra, search), table.el],
     table,
-    update(next, all, image) {
+    update(next, all, img) {
       r = next;
       rows = all;
+      image = img;
       if (document.activeElement !== search && search.value !== (r.filters.q ?? "")) search.value = r.filters.q ?? "";
       const pkg = r.filters.pkg;
       pkgChip.hidden = !pkg;
       fill(pkgChip, pkg && ["package: ", el("b", {}, pkg), el("button", { type: "button", class: "x", "aria-label": "Clear package filter", onclick: () => o.nav(withFilters(r, { pkg: undefined })) }, "×")]);
       // the chips count what the image, the package and the search leave, so they follow the rail
-      const n = chipCounts(scopedRows(all, r.filters, image)), on = chipOf(r.filters);
-      fill(chipRow, chips.map((c) => el("button", { type: "button", class: "chip", "aria-pressed": String(c === on), "data-chip": c,
-        onclick: () => o.nav(withFilters(r, chipFilters(c))) }, chipWords[c], " ", el("b", {}, n[c].toLocaleString()))));
+      // "Researching" shows only while some row in view has a job on it (or while it's picked)
+      const scoped = scopedRows(all, r.filters, image), n = chipCounts(scoped), on = chipOf(r.filters);
+      const busy = scoped.filter((x) => inChip(x, "researching")).length;
+      const chip = (c: typeof on, count: number) => el("button", { type: "button", class: "chip", "aria-pressed": String(c === on), "data-chip": c,
+        onclick: () => o.nav(withFilters(r, chipFilters(c))) }, chipWords[c], " ", el("b", {}, count.toLocaleString()));
+      fill(chipRow, chips.map((c) => chip(c, n[c])), (busy > 0 || on === "researching") && chip("researching", busy));
       const shown = shownRows(all, r.filters, image);
       table.update(shown, image ? ["image"] : []);
       return shown;
     },
   };
+  follow(table.el, () => rows.some((x) => inFlight(x.research)), redraw);
+  return out;
 }
 
 // grouping is the check's "Group by": the table's group headers, or none
