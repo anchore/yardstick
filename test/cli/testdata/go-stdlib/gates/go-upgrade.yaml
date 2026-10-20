@@ -1,0 +1,13 @@
+# grype v0.115.0 flipped match.golang.always-use-cpe-for-stdlib to false, so the candidate stops
+# matching the Go stdlib by CPE: expected to fail on the tp it now misses
+schema: v1
+candidate: {grype: grype@v0.120.1, db: dir:../db}
+reference: {grype: grype@v0.100.0, db: dir:../db}
+subjects:
+  - oci:ghcr.io/anchore/test-images/grype-quality-golang:d89207b@sha256:7536ee345532f674ec9e448e3768db4e546c48220ba2b6ec9bc9cfbfb3b7b74a
+checks:
+  - name: f1NotWorse
+  - name: noNewFalseNegatives
+  - name: noNewFalsePositives
+  - name: unjudgedChangesAtMost
+    params: {max: 0}

@@ -1,0 +1,13 @@
+# one grype, with the candidate told to match the Go stdlib by CPE again: the matches come back as
+# added rows
+schema: v1
+candidate: {grype: grype@v0.120.1, db: dir:../db, config: ../grype/stdlib-cpe.yaml}
+reference: {grype: grype@v0.120.1, db: dir:../db}
+subjects:
+  - oci:ghcr.io/anchore/test-images/grype-quality-golang:d89207b@sha256:7536ee345532f674ec9e448e3768db4e546c48220ba2b6ec9bc9cfbfb3b7b74a
+checks:
+  - name: f1NotWorse
+  - name: noNewFalseNegatives
+  - name: noNewFalsePositives
+  - name: unjudgedChangesAtMost
+    params: {max: 0}
