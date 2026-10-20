@@ -19,6 +19,7 @@ const routes: Route[] = [
   { level: "check", gate: "grype-upgrade", check: "f1NotWorse", filters: { hint: "yes" } },
   { level: "finding", gate: "grype-upgrade", check: "f1NotWorse", row: "3e91c0a7d2b4f816", filters: { image: "core", verdict: "tp" } },
   { level: "finding", gate: "grype-upgrade", check: null, row: "3e91c0a7d2b4f816", filters: {} },
+  { level: "gate", gate: "deb-java", tab: "findings", filters: { pkg: "org.apache.logging.log4j" } },
 ];
 
 describe("formatRoute", () => {

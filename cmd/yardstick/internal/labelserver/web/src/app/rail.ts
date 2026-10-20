@@ -3,14 +3,16 @@
 // calls onSelect, and the screen decides what that does to the URL.
 import { el, fill } from "../shared/dom";
 import { matches, order, railKey, sumCounts, type Counts, type RailImage, type RailSort } from "./images";
+import { plural } from "../shared/words";
 import { imageName, stackBar } from "./ui";
 
 export interface RailOptions {
   images: RailImage[];          // in gate order, which the number keys follow
   selected: string | null;      // the selected image's slug, null for every image
   onSelect: (slug: string | null) => void;
-  // "check" when the counts are one check's findings: an image with none reads "none here"
-  scope?: "gate" | "check";
+  // "check" when the counts are one check's findings: an image with none reads "none here";
+  // "labels" when they are the labels on each image, which have no verdict bar
+  scope?: "gate" | "check" | "labels";
 }
 
 export interface Rail {
@@ -34,7 +36,8 @@ function setCollapsed(on: boolean) {
 }
 
 // countText is an item's count column
-function countText(c: Counts, scope: "gate" | "check") {
+function countText(c: Counts, scope: "gate" | "check" | "labels") {
+  if (scope === "labels") return c.total ? plural(c.total, "label") : "no labels";
   if (c.total === 0) return scope === "check" ? "none here" : "no changes";
   if (c.open === 0 && scope === "check") return `${c.total} here`;
   return [el("b", {}, String(c.open)), ` open · ${c.total}`];
@@ -67,7 +70,7 @@ export function imageRail(o: RailOptions): Rail {
     el("span", { class: "k" }, keyFor(p)),
     p === 0 ? el("span", { class: "imname" }, el("span", { class: "b" }, "All images")) : imageName(img!.name, img!.ref),
     el("span", { class: "ct" }, countText(c, scope)),
-    stackBar(c));
+    scope !== "labels" && stackBar(c));
     items[p] = b;
     return b;
   };
@@ -75,7 +78,7 @@ export function imageRail(o: RailOptions): Rail {
   const collapse = el("button", { type: "button", class: "btn", "data-variant": "ghost", "data-size": "sm", title: "Collapse to a dropdown", "data-testid": "rail-collapse", onclick: () => setMode(true) }, "⇤ collapse");
   const rail = el("nav", { class: "rail", "aria-label": scope === "check" ? "Images in this check" : "Images", "data-testid": "image-rail" },
     el("div", { class: "rail-head" }, filter, collapse),
-    el("div", { class: "rail-sort" }, el("span", {}, scope === "check" ? "this check's findings" : "per image"), sortBtn),
+    el("div", { class: "rail-sort" }, el("span", {}, scope === "check" ? "this check's findings" : scope === "labels" ? "labels per image" : "per image"), sortBtn),
     list);
 
   // the dropdown: Basecoat's combobox, the variant whose trigger is a button and whose search box
@@ -85,7 +88,7 @@ export function imageRail(o: RailOptions): Rail {
     return el("div", { role: "option", "data-value": img?.slug ?? ALL, "data-filter": img ? `${img.name} ${img.ref}` : "all images", title: img?.ref },
       el("span", { class: "k" }, keyFor(p)),
       img ? imageName(img.name) : el("span", { class: "imname" }, el("span", { class: "b" }, "All images")),
-      el("span", { class: "ct" }, c.open ? `${c.open} open` : scope === "check" && c.total ? `${c.total} here` : "0 open"));
+      el("span", { class: "ct" }, scope === "labels" ? countText(c, scope) : c.open ? `${c.open} open` : scope === "check" && c.total ? `${c.total} here` : "0 open"));
   });
   const current = el("span", { class: "cur" });
   const trigger = el("button", { type: "button", class: "btn", "data-variant": "outline", "aria-haspopup": "listbox", "aria-expanded": "false", "aria-controls": `${id}-listbox`, "data-testid": "image-picker-button" },

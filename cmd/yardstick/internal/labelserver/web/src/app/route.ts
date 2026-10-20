@@ -9,7 +9,7 @@
 // /ui/gates/<gate>/findings/<row>                     finding, reached from the gate's Findings tab
 // /ui/gates/_kit                                      the component kit (not linked from anywhere)
 //
-// Filters ride in the query string on every level: image (slug), verdict, hint, q, page.
+// Filters ride in the query string on every level: image (slug), verdict, hint, pkg, q, page.
 
 export const base = "/ui/gates/";
 
@@ -25,6 +25,7 @@ export interface Filters {
   image?: string;          // an image's slug
   verdict?: VerdictFilter;
   hint?: string;           // what W3's hint chip means by it, e.g. "yes"
+  pkg?: string;            // a source package, as the scan map's blocks name it
   q?: string;              // free-text search
   page?: number;           // 1-based, left out on page 1
 }
@@ -44,6 +45,7 @@ function query(f: Filters, extra: [string, string][] = []): string {
   if (f.image) p.set("image", f.image);
   if (f.verdict) p.set("verdict", f.verdict);
   if (f.hint) p.set("hint", f.hint);
+  if (f.pkg) p.set("pkg", f.pkg);
   if (f.q) p.set("q", f.q);
   if (f.page && f.page > 1) p.set("page", String(f.page));
   const s = p.toString();
@@ -52,10 +54,11 @@ function query(f: Filters, extra: [string, string][] = []): string {
 
 function parseFilters(p: URLSearchParams): Filters {
   const f: Filters = {};
-  const image = p.get("image"), verdict = p.get("verdict"), hint = p.get("hint"), q = p.get("q"), page = Number(p.get("page"));
+  const image = p.get("image"), verdict = p.get("verdict"), hint = p.get("hint"), pkg = p.get("pkg"), q = p.get("q"), page = Number(p.get("page"));
   if (image) f.image = image;
   if (verdict && (verdicts as readonly string[]).includes(verdict)) f.verdict = verdict as VerdictFilter;
   if (hint) f.hint = hint;
+  if (pkg) f.pkg = pkg;
   if (q) f.q = q;
   if (Number.isInteger(page) && page > 1) f.page = page;
   return f;
