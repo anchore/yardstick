@@ -15,6 +15,22 @@ tasks:
     cmds:
       - task: playwright
 
+  e2e:container:
+    desc: run the label UI's Playwright tests headless in Playwright's linux image, for where a host browser can't start (args after -- go to playwright)
+    vars:
+      # the image is the one @playwright/test is pinned to, so the two can't drift
+      PLAYWRIGHT_VERSION:
+        sh: >-
+          sed -n 's/.*"@playwright\/test": "\([^"]*\)".*/\1/p' {{.WEB}}/package.json
+    cmds:
+      - GOOS=linux GOARCH=$(go env GOARCH) CGO_ENABLED=0 go build -o .tmp/e2e/seed-linux ./cmd/yardstick/internal/testkit/seed
+      - >-
+        docker run --rm --init --ipc=host --user "$(id -u):$(id -g)" -e HOME=/tmp
+        -e YARDSTICK_E2E_SEED="{{.ROOT_DIR}}/.tmp/e2e/seed-linux"
+        -v "{{.ROOT_DIR}}:{{.ROOT_DIR}}" -w "{{.ROOT_DIR}}/{{.WEB}}"
+        mcr.microsoft.com/playwright:v{{.PLAYWRIGHT_VERSION}}-noble
+        npx playwright test {{.CLI_ARGS}}
+
   e2e-ui:
     desc: the label UI's Playwright tests in Playwright's UI mode
     cmds:
