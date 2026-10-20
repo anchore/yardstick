@@ -4,7 +4,7 @@
 // map page's tile, reorganized.
 import type { claimsv1 } from "../gen/wire";
 import * as api from "../shared/api";
-import { $, el, toast } from "../shared/dom";
+import { el, toast } from "../shared/dom";
 import { records, matchPath } from "../shared/matchpath";
 import { imageRelease } from "../shared/names";
 import { decoded, direction, pkgOf } from "../shared/rows";
@@ -54,9 +54,6 @@ export function findingView(host: HTMLElement, r: FindingRoute, nav: Nav): View 
   const draft: Draft = { note: "" };
   const at = (row: string): Route => ({ ...r, row });
   const go = (row: string | undefined, none: string) => (row ? nav(at(row)) : toast(none));
-
-  // the toast lives outside the page, so a repaint doesn't take a message with it
-  if (!$("#toast")) document.body.append(el("div", { id: "toast", class: "toast", hidden: true, role: "status", "data-testid": "toast" }));
 
   async function load() {
     const mine = ++current;
