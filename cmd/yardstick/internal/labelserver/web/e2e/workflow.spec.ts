@@ -1,10 +1,6 @@
 import { expect, test } from "./fixtures";
-import { causeGroup, check, claimSet, gatesPage, group, images, imageTile, labelsOf, log4jGroup, openGate, openGroup, pick, rows, tarGroup } from "./helpers";
+import { checkPage, checkRow, checkStates, claimSet, gatePage, gatesPage, images, label, labelsOf, onFinding, openFinding, outcome, railImage, rows, tableRow } from "./helpers";
 import type { Page } from "@playwright/test";
-
-const states = async (page: Page, want: Record<string, string>) => {
-  for (const [name, state] of Object.entries(want)) await expect(check(page, name), name).toHaveAttribute("data-state", state);
-};
 
 // the labels the seed starts with, which the workflow leaves alone, and what it adds. The unclear on
 // log4j's vc5p stays on file beside the tp that decides it (the tp names the exact version).
@@ -23,105 +19,109 @@ const flipped = [
   `${java} pkg:maven/org.apache.logging.log4j/log4j-core GHSA-vc5p-v9hr-52mj tp no-fix`,
 ];
 
+const gateRow = (page: Page, gate: string) => page.locator(`[data-testid=gate-row][data-gate=${gate}]`);
+const checksTab = (page: Page) => page.getByTestId("tabs").getByRole("tab", { name: /Checks/ }).click();
+
 test("the seeded claims are what SCENARIO.md lists", () => {
   expect(claimSet()).toEqual([...seeded].sort());
 });
 
 test("labeling through the UI flips deb-java to pass and settles deb-npm", async ({ page }) => {
-  await openGate(page);
-  await expect(page.getByTestId("gate-outcome")).toHaveAttribute("data-state", "fail");
+  await page.goto(gatesPage);
+  await gateRow(page, "deb-java").click();
+  await expect(outcome(page)).toHaveText("fail");
+  await checkStates(page, { f1NotWorse: "fail", noNewFalseNegatives: "fail", noNewFalsePositives: "fail", unjudgedChangesAtMost: "undecided" });
 
-  // the tar hint, then the hand label on the tar row with none
-  await tarGroup(page, true).getByTestId("group-accept").click();
-  await expect(tarGroup(page, true)).toHaveCount(0);
-  await openGroup(page, tarGroup(page, false));
-  await expect(page.getByTestId("tile")).toHaveAttribute("data-row", rows.tarHand);
-  await pick(page, "fp:fix-installed");
-  await expect(page.getByTestId("group-done")).toBeVisible();
-  await page.keyboard.press("Escape");
-  await expect(page.getByTestId("board")).toBeVisible();
+  // the check every open finding bears on, and the tar row with a hint: accepted, and the page moves
+  // on to the tar row with none, labeled by hand
+  await checkRow(page, "unjudgedChangesAtMost").click();
+  await tableRow(page, "check-table", rows.tarDropped).click();
+  await onFinding(page, rows.tarDropped);
+  await page.keyboard.press("a");
+  await onFinding(page, rows.tarHand);
+  await label(page, "f", "fix-installed");
   await expect.poll(() => labelsOf("CVE-2026-18508").length).toBe(1);
 
-  // both tar rows fp, four deb matches still open. java has no tp or fp label yet, which fails the
-  // three checks that score labels until it has one
-  await expect(page.getByTestId("gate-outcome")).toHaveAttribute("data-state", "fail");
-  await states(page, { f1NotWorse: "fail", noNewFalseNegatives: "fail", noNewFalsePositives: "fail", unjudgedChangesAtMost: "undecided" });
-  await expect(imageTile(page, "deb")).toHaveAttribute("data-open", "4");
+  // the util-linux package hint, accepted for its four rows; the page moves on to java's log4j
+  await onFinding(page, rows.utilLinux[0]);
+  await page.keyboard.press("A");
+  await expect.poll(() => labelsOf("CVE-2026-3184").length).toBe(4);
+  await onFinding(page, rows.jfhA);
 
-  // the util-linux cause, accepted for its four rows: deb has nothing open, java is all that is left
-  await causeGroup(page).getByTestId("group-accept").click();
-  await expect(causeGroup(page)).toHaveCount(0);
-  await states(page, { f1NotWorse: "fail", noNewFalseNegatives: "fail", noNewFalsePositives: "fail", unjudgedChangesAtMost: "undecided" });
-  await expect(imageTile(page, "deb")).toHaveAttribute("data-open", "0");
+  // back on the check and the gate: deb has nothing open, and java has no tp or fp label yet, which
+  // fails the three checks that score labels until it has one
+  await page.keyboard.press("Escape");
+  await expect(page).toHaveURL(new RegExp(`${checkPage("unjudgedChangesAtMost")}$`));
+  // what's judged leaves the check that counts the unjudged: java's four are left
+  await expect(page.getByTestId("check-table").locator("tbody tr[data-id]")).toHaveCount(4);
+  await expect(tableRow(page, "check-table", rows.tarHand)).toHaveCount(0);
+  await page.keyboard.press("Escape");
+  await checkStates(page, { f1NotWorse: "fail", noNewFalseNegatives: "fail", noNewFalsePositives: "fail", unjudgedChangesAtMost: "undecided" });
+  await expect(railImage(page, "deb")).toContainText("0 open · 8");
+  await expect(railImage(page, "java")).toContainText("2 open · 4");
 
-  // the log4j advisories on the tile: jfh8 first, which gives java a tp label and leaves two checks undecided
-  await openGroup(page, log4jGroup(page));
-  await expect(page.getByTestId("tile")).toHaveAttribute("data-vulnerability", "GHSA-jfh8-c2jp-5v3q");
+  // n opens the next open finding, jfh8; its hint covers both jars and gives java a tp label, which
+  // leaves two checks undecided
+  await page.keyboard.press("n");
+  await onFinding(page, rows.jfhA);
   await page.keyboard.press("a");
   await expect.poll(() => labelsOf("GHSA-jfh8-c2jp-5v3q").length).toBe(1);
-  // the label covers both jars, so the tile is on a vc5p row now
-  await expect(page.getByTestId("tile")).toHaveAttribute("data-vulnerability", "GHSA-vc5p-v9hr-52mj");
-  for (const [name, state] of [["f1NotWorse", "pass"], ["noNewFalseNegatives", "pass"], ["noNewFalsePositives", "undecided"], ["unjudgedChangesAtMost", "undecided"]]) {
-    await expect(page.locator(`[data-testid=check-bar][data-check=${name}]`), name).toHaveAttribute("data-state", state);
-  }
-  await expect(page.getByTestId("gate-outcome")).toHaveAttribute("data-state", "undecided");
+  await page.goto(gatePage());
+  await checkStates(page, { f1NotWorse: "pass", noNewFalseNegatives: "pass", noNewFalsePositives: "undecided", unjudgedChangesAtMost: "undecided" });
+  await expect(outcome(page)).toHaveText("undecided");
 
   // vc5p replaces the unclear as the deciding label, and the last open match goes: the gate passes
+  await page.keyboard.press("n");
+  await onFinding(page, rows.vc5pA);
   await page.keyboard.press("a");
   await expect.poll(() => labelsOf("GHSA-vc5p-v9hr-52mj").length).toBe(2);
-  await expect(page.getByTestId("group-done")).toBeVisible();
-  await page.keyboard.press("Escape");
-  await expect(page.getByTestId("board")).toBeVisible();
-  await expect(page.getByTestId("gate-outcome")).toHaveAttribute("data-state", "pass");
-  await states(page, { f1NotWorse: "pass", noNewFalseNegatives: "pass", noNewFalsePositives: "pass", unjudgedChangesAtMost: "pass" });
-  await expect(page.getByTestId("group-row")).toHaveCount(0);
-  await expect(page.getByTestId("gate-footer")).toHaveText("0 unlabeled of 12");
+  await page.goto(gatePage());
+  await expect(outcome(page)).toHaveText("pass");
+  await checkStates(page, { f1NotWorse: "pass", noNewFalseNegatives: "pass", noNewFalsePositives: "pass", unjudgedChangesAtMost: "pass" });
+  await expect(page.getByTestId("label-next")).toBeDisabled();
+  await expect(railImage(page, "java")).toContainText("0 open · 4");
 
   // the claims on disk are exactly the seeded ones and the labels the workflow wrote
   expect(claimSet()).toEqual([...seeded, ...flipped].sort());
 
-  // every gate: deb-java passes with nothing open, and the tar label settled deb-npm
-  await page.goto(gatesPage);
-  await expect(page.getByTestId("gate-card")).toHaveCount(2);
-  const java = page.locator("[data-testid=gate-card][data-gate=deb-java]");
-  await expect(java).toHaveAttribute("data-state", "pass");
-  await expect(java).toHaveAttribute("data-open", "0");
-  await expect(java.getByTestId("gate-outcome")).toHaveAttribute("data-state", "pass");
-  const npm = page.locator("[data-testid=gate-card][data-gate=deb-npm]");
-  await expect(npm).toHaveAttribute("data-state", "pass");
-  await npm.getByTestId("gate-board-link").click();
-  await expect(page.getByTestId("gate-outcome")).toHaveAttribute("data-state", "pass");
+  // every gate: deb-java passes with nothing unlabeled, and the tar label settled deb-npm
+  await page.getByTestId("breadcrumb").getByRole("link", { name: "Gates" }).click();
+  await expect(gateRow(page, "deb-java")).toHaveAttribute("data-state", "pass");
+  await expect(gateRow(page, "deb-java").getByTestId("gate-unlabeled")).toHaveText(/^0 unlabeled\s*of 12 changed$/);
+  await expect(gateRow(page, "deb-npm")).toHaveAttribute("data-state", "pass");
+  await gateRow(page, "deb-npm").click();
+  await expect(outcome(page)).toHaveText("pass");
   // gzip and the babel row are still open, one in each image
-  await expect(imageTile(page, "deb")).toHaveAttribute("data-open", "1");
-  await expect(imageTile(page, "npm")).toHaveAttribute("data-open", "1");
+  await expect(railImage(page, "deb")).toContainText("1 open · 2");
+  await expect(railImage(page, "npm")).toContainText("1 open · 1");
 });
 
 test("a tar label in one gate moves the other", async ({ page }) => {
-  await openGate(page, "deb-npm");
-  await expect(page.getByTestId("gate-outcome")).toHaveAttribute("data-state", "undecided");
-  await group(page, "p|0|dropped|tar").getByTestId("group-accept").click();
-  await expect(page.getByTestId("gate-outcome")).toHaveAttribute("data-state", "pass");
+  await openFinding(page, rows.tarDropped, "unjudgedChangesAtMost", "deb-npm");
+  await page.keyboard.press("a");
+  await expect.poll(() => labelsOf("CVE-2005-2541").length).toBe(1);
+  await page.goto(gatePage("deb-npm"));
+  await expect(outcome(page)).toHaveText("pass");
 
-  await openGate(page, "deb-java");
-  // the same row, already judged here: only the labels the deb-java page counts moved
-  await expect(tarGroup(page, true)).toHaveCount(0);
-  await expect(imageTile(page, "deb")).toHaveAttribute("data-open", "5");
-  await expect(page.getByTestId("gate-outcome")).toHaveAttribute("data-state", "fail");
+  // the same row, already judged in deb-java: only the counts deb-java reads moved
+  await page.goto(gatePage("deb-java"));
+  await expect(railImage(page, "deb")).toContainText("5 open · 8");
+  await expect(outcome(page)).toHaveText("fail");
+  await page.getByTestId("tabs").getByRole("tab", { name: /Findings/ }).click();
+  await expect(tableRow(page, "findings-table", rows.tarDropped).getByTestId("verdict")).toHaveText("FP");
 });
 
 test("hand labels on both tar rows by key and picker write what the hints would", async ({ page }) => {
-  await openGate(page);
-  // hand labels on both tar rows by key and picker
-  for (const hinted of [true, false]) {
-    await openGroup(page, tarGroup(page, hinted));
-    await page.keyboard.press("f");
-    await pick(page, "fp:fix-installed");
-    await expect(page.getByTestId("group-done")).toBeVisible();
-    await page.keyboard.press("Escape");
-    await expect(page.getByTestId("board")).toBeVisible();
-  }
-  await states(page, { f1NotWorse: "fail", noNewFalseNegatives: "fail", noNewFalsePositives: "fail", unjudgedChangesAtMost: "undecided" });
-  await expect(page.getByTestId("gate-footer")).toContainText("unlabeled");
+  await openFinding(page, rows.tarDropped);
+  await label(page, "f", "fix-installed");
+  await onFinding(page, rows.tarHand);
+  await label(page, "f", "fix-installed");
+  await onFinding(page, rows.utilLinux[0]);
   expect(labelsOf("CVE-2005-2541")[0]).toMatchObject({ verdict: "fp", justification: "fix-installed" });
   expect(labelsOf("CVE-2026-18508")[0]).toMatchObject({ verdict: "fp", justification: "fix-installed" });
+
+  await page.goto(gatePage());
+  await checksTab(page);
+  await checkStates(page, { f1NotWorse: "fail", noNewFalseNegatives: "fail", noNewFalsePositives: "fail", unjudgedChangesAtMost: "undecided" });
+  await expect(page.getByTestId("verdict-bar")).toContainText("FP 4");
 });

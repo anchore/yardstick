@@ -24,7 +24,7 @@ export default defineConfig({
   projects: [{ name: "chromium", use: { ...devices["Desktop Chrome"] } }],
   webServer: {
     command: `${seed} -dir ${process.env.YARDSTICK_E2E_WORKSPACE} -addr 127.0.0.1:${port}`,
-    url: `http://127.0.0.1:${port}/ui/map/gates/`,
+    url: `http://127.0.0.1:${port}/ui/gates/`,
     stdout: "pipe",
   },
 });
