@@ -3,6 +3,7 @@
    already compiled, and nothing below is a utility class. The package's exports map doesn't list
    the file, so it's imported by path. */
 @import "../../node_modules/basecoat-css/dist/basecoat.cdn.css";
+@import "./lists.css";
 
 /* ---------- tokens ---------- */
 

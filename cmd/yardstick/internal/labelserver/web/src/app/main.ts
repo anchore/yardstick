@@ -6,6 +6,9 @@
 import "basecoat-css/basecoat";
 import "basecoat-css/combobox";
 import { el, must } from "../shared/dom";
+import { checkView } from "./check";
+import { gateView } from "./gate";
+import { gatesView } from "./gates";
 import { kitView } from "./kit";
 import { crumbs, formatRoute, parseRoute, up, type Route } from "./route";
 import { renderShell, type View } from "./shell";
@@ -32,7 +35,12 @@ function render() {
   }
   route = next;
   document.title = next ? `${crumbs(next).at(-1)!.label} · yardstick` : "yardstick";
-  view = next == null ? notFound() : next.level === "kit" ? kitView(host, next, nav) : placeholder(next);
+  view = next == null ? notFound()
+    : next.level === "kit" ? kitView(host, next, nav)
+      : next.level === "gates" ? gatesView(host, next, nav)
+        : next.level === "gate" ? gateView(host, next, nav)
+          : next.level === "check" ? checkView(host, next, nav)
+            : placeholder(next);
 }
 
 // placeholder draws a screen the next change fills in, so every route renders its chrome today
