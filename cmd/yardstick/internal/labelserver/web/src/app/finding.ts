@@ -4,10 +4,10 @@
 // map page's tile, reorganized.
 import type { claimsv1 } from "../gen/wire";
 import * as api from "../shared/api";
-import { $, el, toast } from "../shared/dom";
+import { el, toast } from "../shared/dom";
 import { records, matchPath } from "../shared/matchpath";
 import { imageRelease } from "../shared/names";
-import { direction, pkgOf } from "../shared/rows";
+import { decoded, direction, pkgOf } from "../shared/rows";
 import { dirWords, justWords, labels, plural, ruleWords, whyText } from "../shared/words";
 import { forget } from "./data";
 import { loadFinding, researching, type FindingData } from "./finding-data";
@@ -54,9 +54,6 @@ export function findingView(host: HTMLElement, r: FindingRoute, nav: Nav): View 
   const draft: Draft = { note: "" };
   const at = (row: string): Route => ({ ...r, row });
   const go = (row: string | undefined, none: string) => (row ? nav(at(row)) : toast(none));
-
-  // the toast lives outside the page, so a repaint doesn't take a message with it
-  if (!$("#toast")) document.body.append(el("div", { id: "toast", class: "toast", hidden: true, role: "status", "data-testid": "toast" }));
 
   async function load() {
     const mine = ++current;
@@ -223,7 +220,7 @@ function whyTab(d: FindingData) {
     el("div", { class: "lanes", "data-testid": "match-path" }, matchPath(row, d.matches ?? undefined, rel)),
     records(row, dir, rel),
     kv([
-      ["Package", el("span", { class: "mono" }, row.package.ref)],
+      ["Package", el("span", { class: "mono", title: row.package.ref, "data-testid": "finding-purl" }, decoded(row.package.ref))],
       ["Image", el("span", { class: "mono", "data-testid": "finding-ref" }, d.image.ref)],
       ["Location", row.location && el("span", { class: "mono" }, row.location)],
       ["Could flip", flips.join(", ")],

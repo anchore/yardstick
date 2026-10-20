@@ -95,6 +95,9 @@ type StateRow struct {
 	Causes       []string     `json:"causes,omitempty"`
 	Explanation  string       `json:"explanation,omitempty"`
 	Gate         *RowEffect   `json:"gate,omitempty"`
+	// Effect is the row's strongest effect over the gate's checks (decides, could-move or counted),
+	// as their findings say it; absent when no check counts it. Only /state sets it.
+	Effect string `json:"effect,omitempty"`
 	// ResearchLevel is "", "triaged" or "researched"; Researched is it being "researched".
 	ResearchLevel string           `json:"researchLevel,omitempty"`
 	Researched    bool             `json:"researched,omitempty"`
@@ -204,16 +207,19 @@ type GateResult struct {
 }
 
 type CheckResult struct {
-	Name        string             `json:"name"`
-	Description string             `json:"description"`
-	ValueMeans  string             `json:"valueMeans"`
-	Counts      string             `json:"counts,omitempty"`
-	Direction   string             `json:"direction"`
-	Params      map[string]float64 `json:"params,omitempty"`
-	Threshold   float64            `json:"threshold"`
-	Value       analysis.Value     `json:"value"`
-	State       analysis.State     `json:"state"`
-	FailsOn     []string           `json:"failsOn,omitempty"` // row ids
+	Name        string `json:"name"`
+	Description string `json:"description"`
+	// Summary is the check's meaning in a short line, for a list row; Description is in full.
+	Summary    string             `json:"summary,omitempty"`
+	ValueMeans string             `json:"valueMeans"`
+	Counts     string             `json:"counts,omitempty"`
+	Direction  string             `json:"direction"`
+	Params     map[string]float64 `json:"params,omitempty"`
+	Threshold  float64            `json:"threshold"`
+	Value      analysis.Value     `json:"value"`
+	State      analysis.State     `json:"state"`
+	// FailsOn are the rows whose label decides the check: behind its failing (decidingRows).
+	FailsOn []string `json:"failsOn,omitempty"`
 }
 
 // which side of a check's threshold passes
@@ -222,16 +228,16 @@ const (
 	atLeast = "atLeast"
 )
 
-// checkWords say what each check's value is, what it counts, and which side of the threshold
-// passes: the UI's words for checks it draws.
-var checkWords = map[string]struct{ means, counts, direction string }{
-	analysis.F1NotWorse:             {"the reference's F1 less the candidate's", "f1", atMost},
-	analysis.NoNewFalseNegatives:    {"new false negatives", "fn", atMost},
-	analysis.NoNewFalsePositives:    {"new false positives", "fp", atMost},
-	analysis.UnjudgedChangesAtMost:  {"unlabeled deltas", "unjudged", atMost},
-	analysis.UnlabeledPercentAtMost: {"percent of the candidate's matches unlabeled", "unjudged", atMost},
-	analysis.ExpectationsMetAtLeast: {"expectations the candidate meets", "", atLeast},
-	analysis.NoNewMisses:            {"expectations the candidate newly misses", "", atMost},
+// checkWords say what each check's value is, what it counts, which side of the threshold passes,
+// and its meaning in a short line: the UI's words for checks it draws.
+var checkWords = map[string]struct{ means, counts, direction, summary string }{
+	analysis.F1NotWorse:             {"the reference's F1 less the candidate's", "f1", atMost, "Candidate F1 must not fall below the reference's"},
+	analysis.NoNewFalseNegatives:    {"new false negatives", "fn", atMost, "No true matches lost by the candidate"},
+	analysis.NoNewFalsePositives:    {"new false positives", "fp", atMost, "No false matches added by the candidate"},
+	analysis.UnjudgedChangesAtMost:  {"unlabeled deltas", "unjudged", atMost, "Unlabeled changes stay under the limit"},
+	analysis.UnlabeledPercentAtMost: {"percent of the candidate's matches unlabeled", "unjudged", atMost, "Unlabeled share of the candidate's matches stays under the limit"},
+	analysis.ExpectationsMetAtLeast: {"expectations the candidate meets", "", atLeast, "Enough expectations met by the candidate"},
+	analysis.NoNewMisses:            {"expectations the candidate newly misses", "", atMost, "No expectations newly missed by the candidate"},
 }
 
 func (v *view) gateStatus(e *entry) *GateStatus {
@@ -253,16 +259,12 @@ func (v *view) result(g *gatefile.Gate, outcome analysis.State, checks []analysi
 	}
 	for _, c := range checks {
 		w := checkWords[c.Name]
-		cr := CheckResult{Name: c.Name, Description: analysis.Registry[c.Name].Description, ValueMeans: w.means, Counts: w.counts,
+		cr := CheckResult{Name: c.Name, Description: analysis.Registry[c.Name].Description, Summary: w.summary, ValueMeans: w.means, Counts: w.counts,
 			Direction: w.direction, Params: c.Params, Threshold: c.Threshold, Value: c.Value, State: c.State}
 		if c.Message != "" {
 			cr.Description += "; " + c.Message
 		}
-		for _, sc := range c.Subjects {
-			for _, id := range sc.FailsOn {
-				cr.FailsOn = append(cr.FailsOn, pairing.RowID(sc.Subject, id))
-			}
-		}
+		cr.FailsOn = v.decidingRows(c)
 		res.Checks = append(res.Checks, cr)
 	}
 	return res
@@ -293,11 +295,13 @@ func (s *Server) handleState(w http.ResponseWriter, req *http.Request) {
 	if r, ok := e.rec.Setups[pairing.Reference]; ok {
 		st.Reference = &r
 	}
-	changes := v.changes()
+	changes, effects := v.changes(), v.rowEffects()
 	for si, sub := range v.verdict.Subjects {
 		ss := StateSubject{Name: st.Scans.Subjects[si].Name, Slug: st.Scans.Subjects[si].Slug, Changes: changes[si], Rows: []StateRow{}}
 		for j := range sub.Matches {
-			ss.Rows = append(ss.Rows, v.listRow(v.rows[sub.Matches[j].Row], idx))
+			sr := v.listRow(v.rows[sub.Matches[j].Row], idx)
+			sr.Effect = effects[sr.ID]
+			ss.Rows = append(ss.Rows, sr)
 		}
 		st.Subjects = append(st.Subjects, ss)
 	}

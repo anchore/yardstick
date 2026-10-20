@@ -4,6 +4,7 @@
 import type { CheckFindings, CrossFinding, GateLabel, ImageRef, State, Tally } from "../gen/wire";
 import { pkgOf, srcPkg } from "../shared/rows";
 import type { Filters, VerdictFilter } from "./route";
+import { filterRows } from "./table";
 import type { Verdict } from "./ui";
 
 // FHint is a row's pending agent suggestion: its own proposal, or a cause (package hint) listing it
@@ -27,12 +28,12 @@ export interface FRow {
   effect: Effect;
 }
 
+const effectOf = (e: string | undefined): Effect => (e === "decides" || e === "could-move" || e === "counted" ? e : "");
 const verdictOf = (v: string | undefined): Verdict => (v === "tp" || v === "fp" || v === "unclear" ? v : "unlabeled");
-const isOpen = (r: FRow) => r.label === "unlabeled" || r.label === "unclear";
+export const isOpen = (r: FRow) => r.label === "unlabeled" || r.label === "unclear";
 
 // gateRows are a gate's changed matches (one setup reports them) from its /state, in image order
 export function gateRows(st: State): FRow[] {
-  const failsOn = new Set((st.gate?.result?.checks ?? []).flatMap((c) => c.failsOn ?? []));
   const out: FRow[] = [];
   st.subjects.forEach((s, si) => {
     const info = st.scans.subjects[si];
@@ -47,7 +48,7 @@ export function gateRows(st: State): FRow[] {
       out.push({
         id: r.id, row: r.id, label, vuln: r.vulnerability, pkg: p.name, version: p.version, purl: r.package.ref, src: srcPkg(r), image,
         change: r.inCandidate ? "added" : "dropped", hint,
-        effect: failsOn.has(r.id) ? "decides" : r.gate?.couldFlip?.length ? "could-move" : r.gate?.bears?.length ? "counted" : "",
+        effect: effectOf(r.effect), // the server's, as the check findings say it
       });
     }
   });
@@ -61,7 +62,7 @@ export function checkRows(f: CheckFindings): FRow[] {
     vuln: x.vulnerability, pkg: x.package.name || pkgOf(x.package.purl).name, version: x.package.version || pkgOf(x.package.purl).version,
     purl: x.package.purl ?? "", src: x.package.name, image: x.image, change: x.direction,
     hint: x.hint ? { verdict: x.hint.verdict, confidence: x.hint.confidence, kind: x.hint.kind === "cause" ? "cause" : "proposal" } : null,
-    effect: (["decides", "could-move", "counted"].includes(x.effect) ? x.effect : "") as Effect,
+    effect: effectOf(x.effect),
   }));
 }
 
@@ -86,6 +87,15 @@ export function chipCounts(rows: FRow[]): Record<Chip, number> {
   for (const r of rows) for (const c of chips) if (inChip(r, c)) n[c]++;
   return n;
 }
+
+// scopedRows are the rows a findings table's image, package and search filters leave, in its
+// order, which its chips count; image is the URL's image when the gate has it, else null
+export const scopedRows = (rows: FRow[], f: Filters, image: string | null) =>
+  filterRows(rows.filter((x) => (!image || x.image.slug === image) && (!f.pkg || x.src === f.pkg || x.pkg === f.pkg)), f.q ?? "", rowText);
+
+// shownRows are the rows a findings table shows under the URL's filters, in its order. The finding
+// page's j and k walk these same rows, so this is the one place a findings filter is decided.
+export const shownRows = (rows: FRow[], f: Filters, image: string | null) => scopedRows(rows, f, image).filter((x) => inChip(x, chipOf(f)));
 
 // nextOpen is the first unlabeled (or unclear) row with a finding page, preferring one whose label
 // can still move a check

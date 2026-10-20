@@ -15,15 +15,17 @@ const reasonCell = (l: LRow) => !l.justification ? el("span", { class: "muted" }
   // not-recorded is what most ported labels carry, so it's muted, not read
   : el("span", { class: l.justification === "not-recorded" ? "muted" : "" }, l.justification);
 
+// no column sorts: the table shows one page, newest first, and a sort would order only that page
+// ponytail: sort server-side (a sort= on GET labels) if people want to sort every label
 export function labelColumns(wide: boolean): Column<LRow>[] {
   return [
-    { key: "label", label: "Label", cell: (l) => verdict(l.verdict as "tp" | "fp" | "unclear"), sort: (l) => l.verdict },
-    { key: "vuln", label: "Vulnerability", cell: (l) => el("span", { class: "strong" }, l.vulnerability), sort: (l) => l.vulnerability, title: (l) => l.vulnerability, truncate: true },
-    { key: "package", label: "Package", cell: (l) => el("span", { class: "mono" }, l.package.name, " ", el("small", {}, l.package.version ?? "")), sort: (l) => l.package.name, title: (l) => `${l.package.purl ?? l.package.name} ${l.package.version ?? ""}`, truncate: true },
-    { key: "image", label: "Image", cell: (l) => (l.image ? imageName(l.image.name, l.image.ref) : el("span", { class: "muted" }, "global")), sort: (l) => l.image?.name ?? "", title: (l) => l.image?.ref ?? "every image", truncate: true },
-    { key: "reason", label: "Reason", cell: reasonCell, sort: (l) => l.justification },
-    { key: "source", label: "Source", cell: (l) => el("span", { class: "mono" }, shortSource(l.source)), sort: (l) => l.source, title: (l) => l.source, truncate: true },
-    { key: "author", label: "Author", cell: (l) => l.author, sort: (l) => l.author, truncate: true, title: (l) => l.author },
+    { key: "label", label: "Label", cell: (l) => verdict(l.verdict as "tp" | "fp" | "unclear") },
+    { key: "vuln", label: "Vulnerability", cell: (l) => el("span", { class: "strong" }, l.vulnerability), title: (l) => l.vulnerability, truncate: true },
+    { key: "package", label: "Package", cell: (l) => el("span", { class: "mono" }, l.package.name, " ", el("small", {}, l.package.version ?? "")), title: (l) => `${l.package.purl ?? l.package.name} ${l.package.version ?? ""}`, truncate: true },
+    { key: "image", label: "Image", cell: (l) => (l.image ? imageName(l.image.name, l.image.ref) : el("span", { class: "muted" }, "global")), title: (l) => l.image?.ref ?? "every image", truncate: true },
+    { key: "reason", label: "Reason", cell: reasonCell },
+    { key: "source", label: "Source", cell: (l) => el("span", { class: "mono" }, shortSource(l.source)), title: (l) => l.source, truncate: true },
+    { key: "author", label: "Author", cell: (l) => l.author, truncate: true, title: (l) => l.author },
     ...(wide ? [{ key: "gates", label: "Gates", cell: (l: LRow) => (l.gates ?? []).join(", "), title: (l: LRow) => (l.gates ?? []).join(", "), truncate: true }] : []),
   ];
 }

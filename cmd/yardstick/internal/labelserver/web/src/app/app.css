@@ -164,6 +164,11 @@ a[role="tab"] { text-decoration: none; }
 .rail-picker [role="option"][aria-selected="true"] { background-color: var(--muted); }
 .rail-picker [role="option"] .imname { font-weight: 500; }
 
+/* ---------- the toast: what a write or a key did (#toast in index.html, dom.ts's toast()) ---------- */
+
+.toast { position: fixed; bottom: 24px; left: 50%; translate: -50% 0; z-index: 60; max-width: min(640px, calc(100vw - 32px)); padding: 8px 16px; border-radius: 8px; background: var(--foreground); color: var(--background); font-size: 13.5px; box-shadow: 0 4px 16px rgba(0, 0, 0, .18); }
+.toast.error { background: var(--fail); color: #fff; }
+
 /* ---------- data table ---------- */
 
 .filters { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }

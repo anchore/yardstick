@@ -2,9 +2,9 @@
 // Checks (one row per check, with its meter), Findings (every changed match), Labels (every label
 // the gate counts, paged) and Scan map (today's treemap).
 import type { CheckResult, GateLabels, State } from "../gen/wire";
-import { el, fill } from "../shared/dom";
+import { el, fill, toast } from "../shared/dom";
 import { fmt, plural } from "../shared/words";
-import { gateLabels, gateState, say } from "./data";
+import { gateLabels, gateState } from "./data";
 import { findingsList } from "./findings";
 import { noCounts, type RailImage } from "./images";
 import { labelsTable } from "./labelstable";
@@ -137,7 +137,7 @@ function checksTab(st: State): Tab {
         return el("a", { class: "lrow check", href: formatRoute({ level: "check", gate: st.scans.id, check: c.name, filters: r.filters.image ? { image: r.filters.image } : {} }),
           "data-testid": "check-row", "data-check": c.name, "data-state": c.state },
         status(c.state as Status),
-        el("div", { class: "lname" }, el("div", { class: "name" }, c.name), el("div", { class: "desc", title: c.description }, sentence(c.description))),
+        el("div", { class: "lname" }, el("div", { class: "name" }, c.name), el("div", { class: "desc", title: sentence(c.description) }, c.summary || sentence(c.description))),
         checkMeter(c),
         el("div", { class: "lnum", "data-testid": "check-count" }, `${n.bearing.toLocaleString()} unlabeled`,
           el("small", {}, countWords(n))),
@@ -173,7 +173,7 @@ function labelsTab(gate: string, r0: Route, nav: Nav, known: (slug: string | und
       const f = r.filters, at = r;
       gateLabels(gate, { verdict: f.verdict === "unlabeled" ? undefined : f.verdict, image: known(image ?? undefined) ? image ?? undefined : undefined, q: f.q, offset: ((f.page ?? 1) - 1) * pageSize, limit: pageSize })
         .then((res: GateLabels) => { if (at === r) t.update(r, res.labels, res.total, res.counts, !!image); })
-        .catch((e) => say((e as Error).message, true));
+        .catch((e) => toast((e as Error).message, true));
     },
   };
 }

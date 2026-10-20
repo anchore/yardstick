@@ -5,10 +5,9 @@ import type { Vocabulary } from "../gen/wire";
 import { el, fill } from "../shared/dom";
 import { labels as words } from "../shared/words";
 import { acceptHints, labelOptions, labelRows } from "./data";
-import { chipCounts, chipFilters, chipOf, chips, chipWords, inChip, rowText, type FRow } from "./listing";
+import { chipCounts, chipFilters, chipOf, chips, chipWords, scopedRows, shownRows, type FRow } from "./listing";
 import { withFilters, type Route } from "./route";
 import type { Nav } from "./shell";
-import { filterRows } from "./table";
 import { dataTable, type Column, type Table } from "./tableview";
 import { couldMove, hint, imageName, verdict } from "./ui";
 
@@ -87,11 +86,10 @@ export function findingsList(o: FindingsOptions): FindingsList {
       pkgChip.hidden = !pkg;
       fill(pkgChip, pkg && ["package: ", el("b", {}, pkg), el("button", { type: "button", class: "x", "aria-label": "Clear package filter", onclick: () => o.nav(withFilters(r, { pkg: undefined })) }, "×")]);
       // the chips count what the image, the package and the search leave, so they follow the rail
-      const scoped = filterRows(all.filter((x) => (!image || x.image.slug === image) && (!pkg || x.src === pkg || x.pkg === pkg)), r.filters.q ?? "", rowText);
-      const n = chipCounts(scoped), on = chipOf(r.filters);
+      const n = chipCounts(scopedRows(all, r.filters, image)), on = chipOf(r.filters);
       fill(chipRow, chips.map((c) => el("button", { type: "button", class: "chip", "aria-pressed": String(c === on), "data-chip": c,
         onclick: () => o.nav(withFilters(r, chipFilters(c))) }, chipWords[c], " ", el("b", {}, n[c].toLocaleString()))));
-      const shown = scoped.filter((x) => inChip(x, on));
+      const shown = shownRows(all, r.filters, image);
       table.update(shown, image ? ["image"] : []);
       return shown;
     },
