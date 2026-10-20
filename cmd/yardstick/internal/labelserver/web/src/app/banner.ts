@@ -18,7 +18,6 @@ import { active, batchWords, estimate, finishedWords, money, summary } from "./r
 import { kbd, status, verdict, type State as Status } from "./ui";
 
 const needWords = (n: number) => `${n} ${n === 1 ? "needs" : "need"} you`;
-const andList = (xs: string[]) => (xs.length < 2 ? xs.join("") : `${xs.slice(0, -1).join(", ")} and ${xs.at(-1)}`);
 
 // poll is how often a running batch's progress is read
 const poll = 2000;
@@ -76,17 +75,15 @@ export function workBanner(list: GateList): Work {
     fill(research, `Research ${last ? `${offer.rows} more` : plural(offer.rows, "row")}… `,
       !first && e.basis.measured && [el("span", { class: "quiet" }, `~${money(e.mean)}`), " "], kbd("r"));
     if (!first) return false;
-    // research leads: the other column prices it, since no hint is pending to preview
+    // research leads: the other column prices it, since no hint is pending to preview; load fills
+    // the foot with the rows the gates wait on
     banner.dataset.research = "offered";
-    const none = group(plan, "none");
-    const where = andList([...new Set(change!.jobs.map((j) => j.gate))]);
     fill(rcaps, `Research these ${plural(change!.rows, "row")}`);
     fill(outcomes,
       el("div", { class: "r" }, e.basis.measured
         ? [el("span", { class: "costpill", "data-testid": "research-price" }, `about ${money(e.mean)}`), el("span", { class: "quiet" }, `${money(e.low)} to ${money(e.high)}`)]
         : el("span", { class: "costpill", "data-testid": "research-price" }, "cost not measured")),
       el("div", { class: "r", "data-testid": "research-summary" }, summary(e)));
-    fill(foot, `${plural(change!.rows, "row")} with no hint can still change ${where}.${none?.rows ? ` The other ${none.rows} change no outcome.` : ""}`);
     return true;
   }
 
@@ -173,8 +170,8 @@ export function workBanner(list: GateList): Work {
         el("small", {}, count ? `${plural(count, "hint")} · ${aloneWords(before, after.get(g.id)!)}` : "no hints"),
         jobs > 0 && e && el("span", { class: "costpill", "data-testid": "gate-research" }, e.basis.measured ? `research ~${money(e.mean)}` : `research: ${plural(jobs, "job")}`));
     }
-    if (run || priced) return;
-    fill(outcomes, gates.map((g) => {
+    if (run) return;
+    if (!priced) fill(outcomes, gates.map((g) => {
       const before = (g.gateOutcome ?? "undecided") as Status, a = after.get(g.id)!;
       return el("div", { class: "r", "data-testid": "work-outcome", "data-gate": g.id, "data-before": before, "data-after": a },
         status(before), el("span", { class: "arrow" }, "→"), status(a), el("b", {}, g.id));
@@ -186,7 +183,9 @@ export function workBanner(list: GateList): Work {
         .map((x) => ({ gate: g.id, row: x.row!, vuln: x.vuln, pkg: x.pkg }));
       return rest.length ? waitWords(g.id, rest) : "";
     }));
-    fill(foot, [...waits.filter(Boolean), low > 0 && `${plural(low, "low-confidence hint")} left out.`].filter(Boolean).join(" "));
+    // priced, the foot names the rows research would take on, and how many change nothing
+    const none = priced && group(plan, "none")?.rows;
+    fill(foot, [...waits.filter(Boolean), none && `The other ${none} with no hint change no outcome.`, low > 0 && `${plural(low, "low-confidence hint")} left out.`].filter(Boolean).join(" "));
   }
 
   work({ open: 0, hinted: 0, needYou: 0 }, 1, null, null);
