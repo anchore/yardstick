@@ -2,9 +2,11 @@ package labelserver
 
 import (
 	"fmt"
+	"maps"
 	"net/http"
 	"path"
 	"regexp"
+	"slices"
 	"strings"
 	"time"
 
@@ -61,6 +63,8 @@ type State struct {
 	// start, which hides the UI's research controls; Research says why.
 	ResearchConcurrency int                    `json:"researchConcurrency,omitempty"`
 	Research            *research.Availability `json:"research,omitempty"`
+	// ResearchEstimate is what one research job costs on the configured model, set while research can start.
+	ResearchEstimate *research.Basis `json:"researchEstimate,omitempty"`
 }
 
 // vocabulary is what the UI needs of vocabulary.yaml: the justifications by verdict.
@@ -103,6 +107,8 @@ type StateRow struct {
 	Researched    bool             `json:"researched,omitempty"`
 	ResearchedBy  []string         `json:"researchedBy,omitempty"`
 	Research      *ResearchSummary `json:"research,omitempty"` // the newest job covering the row
+	// ResearchShares are the other rows a research job on this one covers (sibling packages).
+	ResearchShares []string `json:"researchShares,omitempty"`
 }
 
 type PkgRef struct {
@@ -294,6 +300,8 @@ func (s *Server) handleState(w http.ResponseWriter, req *http.Request) {
 		st.Research = &a
 		if a.Available {
 			st.ResearchConcurrency = s.opts.Research.Concurrency()
+			b := research.Estimate(slices.Collect(maps.Values(idx.byID)), s.opts.Research.Model())
+			st.ResearchEstimate = &b
 		}
 	}
 	if c, ok := e.rec.Setups[pairing.Candidate]; ok {
@@ -302,17 +310,29 @@ func (s *Server) handleState(w http.ResponseWriter, req *http.Request) {
 	if r, ok := e.rec.Setups[pairing.Reference]; ok {
 		st.Reference = &r
 	}
-	changes, effects := v.changes(), v.rowEffects()
+	changes, effects, siblings := v.changes(), v.rowEffects(), research.Siblings(v.verdict)
 	for si, sub := range v.verdict.Subjects {
 		ss := StateSubject{Name: st.Scans.Subjects[si].Name, Slug: st.Scans.Subjects[si].Slug, Changes: changes[si], Rows: []StateRow{}}
 		for j := range sub.Matches {
 			sr := v.listRow(v.rows[sub.Matches[j].Row], idx)
 			sr.Effect = effects[sr.ID]
+			sr.ResearchShares = shares(siblings, sr.ID)
 			ss.Rows = append(ss.Rows, sr)
 		}
 		st.Subjects = append(st.Subjects, ss)
 	}
 	writeJSON(w, st)
+}
+
+// shares is the rows researched with id, less id.
+func shares(siblings map[string][]string, id string) []string {
+	var out []string
+	for _, x := range siblings[id] {
+		if x != id {
+			out = append(out, x)
+		}
+	}
+	return out
 }
 
 // changes tallies each subject's changed rows (the ones only one setup reports), in subject order:
@@ -450,6 +470,7 @@ func (s *Server) handleRow(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 	resp := RowResponse{Row: v.listRow(r, idx), Subject: e.rec.Subjects[r.si].Name, Links: Links(r.match), Hint: v.hints[r.match.Row]}
+	resp.Row.ResearchShares = shares(research.Siblings(v.verdict), r.match.Row)
 	if b := r.pm.Label; b != nil {
 		lv := &LabelView{Label: b.Label.Label, File: b.File, Global: b.Global}
 		for _, h := range b.Held {
