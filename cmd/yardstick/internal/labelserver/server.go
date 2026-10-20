@@ -161,8 +161,9 @@ func (s *Server) Handler() http.Handler {
 		}
 	})
 
-	// the new UI: one page, routed client side
+	// the new UI: one page, routed client side. _kit is the component kit, not a gate
 	mux.HandleFunc("GET /ui/gates/{$}", func(w http.ResponseWriter, _ *http.Request) { s.servePage(w, "assets/app/index.html") })
+	mux.HandleFunc("GET /ui/gates/_kit", func(w http.ResponseWriter, _ *http.Request) { s.servePage(w, "assets/app/index.html") })
 	mux.HandleFunc("GET /ui/gates/{gate}/{rest...}", func(w http.ResponseWriter, req *http.Request) {
 		if e := s.gateFor(w, req); e != nil {
 			s.servePage(w, "assets/app/index.html")
