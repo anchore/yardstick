@@ -4,10 +4,10 @@ import type { CrossFinding, GateListItem, SharedState } from "../gen/wire";
 import { el, fill } from "../shared/dom";
 import { pkgOf } from "../shared/rows";
 import { plural } from "../shared/words";
-import { acceptCross, everyLabel, gateList, labelCross, shared } from "./data";
+import { acceptCross, everyLabel, gateList, gateState, labelCross, shared } from "./data";
 import { hintWords, labelPicker } from "./findings";
 import { labelsTable, type LRow } from "./labelstable";
-import { labelText, mergeLabels, pageInfo, shortSource, square, sumTally, type WideLabel } from "./listing";
+import { gateRows, labelText, mergeLabels, nextOpen, pageInfo, shortSource, square, sumTally, type WideLabel } from "./listing";
 import { failed, listCursor, loading, primary, shown } from "./lists";
 import { formatRoute, withFilters, type Route } from "./route";
 import { renderShell, type Nav, type View } from "./shell";
@@ -27,10 +27,14 @@ export function gatesView(host: HTMLElement, r0: Route & { level: "gates" }, nav
   const alive = shown(r);
   // a filter change before the data is in draws the screen again
   const out: View = { update: () => false };
-  const load = () => Promise.all([gateList(), shared(), everyLabel()]).then(([list, sh, byGate]) => {
+  const load = () => Promise.all([gateList(), shared(), everyLabel()]).then(async ([list, sh, byGate]) => {
+    // next is in the gate of the finding whose label moves the most gates, at that gate's first
+    // open row, so its finding page's pager starts at 1
+    const gate = sh.findings[0]?.in[0]?.gate;
+    const first = gate ? nextOpen(gateRows(await gateState(gate))) : undefined;
+    const next = gate && first?.row ? { gate, row: first.row } : undefined;
     if (!alive()) return;
     const labels = mergeLabels(byGate);
-    const next = sh.findings[0]?.in[0];
     const body = el("div", { class: "screen" });
     renderShell(host, r, {
       title: "Gates",

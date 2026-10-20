@@ -164,13 +164,18 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("GET /ui/map/gates/{gate}/{rest...}", redirectOldMap)
 
 	// the new UI: one page, routed client side. _kit is the component kit, not a gate
-	mux.HandleFunc("GET /ui/gates/{$}", func(w http.ResponseWriter, _ *http.Request) { s.servePage(w, "assets/app/index.html") })
-	mux.HandleFunc("GET /ui/gates/_kit", func(w http.ResponseWriter, _ *http.Request) { s.servePage(w, "assets/app/index.html") })
+	app := func(w http.ResponseWriter, _ *http.Request) { s.servePage(w, "assets/app/index.html") }
+	mux.HandleFunc("GET /ui/gates/{$}", app)
+	mux.HandleFunc("GET /ui/gates/_kit", app)
 	mux.HandleFunc("GET /ui/gates/{gate}/{rest...}", func(w http.ResponseWriter, req *http.Request) {
 		if e := s.gateFor(w, req); e != nil {
 			s.servePage(w, "assets/app/index.html")
 		}
 	})
+	// the labeling flow's screens, the same page: hint review, the queue and what was written
+	for _, p := range []string{"/ui/hints", "/ui/queue", "/ui/queue/{row}", "/ui/history"} {
+		mux.HandleFunc("GET "+p, app)
+	}
 
 	mux.HandleFunc("GET /api/gates", s.handleGateList)
 	mux.HandleFunc("GET /api/gates/shared", s.handleShared)

@@ -72,6 +72,21 @@ a[role="tab"] { text-decoration: none; }
 
 .placeholder { border: 1px dashed var(--border); border-radius: 10px; padding: 32px; color: var(--muted-foreground); text-align: center; }
 
+/* ---------- moving between gates: the gate crumb's switcher and the go-to palette ---------- */
+
+.appbar .goto { color: var(--muted-foreground); }
+.gate-switch { margin-left: 4px; }
+.gate-switch > .btn { height: 24px; padding: 0 8px; color: var(--muted-foreground); }
+.gate-switch > .btn::after { content: "▾"; }
+.gate-switch [data-popover] { min-width: 280px; }
+.gate-switch [role="menuitem"], .palette [role="menuitem"] { gap: 8px; color: var(--foreground); text-decoration: none; }
+.gate-switch .gname { flex: 1; }
+.gate-switch [aria-current="true"] .gname { font-weight: 600; }
+.palette > .command { max-width: min(640px, calc(100% - 32px)); }
+.palette .ptext { flex-shrink: 0; }
+.palette .pdetail { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.palette .more { margin: 4px 8px; font-size: 12px; color: var(--muted-foreground); }
+
 /* ---------- badges: state and verdict, each a word with a shape ---------- */
 
 .badge.status, .badge.verdict { border-radius: 6px; font-weight: 500; font-size: 12px; padding: 1px 8px; gap: 6px; white-space: nowrap; }
