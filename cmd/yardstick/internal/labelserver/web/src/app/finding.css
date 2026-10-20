@@ -14,10 +14,24 @@
 
 .titlerow .decides { font-size: 12px; white-space: nowrap; }
 .titlerow .could-move, .titlerow .decides { color: var(--foreground); }
-.fsub { display: grid; gap: 4px; }
+.fsub { display: grid; gap: 8px; }
+.fsub .fline { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
 /* versions run to 58 characters: wrap, never clip (UI-RULES 10) */
-.fsub .pkgv { overflow-wrap: anywhere; color: var(--foreground); }
+.fsub .pkgv { overflow-wrap: anywhere; color: var(--foreground); font-size: 14px; }
+.fsub .pkgv b { font-weight: 600; }
+.fsub .pkgv .ver { font-weight: 400; }
+.fsub .ptype { font-size: 12px; }
+/* the distro release, boxed like "this image's release" in the lanes: it decides most matching */
+.fsub .distro { display: inline-flex; align-items: center; gap: 8px; padding: 2px 8px; border: 1px solid var(--foreground); border-radius: 6px; font-size: 12.5px; font-weight: 600; color: var(--foreground); }
+.fsub .distro .dk, .fsub .ptype { color: var(--muted-foreground); }
+.fsub .distro .dk { font-size: 10px; letter-spacing: .07em; text-transform: uppercase; }
 .fsub .img { font-weight: 500; color: var(--foreground); cursor: help; }
+/* the side that reports the match is solid, the one that doesn't is dashed, as in the lanes */
+.fsub .sides { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 8px; font-size: 12.5px; color: var(--faint); }
+.fsub .side { display: inline-flex; align-items: center; gap: 4px; padding: 1px 8px; border: 1px dashed var(--border); border-radius: 6px; color: var(--muted-foreground); }
+.fsub .side.on { border-style: solid; border-color: var(--foreground); color: var(--foreground); }
+.fsub .side i { font-style: normal; font-size: 9px; }
+.fsub .said { color: var(--foreground); }
 
 /* ---------- the two columns ---------- */
 

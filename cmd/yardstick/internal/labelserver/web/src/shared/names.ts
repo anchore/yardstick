@@ -4,7 +4,7 @@ import { detail, type Row } from "./rows";
 
 const distroNames: Record<string, string> = { ubuntu: "Ubuntu", debian: "Debian", redhat: "RHEL", rhel: "RHEL", centos: "CentOS", fedora: "Fedora", alpine: "Alpine", amazonlinux: "Amazon Linux", amazon: "Amazon Linux",
   oraclelinux: "Oracle Linux", ol: "Oracle Linux", sles: "SLES", opensuse: "openSUSE", wolfi: "Wolfi", chainguard: "Chainguard", mariner: "Mariner", azurelinux: "Azure Linux", rocky: "Rocky", almalinux: "Alma",
-  photon: "Photon", echo: "Echo", minimos: "MinimOS", gentoo: "Gentoo", busybox: "BusyBox" };
+  photon: "Photon", echo: "Echo", minimos: "MinimOS", secureos: "SecureOS", gentoo: "Gentoo", busybox: "BusyBox" };
 const codenames: Record<string, Record<string, string>> = {
   ubuntu: { "12.04": "precise", "14.04": "trusty", "16.04": "xenial", "18.04": "bionic", "20.04": "focal", "22.04": "jammy", "24.04": "noble", "24.10": "oracular", "25.04": "plucky", "25.10": "questing", "26.04": "resolute",
     "20.10": "groovy", "21.04": "hirsute", "21.10": "impish", "22.10": "kinetic", "23.04": "lunar", "23.10": "mantic", "19.10": "eoan", "19.04": "disco", "18.10": "cosmic", "17.10": "artful" },
@@ -51,6 +51,8 @@ export function imageRelease(r: Row): Release | null {
   if (!m) return null;
   return { distro: m[1].toLowerCase().replace(/^rhel$/, "redhat"), version: m[2] };
 }
+// releaseName is a release as people say it: "Debian 11 (bullseye)", "SecureOS 2025.09.09"
+export const releaseName = (r: Release) => nsHuman(`${r.distro}:distro:${r.distro}:${r.version}`);
 // sameRelease is true when a namespace is the image's own distro release (ESM counts)
 export function sameRelease(ns: string | undefined, rel: Release | null) {
   if (!rel) return false;

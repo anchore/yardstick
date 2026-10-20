@@ -6,9 +6,9 @@ import type { claimsv1, LabelKey } from "../gen/wire";
 import * as api from "../shared/api";
 import { el, toast, type Child } from "../shared/dom";
 import { records, matchPath } from "../shared/matchpath";
-import { imageRelease } from "../shared/names";
+import { imageRelease, releaseName } from "../shared/names";
 import { decoded, direction, pkgOf } from "../shared/rows";
-import { dirWords, justWords, labels, plural, ruleWords, sideWords, whyText } from "../shared/words";
+import { dirWords, justWords, labels, plural, ruleWords, whyText } from "../shared/words";
 import { forget, written } from "./data";
 import { loadFinding, researching, type FindingData } from "./finding-data";
 import { effect, mutedReason, pendingCause, seenWith, shortSource, type Dir } from "./finding-words";
@@ -84,6 +84,9 @@ export function findingView(host: HTMLElement, r: FindingRoute, nav: Nav, q?: Qu
     if (!d) return;
     const { row, state } = d;
     const dir = direction(row) as Dir, pk = pkgOf(row.package.ref);
+    // the release is called out only for a distro package: a language package in the same image
+    // isn't matched against it
+    const rel = /[?&]distro=/.test(row.package.ref) ? imageRelease(row) : null;
     const eff = effect({ check: r.check, checkEffect: d.checkEffect, row, checks: state.gate?.result?.checks ?? [] });
     // the pager counts what j and k walk: the list's open rows, or every row when none is open
     const pos = position(d.list, row.id), of = `${pos.total}${pos.open ? " open" : ""}`;
@@ -99,12 +102,17 @@ export function findingView(host: HTMLElement, r: FindingRoute, nav: Nav, q?: Qu
         verdict(row.verdict as Verdict),
         eff && el("span", { class: eff.kind === "could-move" ? "could-move" : "decides", "data-testid": "finding-effect", "data-effect": eff.kind }, eff.text),
       ],
+      // what was matched (package, its ecosystem, the distro release, which decides most of the
+      // matching), then where: the image, and which side reports it with what the candidate did
       sub: el("span", { class: "fsub", "data-testid": "finding-sub" },
-        el("span", { class: "mono pkgv", "data-testid": "finding-package", title: row.package.ref }, `${pk.name} ${pk.version}`),
-        el("span", {},
+        el("span", { class: "fline" },
+          el("span", { class: "mono pkgv", "data-testid": "finding-package", title: row.package.ref }, el("b", {}, pk.name), " ", el("span", { class: "ver" }, pk.version)),
+          pk.type && el("span", { class: "ptype" }, pk.type),
+          rel && el("span", { class: "distro", "data-testid": "finding-distro", title: `${rel.distro} ${rel.version}` }, el("span", { class: "dk" }, "distro"), releaseName(rel))),
+        el("span", { class: "fline" },
           el("span", { class: "img", title: d.image.ref, "data-testid": "finding-image" }, d.image.name),
-          " · ", el("span", { class: "change", "data-testid": "finding-direction" }, sideWords[dir]),
-          aliases.length ? ` · alias ${aliases.join(", ")}` : "")),
+          sides(dir),
+          aliases.length ? el("span", {}, `alias ${aliases.join(", ")}`) : "")),
       crumbEnd: q ? null : pager,
       bar: q?.bar,
       prefs: () => { lp?.advance(advancing()); q?.prefs(); },
@@ -112,6 +120,15 @@ export function findingView(host: HTMLElement, r: FindingRoute, nav: Nav, q?: Qu
       body: el("div", { class: "finding", "data-testid": "finding", "data-row": row.id, "data-verdict": row.verdict },
         el("div", { class: "fcontent" }, q?.why, tabs(d)), lp.el),
     });
+  }
+
+  // sides reads left to right, reference then candidate: a solid box reports the match, a dashed
+  // one doesn't, and the words say what that makes it
+  function sides(dir: Dir) {
+    const side = (name: string, on: boolean) => el("span", { class: `side${on ? " on" : ""}` }, el("i", {}, on ? "●" : "○"), name);
+    return el("span", { class: "sides" },
+      side("reference", dir === "dropped" || dir === "both"), "→", side("candidate", dir === "added" || dir === "both"),
+      el("span", { class: "said", "data-testid": "finding-direction", "data-dir": dir }, dirWords[dir]));
   }
 
   function pageLink(row: string | undefined, way: "previous" | "next") {

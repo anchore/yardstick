@@ -158,7 +158,8 @@ Filter chips are buttons with `data-chip` (`all`, `unlabeled`, `tp`, `fp`, `uncl
 | `pager` | "N of M open" beside the breadcrumb: the open rows `j` / `k` walk, or every row when none is open | `data-index` (1-based among them, 0 for a labeled row or one the filters leave out), `data-total`, `data-open` |
 | `pager-previous`, `pager-next` | its `k` / `j` links | |
 | `finding-effect` | what its label does, in the title row | `data-effect` = decides / could-move |
-| `finding-sub`, `finding-package`, `finding-image`, `finding-direction` | the subtitle and its parts | `finding-image` has the full ref in `title` |
+| `finding-sub`, `finding-package`, `finding-image`, `finding-direction` | the subtitle and its parts | `finding-image` has the full ref in `title`; `finding-direction` has `data-dir` = added / dropped / both / neither |
+| `finding-distro` | the distro release chip in the subtitle, only for a purl with a `distro` qualifier | |
 | `finding-purl` | the package's purl, decoded, under Why it differs | the raw purl in `title` |
 | `finding` | the page body | `data-row`, `data-verdict` |
 | `finding-tabs` | the content tabs, `role=tab` | `aria-selected`, `data-tab` = why / evidence / raw / labels |

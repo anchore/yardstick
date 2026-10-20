@@ -47,6 +47,7 @@ Gate and check screens (levels 1 and 2) carry the image rail on the left, collap
 - **On a check screen** the same rail is available and on by default, with counts for that check's findings per image, so moving between images for one check never leaves the check. An "Images" toggle hides it. Picking an image filters the table in place and the filter chips' counts follow it.
 - **The gate's verdict bar** (TP, FP, unclear, unlabeled with a hint, unlabeled) sits above the fold on the gate screen.
 - **Reason** is muted when it's the default `not-recorded`, which most ported labels carry.
+- **The finding's subtitle** is two lines. What was matched: the package name and version, its ecosystem, and for a distro package (a purl with a `distro` qualifier) the release in a boxed "distro" chip, since the release decides most distro matching. Then where: the image, and the sides left to right, reference → candidate, solid where it reports the match and dashed where it doesn't, with what that makes it ("the candidate dropped this").
 - **The finding page** puts content on the left, read top to bottom, with tabs for Why it differs, Evidence, Raw match and Labels on file. The label panel sits on the right and stays in place.
 - **Agent hints** get their own card with their own Accept button, separate from the TP / FP / Unclear control, so a hint never looks like a choice already made.
 - **Bulk actions** appear in a bar over the table when rows are selected: Accept hints, Label as….
