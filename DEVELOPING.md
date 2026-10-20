@@ -17,6 +17,7 @@ The label UI (`claims serve`) is TypeScript under `cmd/yardstick/internal/labels
 - `make dev:e2e` is `make dev` over the e2e tests' workspace (the gates, labels and hints in `SCENARIO.md`), rebuilt fresh into `.tmp/dev-e2e` on every start. Research runs the real `claude` command here, not the tests' stand-in
 - `make unit` runs the Go tests and `bun test`
 - `make e2e` runs the Playwright tests on the host, headless; `make e2e HEADED=1` shows the browser. The first run downloads chromium into Playwright's cache (`~/Library/Caches/ms-playwright` on macOS, `~/.cache/ms-playwright` on Linux). Traces and the report land in `web/test-results/` and `web/playwright-report/`. The workspace it serves, two real gates with labels and agent hints, is described in `cmd/yardstick/internal/testkit/testdata/e2e/SCENARIO.md`; `go test ./cmd/yardstick/internal/testkit` checks that description without a browser
+- `make e2e:container` runs the same tests headless in Playwright's linux docker image (the one `@playwright/test` is pinned to), for a sandbox or agent session where a host browser can't start. It mounts the repo and uses the host's `node_modules`; `make e2e` stays the default
 - `make e2e-ui` opens Playwright UI mode in its own window. Run a test there and pick a step to see the page at that point
 
 When e2e fails in CI, download the `playwright-results` artifact and drop its `trace.zip` on https://trace.playwright.dev. The trace loads locally in the browser and nothing is uploaded.

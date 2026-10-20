@@ -5,6 +5,8 @@ const port = 7656;
 const tmp = new URL("../../../../../.tmp/e2e/", import.meta.url).pathname;
 // the tests read labels from the workspace on disk; workers inherit it from here
 process.env.YARDSTICK_E2E_WORKSPACE ??= tmp + "workspace";
+// make e2e:container runs a linux build of the seed beside the host's
+const seed = process.env.YARDSTICK_E2E_SEED ?? tmp + "seed";
 
 export default defineConfig({
   testDir: "e2e",
@@ -21,7 +23,7 @@ export default defineConfig({
   },
   projects: [{ name: "chromium", use: { ...devices["Desktop Chrome"] } }],
   webServer: {
-    command: `${tmp}seed -dir ${process.env.YARDSTICK_E2E_WORKSPACE} -addr 127.0.0.1:${port}`,
+    command: `${seed} -dir ${process.env.YARDSTICK_E2E_WORKSPACE} -addr 127.0.0.1:${port}`,
     url: `http://127.0.0.1:${port}/ui/map/gates/`,
     stdout: "pipe",
   },

@@ -78,6 +78,13 @@ func main() {
 		},
 
 		Task{
+			Name:         "e2e:container",
+			Description:  "run the label UI's Playwright tests headless in Playwright's linux docker image, for sandboxes where a host browser can't start",
+			Dependencies: Deps("generate"),
+			Run:          taskfile("e2e:container"),
+		},
+
+		Task{
 			Name:         "e2e-ui",
 			Description:  "open the label UI's Playwright tests in Playwright's UI mode",
 			Dependencies: Deps("generate"),
