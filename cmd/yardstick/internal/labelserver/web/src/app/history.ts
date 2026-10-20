@@ -139,6 +139,8 @@ export function historyView(host: HTMLElement, r0: HistoryRoute, nav: Nav): View
   void update(r);
   return {
     update: (n) => { void update(n); return true; },
+    // a removal or an Undo reads the page again into the same table
+    refresh: () => update(r),
     key: (e) => {
       if (e.key === "Escape" && !confirm.hidden) { confirm.hidden = true; return true; }
       return table.key(e);

@@ -29,10 +29,12 @@ export interface Work {
   el: HTMLElement;
   // cell is a gate row's hint column, filled once the hints are in
   cell(gate: string): HTMLElement;
+  // refresh reads the open work again after a write, over the numbers already shown
+  refresh(list: GateList): void;
 }
 
 export function workBanner(list: GateList): Work {
-  const gates = list.gates.filter((g) => !g.error);
+  let gates = list.gates.filter((g) => !g.error);
   const nums = { open: el("b", { "data-testid": "work-open" }, "–"), hinted: el("b", { "data-testid": "work-hinted" }, "–"), need: el("b", { "data-testid": "work-need" }, "–") };
   const big = (b: HTMLElement, word: string) => el("div", { class: "big" }, b, el("span", {}, word));
   const caps = el("span", { class: "caps", "data-testid": "work-caps" }, `Open work across ${plural(gates.length, "gate")}`);
@@ -132,9 +134,14 @@ export function workBanner(list: GateList): Work {
     fill(foot, "Cancelling stops the queued jobs and the running ones. Finished hints stay. ", el("a", { href: "/ui/research/jobs", "data-testid": "work-jobs" }, "View jobs"));
   }
 
-  // watch reads the batch until it is done, then draws the banner again with what it left
+  // watch reads the batch until it is done, then draws the banner again with what it left; one
+  // watch at a time, since a refresh loads the banner again while it runs
+  let watching = false;
   function watch() {
+    if (watching) return;
+    watching = true;
     setTimeout(async () => {
+      watching = false;
       if (!banner.isConnected) return;
       try {
         const [b, res] = await Promise.all([api.researchBatch(), fetchHints()]);
@@ -203,9 +210,15 @@ export function workBanner(list: GateList): Work {
   }
 
   work({ open: 0, hinted: 0, needYou: 0 }, 1, null, null);
-  load().catch((e) => fill(outcomes, el("span", { class: "muted" }, `Couldn't preview the hints: ${(e as Error).message}`)));
 
-  return { el: banner, cell: (gate) => cells.get(gate) ?? el("div", { class: "lnum" }) };
+  const failed = (e: unknown) => fill(outcomes, el("span", { class: "muted" }, `Couldn't preview the hints: ${(e as Error).message}`));
+  load().catch(failed);
+
+  return {
+    el: banner,
+    cell: (gate) => cells.get(gate) ?? el("div", { class: "lnum" }),
+    refresh(next) { gates = next.gates.filter((g) => !g.error); load().catch(failed); },
+  };
 }
 
 const group = (p: ResearchQueueResponse | null, id: string): ResearchGroup | undefined => p?.groups.find((g) => g.group === id);

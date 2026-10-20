@@ -42,15 +42,18 @@ export function researchView(host: HTMLElement, r: ResearchRoute, nav: Nav): Vie
   const toggle = jobsToggle("matches");
   // the plan has both groups selected, so each match sits in one job and the change group claims first
   const plan = (model?: string) => api.researchQueue({ scope, check, rows, groups: rows ? undefined : ["change", "none"], model, dryRun: true });
-  let update: ((next: ResearchRoute) => void) | null = null;
-
-  Promise.all([gateList(), plan()]).then(([list, first]) => {
+  let update: ((next: ResearchRoute) => void) | null = null, at = r;
+  // a write elsewhere (a toast's Undo) plans again and draws the page over what's there, its checks
+  // starting over as on arrival
+  const load = () => Promise.all([gateList(), plan()]).then(([list, first]) => {
     if (alive()) update = draw(list, first);
-  }).catch((e) => alive() && renderShell(host, r, { title: "Research open matches", actions: [toggle, left], body: failed(e) }));
+  });
+
+  load().catch((e) => alive() && renderShell(host, r, { title: "Research open matches", actions: [toggle, left], body: failed(e) }));
   renderShell(host, r, { title: "Research open matches", actions: [toggle, left], body: loading() });
 
   function draw(list: GateList, first: ResearchQueueResponse) {
-    let route = r, basis: Basis = first.estimate.basis, seq = 0, scoped: RRow[] = [], showing: RRow[] = [], checked = new Set<string>();
+    let route = at, basis: Basis = first.estimate.basis, seq = 0, scoped: RRow[] = [], showing: RRow[] = [], checked = new Set<string>();
     const all = rowsOf(first), byId = new Map(all.map((x) => [x.id, x])), byJob = new Map(groupRows(all, (x) => x.job).map((g) => [g.key, g.rows]));
     const chipOf = () => (["change", "none", "checked"].includes(route.filters.chip ?? "") ? route.filters.chip! : "all");
     const inChip = (x: RRow, c: string) => c === "all" || (c === "checked" ? checked.has(x.id) : x.group === c);
@@ -215,7 +218,10 @@ export function researchView(host: HTMLElement, r: ResearchRoute, nav: Nav): Vie
     return (next: ResearchRoute) => { route = next; refresh(); };
   }
 
-  return { update: (next) => { if (!update || next.level !== "research") return false; update(next); return true; } };
+  return {
+    update: (next) => { if (!update || next.level !== "research") return false; at = next; update(next); return true; },
+    refresh: load,
+  };
 }
 
 // ---------- the scoped Research button ----------
@@ -224,8 +230,9 @@ export type ScopedWords = (rows: number, jobs: number, group: "change" | "none" 
 
 export interface Scoped {
   el: HTMLAnchorElement;
-  // set prices another scope (the image filter changed) and says it in words
-  set(to: ResearchRoute, words: ScopedWords): void;
+  // set prices another scope (the image filter changed) and says it in words; again prices the same
+  // scope again after a write, showing the old price until the new one is in
+  set(to: ResearchRoute, words: ScopedWords, again?: boolean): void;
   // go opens the research page, as r does, when the button is showing
   go(): boolean;
 }
@@ -241,19 +248,19 @@ export function scopedResearch(o: { all?: boolean; key?: boolean; small?: boolea
   return {
     el: a,
     go() { if (a.hidden) return false; a.click(); return true; },
-    set(to, words) {
+    set(to, words, again = false) {
       const key = formatRoute(to);
-      if (key === at) return;
+      if (key === at && !again) return;
       at = key;
       const mine = ++seq;
-      a.hidden = true;
+      if (!again) a.hidden = true;
       api.researchQueue({ scope: to.scope ?? "all", check: to.check, dryRun: true }).then((p) => {
         if (mine !== seq) return;
         const change = p.groups.find((g) => g.group === "change"), none = p.groups.find((g) => g.group === "none");
         const which = o.all ? "all" : change?.jobs.length ? "change" : "none";
         const picked = which === "all" ? [change, none] : [which === "change" ? change : none];
         const jobs = picked.reduce((n, g) => n + (g?.jobs.length ?? 0), 0), rows = picked.reduce((n, g) => n + (g?.rows ?? 0), 0);
-        if (!jobs) return;
+        if (!jobs) { a.hidden = true; return; }
         const e = estimate(jobs, p.estimate.basis, p.concurrency), text = words(rows, jobs, which);
         a.setAttribute("href", formatRoute({ ...to, ...(which !== "change" && { groups: which === "all" ? ["change", "none"] : ["none"] }) }));
         a.dataset.rows = String(rows);

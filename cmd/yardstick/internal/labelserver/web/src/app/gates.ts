@@ -1,6 +1,6 @@
 // gates.ts is level 0, /ui/gates/: every gate in the workspace, one per row, with tabs for the open
 // findings across gates (today's every-gate queue, as a table) and every label in the workspace.
-import type { CrossFinding, GateListItem, SharedState, State } from "../gen/wire";
+import type { CrossFinding, GateList, GateListItem, SharedState, State } from "../gen/wire";
 import * as api from "../shared/api";
 import { doing, inFlight } from "../shared/agent";
 import { el, fill, toast } from "../shared/dom";
@@ -12,7 +12,7 @@ import { hintWords, labelPicker } from "./findings";
 import { labelsTable, type LRow } from "./labelstable";
 import { openOf } from "./images";
 import { labelText, mergeLabels, pageInfo, shortSource, square, sumTally, type WideLabel } from "./listing";
-import { failed, listCursor, loading, primary, shown } from "./lists";
+import { failed, keptPrimary, listCursor, loading, shown } from "./lists";
 import { queueFor } from "./queuelist";
 import { formatRoute, withFilters, type Route } from "./route";
 import { bulkResearch, cellFor, follow, researchOf, started, type Research } from "./researchtable";
@@ -33,35 +33,52 @@ export function gatesView(host: HTMLElement, r0: Route & { level: "gates" }, nav
   const out: View = { update: () => false };
   // the Unlabeled tab prices research by a gate's state: one job costs the same in every gate
   const firstState = () => gateList().then((l) => { const g = l.gates.find((x) => !x.error); return g ? gateState(g.id) : undefined; });
-  const load = () => Promise.all([gateList(), shared(), everyLabel(), r.tab === "unlabeled" ? firstState() : undefined]).then(([list, sh, byGate, st]) => {
+  let list: GateList, sh: SharedState, labels: WideLabel[], st: State | undefined;
+  const read = () => Promise.all([gateList(), shared(), everyLabel(), r.tab === "unlabeled" ? firstState() : undefined]).then(([l, s, byGate, t]) => {
+    list = l; sh = s; labels = mergeLabels(byGate); st = t;
+  });
+
+  // the tab and the banner are built with the first data and kept: a refresh hands them the new data
+  const body = el("div", { class: "screen" }), left = keptPrimary("Label what's left");
+  let tab: Tab, work: Work | null = null;
+  const paint = () => renderShell(host, r, {
+    title: "Gates",
+    above: work?.el,
+    // the banner carries the screen's primary action (UI-RULES 7); the other tabs enter the queue here
+    actions: work ? undefined : left(sh.findings.length ? formatRoute(queueFor(r)) : null),
+    tabCounts: { gates: list.gates.length, unlabeled: sh.findings.length, labels: labels.length },
+    meta: [...new Set(labels.map((l) => shortSource(l.source)))].join(" + "),
+    body,
+  });
+
+  read().then(() => {
     if (!alive()) return;
-    const labels = mergeLabels(byGate);
-    const body = el("div", { class: "screen" });
-    const work = r.tab === "gates" ? workBanner(list) : null;
-    renderShell(host, r, {
-      title: "Gates",
-      above: work?.el,
-      // the banner carries the screen's primary action (UI-RULES 7); the other tabs enter the queue here
-      actions: work ? undefined : primary("Label what's left", sh.findings.length ? formatRoute(queueFor(r)) : null),
-      tabCounts: { gates: list.gates.length, unlabeled: sh.findings.length, labels: labels.length },
-      meta: [...new Set(labels.map((l) => shortSource(l.source)))].join(" + "),
-      body,
-    });
-    const tab = r.tab === "unlabeled" ? unlabeledTab(sh, st, r, nav, load) : r.tab === "labels" ? labelsTab(labels, r, nav) : gatesTab(list.gates, work);
+    work = r.tab === "gates" ? workBanner(list) : null;
+    tab = r.tab === "unlabeled" ? unlabeledTab(() => sh, async () => { sh = await freshShared(); }, st, r, nav)
+      : r.tab === "labels" ? labelsTab(() => labels, r, nav) : gatesTab(() => list.gates, work);
     fill(body, tab.el);
+    paint();
     out.key = (e) => tab.key(e);
     out.update = (n) => { r = n as typeof r; return tab.update?.(n) ?? false; };
+    out.refresh = async () => {
+      await read();
+      if (!alive()) return;
+      work?.refresh(list);
+      tab.refresh();
+      paint();
+    };
   }).catch((e) => alive() && renderShell(host, r, { title: "Gates", body: failed(e) }));
   renderShell(host, r, { title: "Gates", body: loading() });
-  load();
   return out;
 }
 
-interface Tab { el: HTMLElement | HTMLElement[]; key: (e: KeyboardEvent) => boolean; update?: (r: Route) => boolean }
+// refresh draws the tab again from the view's data, read again after a write
+interface Tab { el: HTMLElement | HTMLElement[]; key: (e: KeyboardEvent) => boolean; update?: (r: Route) => boolean; refresh: () => void }
 
 // gatesTab is one row per gate: status, name and setups, a square per image, how much is unlabeled
-function gatesTab(gates: GateListItem[], work: Work | null): Tab {
-  const list = el("div", { class: "lrows gatelist", "data-testid": "gate-rows" }, gates.map((g) => {
+function gatesTab(gates: () => GateListItem[], work: Work | null): Tab {
+  const list = el("div", { class: "lrows gatelist", "data-testid": "gate-rows" });
+  const draw = () => fill(list, gates().map((g) => {
     const changes = g.changes ?? [], sum = sumTally(changes), state = (g.error ? "undecided" : g.gateOutcome ?? "undecided") as Status;
     const withOpen = changes.filter((t) => openOf(t)).length;
     return el("a", { class: "lrow", href: formatRoute({ level: "gate", gate: g.id, tab: "checks", filters: {} }), "data-testid": "gate-row", "data-gate": g.id, "data-state": state },
@@ -76,7 +93,8 @@ function gatesTab(gates: GateListItem[], work: Work | null): Tab {
       work?.cell(g.id),
       el("span", { class: "chev", "aria-hidden": "true" }, "›"));
   }));
-  return { el: list, key: listCursor(list) };
+  draw();
+  return { el: list, key: listCursor(list), refresh: draw };
 }
 
 const crossText = (f: CrossFinding) => `${f.vulnerability} ${f.package.ref} ${f.image} ${f.in.map((a) => a.gate).join(" ")}`;
@@ -99,13 +117,13 @@ const crossDoing = (f: CrossFinding) => doing(f.research, { open: true, research
 
 // unlabeledTab is every open finding across gates, the ones whose label decides the most gates
 // first. Research here runs each finding once, under the gate the research page would pick.
-function unlabeledTab(sh0: SharedState, st: State | undefined, r0: Route, nav: Nav, reload: () => void): Tab {
-  let r = r0, sh = sh0;
-  let byKey = new Map(sh.findings.map((f) => [f.key, f]));
+// sh is the view's data as last read, and fresh reads it again for research in flight
+function unlabeledTab(sh: () => SharedState, fresh: () => Promise<void>, st: State | undefined, r0: Route, nav: Nav): Tab {
+  let r = r0;
+  let byKey = new Map<string, CrossFinding>();
   const research: Research = researchOf(st);
   const redraw = async () => {
-    sh = await freshShared();
-    byKey = new Map(sh.findings.map((f) => [f.key, f]));
+    await fresh();
     update(r);
   };
   async function start(fs: CrossFinding[]) {
@@ -139,8 +157,8 @@ function unlabeledTab(sh0: SharedState, st: State | undefined, r0: Route, nav: N
       return [
         rs.button,
         el("button", { type: "button", class: `btn${!rs.leads && hinted ? " go" : ""}`, "data-variant": "outline", "data-size": "sm", "data-testid": "bulk-accept", disabled: !hinted,
-          onclick: async () => { if (await acceptCross(fs)) clear(); reload(); } }, `Accept hints (${hinted})`),
-        labelPicker(sh.vocabulary, async (v, j) => { if (await labelCross(fs, v, j)) clear(); reload(); }),
+          onclick: async () => { if (await acceptCross(fs)) clear(); } }, `Accept hints (${hinted})`),
+        labelPicker(sh().vocabulary, async (v, j) => { if (await labelCross(fs, v, j)) clear(); }),
         rs.why,
       ];
     } },
@@ -151,20 +169,23 @@ function unlabeledTab(sh0: SharedState, st: State | undefined, r0: Route, nav: N
     oninput: () => nav(withFilters(r, { q: search.value }), true) });
   function update(n: Route) {
     r = n;
-    table.update(filterRows(sh.findings, r.filters.q ?? "", crossText));
+    byKey = new Map(sh().findings.map((f) => [f.key, f]));
+    table.update(filterRows(sh().findings, r.filters.q ?? "", crossText));
     return true;
   }
   update(r);
-  follow(table.el, () => sh.findings.some((f) => inFlight(f.research)), redraw);
-  return { el: [el("div", { class: "filters" }, el("p", { class: "help" }, "Labels are about a match, not a gate: one label counts in every gate that reports it."), search), table.el], key: table.key, update };
+  follow(table.el, () => sh().findings.some((f) => inFlight(f.research)), redraw);
+  return { el: [el("div", { class: "filters" }, el("p", { class: "help" }, "Labels are about a match, not a gate: one label counts in every gate that reports it."), search), table.el], key: table.key, update, refresh: () => update(r) };
 }
 
 // labelsTab is every label in the workspace, each once however many gates count it
-function labelsTab(all: WideLabel[], r0: Route, nav: Nav): Tab {
+function labelsTab(all: () => WideLabel[], r0: Route, nav: Nav): Tab {
+  let r = r0;
   const t = labelsTable({ route: r0, nav, wide: true,
     open: (l: LRow) => l.row && l.gate && nav({ level: "finding", gate: l.gate, check: null, row: l.row, filters: {} }) });
-  const update = (r: Route) => {
-    const q = filterRows(all, r.filters.q ?? "", labelText);
+  const update = (n: Route) => {
+    r = n;
+    const q = filterRows(all(), r.filters.q ?? "", labelText);
     const counts: Record<string, number> = { tp: 0, fp: 0, unclear: 0 };
     for (const l of q) counts[l.verdict] = (counts[l.verdict] ?? 0) + 1;
     const rows = q.filter((l) => !r.filters.verdict || l.verdict === r.filters.verdict), p = pageInfo(rows.length, r.filters.page);
@@ -172,5 +193,5 @@ function labelsTab(all: WideLabel[], r0: Route, nav: Nav): Tab {
     return true;
   };
   update(r0);
-  return { el: t.el, key: t.table.key, update };
+  return { el: t.el, key: t.table.key, update, refresh: () => update(r) };
 }

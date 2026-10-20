@@ -47,7 +47,6 @@ export interface FindingsOptions {
   nav: Nav;
   vocab: Vocabulary | undefined;
   open: (r: FRow) => void;
-  reload: () => void;         // after a write: fetch again and update
   extra?: HTMLElement[];      // more controls in the filter row, before the search box
   testid?: string;
   research: Research;
@@ -95,8 +94,8 @@ export function findingsList(o: FindingsOptions): FindingsList {
       return [
         rs.button,
         el("button", { type: "button", class: `btn${!rs.leads && hinted ? " go" : ""}`, "data-variant": "outline", "data-size": "sm", "data-testid": "bulk-accept", disabled: !hinted,
-          onclick: async () => { if (await acceptHints(o.gate, picked)) clear(); o.reload(); } }, `Accept hints (${hinted})`),
-        labelPicker(o.vocab, async (v, j) => { if (await labelRows(o.gate, picked.map((x) => x.row!), v, j)) clear(); o.reload(); }),
+          onclick: async () => { if (await acceptHints(o.gate, picked)) clear(); } }, `Accept hints (${hinted})`),
+        labelPicker(o.vocab, async (v, j) => { if (await labelRows(o.gate, picked.map((x) => x.row!), v, j)) clear(); }),
         rs.why,
       ];
     } },

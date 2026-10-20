@@ -61,7 +61,14 @@ export async function everyLabel() {
 
 // ---------- writes ----------
 
-// revert removes labels from the writable claims source, then has main.ts redraw the screen
+// changed is how every write that stays on its screen says so: the cache is dropped and main.ts has
+// the screen refresh in place
+export function changed() {
+  cache.clear();
+  dispatchEvent(new Event("yardstick:changed"));
+}
+
+// revert removes labels from the writable claims source, then refreshes the screen
 export async function revert(labels: LabelKey[]) {
   try {
     toast(`${plural((await api.revert(labels)).removed, "label")} removed`);
@@ -70,9 +77,8 @@ export async function revert(labels: LabelKey[]) {
     toast((e as Error).message, true);
     return false;
   } finally {
-    cache.clear();
     void recount();
-    dispatchEvent(new Event("yardstick:reverted"));
+    changed();
   }
 }
 
@@ -86,15 +92,15 @@ async function write(what: (keys: LabelKey[]) => Promise<string>) {
   const keys: LabelKey[] = [];
   try {
     const text = await what(keys);
-    cache.clear();
     written(text, keys);
     return true;
   } catch (e) {
     // a write across gates can fail part way, after writing some
-    cache.clear();
     void recount();
     toast((e as Error).message, true);
     return false;
+  } finally {
+    changed();
   }
 }
 

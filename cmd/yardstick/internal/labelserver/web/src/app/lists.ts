@@ -13,6 +13,17 @@ export const primary = (text: string, href: string | null) => href
   ? el("a", { class: "btn", href, "data-testid": "label-next" }, text, " ", kbd("n"))
   : el("button", { type: "button", class: "btn", disabled: true, "data-testid": "label-next", title: "Nothing here is unlabeled" }, text, " ", kbd("n"));
 
+// keptPrimary is primary for a screen that draws its shell again: the same node each time, pointed
+// at the new href, and a new one only when it turns between a link and a disabled button
+export function keptPrimary(text: string) {
+  let b: HTMLElement | null = null;
+  return (href: string | null) => {
+    if (!b || (b instanceof HTMLAnchorElement) !== !!href) b = primary(text, href);
+    else if (href) b.setAttribute("href", href);
+    return b;
+  };
+}
+
 const screen = (r: Route | null) => (r ? formatRoute({ ...r, filters: {} }) : "");
 
 // shown says, later, whether the screen of route r is still the one on show: data that arrives

@@ -9,9 +9,9 @@ import { findingsList } from "./findings";
 import { noCounts, type RailImage } from "./images";
 import { labelsTable } from "./labelstable";
 import { gateRows, nextOpen, pageSize, sumTally, type FRow } from "./listing";
-import { failed, listCursor, loading, primary, shown } from "./lists";
+import { failed, keptPrimary, listCursor, loading, shown } from "./lists";
 import { railHints } from "./hints";
-import { imageRail } from "./rail";
+import { imageRail, type Rail } from "./rail";
 import { queueFor, researchFor } from "./queuelist";
 import { scopedResearch } from "./research";
 import { researchOf } from "./researchtable";
@@ -44,56 +44,60 @@ export function gateHead(st: State) {
 export function gateView(host: HTMLElement, r0: GateRoute, nav: Nav): View {
   let r = r0;
   const gate = r.gate, alive = shown(r), out: View = { update: () => false };
-  const load = () => Promise.all([gateState(gate), gateLabels(gate, { limit: 0 })]).then(([st, all]) => {
-    if (!alive()) return;
-    const images = railImages(st);
-    let rows = gateRows(st);
-    const imageOf = (slug: string | undefined) => images.find((i) => i.slug === slug) ?? null;
-    // the Labels tab's rail counts labels, the others changed matches
-    const railed = r.tab === "labels" ? images.map((i) => ({ ...i, counts: { ...noCounts, total: all.perImage[i.slug] ?? 0 } })) : images;
-    const rail = imageRail({ images: railed, selected: imageOf(r.filters.image)?.slug ?? null, scope: r.tab === "labels" ? "labels" : "gate",
-      onSelect: (slug) => nav(withFilters(r, { image: slug ?? undefined })) });
-    if (r.tab !== "labels") railHints(rail, gate);
-    const next = () => nextOpen(rows.filter((x) => !r.filters.image || x.image.slug === r.filters.image));
-    const n = next();
-    const head = gateHead(st);
-    const body = el("div", { class: "screen" });
-    // Research and Label next both follow the image filter (UI-RULES: research wherever labeling is offered)
-    const research = scopedResearch({ key: true });
-    const labelNext = primary("Label next", n ? formatRoute(queueFor(r)) : null);
-    // the shell is drawn again on each filter change, for the tabs' links and the image's chip
-    const frame = () => renderShell(host, r, {
+  let st: State, all: GateLabels, rows: FRow[] = [], images: RailImage[] = [];
+  const imageOf = (slug: string | undefined) => images.find((i) => i.slug === slug) ?? null;
+  // the Labels tab's rail counts labels, the others changed matches
+  const railed = () => (r.tab === "labels" ? images.map((i) => ({ ...i, counts: { ...noCounts, total: all.perImage[i.slug] ?? 0 } })) : images);
+  const read = () => Promise.all([gateState(gate), gateLabels(gate, { limit: 0 })]).then(([s, a]) => {
+    st = s; all = a; rows = gateRows(st); images = railImages(st);
+  });
+
+  // the components are built with the first data and kept: a refresh hands them the new data
+  const body = el("div", { class: "screen" });
+  // Research and Label next both follow the image filter (UI-RULES: research wherever labeling is offered)
+  const research = scopedResearch({ key: true }), labelNext = keptPrimary("Label next");
+  let rail: Rail, tab: Tab;
+
+  // paint draws the shell with the data as last read, and points the components at the route
+  function paint(again = false) {
+    const img = imageOf(r.filters.image), head = gateHead(st);
+    const href = nextOpen(rows.filter((x) => !r.filters.image || x.image.slug === r.filters.image)) ? formatRoute(queueFor(r)) : null;
+    renderShell(host, r, {
       title: gate, status: head.status, sub: head.sub, meta: head.meta,
-      actions: [research.el, labelNext],
+      actions: [research.el, labelNext(href)],
       above: verdictBar(sumTally(st.subjects.map((s) => s.changes))),
       rail,
       scope: img && { label: imageName(img.name, img.ref), clear: () => nav(withFilters(r, { image: undefined })) },
       tabCounts: { checks: st.gate?.result?.checks.length ?? 0, findings: rows.length, labels: all.total },
       body,
     });
-    let img = imageOf(r.filters.image);
-    frame();
-    const tab = r.tab === "findings" ? findingsTab(gate, () => rows, async () => (rows = gateRows(await freshState(gate))), r, nav, st, load)
+    rail.select(img?.slug ?? null);
+    tab.update(r, img?.slug ?? null);
+    research.set(researchFor(r), (n, _, g) => (img ? `${n} on ${img.name}` : g === "change" ? `${n} that can change the gate` : `${n} that ${n === 1 ? "changes" : "change"} no outcome`), again);
+  }
+
+  read().then(() => {
+    if (!alive()) return;
+    rail = imageRail({ images: railed(), selected: imageOf(r.filters.image)?.slug ?? null, scope: r.tab === "labels" ? "labels" : "gate",
+      onSelect: (slug) => nav(withFilters(r, { image: slug ?? undefined })) });
+    if (r.tab !== "labels") railHints(rail, gate);
+    tab = r.tab === "findings" ? findingsTab(gate, () => rows, async () => (rows = gateRows(await freshState(gate))), r, nav, st)
       : r.tab === "labels" ? labelsTab(gate, r, nav, (slug) => !!imageOf(slug))
-        : r.tab === "map" ? mapTab(st, r, nav)
-          : checksTab(st);
+        : r.tab === "map" ? mapTab(() => st, r, nav)
+          : checksTab(() => st);
     fill(body, tab.el);
-    const update = (nr: Route) => {
-      r = nr as GateRoute;
-      img = imageOf(r.filters.image);
-      rail.select(img?.slug ?? null);
-      frame();
-      tab.update(r, img?.slug ?? null);
-      research.set(researchFor(r), (n, _, g) => (img ? `${n} on ${img.name}` : g === "change" ? `${n} that can change the gate` : `${n} that ${n === 1 ? "changes" : "change"} no outcome`));
-      if (labelNext instanceof HTMLAnchorElement) labelNext.href = formatRoute(queueFor(r));
-      return true;
+    paint();
+    out.update = (nr) => { r = nr as GateRoute; paint(); return true; };
+    out.refresh = async () => {
+      await read();
+      if (!alive()) return;
+      rail.images(railed());
+      if (r.tab !== "labels") railHints(rail, gate);
+      paint(true);
     };
-    update(r);
-    out.update = update;
     out.key = (e) => (e.key === "r" && research.go()) || tab.key(e) || rail.key(e);
   }).catch((e) => alive() && renderShell(host, r, { title: gate, body: failed(e) }));
   renderShell(host, r, { title: gate, body: loading() });
-  load();
   return out;
 }
 
@@ -134,16 +138,17 @@ export function checkCounts(st: State, c: CheckResult, image: string | null) {
   return { decides, bearing, could };
 }
 
-function checksTab(st: State): Tab {
+// st is the gate's state as last read
+function checksTab(st: () => State): Tab {
   const list = el("div", { class: "lrows", "data-testid": "check-rows" });
-  const checks = st.gate?.result?.checks ?? [];
   return {
-    el: checks.length ? list : el("div", { class: "placeholder" }, st.gate?.note || "This gate has no result to show."),
+    el: st().gate?.result?.checks.length ? list : el("div", { class: "placeholder" }, st().gate?.note || "This gate has no result to show."),
     key: listCursor(list),
     update(r, image) {
-      fill(list, checks.map((c) => {
-        const n = checkCounts(st, c, image);
-        return el("a", { class: "lrow check", href: formatRoute({ level: "check", gate: st.scans.id, check: c.name, filters: r.filters.image ? { image: r.filters.image } : {} }),
+      const s = st();
+      fill(list, (s.gate?.result?.checks ?? []).map((c) => {
+        const n = checkCounts(s, c, image);
+        return el("a", { class: "lrow check", href: formatRoute({ level: "check", gate: s.scans.id, check: c.name, filters: r.filters.image ? { image: r.filters.image } : {} }),
           "data-testid": "check-row", "data-check": c.name, "data-state": c.state },
         status(c.state as Status),
         el("div", { class: "lname" }, el("div", { class: "name" }, c.name), el("div", { class: "desc", title: sentence(c.description) }, c.summary || sentence(c.description))),
@@ -159,9 +164,9 @@ function checksTab(st: State): Tab {
 // ---------- Findings ----------
 
 // rows are the gate's rows as the view last read them, and fresh reads them again
-function findingsTab(gate: string, rows: () => FRow[], fresh: () => Promise<FRow[]>, r0: Route, nav: Nav, st: State, reload: () => void): Tab {
+function findingsTab(gate: string, rows: () => FRow[], fresh: () => Promise<FRow[]>, r0: Route, nav: Nav, st: State): Tab {
   let r = r0;
-  const list = findingsList({ gate, route: r, nav, vocab: st.vocabulary, reload, research: researchOf(st), fresh,
+  const list = findingsList({ gate, route: r, nav, vocab: st.vocabulary, research: researchOf(st), fresh,
     open: (x) => x.row && nav({ level: "finding", gate, check: null, row: x.row, filters: r.filters }) });
   return {
     el: list.el,
@@ -190,7 +195,7 @@ function labelsTab(gate: string, r0: Route, nav: Nav, known: (slug: string | und
 
 // ---------- Scan map ----------
 
-function mapTab(st: State, r0: Route, nav: Nav): Tab {
+function mapTab(st: () => State, r0: Route, nav: Nav): Tab {
   let r = r0;
   const box = el("div", { class: "scanmap", "data-testid": "scan-map" });
   return {
@@ -199,7 +204,7 @@ function mapTab(st: State, r0: Route, nav: Nav): Tab {
     update(nr, image) {
       r = nr;
       // a block opens the Findings tab filtered to its source package
-      fill(box, scanMap(st, image, (pkg) => nav({ level: "gate", gate: st.scans.id, tab: "findings", filters: { ...(r.filters.image ? { image: r.filters.image } : {}), pkg } })));
+      fill(box, scanMap(st(), image, (pkg) => nav({ level: "gate", gate: st().scans.id, tab: "findings", filters: { ...(r.filters.image ? { image: r.filters.image } : {}), pkg } })));
     },
   };
 }

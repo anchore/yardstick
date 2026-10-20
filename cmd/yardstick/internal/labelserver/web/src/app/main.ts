@@ -155,6 +155,11 @@ document.addEventListener("click", (e) => {
 });
 
 window.addEventListener("popstate", render);
-// labels removed (a toast's Undo, history's Remove): the screen is drawn again from fresh data
-window.addEventListener("yardstick:reverted", () => { route = null; render(); });
+// a write (a label, an accepted hint, a toast's Undo, history's Remove): the screen reads its data
+// again and shows it in place. A screen with no refresh is built again, which its loading frame
+// would blank, so every screen that reads data has one.
+window.addEventListener("yardstick:changed", () => {
+  if (view.refresh) void view.refresh().catch((e) => toast((e as Error).message, true));
+  else { route = null; render(); }
+});
 render();

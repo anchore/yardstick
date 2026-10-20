@@ -44,12 +44,18 @@ export function jobsView(host: HTMLElement, r: Extract<Route, { level: "jobs" }>
   const where = new Map<string, Where>();
   const shell = (body: Child) => renderShell(host, r, { title: "Research jobs", sub, actions: jobsToggle("jobs"), body });
 
-  async function load() {
+  // read is the jobs, their price basis and the hints nobody has accepted, read again by a refresh
+  async function read() {
     const [j, plan, hints] = await Promise.all([api.researchJobs(), api.researchQueue({ scope: "all", dryRun: true }).catch(() => null),
       getJSON<HintsResponse>("/api/hints?low=1").catch(() => null)]);
     basis = plan?.estimate.basis ?? null;
     pending = hints?.hints ?? [];
     await place(j);
+    return j;
+  }
+
+  async function load() {
+    const j = await read();
     if (!alive()) return;
     shell(el("div", { class: "screen" }, sum, list));
     draw(j);
@@ -181,5 +187,5 @@ export function jobsView(host: HTMLElement, r: Extract<Route, { level: "jobs" }>
 
   renderShell(host, r, { title: "Research jobs", actions: jobsToggle("jobs"), body: loading() });
   load().catch((e) => alive() && renderShell(host, r, { title: "Research jobs", body: failed(e) }));
-  return {};
+  return { refresh: async () => { const j = await read(); if (alive() && list.isConnected) draw(j); } };
 }

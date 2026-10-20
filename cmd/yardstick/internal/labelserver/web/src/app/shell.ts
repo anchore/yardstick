@@ -10,11 +10,13 @@ import { openPalette } from "./palette";
 import { settings } from "./settings";
 import { gateSwitch } from "./switcher";
 
-// View is what main.ts keeps of the screen on show: its keys, and a way to take a change of filters
-// in place (true when it did) rather than being drawn again
+// View is what main.ts keeps of the screen on show: its keys, a way to take a change of filters in
+// place (true when it did) rather than being drawn again, and refresh, which reads the screen's
+// data again after a write and shows it in place
 export interface View {
   key?: (e: KeyboardEvent) => boolean;
   update?: (r: Route) => boolean;
+  refresh?: () => Promise<void>;
 }
 
 // Nav goes to a route, replacing the history entry when replace is set (typing in a search box)

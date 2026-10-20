@@ -5,7 +5,7 @@ import type { GateList, GateResult, HintEntry, HintsAcceptResponse, HintsRespons
 import { token } from "../shared/api";
 import { el, fill, toast, type Child } from "../shared/dom";
 import { dots, labels as words, plural, sideWords } from "../shared/words";
-import { forget, gateList, gateState, written } from "./data";
+import { changed, gateList, gateState, written } from "./data";
 import { hintsHref, imageHints, inScope, parseScope, preselected, previewLabels, rowCount, stillOpen, type OpenRow } from "./hintsdata";
 import { noCounts, type RailImage } from "./images";
 import { gateRows, isOpen } from "./listing";
@@ -59,7 +59,8 @@ const stateWord = (s: string) => el("span", { class: `sw ${s}` }, s);
 interface Data { list: GateList; all: HintEntry[]; states: Map<string, State> }
 
 export function hintsView(host: HTMLElement, r0: Route & { level: "hints" }, _nav: Nav): View {
-  const r = r0, alive = shown(r), out: View = { update: () => false };
+  // a write here or anywhere reads the hints again and draws the screen over what's there
+  const r = r0, alive = shown(r), out: View = { update: () => false, refresh: async () => { await load(); } };
   // the reader's own checks, over preselection; kept across filter changes, cleared by an accept
   const chosen = new Map<string, boolean>();
   let data: Data | null = null;
@@ -195,9 +196,8 @@ export function hintsView(host: HTMLElement, r0: Route & { level: "hints" }, _na
       } catch (e) {
         toast((e as Error).message, true);
       }
-      forget();
       chosen.clear();
-      await load();
+      changed();
     }
 
     refresh();
@@ -281,11 +281,11 @@ function impactGate(gate: string, before: GateResult | undefined, after: GateRes
 // which opens review scoped to that image (accepting always goes through review)
 export function railHints(rail: Rail, gate: string) {
   fetchHints().then((res) => {
+    // with none, a rail drawn again after a write takes the old ones away
     const { hints } = inScope(res.hints, { gate });
-    if (!hints.length) return;
     const per = imageHints(hints, gate);
     rail.hints(
-      el("a", { class: "btn", "data-variant": "outline", "data-size": "sm", href: hintsHref({ gate }), "data-testid": "rail-review-all" }, `Review all ${plural(hints.length, "hint")}`),
+      hints.length > 0 && el("a", { class: "btn", "data-variant": "outline", "data-size": "sm", href: hintsHref({ gate }), "data-testid": "rail-review-all" }, `Review all ${plural(hints.length, "hint")}`),
       (slug) => {
         const x = per.get(slug);
         return x && [
