@@ -8,7 +8,7 @@ import * as api from "../shared/api";
 import { doing, inFlight } from "../shared/agent";
 import { el, fill, toast } from "../shared/dom";
 import { outcome as outcomeOf, outcomeRank } from "../shared/rows";
-import { labels as words } from "../shared/words";
+import { columnHelp as help, labels as words } from "../shared/words";
 import { acceptHints, labelOptions, labelRows } from "./data";
 import { chipCounts, chipFilters, chipOf, chips, chipWords, effectRank, inChip, isOpen, scopedRows, shownRows, type FRow } from "./listing";
 import { bulkResearch, cellFor, follow, started, type Research } from "./researchtable";
@@ -23,13 +23,13 @@ const effectCell = (r: FRow) =>
 export const hintWords = (h: FRow["hint"]) => (h ? `${words[h.verdict]?.word ?? h.verdict}${h.confidence ? ` · ${h.confidence}` : ""}` : "");
 
 export const findingColumns: Column<FRow>[] = [
-  { key: "label", label: "Label", cell: (r) => verdict(r.label), sort: (r) => r.label },
+  { key: "label", label: "Label", cell: (r) => verdict(r.label), sort: (r) => r.label, help: help.label },
   { key: "vuln", label: "Vulnerability", cell: (r) => el("span", { class: "strong" }, r.vuln), sort: (r) => r.vuln, title: (r) => r.vuln, truncate: true },
   { key: "package", label: "Package", cell: (r) => el("span", { class: "mono" }, r.pkg, " ", el("small", {}, r.version)), sort: (r) => r.pkg, title: (r) => `${r.purl || r.pkg} ${r.version}`, truncate: true },
   { key: "image", label: "Image", cell: (r) => imageName(r.image.name, r.image.ref), sort: (r) => r.image.name, title: (r) => r.image.ref, truncate: true },
-  { key: "outcome", label: "Outcome", cell: (r) => outcome(r.change, r.label) ?? el("span", { class: "muted" }, "–"), sort: (r) => outcomeRank(outcomeOf(r.change, r.label)) },
-  { key: "hint", label: "Agent hint", cell: (r) => (r.hint ? hint(hintWords(r.hint)) : el("span", { class: "muted" }, "–")), sort: (r) => hintWords(r.hint) },
-  { key: "effect", label: "Effect", cell: effectCell, sort: (r) => effectRank(r.effect) },
+  { key: "outcome", label: "Outcome", cell: (r) => outcome(r.change, r.label) ?? el("span", { class: "muted" }, "–"), sort: (r) => outcomeRank(outcomeOf(r.change, r.label)), help: help.outcome },
+  { key: "hint", label: "Agent hint", cell: (r) => (r.hint ? hint(hintWords(r.hint)) : el("span", { class: "muted" }, "–")), sort: (r) => hintWords(r.hint), help: help.hint },
+  { key: "effect", label: "Effect", cell: effectCell, sort: (r) => effectRank(r.effect), help: help.effect },
 ];
 
 // labelPicker is the "Label as…" control: picking a verdict (and reason) calls on with it

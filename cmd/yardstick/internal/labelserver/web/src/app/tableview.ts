@@ -13,6 +13,27 @@ export interface Column<T> {
   title?: (row: T) => string;   // the full value on hover; a truncating column wants one
   truncate?: boolean;
   num?: boolean;                // right-aligned, tabular figures
+  help?: string;                // what the column means, behind a "?" by its header (UI-RULES 11)
+}
+
+// tip is the one tooltip every header's "?" shares. It's fixed to the viewport because the table
+// clips its overflow, which would cut a tooltip drawn inside it.
+let tip: HTMLElement | null = null;
+function showTip(at: HTMLElement, text: string) {
+  tip ??= document.body.appendChild(el("div", { class: "coltip", role: "tooltip", id: "coltip" }));
+  // a line after the first is one value, "name: what it means", so the name is bold
+  fill(tip, text.split("\n").map((l, i) => { const at = l.indexOf(": "); return el("div", {}, i && at > 0 ? [el("b", {}, l.slice(0, at)), l.slice(at)] : l); }));
+  tip.hidden = false;
+  const b = at.getBoundingClientRect();
+  tip.style.top = `${b.bottom + 6}px`;
+  tip.style.left = `${Math.max(8, Math.min(b.left - 8, innerWidth - tip.offsetWidth - 8))}px`;
+}
+const hideTip = () => { if (tip) tip.hidden = true; };
+
+function helpMark(text: string) {
+  return el("span", { class: "colhelp", tabindex: "0", role: "img", "aria-label": text, "data-testid": "column-help",
+    onmouseenter: (e) => showTip(e.currentTarget as HTMLElement, text), onfocus: (e) => showTip(e.currentTarget as HTMLElement, text),
+    onmouseleave: hideTip, onblur: hideTip }, "?");
 }
 
 export interface TableOptions<T> {
@@ -65,6 +86,7 @@ export function dataTable<T>(o: TableOptions<T>): Table<T> {
     bulk, el("div", { class: "dt-scroll" }, el("table", { class: "table" }, thead, tbody)), foot);
 
   function header() {
+    hideTip(); // a redraw drops the "?" under the pointer before it can say so
     fill(thead, el("tr", {},
       o.select && el("th", { class: "ck" }, all),
       cols().map((c) => {
@@ -73,7 +95,9 @@ export function dataTable<T>(o: TableOptions<T>): Table<T> {
           c.sort
             ? el("button", { type: "button", class: "sort", onclick: () => { sort = nextSort(sort, c.key); o.onSort?.(sort); draw(); } },
               c.label, el("span", { class: "dir", "aria-hidden": "true" }, on ? (sort!.dir === "asc" ? "▲" : "▼") : ""))
-            : c.label);
+            : c.label,
+          // outside the sort button, so hovering or clicking it never sorts
+          c.help && helpMark(c.help));
       })));
   }
 

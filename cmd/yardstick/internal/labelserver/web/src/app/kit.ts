@@ -2,6 +2,7 @@
 // image names, packages and IDs; made-up counts), wired together the way the gate and check
 // screens will be. Nothing links here; it's for building and reviewing the components.
 import { el, fill, type Child } from "../shared/dom";
+import { columnHelp } from "../shared/words";
 import { noCounts, sumCounts, type RailImage } from "./images";
 import { imageRail } from "./rail";
 import { withFilters, type Route, type VerdictFilter } from "./route";
@@ -53,13 +54,13 @@ const findings: Finding[] = [
 ];
 
 const columns: Column<Finding>[] = [
-  { key: "label", label: "Label", cell: (r) => verdict(r.label), sort: (r) => r.label },
+  { key: "label", label: "Label", cell: (r) => verdict(r.label), sort: (r) => r.label, help: columnHelp.label },
   { key: "vuln", label: "Vulnerability", cell: (r) => el("span", { class: "strong" }, r.vuln), sort: (r) => r.vuln },
   { key: "package", label: "Package", cell: (r) => el("span", { class: "mono" }, r.pkg, " ", el("small", {}, r.version)), sort: (r) => r.pkg, title: (r) => `${r.purl} ${r.version}`, truncate: true },
   { key: "image", label: "Image", cell: (r) => imageName(r.image, byName.get(r.image)?.ref), sort: (r) => r.image, title: (r) => byName.get(r.image)?.ref ?? r.image, truncate: true },
-  { key: "outcome", label: "Outcome", cell: (r) => outcome(r.change, r.label), sort: (r) => outcomeRank(outcomeOf(r.change, r.label)) },
-  { key: "hint", label: "Agent hint", cell: (r) => (r.hint ? hint(r.hint) : el("span", { class: "muted" }, "–")), sort: (r) => r.hint },
-  { key: "effect", label: "Effect", cell: (r) => (r.effect === "could move" ? couldMove() : r.effect), sort: (r) => r.effect },
+  { key: "outcome", label: "Outcome", cell: (r) => outcome(r.change, r.label), sort: (r) => outcomeRank(outcomeOf(r.change, r.label)), help: columnHelp.outcome },
+  { key: "hint", label: "Agent hint", cell: (r) => (r.hint ? hint(r.hint) : el("span", { class: "muted" }, "–")), sort: (r) => r.hint, help: columnHelp.hint },
+  { key: "effect", label: "Effect", cell: (r) => (r.effect === "could move" ? couldMove() : r.effect), sort: (r) => r.effect, help: columnHelp.effect },
 ];
 
 type Chip = VerdictFilter | "all" | "hint";

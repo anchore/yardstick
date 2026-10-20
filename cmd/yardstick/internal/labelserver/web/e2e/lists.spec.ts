@@ -157,3 +157,18 @@ test("the scan map's blocks open the Findings tab filtered to their package", as
   await expect(page).toHaveURL(/\/ui\/gates\/deb-java\/findings\?pkg=tar$/);
   await expect(tableRows(page, "findings-table")).toHaveCount(3);
 });
+
+test("a table header's ? explains its column on hover and on focus", async ({ page }) => {
+  await page.goto("/ui/gates/deb-java/findings");
+  const effect = page.getByTestId("findings-table").locator("th", { hasText: "Effect" }).getByTestId("column-help");
+  const tip = page.getByRole("tooltip");
+  await effect.hover();
+  await expect(tip).toBeVisible();
+  await expect(tip).toContainText("could move: open, and a TP or FP label alone changes the check's result");
+  // hovering the ? doesn't sort, since it sits outside the sort button
+  await expect(page.getByTestId("findings-table").locator("th[aria-sort=ascending], th[aria-sort=descending]")).toHaveCount(0);
+  await page.mouse.move(0, 0);
+  await expect(tip).toBeHidden();
+  await page.getByTestId("findings-table").locator("th", { hasText: "Outcome" }).getByTestId("column-help").focus();
+  await expect(tip).toContainText("new FP? / new FN?");
+});

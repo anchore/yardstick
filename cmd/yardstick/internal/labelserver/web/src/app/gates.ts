@@ -5,7 +5,7 @@ import * as api from "../shared/api";
 import { doing, inFlight } from "../shared/agent";
 import { el, fill, toast } from "../shared/dom";
 import { outcome as outcomeOf, pkgOf } from "../shared/rows";
-import { plural, sideWords } from "../shared/words";
+import { columnHelp, plural, sideWords } from "../shared/words";
 import { workBanner, type Work } from "./banner";
 import { acceptCross, everyLabel, freshShared, gateList, gateState, labelCross, shared } from "./data";
 import { hintWords, labelPicker } from "./findings";
@@ -126,9 +126,9 @@ function unlabeledTab(sh0: SharedState, st: State | undefined, r0: Route, nav: N
       { key: "vuln", label: "Vulnerability", cell: (f) => el("span", { class: "strong" }, f.vulnerability), sort: (f) => f.vulnerability, title: (f) => f.vulnerability, truncate: true },
       { key: "package", label: "Package", cell: (f) => { const p = pkgOf(f.package.ref); return el("span", { class: "mono" }, p.name, " ", el("small", {}, p.version)); }, sort: (f) => pkgOf(f.package.ref).name, title: (f) => f.package.ref, truncate: true },
       { key: "image", label: "Image", cell: (f) => imageName(f.image), sort: (f) => f.image, title: (f) => f.image, truncate: true },
-      { key: "gates", label: "Gates", cell: gatesCell, sort: (f) => f.in.length, title: (f) => f.in.map((a) => `${a.gate}: ${sideWords[a.dir]}`).join(", "), truncate: true },
-      { key: "hint", label: "Agent hint", cell: (f) => cellFor({ hint: crossHint(f), research: f.research, open: true, researched: f.research?.status === "done" }, research, () => void start([f])), sort: (f) => f.hint?.verdict ?? (f.cause ? "~" : "") },
-      { key: "effect", label: "Effect", cell: (f) => (f.flips ? [couldMove(), el("small", {}, ` in ${plural(f.flips, "gate")}`)] : el("span", { class: "muted" }, `bears on ${plural(f.bears, "gate")}`)), sort: (f) => f.flips * 100 + f.bears, num: false },
+      { key: "gates", label: "Gates", cell: gatesCell, sort: (f) => f.in.length, help: columnHelp.gates, title: (f) => f.in.map((a) => `${a.gate}: ${sideWords[a.dir]}`).join(", "), truncate: true },
+      { key: "hint", label: "Agent hint", cell: (f) => cellFor({ hint: crossHint(f), research: f.research, open: true, researched: f.research?.status === "done" }, research, () => void start([f])), sort: (f) => f.hint?.verdict ?? (f.cause ? "~" : ""), help: columnHelp.crossHint },
+      { key: "effect", label: "Effect", cell: (f) => (f.flips ? [couldMove(), el("small", {}, ` in ${plural(f.flips, "gate")}`)] : el("span", { class: "muted" }, `bears on ${plural(f.bears, "gate")}`)), sort: (f) => f.flips * 100 + f.bears, num: false, help: columnHelp.crossEffect },
     ],
     select: { bulk: (ids, clear) => {
       const fs = ids.map((k) => byKey.get(k)).filter((f): f is CrossFinding => !!f);

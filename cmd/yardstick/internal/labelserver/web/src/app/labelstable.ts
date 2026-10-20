@@ -3,6 +3,7 @@
 // plus reason, source and author.
 import type { GateLabel } from "../gen/wire";
 import { el, fill, type Child } from "../shared/dom";
+import { columnHelp } from "../shared/words";
 import { pageInfo, shortSource } from "./listing";
 import { formatRoute, withFilters, type Route, type VerdictFilter } from "./route";
 import type { Nav } from "./shell";
@@ -19,12 +20,12 @@ const reasonCell = (l: LRow) => !l.justification ? el("span", { class: "muted" }
 // ponytail: sort server-side (a sort= on GET labels) if people want to sort every label
 export function labelColumns(wide: boolean): Column<LRow>[] {
   return [
-    { key: "label", label: "Label", cell: (l) => verdict(l.verdict as "tp" | "fp" | "unclear") },
+    { key: "label", label: "Label", cell: (l) => verdict(l.verdict as "tp" | "fp" | "unclear"), help: columnHelp.label },
     { key: "vuln", label: "Vulnerability", cell: (l) => el("span", { class: "strong" }, l.vulnerability), title: (l) => l.vulnerability, truncate: true },
     { key: "package", label: "Package", cell: (l) => el("span", { class: "mono" }, l.package.name, " ", el("small", {}, l.package.version ?? "")), title: (l) => `${l.package.purl ?? l.package.name} ${l.package.version ?? ""}`, truncate: true },
-    { key: "image", label: "Image", cell: (l) => (l.image ? imageName(l.image.name, l.image.ref) : el("span", { class: "muted" }, "global")), title: (l) => l.image?.ref ?? "every image", truncate: true },
-    { key: "reason", label: "Reason", cell: reasonCell },
-    { key: "source", label: "Source", cell: (l) => el("span", { class: "mono" }, shortSource(l.source)), title: (l) => l.source, truncate: true },
+    { key: "image", label: "Image", cell: (l) => (l.image ? imageName(l.image.name, l.image.ref) : el("span", { class: "muted" }, "global")), title: (l) => l.image?.ref ?? "every image", truncate: true, help: columnHelp.image },
+    { key: "reason", label: "Reason", cell: reasonCell, help: columnHelp.reason },
+    { key: "source", label: "Source", cell: (l) => el("span", { class: "mono" }, shortSource(l.source)), title: (l) => l.source, truncate: true, help: columnHelp.source },
     { key: "author", label: "Author", cell: (l) => l.author, truncate: true, title: (l) => l.author },
     ...(wide ? [{ key: "gates", label: "Gates", cell: (l: LRow) => (l.gates ?? []).join(", "), title: (l: LRow) => (l.gates ?? []).join(", "), truncate: true }] : []),
   ];

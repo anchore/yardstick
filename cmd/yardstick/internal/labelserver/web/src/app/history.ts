@@ -4,7 +4,7 @@
 // leaves ./claims, so a label another claims source holds decides its rows again.
 import type { History, HistoryLabel, LabelKey } from "../gen/wire";
 import { el, fill } from "../shared/dom";
-import { justWords, plural } from "../shared/words";
+import { columnHelp, justWords, plural } from "../shared/words";
 import { getJSON, revert } from "./data";
 import { pageInfo, pageSize, shortSource } from "./listing";
 import { failed, loading, shown } from "./lists";
@@ -53,14 +53,14 @@ export function historyView(host: HTMLElement, r0: HistoryRoute, nav: Nav): View
     open: (l) => l.rows[0] && nav({ level: "finding", gate: l.rows[0].gate, check: null, row: l.rows[0].row, filters: {} }),
     group: { key: (l) => dayKey(l.label.lastUpdated), header: (k, rows) => el("span", { "data-testid": "history-day", "data-day": k }, el("b", {}, dayWords(k)), el("small", {}, ` · ${plural(rows.length, "label")}`)) },
     columns: [
-      { key: "label", label: "Label", cell: (l) => verdict(l.label.verdict as Verdict) },
+      { key: "label", label: "Label", cell: (l) => verdict(l.label.verdict as Verdict), help: columnHelp.label },
       { key: "vuln", label: "Vulnerability", cell: (l) => el("span", { class: "strong" }, l.label.vulnerability), title: (l) => l.label.vulnerability, truncate: true },
       { key: "package", label: "Package", cell: (l) => el("span", { class: "mono" }, l.package.name, " ", el("small", {}, l.package.version ?? "")), title: (l) => l.package.purl ?? l.package.name, truncate: true },
-      { key: "image", label: "Image", cell: (l) => (l.imageName ? imageName(l.imageName, l.image) : el("span", { class: "muted" }, "global")), title: (l) => l.image ?? "every image", truncate: true },
-      { key: "reason", label: "Reason", cell: (l) => (l.label.justification ? justWords(undefined, l.label.verdict, l.label.justification) : el("span", { class: "muted" }, "–")) },
+      { key: "image", label: "Image", cell: (l) => (l.imageName ? imageName(l.imageName, l.image) : el("span", { class: "muted" }, "global")), title: (l) => l.image ?? "every image", truncate: true, help: columnHelp.image },
+      { key: "reason", label: "Reason", cell: (l) => (l.label.justification ? justWords(undefined, l.label.verdict, l.label.justification) : el("span", { class: "muted" }, "–")), help: columnHelp.reason },
       // an accepted hint carries its note onto the label, so the note is where a hint shows
       { key: "note", label: "Note", cell: (l) => (l.label.notes?.length ? el("span", { "data-testid": "history-note" }, l.label.notes.map((n) => n.text).join(" · ")) : el("span", { class: "muted" }, "–")),
-        title: (l) => (l.label.notes ?? []).map((n) => `${n.author}: ${n.text}`).join("\n"), truncate: true },
+        title: (l) => (l.label.notes ?? []).map((n) => `${n.author}: ${n.text}`).join("\n"), truncate: true, help: columnHelp.note },
       { key: "author", label: "Author", cell: (l) => l.label.author, title: (l) => l.label.author, truncate: true },
       { key: "time", label: "Time", cell: (l) => el("time", { datetime: l.label.lastUpdated, title: l.label.lastUpdated }, time(l.label.lastUpdated)), num: true },
       { key: "findings", label: "Findings", cell: (l) => (l.rows.length ? el("span", { class: "gates" }, l.rows.map((g, i) => {
@@ -68,7 +68,7 @@ export function historyView(host: HTMLElement, r0: HistoryRoute, nav: Nav): View
         const n = l.rows.slice(0, i + 1).filter((x) => x.gate === g.gate).length;
         return el("a", { class: "gchip", href: findingHref(g.gate, g.row), title: g.row, "data-testid": "history-link", "data-gate": g.gate, "data-row": g.row }, n > 1 ? `${g.gate} #${n}` : g.gate);
       }))
-        : el("span", { class: "muted", title: "no gate scans a match it labels" }, "none")) },
+        : el("span", { class: "muted", title: "no gate scans a match it labels" }, "none")), help: columnHelp.findings },
       { key: "remove", label: "", cell: (l) => el("button", { type: "button", class: "btn", "data-variant": "ghost", "data-size": "sm", "data-testid": "history-remove",
         title: `Remove this label from ${shortSource(l.source)}`, onclick: () => void revert([keyOf(l)]) }, "Remove") },
     ],

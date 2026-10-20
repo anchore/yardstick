@@ -36,6 +36,7 @@ Routes (`route.ts`): `/ui/gates/` (level 0, `?tab=unlabeled|labels`), `/ui/gates
 | `verdict` | a verdict badge: the finding's in `title-row`, and one per table row | text `TP`, `FP`, `unclear` or `unlabeled` |
 | `hint` | an agent hint mark in a table cell | text e.g. `TP · medium`, or `package hint` |
 | `outcome` | what a changed row does to the candidate: a table cell's pill, the unlabeled tab's question (a gate chip's when its gates disagree), a hint's by line | text `fixed FN`, `new FP`, `new FN`, `fixed FP`, `new FP?` or `new FN?`; `data-outcome` `good`, `bad` or `open` |
+| `column-help` | the "?" by a table header that explains the column; hover or focus shows the text in the page's one `role=tooltip` | `aria-label` is the text |
 | `tabs` | the screen's tabs (levels 0 and 1); each tab is `role=tab` | `aria-selected`, `data-tab` |
 | `scope-chip` | "image: …" beside the tabs while an image is picked | `hidden` without one |
 | `scoped-research` | the two-line Research on a gate, a check, hint review's panel and the queue's stopping point: "Research" over what it covers (the `small`), its price; a link to the research page, hidden while nothing in scope qualifies | `href`, `data-rows`, `data-group` (`change`, `none` or `all`) |
