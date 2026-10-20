@@ -114,7 +114,7 @@ test.describe("the go-to palette", () => {
     const imgs = palette(page).locator("[data-testid=palette-item][data-group=Images]");
     await expect(imgs).toHaveCount(3);
     await expect(imgs.filter({ hasText: images.deb.name })).toContainText(/deb-(java|npm) \d+ open · deb-(java|npm) \d+ open/);
-    for (const a of ["hints", "queue", "history"]) await expect(item(page, "Actions", a)).toBeVisible();
+    for (const a of ["hints", "queue", "research", "history"]) await expect(item(page, "Actions", a)).toBeVisible();
     await expect(palette(page).locator("[data-group=Findings]")).toHaveCount(0);
 
     // the tar row is in both gates and is one finding
