@@ -67,7 +67,7 @@ describe("cards", () => {
       .toBe("Next in the queue: deb-npm, 1 open row. None of its rows changes deb-npm's outcome. 1 row left in deb-java; the queue comes back to it.");
   });
   test("the end card counts what the session wrote", () => {
-    expect(sessionWords(9, 10, 1)).toBe("9 labels written this session (10 from hints, 1 by hand).");
+    expect(sessionWords(9, 10, 1)).toBe("9 labels written this session, closing 11 rows: 10 from hints, 1 by hand.");
     expect(sessionWords(0, 0, 0)).toBe("0 labels written this session.");
   });
 });

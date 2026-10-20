@@ -74,10 +74,11 @@ export function boundaryWords(b: Boundary) {
   };
 }
 
-// sessionWords is the end card's line on what this queue wrote
+// sessionWords is the end card's line on what this queue wrote: labels, and the rows they closed
+// (one label can close a row in several gates, so the two counts differ)
 export function sessionWords(labels: number, hints: number, hand: number) {
   const how = [hints && `${hints} from hints`, hand && `${hand} by hand`].filter(Boolean).join(", ");
-  return `${plural(labels, "label")} written this session${how ? ` (${how})` : ""}.`;
+  return `${plural(labels, "label")} written this session${how ? `, closing ${plural(hints + hand, "row")}: ${how}` : ""}.`;
 }
 
 // settledWords is the stopping point's line: what's left changes nothing

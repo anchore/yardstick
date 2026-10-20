@@ -78,7 +78,7 @@ test("n from the gates screen labels the seed through the queue until every gate
   await label(page, "f", "fix-installed");
   await expect(card(page)).toHaveAttribute("data-card", "end");
   await expect(cardGate(page, "deb-java")).toHaveAttribute("data-state", "pass");
-  await expect(page.getByTestId("card-session")).toContainText("10 labels written this session (10 from hints, 2 by hand).");
+  await expect(page.getByTestId("card-session")).toContainText("10 labels written this session, closing 12 rows: 10 from hints, 2 by hand.");
 
   // history: every label on disk, the written ones first, newest first, each linking to its finding
   await page.getByTestId("card-history").click();
