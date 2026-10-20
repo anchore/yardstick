@@ -93,6 +93,14 @@
 //	state.research            ← research.Availability: whether the yardstick plugin is installed at
 //	                            this binary's version, and the command to copy when not.
 //	                            researchConcurrency is set only while research can start
+//	state.researchEstimate    ← research.Estimate over every job, on the configured model
+//	row.researchShares        ← research.Siblings: the other rows a research job on the row covers
+//	POST research             ← the queue's join (queue.go), rows with no research level and no
+//	                            active job, grouped change (decides, could-move) or none, one
+//	                            research.Requests job per row not already covered; estimate is
+//	                            research.Estimate times the jobs; a start shares one batch id
+//	research/batch            ← the research.Job records of a batch, spent from each Job.Usage, hints
+//	                            the proposals whose author.researchJob is one of its jobs
 package labelserver
 
 import (
@@ -217,6 +225,9 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("POST "+g+"/preview", s.handlePreview)
 	mux.HandleFunc("POST "+g+"/research", s.authorized(s.handleResearch))
 	mux.HandleFunc("POST "+g+"/research/cancel", s.authorized(s.handleCancelResearch))
+	mux.HandleFunc("POST /api/research", s.authorized(s.handleResearchQueue))
+	mux.HandleFunc("GET /api/research/batch", s.handleResearchBatch)
+	mux.HandleFunc("POST /api/research/batch/cancel", s.authorized(s.handleCancelBatch))
 	mux.HandleFunc("GET /api/research/{id}/log", s.handleResearchLog)
 	if dev != nil {
 		return dev(s.ctx, mux)
