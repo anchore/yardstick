@@ -24,6 +24,15 @@ export const couldMove = () => el("span", { class: "could-move" }, "could move")
 
 export const kbd = (k: string) => el("kbd", { class: "kbd" }, k);
 
+// step is a pager's k / j link: the arrow says which way, the key says how, dimmed when there is nowhere to go
+export function step(href: string | undefined, way: "previous" | "next", testid: string) {
+  const key = way === "previous" ? "k" : "j";
+  const body = way === "previous" ? ["←", kbd(key)] : [kbd(key), "→"];
+  return href
+    ? el("a", { class: "step", href, "aria-label": way, title: `${way === "previous" ? "Previous" : "Next"} (${key})`, "data-testid": testid }, body)
+    : el("span", { class: "step off", "aria-hidden": "true" }, body);
+}
+
 // imageName is an image's name that truncates its repository part and never its tag, with the full
 // reference on hover
 export function imageName(name: string, ref?: string) {

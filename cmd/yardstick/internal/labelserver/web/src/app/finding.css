@@ -6,8 +6,9 @@
 
 .crumbrow { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
 .pager { display: inline-flex; align-items: center; gap: 8px; font-size: 13px; color: var(--muted-foreground); font-variant-numeric: tabular-nums; }
-.pager a { text-decoration: none; color: inherit; }
-.pager a:hover .kbd { border-color: var(--foreground); color: var(--foreground); }
+.pager .step { display: inline-flex; align-items: center; gap: 4px; padding: 2px 6px; border-radius: 6px; text-decoration: none; color: inherit; }
+.pager a.step:hover { background: var(--accent); color: var(--foreground); }
+.pager a.step:hover .kbd { border-color: var(--foreground); color: var(--foreground); }
 .pager .off { opacity: .4; }
 
 .titlerow .decides { font-size: 12px; white-space: nowrap; }

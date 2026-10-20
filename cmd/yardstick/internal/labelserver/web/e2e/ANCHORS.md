@@ -171,7 +171,7 @@ The finding page in queue mode: every Finding testid above is there too, except 
 | `queue-bar` | the bar under the app bar | |
 | `queue-scope` | its scope select, option values `all`, `gate:<g>`, `image:<slug>` | |
 | `queue-progress` | "N of M done · K left" | `data-done`, `data-left` |
-| `queue-pager`, `queue-pager-previous`, `queue-pager-next` | "1 of K" and its `k` / `j` links, on a row | `data-index` (0 for a done row), `data-total` |
+| `queue-pager`, `queue-pager-previous`, `queue-pager-next` | "1 of K" (or "labeled") and its `← k` / `j →` links, on a row | `data-index` (0 for a done row), `data-total` |
 | `queue-exit` | Exit (`esc`), back to the check, gate or gates the queue was entered from | |
 | `why-next` | "Why this one is next" over the content tabs | |
 | `queue-outcomes` | in the label panel, what FP and TP do to each gate | |

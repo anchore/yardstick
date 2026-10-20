@@ -17,7 +17,7 @@ import { nextOpen, position, type Item } from "./neighbors";
 import { formatRoute, type Route } from "./route";
 import { advancing } from "./settings";
 import { renderShell, type Nav, type View } from "./shell";
-import { kbd, verdict, type Verdict } from "./ui";
+import { step, verdict, type Verdict } from "./ui";
 
 type FindingRoute = Extract<Route, { level: "finding" }>;
 
@@ -88,7 +88,7 @@ export function findingView(host: HTMLElement, r: FindingRoute, nav: Nav, q?: Qu
     const pos = position(d.list, row.id), of = `${pos.total}${pos.open ? " open" : ""}`;
     const where = pos.index >= 0 ? `${pos.index + 1} of ${of}` : `${d.list.some((x) => x.id === row.id) ? "labeled" : "not in this list"} · ${of}`;
     const pager = el("span", { class: "pager", "data-testid": "pager", "data-index": pos.index + 1, "data-total": pos.total, "data-open": pos.open },
-      pageLink(pos.prev, "k", "previous"), where, pageLink(pos.next, "j", "next"));
+      pageLink(pos.prev, "previous"), where, pageLink(pos.next, "next"));
     const aliases = (row.aliases ?? []).filter((a) => a !== row.vulnerability);
     lp = labelPanel(d, draft, advancing(), { save, accept, acceptAll, skip: () => (q ? q.step(1, false) : go(pos.next, "last one in this list")), research }, q?.outcomes);
     renderShell(host, r, {
@@ -113,8 +113,8 @@ export function findingView(host: HTMLElement, r: FindingRoute, nav: Nav, q?: Qu
     });
   }
 
-  function pageLink(row: string | undefined, key: string, word: string) {
-    return row ? el("a", { href: formatRoute(at(row)), "aria-label": word, "data-testid": `pager-${word}` }, kbd(key)) : el("span", { class: "off", "aria-hidden": "true" }, kbd(key));
+  function pageLink(row: string | undefined, way: "previous" | "next") {
+    return step(row && formatRoute(at(row)), way, `pager-${way}`);
   }
 
   // ---------- writes ----------

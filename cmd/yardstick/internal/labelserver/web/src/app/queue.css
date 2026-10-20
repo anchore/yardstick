@@ -8,7 +8,7 @@
 .qbar .track { height: 6px; border-radius: 3px; background: var(--border); overflow: hidden; }
 .qbar .track i { display: block; height: 100%; background: var(--foreground); }
 .qbar .quiet { color: var(--muted-foreground); font-variant-numeric: tabular-nums; }
-.qbar .pager { font-size: 13px; }
+.qbar .pager { gap: 4px; padding: 2px; border: 1px solid var(--border); border-radius: 8px; background: var(--card); }
 
 .why-next { display: grid; gap: 4px; margin-bottom: 16px; padding: 12px 16px; border: 1px solid var(--border); border-radius: 10px; background: var(--muted); font-size: 13.5px; }
 .why-next b { font-weight: 600; }

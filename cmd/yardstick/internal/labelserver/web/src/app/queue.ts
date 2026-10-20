@@ -16,7 +16,7 @@ import { boundaryWords, outcomeLines, progress, sessionLabels, sessionWords, set
 import { formatRoute } from "./route";
 import { skipping } from "./settings";
 import { renderShell, type Nav, type View } from "./shell";
-import { kbd, status, type State } from "./ui";
+import { kbd, status, step, type State } from "./ui";
 
 // ---------- the session: what this queue has done since it started, kept in this tab ----------
 
@@ -88,9 +88,7 @@ export function queueView(host: HTMLElement, r: QueueRoute, nav: Nav): View {
     const fill = el("i");
     fill.style.width = `${(p.frac * 100).toFixed(1)}%`;
     const pos = items && r.row ? position(items, r.row, !skipping()) : null;
-    const link = (row: string | undefined, key: string, word: string) => row
-      ? el("a", { href: formatRoute({ ...r, row }), "aria-label": word, "data-testid": `queue-pager-${word}` }, kbd(key))
-      : el("span", { class: "off", "aria-hidden": "true" }, kbd(key));
+    const link = (row: string | undefined, way: "previous" | "next") => step(row && formatRoute({ ...r, row }), way, `queue-pager-${way}`);
     const cur = r.scope ?? "all";
     const scope: HTMLSelectElement = el("select", { class: "select", "aria-label": "Scope", "data-testid": "queue-scope",
       onchange: () => nav({ level: "queue", ...(scope.value !== "all" && { scope: scope.value }), ...(r.low && { low: true }), filters: {} }) },
@@ -100,10 +98,10 @@ export function queueView(host: HTMLElement, r: QueueRoute, nav: Nav): View {
       scope,
       el("div", { class: "prog" },
         el("div", { class: "track", "aria-hidden": "true" }, fill),
-        el("span", { class: "quiet" },
-          el("span", { "data-testid": "queue-progress", "data-done": done, "data-left": q.entries.length }, p.text),
-          pos && [" · ", el("span", { class: "pager", "data-testid": "queue-pager", "data-index": pos.index + 1, "data-total": pos.total },
-            link(pos.prev, "k", "previous"), pos.index >= 0 ? `${pos.index + 1} of ${pos.total}` : `done · ${pos.total} left`, link(pos.next, "j", "next"))])),
+        el("span", { class: "quiet", "data-testid": "queue-progress", "data-done": done, "data-left": q.entries.length }, p.text)),
+      // the pager is where this row sits and the way to the next one, apart from how much is done
+      pos && el("span", { class: "pager", "data-testid": "queue-pager", "data-index": pos.index + 1, "data-total": pos.total },
+        link(pos.prev, "previous"), pos.index >= 0 ? `${pos.index + 1} of ${pos.total}` : "labeled", link(pos.next, "next")),
       el("button", { type: "button", class: "btn", "data-variant": "ghost", "data-size": "sm", "data-testid": "queue-exit", onclick: exit }, "Exit ", kbd("esc")));
   }
 
