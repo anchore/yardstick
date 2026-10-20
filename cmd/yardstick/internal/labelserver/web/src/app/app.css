@@ -76,7 +76,11 @@ a[role="tab"] { text-decoration: none; }
 
 /* ---------- moving between gates: the gate crumb's switcher and the go-to palette ---------- */
 
-.appbar .goto { color: var(--muted-foreground); }
+.appbar .goto, .appbar .settings > .btn { color: var(--muted-foreground); }
+.settings [data-popover] { width: 280px; gap: 16px; }
+.settings .label { gap: 8px; font-weight: 400; line-height: 1.4; cursor: pointer; }
+.settings fieldset { display: grid; gap: 8px; margin: 0; padding: 0; border: 0; }
+.settings legend { margin-bottom: 8px; font-weight: 500; }
 .gate-switch { margin-left: 4px; }
 .gate-switch > .btn { height: 24px; padding: 0 8px; color: var(--muted-foreground); }
 .gate-switch > .btn::after { content: "▾"; }

@@ -4,6 +4,7 @@ import { el, fill, type Child } from "../shared/dom";
 import type { Rail } from "./rail";
 import { crumbs, formatRoute, gateTabs, gatesTabs, type Route } from "./route";
 import { openPalette } from "./palette";
+import { settings } from "./settings";
 import { gateSwitch } from "./switcher";
 import { kbd } from "./ui";
 
@@ -31,6 +32,7 @@ export interface ShellView {
   crumbEnd?: Child;      // the breadcrumb row's right end, such as a finding's pager
   meta?: Child;          // the app bar's right side
   bar?: Child;           // under the app bar, such as the queue's
+  prefs?: () => void;    // a setting in the cog changed, for a screen that draws its effect
 }
 
 export interface Shell {
@@ -71,7 +73,8 @@ export function renderShell(host: HTMLElement, r: Route, v: ShellView): Shell {
       el("a", { class: "brand", href: "/ui/gates/" }, "yardstick ", el("span", {}, "claims")),
       el("span", { class: "sp" }),
       el("span", { class: "meta" }, v.meta),
-      el("button", { type: "button", class: "btn goto", "data-variant": "ghost", "data-size": "sm", "data-testid": "goto-button", onclick: openPalette }, "Go to… ", kbd(/Mac|iP/.test(navigator.platform) ? "⌘K" : "Ctrl K"))),
+      el("button", { type: "button", class: "btn goto", "data-variant": "ghost", "data-size": "sm", "data-testid": "goto-button", onclick: openPalette }, "Go to… ", kbd(/Mac|iP/.test(navigator.platform) ? "⌘K" : "Ctrl K")),
+      settings(v.prefs)),
     v.bar,
     el("main", { class: "page" },
       v.crumbEnd ? el("div", { class: "crumbrow" }, breadcrumb, el("span", { class: "sp" }), v.crumbEnd) : breadcrumb,

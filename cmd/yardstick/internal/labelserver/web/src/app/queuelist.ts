@@ -64,7 +64,7 @@ export function pickNext(entries: QueueEntry[], written: string[], skipped: stri
 }
 
 // walk is the queue as j and k step through it: the rows labeled since it started, then the open
-// ones in queue order. With "Skip labeled" on, neighbors.position steps over the done ones.
+// ones in queue order. With the cog's "skip labeled rows" on, neighbors.position steps over the done ones.
 export function walk(entries: QueueEntry[], done: DoneRow[]): Item[] {
   const open = new Set(entries.map((e) => e.row));
   return [...done.filter((d) => !open.has(d.row)).map((d) => ({ id: d.row, open: false })), ...entries.map((e) => ({ id: e.row, open: true }))];

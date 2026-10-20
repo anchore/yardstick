@@ -126,7 +126,6 @@
 
 .lpanel .field { display: grid; gap: 8px; font-size: 12.5px; color: var(--muted-foreground); }
 .lpanel .field select, .lpanel .field input { width: 100%; color: var(--foreground); }
-.advance { display: flex; gap: 8px; align-items: center; font-size: 12.5px; color: var(--muted-foreground); cursor: pointer; }
 .research { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; font-size: 12.5px; color: var(--muted-foreground); border-top: 1px solid var(--border); padding-top: 16px; }
 .research .btn { margin-left: auto; }
 

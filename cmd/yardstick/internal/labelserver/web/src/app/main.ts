@@ -2,12 +2,13 @@
 // and owns the history and the keys every screen shares.
 //
 // basecoat.js is Basecoat's component runtime: it wires up its components (the rail's combobox, the
-// gate switcher's dropdown menu, the palette's command) as they enter the document, including ones
-// el() builds after load.
+// gate switcher's dropdown menu, the palette's command, the settings popover) as they enter the
+// document, including ones el() builds after load.
 import "basecoat-css/basecoat";
 import "basecoat-css/combobox";
 import "basecoat-css/command";
 import "basecoat-css/dropdown-menu";
+import "basecoat-css/popover";
 import { el, must, toast } from "../shared/dom";
 import { checkView } from "./check";
 import { gateList } from "./data";

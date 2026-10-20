@@ -95,6 +95,15 @@ export const onFinding = (page: Page, row: string) => expect(page.getByTestId("l
 
 export const verdictButton = (page: Page, v: string): Locator => page.locator(`[data-testid=verdict-button][data-verdict=${v}]`);
 
+// setPref sets a checkbox in the app bar's settings cog and closes the cog again with Esc, as a
+// reader would, so the page's keys work after it
+export async function setPref(page: Page, testid: "advance-checkbox" | "queue-skip", on: boolean) {
+  await page.getByTestId("settings-button").click();
+  await page.getByTestId(testid).setChecked(on);
+  await page.keyboard.press("Escape");
+  await expect(page.getByTestId("settings-panel")).toBeHidden();
+}
+
 // label picks a verdict by key on a finding page, a reason for fp and unclear, and saves
 export async function label(page: Page, key: "t" | "f" | "u", reason?: string) {
   await page.keyboard.press(key);

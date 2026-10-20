@@ -19,6 +19,12 @@ Routes (`route.ts`): `/ui/gates/` (level 0, `?tab=unlabeled|labels`), `/ui/gates
 | `gate-switch`, `gate-switch-button` | the gate crumb's switcher and its ▾ trigger; the menu is filled as it opens | |
 | `gate-option` | one gate in the switcher, a link to the same level there | `data-gate`, `data-state`, `data-open` (unlabeled and unclear rows), `aria-current` on this gate |
 | `goto-button` | "Go to…" in the app bar, which opens the palette like `⌘K` / `ctrl+K` | |
+| `settings`, `settings-button` | the settings cog at the app bar's right end (Basecoat's popover) and its trigger, named "Settings" | `aria-expanded` on the button |
+| `settings-panel` | the open popover; keys pressed in it stay in it, and `Esc` closes it | `aria-hidden` while closed |
+| `advance-toggle`, `advance-checkbox` | "After labeling, go to the next match"; off, Save says "Save" and stays on the match, in the queue too | `checked` |
+| `queue-skip` | "Queue: skip labeled rows"; on, the queue's `j` / `k` step over rows it labeled | `checked` |
+| `settings-theme` | the theme radio group | |
+| `theme-option` | System, Light or Dark | `value` (`system`, `light`, `dark`), `checked` |
 | `palette` | the go-to palette (Basecoat's command), visible while open | |
 | `palette-input` | its search box | |
 | `palette-item` | one entry, a link | `data-group` (`Gates`, `Images`, `Checks`, `Findings`, `Actions`), `data-id` (gate, image ref, `<gate>/<check>`, row id, or `hints` / `queue` / `history`) |
@@ -146,9 +152,8 @@ Filter chips are buttons with `data-chip` (`all`, `unlabeled`, `tp`, `fp`, `uncl
 | `reason-picker` | the reason select | |
 | `reason-option` | one reason | |
 | `note-input` | the note; Enter saves | |
-| `save-label` | "Save and next", or "Save" with the switch off | |
+| `save-label` | "Save and next", or "Save" with the cog's `advance-checkbox` off | |
 | `skip-button` | Skip (`j`) | |
-| `advance-toggle`, `advance-checkbox` | "after labeling, go to the next match" | |
 | `research-foot`, `research-button`, `research-status` | research (`R`) | `research-button` has `data-researched`; `research-status` has `data-state` |
 
 ## Component kit (`/ui/gates/_kit`)
@@ -165,8 +170,6 @@ The finding page in queue mode: every Finding testid above is there too, except 
 |---|---|---|
 | `queue-bar` | the bar under the app bar | |
 | `queue-scope` | its scope select, option values `all`, `gate:<g>`, `image:<slug>` | |
-| `queue-order` | the order it walks in (one for now) | |
-| `queue-skip` | the "Skip labeled" checkbox; on, `j` / `k` step over rows the queue labeled | `checked` |
 | `queue-progress` | "N of M done · K left" | `data-done`, `data-left` |
 | `queue-pager`, `queue-pager-previous`, `queue-pager-next` | "1 of K" and its `k` / `j` links, on a row | `data-index` (0 for a done row), `data-total` |
 | `queue-exit` | Exit (`esc`), back to the check, gate or gates the queue was entered from | |

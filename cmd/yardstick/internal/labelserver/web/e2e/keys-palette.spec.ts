@@ -85,8 +85,8 @@ test.describe("keys typed into a field", () => {
     await page.keyboard.press("h");
     expect(page.url()).toBe(url);
 
-    // a checkbox takes no text, so j is still a command
-    await page.getByTestId("queue-skip").focus();
+    // a button takes no text, so j is still a command; only the open settings cog keeps keys
+    await page.getByTestId("settings-button").focus();
     await page.keyboard.press("j");
     await expect(page.getByTestId("label-panel")).not.toHaveAttribute("data-row", rows.jfhA);
   });

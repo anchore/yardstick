@@ -15,6 +15,7 @@ import { directionWords, effect, mutedReason, pendingCause, seenWith, shortSourc
 import { labelPanel, type Draft, type LabelPanel } from "./labelpanel";
 import { nextOpen, position, type Item } from "./neighbors";
 import { formatRoute, type Route } from "./route";
+import { advancing } from "./settings";
 import { renderShell, type Nav, type View } from "./shell";
 import { kbd, verdict, type Verdict } from "./ui";
 
@@ -25,6 +26,7 @@ type FindingRoute = Extract<Route, { level: "finding" }>;
 export interface QueueMode {
   route: Route;                                  // the queue's own, which the page stays live on
   bar: Child;
+  prefs: () => void;                             // a setting in the cog changed: redraw the bar
   why: Child;
   outcomes: Child;
   step: (dir: 1 | -1, all: boolean) => void;     // j / k, Skip, and ⌥j / ⌥k over every row
@@ -43,12 +45,6 @@ function savedTab(): Tab {
   } catch { return "why"; }
 }
 function saveTab(t: Tab) { try { localStorage.setItem(tabKey, t); } catch { /* no storage: the tab resets next time */ } }
-// the switch to go on to the next finding after a label is on unless this browser turned it off
-const advanceKey = "yardstick.autoAdvance";
-function advancing() { try { return localStorage.getItem(advanceKey) !== "off"; } catch { return true; } }
-function setAdvancing(on: boolean) {
-  try { if (on) localStorage.removeItem(advanceKey); else localStorage.setItem(advanceKey, "off"); } catch { /* no storage: the default stands */ }
-}
 
 const sleep = (ms: number) => new Promise((done) => setTimeout(done, ms));
 let current = 0; // the newest load anywhere on the page; an older one finishing late doesn't paint
@@ -94,7 +90,7 @@ export function findingView(host: HTMLElement, r: FindingRoute, nav: Nav, q?: Qu
     const pager = el("span", { class: "pager", "data-testid": "pager", "data-index": pos.index + 1, "data-total": pos.total, "data-open": pos.open },
       pageLink(pos.prev, "k", "previous"), where, pageLink(pos.next, "j", "next"));
     const aliases = (row.aliases ?? []).filter((a) => a !== row.vulnerability);
-    lp = labelPanel(d, draft, advancing(), { save, accept, acceptAll, skip: () => (q ? q.step(1, false) : go(pos.next, "last one in this list")), research, advance: setAdvancing }, q?.outcomes);
+    lp = labelPanel(d, draft, advancing(), { save, accept, acceptAll, skip: () => (q ? q.step(1, false) : go(pos.next, "last one in this list")), research }, q?.outcomes);
     renderShell(host, r, {
       title: row.vulnerability,
       row: row.vulnerability,
@@ -110,6 +106,7 @@ export function findingView(host: HTMLElement, r: FindingRoute, nav: Nav, q?: Qu
           aliases.length ? ` · alias ${aliases.join(", ")}` : "")),
       crumbEnd: q ? null : pager,
       bar: q?.bar,
+      prefs: () => { lp?.advance(advancing()); q?.prefs(); },
       meta: state.scans.gate,
       body: el("div", { class: "finding", "data-testid": "finding", "data-row": row.id, "data-verdict": row.verdict },
         el("div", { class: "fcontent" }, q?.why, tabs(d)), lp.el),

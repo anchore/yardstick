@@ -1,19 +1,20 @@
 // queue.ts is the queue, /ui/queue/<row>?scope=: the finding page in queue mode, one open row at a
-// time across gates, in the order GET /api/queue gives. It adds the queue bar (scope, order, skip
-// labeled, progress, exit), why the row is next, and what each verdict does, and after each write
-// reads the queue fresh to pick the next row, or a card: a gate boundary, the stopping point, or
-// the end. The logic is queuelist.ts's and the words queuewords.ts's.
+// time across gates, in the order GET /api/queue gives. It adds the queue bar (scope, progress,
+// exit), why the row is next, and what each verdict does, and after each write reads the queue
+// fresh to pick the next row, or a card: a gate boundary, the stopping point, or the end. The logic
+// is queuelist.ts's and the words queuewords.ts's.
 import type { CheckFindings, History, Queue, QueueEntry } from "../gen/wire";
 import { el, toast } from "../shared/dom";
 import { boundaryCard, endCard, stopCard } from "./cards";
 import { getJSON } from "./data";
-import { findingView } from "./finding";
+import { findingView, type QueueMode } from "./finding";
 import { checkRows, isOpen } from "./listing";
 import { failed, loading, shown } from "./lists";
 import { position, type Item } from "./neighbors";
 import { entryGate, exitRoute, newlyDone, ordered, pickNext, scopeGate, walk, type DoneRow, type QueueRoute } from "./queuelist";
 import { boundaryWords, outcomeLines, progress, sessionLabels, sessionWords, settledWords, whyNext } from "./queuewords";
 import { formatRoute } from "./route";
+import { skipping } from "./settings";
 import { renderShell, type Nav, type View } from "./shell";
 import { kbd, status, type State } from "./ui";
 
@@ -44,11 +45,6 @@ function keep(s: Session) {
   memory = s;
   try { sessionStorage.setItem(sessionKey, JSON.stringify(s)); } catch { /* no storage: kept in memory */ }
 }
-
-// "Skip labeled" is the reader's standing choice, kept in this browser
-const skipKey = "yardstick.queueSkipLabeled";
-function skipping() { try { return localStorage.getItem(skipKey) !== "off"; } catch { return true; } }
-function setSkipping(on: boolean) { try { if (on) localStorage.removeItem(skipKey); else localStorage.setItem(skipKey, "off"); } catch { /* the default stands */ } }
 
 // ---------- data ----------
 
@@ -102,10 +98,6 @@ export function queueView(host: HTMLElement, r: QueueRoute, nav: Nav): View {
     return el("div", { class: "qbar", "data-testid": "queue-bar" },
       el("b", {}, "Labeling"),
       scope,
-      el("span", { class: "qsel", "data-testid": "queue-order", title: "the one order there is for now" }, "Order: decides a gate first"),
-      el("label", { class: "qskip", title: "kept in this browser" },
-        el("input", { type: "checkbox", "data-testid": "queue-skip", checked: skipping(), onchange: (e: Event) => { setSkipping((e.target as HTMLInputElement).checked); void load(); } }),
-        " Skip labeled"),
       el("div", { class: "prog" },
         el("div", { class: "track", "aria-hidden": "true" }, fill),
         el("span", { class: "quiet" },
@@ -191,9 +183,11 @@ export function queueView(host: HTMLElement, r: QueueRoute, nav: Nav): View {
       return;
     }
     const items = walk(q.entries, s.done);
-    const inner = findingView(host, { level: "finding", gate, check: null, row, filters: {} }, nav, {
+    const mode: QueueMode = {
       route: r,
       bar: bar(q, items),
+      // "skip labeled" moves the pager, so the bar is drawn again in place, leaving the cog open
+      prefs() { const b = bar(q, items); (mode.bar as Element).replaceWith(b); mode.bar = b; },
       why: e && el("div", { class: "why-next", "data-testid": "why-next" }, el("b", {}, "Why this one is next"), el("span", {}, whyNext(e, gate, q.gates))),
       outcomes: e && outcomeLines(e),
       step(dir, all) {
@@ -211,8 +205,8 @@ export function queueView(host: HTMLElement, r: QueueRoute, nav: Nav): View {
         }
         return false;
       },
-    });
-    out.key = inner.key;
+    };
+    out.key = findingView(host, { level: "finding", gate, check: null, row, filters: {} }, nav, mode).key;
   }
 
   renderShell(host, r, { title: "Labeling", body: loading() });

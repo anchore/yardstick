@@ -5,7 +5,11 @@ import { checkPage, gatePage, gatesPage, openFinding, rows } from "./helpers";
 test("every level carries its anchors", async ({ page }) => {
   // level 0
   await page.goto(gatesPage);
-  for (const id of ["app-bar", "breadcrumb", "title-row", "title", "tabs", "gate-rows", "work-banner", "review-hints", "label-left"]) await expect(page.getByTestId(id), id).toBeVisible();
+  for (const id of ["app-bar", "settings-button", "breadcrumb", "title-row", "title", "tabs", "gate-rows", "work-banner", "review-hints", "label-left"]) await expect(page.getByTestId(id), id).toBeVisible();
+  await page.getByTestId("settings-button").click();
+  for (const id of ["settings-panel", "advance-checkbox", "queue-skip", "settings-theme"]) await expect(page.getByTestId(id), id).toBeVisible();
+  await expect(page.getByTestId("theme-option")).toHaveCount(3);
+  await page.keyboard.press("Escape");
   const gate = page.getByTestId("gate-row").first();
   await expect(gate).toHaveAttribute("data-gate", /.+/);
   await expect(gate).toHaveAttribute("data-state", /^(pass|fail|undecided)$/);
@@ -39,7 +43,7 @@ test("every level carries its anchors", async ({ page }) => {
   // level 3
   await openFinding(page, rows.tarDropped);
   for (const id of ["pager", "finding-tabs", "finding-package", "finding-image", "finding-direction", "label-panel", "hint-card", "accept-hint",
-    "reason-picker", "note-input", "save-label", "skip-button", "advance-checkbox", "research-button", "match-path"]) {
+    "reason-picker", "note-input", "save-label", "skip-button", "research-button", "match-path"]) {
     await expect(page.getByTestId(id), id).toBeVisible();
   }
   await expect(page.getByTestId("pager")).toHaveAttribute("data-total", /\d+/);

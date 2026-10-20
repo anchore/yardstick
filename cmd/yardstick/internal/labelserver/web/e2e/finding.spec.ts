@@ -1,5 +1,5 @@
 import { expect, test } from "./fixtures";
-import { images, labelsOf, rows } from "./helpers";
+import { images, labelsOf, rows, setPref } from "./helpers";
 
 // the finding page (level 3) on the seed: /ui/gates/<gate>/checks/<check>/<row>. The check lists
 // come from GET checks/{check}/findings in its order; SCENARIO.md has the rows.
@@ -152,7 +152,7 @@ test("a labeled finding shows the label on file and every source, and can be rel
   await expect(page.getByTestId("label-sources").locator("li")).toHaveCount(1);
 
   // stay on the match after labeling: the switch is kept in this browser
-  await page.getByTestId("advance-checkbox").uncheck();
+  await setPref(page, "advance-checkbox", false);
   await expect(page.getByTestId("save-label")).toHaveText("Save");
   await page.keyboard.press("u");
   await page.getByTestId("reason-picker").selectOption("not-assessed");

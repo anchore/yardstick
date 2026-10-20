@@ -4,8 +4,6 @@
 /* the bar under the app bar: what's labeled, in what scope, and how much is left */
 .qbar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; padding: 8px 28px; background: var(--muted); border-bottom: 1px solid var(--border); font-size: 13px; }
 .qbar .select { width: auto; height: 32px; font-size: 13px; }
-.qbar .qsel { color: var(--muted-foreground); }
-.qbar .qskip { display: inline-flex; align-items: center; gap: 8px; cursor: pointer; }
 .qbar .prog { flex: 1; min-width: 200px; display: grid; gap: 4px; }
 .qbar .track { height: 6px; border-radius: 3px; background: var(--border); overflow: hidden; }
 .qbar .track i { display: block; height: 100%; background: var(--foreground); }

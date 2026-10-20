@@ -1,5 +1,5 @@
 import { expect, test } from "./fixtures";
-import { claimSet, gatesPage, images, label, onFinding, rows } from "./helpers";
+import { claimSet, gatesPage, images, label, onFinding, rows, setPref } from "./helpers";
 import type { Page } from "@playwright/test";
 
 // the queue: n from the gates screen labels the whole seed one row at a time, crossing gates with a
@@ -118,13 +118,13 @@ test("Skip labeled steps over what the queue labeled; off, k goes back to it", a
   await expect(page.getByTestId("toast")).toContainText("first one in the queue");
   await onFinding(page, next);
 
-  await page.getByTestId("queue-skip").uncheck();
+  await setPref(page, "queue-skip", false);
   await expect(page.getByTestId("queue-pager")).toHaveText(/3 of 12/);
   await page.keyboard.press("k");
   await onFinding(page, rows.jfhB);
   await expect(page.getByTestId("label-panel")).toHaveAttribute("data-verdict", "tp");
 
-  await page.getByTestId("queue-skip").check();
+  await setPref(page, "queue-skip", true);
   await page.keyboard.press("j");
   await onFinding(page, next);
 

@@ -1,7 +1,7 @@
 // labelpanel.ts is the finding page's label panel, the one bordered card on the page (UI-RULES 6):
 // the label on file, the agent's hint and cause each in their own card with their own Accept
 // (UI-RULES: a hint never looks like a choice already made), then TP / FP / Unclear, the reason, a
-// note, Save and Skip, the "go to the next match" switch, and research.
+// note, Save and Skip, and research. Whether Save goes on to the next match is a setting in the cog.
 import type { StateCause, claimsv1 } from "../gen/wire";
 import { provenance, researchLine } from "../shared/agent";
 import { el, type Child } from "../shared/dom";
@@ -20,13 +20,13 @@ export interface PanelActions {
   acceptAll: (c: StateCause) => void;
   skip: () => void;
   research: () => void;
-  advance: (on: boolean) => void;
 }
 
 export interface LabelPanel {
   el: HTMLElement;
   pick: (v: string) => void;        // t, f and u
   focusReason: () => void;
+  advance: (on: boolean) => void;   // the cog's "go to the next match" changed: Save's words follow
 }
 
 const words: Record<string, string> = { tp: "TP", fp: "FP", unclear: "Unclear" };
@@ -115,19 +115,12 @@ export function labelPanel(d: FindingData, draft: Draft, advance: boolean, on: P
     el("label", { class: "field" }, "Reason", reason),
     el("label", { class: "field" }, "Note", note),
     el("div", { class: "acts" }, save, el("button", { type: "button", class: "btn", "data-variant": "outline", "data-testid": "skip-button", onclick: on.skip }, "Skip ", kbd("j"))),
-    el("label", { class: "advance", "data-testid": "advance-toggle", title: "kept in this browser" },
-      el("input", { type: "checkbox", "data-testid": "advance-checkbox", checked: advance, onchange: (e: Event) => {
-        const t = e.target as HTMLInputElement;
-        on.advance(t.checked);
-        save.textContent = t.checked ? "Save and next" : "Save";
-        t.blur();
-      } }), " after labeling, go to the next match"),
     el("div", { class: "research", "data-testid": "research-foot" },
       line ? el("span", { "data-testid": "research-status", "data-state": row.research?.status }, line) : null,
       el("button", { type: "button", class: "btn", "data-variant": "ghost", "data-size": "sm", "data-testid": "research-button", "data-researched": isResearched(row), disabled: !!off, onclick: on.research,
         title: off ? `research disabled: ${off.reason}${off.command ? `; run ${off.command}` : ""}` : "an agent researches this match and leaves a hint" },
       isResearched(row) ? "Research again " : "Research ", kbd("R"))));
 
-  return { el: root, pick, focusReason: () => { if (!reason.disabled) reason.focus(); } };
+  return { el: root, pick, focusReason: () => { if (!reason.disabled) reason.focus(); }, advance: (on) => { save.textContent = on ? "Save and next" : "Save"; } };
 }
 

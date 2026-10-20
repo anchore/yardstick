@@ -1,5 +1,5 @@
 import { expect, test } from "./fixtures";
-import { checkPage, diskLabels, gatePage, images, labelsOf, openFinding, rows, tableRow, verdictButton } from "./helpers";
+import { checkPage, diskLabels, gatePage, images, labelsOf, openFinding, rows, setPref, tableRow, verdictButton } from "./helpers";
 
 test.describe("a single hint", () => {
   test("the card shows the proposal, who made it and why, apart from the verdict buttons", async ({ page }) => {
@@ -26,7 +26,7 @@ test.describe("a single hint", () => {
 
   test("the card's Accept button accepts it too, and the label then shows as on file", async ({ page }) => {
     await openFinding(page, rows.tarDropped);
-    await page.getByTestId("advance-checkbox").uncheck();
+    await setPref(page, "advance-checkbox", false);
     await page.getByTestId("accept-hint").click();
     await expect.poll(() => labelsOf("CVE-2005-2541").map((l) => `${l.verdict} ${l.justification}`)).toEqual(["fp fix-installed"]);
     await expect(page.getByTestId("label-on-file")).toHaveAttribute("data-verdict", "fp");
@@ -35,7 +35,7 @@ test.describe("a single hint", () => {
 
   test("a label against the hint replaces it on file", async ({ page }) => {
     await openFinding(page, rows.tarDropped);
-    await page.getByTestId("advance-checkbox").uncheck();
+    await setPref(page, "advance-checkbox", false);
     await page.keyboard.press("t");
     await page.getByTestId("save-label").click();
     await expect.poll(() => labelsOf("CVE-2005-2541").map((l) => l.verdict)).toEqual(["tp"]);
