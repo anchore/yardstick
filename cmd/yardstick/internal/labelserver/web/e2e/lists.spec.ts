@@ -45,6 +45,10 @@ test("a gate lists its checks with meters, and a check row opens the check", asy
   await expect(checks).toHaveCount(4);
   await expect(page.locator("[data-testid=check-row][data-check=unjudgedChangesAtMost]")).toHaveAttribute("data-state", "undecided");
   await expect(page.locator("[data-testid=check-row][data-check=f1NotWorse] [data-testid=meter]")).toContainText("0.500 worse · limit 0");
+  // a check row says what the check means in a line, and its definition on hover
+  const f1desc = page.locator("[data-testid=check-row][data-check=f1NotWorse] .desc");
+  await expect(f1desc).toHaveText("Candidate F1 must not fall below the reference's");
+  await expect(f1desc).toHaveAttribute("title", /^Fails when the candidate's F1 is lower/);
   // deb passes f1NotWorse, so its two fp labels count without deciding it, as the check screen says
   await expect(page.locator("[data-testid=check-row][data-check=f1NotWorse] [data-testid=check-count]")).toContainText("4 could move it alone");
   await page.locator("[data-testid=check-row][data-check=f1NotWorse]").click();

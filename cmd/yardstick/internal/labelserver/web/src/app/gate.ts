@@ -137,7 +137,7 @@ function checksTab(st: State): Tab {
         return el("a", { class: "lrow check", href: formatRoute({ level: "check", gate: st.scans.id, check: c.name, filters: r.filters.image ? { image: r.filters.image } : {} }),
           "data-testid": "check-row", "data-check": c.name, "data-state": c.state },
         status(c.state as Status),
-        el("div", { class: "lname" }, el("div", { class: "name" }, c.name), el("div", { class: "desc", title: c.description }, sentence(c.description))),
+        el("div", { class: "lname" }, el("div", { class: "name" }, c.name), el("div", { class: "desc", title: sentence(c.description) }, c.summary || sentence(c.description))),
         checkMeter(c),
         el("div", { class: "lnum", "data-testid": "check-count" }, `${n.bearing.toLocaleString()} unlabeled`,
           el("small", {}, countWords(n))),
