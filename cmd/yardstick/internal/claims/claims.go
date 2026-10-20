@@ -35,6 +35,8 @@ type Source struct {
 	Dir string
 	// Digest and Commit identify a remote source's snapshot.
 	Digest, Commit string
+	// Downloaded is true when this process fetched the snapshot rather than finding it cached.
+	Downloaded bool
 
 	mu   sync.Mutex
 	read map[string]string // corpus path read to the sha256 of its bytes

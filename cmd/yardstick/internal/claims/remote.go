@@ -65,7 +65,7 @@ func openRemote(s gatefile.Source) (*Source, error) {
 	log.Infof("opening remote claims source %s, resolved to snapshot %s", s.Locator, p.Digest)
 	// resolve accepts only sha256:<64 lowercase hex>, so the digest is safe in a path and a URL
 	hexDigest := strings.TrimPrefix(p.Digest, "sha256:")
-	f, size, err := openSnapshot(base+"/claims/snapshots/"+hexDigest+".zip", p.Digest)
+	f, size, downloaded, err := openSnapshot(base+"/claims/snapshots/"+hexDigest+".zip", p.Digest, details(s.Locator, p))
 	if err != nil {
 		return nil, fmt.Errorf("claims source %s: snapshot %s: %w", s.Locator, p.Digest, err)
 	}
@@ -74,7 +74,22 @@ func openRemote(s gatefile.Source) (*Source, error) {
 	if err != nil {
 		return nil, fmt.Errorf("claims source %s: snapshot %s: %w", s.Locator, p.Digest, err)
 	}
-	return &Source{Locator: s.Locator, Kind: Remote, FS: zr, Digest: p.Digest, Commit: p.Commit, read: map[string]string{}}, nil
+	return &Source{Locator: s.Locator, Kind: Remote, FS: zr, Digest: p.Digest, Commit: p.Commit, Downloaded: downloaded, read: map[string]string{}}, nil
+}
+
+// Details names a remote source's snapshot in full, as the line under its download does.
+func (s *Source) Details() []string {
+	return details(s.Locator, pointer{Digest: s.Digest, Commit: s.Commit})
+}
+
+func details(locator string, p pointer) []string {
+	// only the commit is labeled: a locator and a sha256: digest say what they are, and the digest
+	// fits an 80-column line whole
+	d := []string{locator}
+	if p.Commit != "" {
+		d = append(d, "commit "+p.Commit)
+	}
+	return append(d, p.Digest)
 }
 
 // resolve turns a reference into the snapshot it names. A digest or commit becomes part of a
@@ -129,34 +144,36 @@ func getJSON(u string, v any) error {
 	return nil
 }
 
-// openSnapshot opens a snapshot's zip from the cache, downloading it first when it is not there.
-// No byte of a snapshot is read before the whole zip is on disk and its sha256 is the digest it was
-// published under.
-func openSnapshot(url, digest string) (*os.File, int64, error) {
+// openSnapshot opens a snapshot's zip from the cache, downloading it first when it is not there, and
+// says whether it did. No byte of a snapshot is read before the whole zip is on disk and its sha256
+// is the digest it was published under.
+func openSnapshot(url, digest string, details []string) (*os.File, int64, bool, error) {
 	dir := cache.Dir("claims")
 	final := filepath.Join(dir, strings.TrimPrefix(digest, "sha256:")+".zip")
+	downloaded := false
 	if _, err := os.Stat(final); err != nil {
 		log.Infof("downloading claims snapshot %s", digest)
-		task := bus.StartTask(event.DownloadClaims, "%s", digest)
+		task := bus.StartDetailedTask(event.DownloadClaims, "", details)
 		err := download(url, digest, dir, final)
 		task.Done(err)
 		if err != nil {
-			return nil, 0, err
+			return nil, 0, false, err
 		}
+		downloaded = true
 	} else {
 		log.Infof("using cached claims snapshot %s", digest)
 		cache.Touch(final)
 	}
 	f, err := os.Open(final)
 	if err != nil {
-		return nil, 0, err
+		return nil, 0, false, err
 	}
 	info, err := f.Stat()
 	if err != nil {
 		f.Close()
-		return nil, 0, err
+		return nil, 0, false, err
 	}
-	return f, info.Size(), nil
+	return f, info.Size(), downloaded, nil
 }
 
 // staleDownload is how old a download left by a killed run must be before another run removes it.

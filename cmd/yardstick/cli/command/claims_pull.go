@@ -2,13 +2,13 @@ package command
 
 import (
 	"errors"
-	"strings"
 
 	"github.com/spf13/cobra"
 
 	"github.com/anchore/clio"
 	"github.com/anchore/yardstick/cmd/yardstick/internal/claims"
 	"github.com/anchore/yardstick/cmd/yardstick/internal/gatefile"
+	"github.com/anchore/yardstick/cmd/yardstick/internal/ui"
 )
 
 func ClaimsPull(app clio.Application) *cobra.Command {
@@ -47,13 +47,14 @@ Snapshots are read from YARDSTICK_CLAIMS_URL, or ` + claims.DefaultURL + ` when 
 					return errors.Join(err, out.flush())
 				}
 				pulled++
-				// seven characters each, as the download line above names the snapshot
-				_, digest, _ := strings.Cut(s.Digest, ":")
-				commit := ""
-				if s.Commit != "" {
-					commit = "commit " + s.Commit[:min(7, len(s.Commit))]
+				// a download drew the snapshot under its own line; a cached one is named the same way here
+				if s.Downloaded {
+					continue
 				}
-				out.row(out.done(), s.Locator, out.dim(digest[:min(7, len(digest))]), out.dim(commit))
+				out.row(out.done(), "cached claims")
+				for _, d := range ui.Tree(s.Details()) {
+					out.row(" ", out.dim(d))
+				}
 			}
 			if pulled == 0 {
 				out.row(out.skipped(), out.dim("no published claims sources to pull"))

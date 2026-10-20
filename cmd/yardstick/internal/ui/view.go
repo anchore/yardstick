@@ -83,7 +83,7 @@ func (m *model) live(g *gate, w int) []string {
 	nw := taskW(g.tasks, "    ", w)
 	for _, t := range g.tasks {
 		if preparing || !t.done || t.Err != nil {
-			head = append(head, m.taskLine(t, "    ", nw, w))
+			head = append(head, m.taskLines(t, "    ", nw, w)...)
 		}
 	}
 
@@ -337,12 +337,17 @@ func anyFailed(tasks []*task, kinds ...event.TaskKind) bool {
 
 var checksum = regexp.MustCompile(`sha256[:-]([0-9a-f]{7})[0-9a-f]*`)
 
+// taskName says a finished task's kind in the past tense: "downloaded claims", not "download claims".
 func taskName(t *task) string {
 	name := t.Name
 	if t.Kind == event.BuildSBOM {
 		name = shortName(name)
 	}
-	return string(t.Kind) + " " + checksum.ReplaceAllString(name, "$1")
+	kind := string(t.Kind)
+	if t.done && t.Err == nil {
+		kind = t.Kind.Done()
+	}
+	return strings.TrimSpace(kind + " " + checksum.ReplaceAllString(name, "$1"))
 }
 
 // taskW is the width task names pad to, so their times sit in one column just past the longest name
@@ -350,7 +355,8 @@ func taskName(t *task) string {
 func taskW(tasks []*task, indent string, w int) int {
 	n := 0
 	for _, t := range tasks {
-		n = max(n, len([]rune(taskName(t))))
+		// measured finished, so a time doesn't shift right when its task's verb turns past tense
+		n = max(n, len([]rune(taskName(&task{Task: t.Task, done: true}))))
 	}
 	return max(min(n, w-len(indent)-10), 1)
 }
@@ -361,9 +367,31 @@ func (m *model) loose(g *gate, w int) []string {
 	nw := taskW(g.tasks, "", w)
 	var lines []string
 	for _, t := range g.tasks {
-		lines = append(lines, m.taskLine(t, "", nw, w))
+		lines = append(lines, m.taskLines(t, "", nw, w)...)
 	}
 	return lines
+}
+
+// taskLines is a task's line and its details as a tree under it.
+func (m *model) taskLines(t *task, indent string, nw, w int) []string {
+	lines := []string{m.taskLine(t, indent, nw, w)}
+	for _, d := range Tree(t.Details) {
+		lines = append(lines, m.st.dim.Render(cut(indent+"  "+d, w)))
+	}
+	return lines
+}
+
+// Tree draws lines as branches of the line above them.
+func Tree(lines []string) []string {
+	out := make([]string, len(lines))
+	for i, l := range lines {
+		branch := "├ "
+		if i == len(lines)-1 {
+			branch = "└ "
+		}
+		out[i] = branch + l
+	}
+	return out
 }
 
 func (m *model) taskLine(t *task, indent string, nw, w int) string {
@@ -454,7 +482,7 @@ func (m *model) summary(g *gate, w int) []string {
 	lines := []string{line}
 	for _, t := range g.tasks {
 		if t.Err != nil {
-			lines = append(lines, m.taskLine(t, "    ", 0, w))
+			lines = append(lines, m.taskLines(t, "    ", 0, w)...)
 		}
 	}
 	return append(lines, m.failures(g, w)...)

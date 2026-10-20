@@ -61,7 +61,12 @@ type Task struct {
 }
 
 func StartTask(kind event.TaskKind, format string, args ...any) *Task {
-	t := &Task{t: event.Task{ID: taskID.Add(1), Kind: kind, Name: fmt.Sprintf(format, args...)}}
+	return StartDetailedTask(kind, fmt.Sprintf(format, args...), nil)
+}
+
+// StartDetailedTask starts a task with lines a UI draws under it.
+func StartDetailedTask(kind event.TaskKind, name string, details []string) *Task {
+	t := &Task{t: event.Task{ID: taskID.Add(1), Kind: kind, Name: name, Details: details}}
 	Publish(event.TaskStarted, t.t)
 	return t
 }

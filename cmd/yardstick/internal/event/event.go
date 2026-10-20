@@ -63,12 +63,32 @@ const (
 	DownloadClaims TaskKind = "download claims"
 )
 
+var done = map[TaskKind]string{
+	Install:        "installed",
+	ResolveDB:      "resolved DB",
+	ImportDB:       "imported DB",
+	BuildSBOM:      "built SBOM",
+	ResolveClaims:  "resolved claims",
+	DownloadClaims: "downloaded claims",
+}
+
+// Done is the kind as a finished task's line says it.
+func (k TaskKind) Done() string {
+	if d, ok := done[k]; ok {
+		return d
+	}
+	return string(k)
+}
+
 // Task is one piece of preparation. ID pairs a finish with its start; Err is set on a failed finish.
+// Details, set on the start, are lines drawn under the task while it runs and once it is done, and
+// are never shortened to the task column the way Name is.
 type Task struct {
-	ID   uint64
-	Kind TaskKind
-	Name string
-	Err  error
+	ID      uint64
+	Kind    TaskKind
+	Name    string
+	Details []string
+	Err     error
 }
 
 type SBOM struct {
