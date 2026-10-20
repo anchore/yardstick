@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import type { Basis } from "../gen/research";
-import type { ResearchBatch } from "../gen/wire";
-import { about, basisWords, batchWords, estimate, estimateWords, finishedWords, summary, tokens } from "./researchwords";
+import type { ResearchBatch, ResearchGroup } from "../gen/wire";
+import { about, basisWords, batchWords, estimate, estimateWords, finishedWords, leadWords, summary, tokens } from "./researchwords";
 
 // the built-in sonnet numbers (research/cost.go) and a model with no history
 const sonnet: Basis = { model: "sonnet", measured: true, source: "measured 2026-10-19", n: 23, min: 0.18, mean: 0.23, max: 0.28, tokensIn: 310_000, tokensOut: 4_700, seconds: 55 };
@@ -49,5 +49,15 @@ describe("batch words", () => {
   test("a finished batch keeps its real total", () => {
     expect(finishedWords(batch({ done: 21, spent: 4.84 }))).toBe("Research finished · 21 jobs · $4.84");
     expect(finishedWords(batch({ done: 12, cancelled: 8, failed: 1, spent: 2.71 }))).toBe("Research stopped · 12 of 21 jobs done · $2.71 · 1 failed");
+  });
+});
+
+describe("lead words", () => {
+  const change = (rows: number, ...gates: string[]): ResearchGroup =>
+    ({ group: "change", selected: true, rows, jobs: gates.map((gate) => ({ vulnerability: "CVE-1", package: { name: "p", version: "1" }, image: "i", gate, rows: [] })) });
+  test("the banner's foot counts the matches and gates research covers, then the rest", () => {
+    expect(leadWords(change(6, "deb-npm", "deb-npm", "deb-java", "deb-java"), 6)).toBe("6 matches across 2 gates can still change an outcome. The other 6 change none.");
+    expect(leadWords(change(1, "deb-java"), 1)).toBe("1 match across 1 gate can still change an outcome. The other 1 changes none.");
+    expect(leadWords(change(1, "deb-java"))).toBe("1 match across 1 gate can still change an outcome.");
   });
 });

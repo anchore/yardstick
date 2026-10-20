@@ -2,7 +2,7 @@
 // costs: money with tokens beside it, time, the basis an estimate comes from, and a batch's progress.
 // Pure: research.ts, banner.ts and labelpanel.ts draw it.
 import type { Basis } from "../gen/research";
-import type { ResearchBatch, ResearchEstimate } from "../gen/wire";
+import type { ResearchBatch, ResearchEstimate, ResearchGroup } from "../gen/wire";
 import { plural } from "../shared/words";
 
 export const money = (x: number) => `$${x.toFixed(2)}`;
@@ -53,6 +53,13 @@ export function basisWords(b: Basis): string {
 export function summary(e: ResearchEstimate): string {
   if (!e.basis.measured) return `${plural(e.jobs, "job")} · cost not measured on ${modelWords(e.basis.model)}`;
   return `${plural(e.jobs, "job")} · ${about(e.seconds)} · about ${tokens(e.tokensIn + e.tokensOut)} tokens`;
+}
+
+// leadWords is the banner's foot while research leads: what the matches it offers are (change, the
+// group that can change a gate), and that the rest with no hint (none of them) change nothing
+export function leadWords(change: ResearchGroup, none = 0): string {
+  const gates = new Set(change.jobs.map((j) => j.gate)).size;
+  return `${plural(change.rows, "match", "matches")} across ${plural(gates, "gate")} can still change an outcome.${none ? ` The other ${none} ${none === 1 ? "changes" : "change"} none.` : ""}`;
 }
 
 export const active = (b: ResearchBatch | null | undefined): b is ResearchBatch => !!b && b.running + b.queued > 0;

@@ -47,6 +47,8 @@ test.describe("labeling by hand never waits on research", () => {
     await expect(page.getByTestId("review-hints")).toBeHidden();
     await expect(page.getByTestId("research-price")).toHaveText("about $0.92");
     await expect(page.getByTestId("research-summary")).toHaveText("4 jobs · about 2 min · about 1.3M tokens");
+    // the foot is one sentence on what research covers, not every match each gate waits on
+    await expect(page.getByTestId("work-foot")).toHaveText("6 matches across 2 gates can still change an outcome. The other 6 change none.");
     // each gate prices the jobs researched under it
     await expect(gateResearch(page, "deb-npm")).toHaveText("research ~$0.46");
     await expect(gateResearch(page, "deb-java")).toHaveText("research ~$0.46");

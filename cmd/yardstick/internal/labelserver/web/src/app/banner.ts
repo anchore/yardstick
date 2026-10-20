@@ -15,7 +15,7 @@ import { fetchHints, fetchQueue, preview } from "./hints";
 import { aloneWords, hintedRows, hintsHref, inScope, previewLabels, waitWords, workNumbers, type OpenRow } from "./hintsdata";
 import { openOf } from "./images";
 import { gateRows, isOpen, sumTally } from "./listing";
-import { active, batchWords, estimate, finishedWords, money, summary } from "./researchwords";
+import { active, batchWords, estimate, finishedWords, leadWords, money, summary } from "./researchwords";
 import { kbd, status, verdict, type State as Status } from "./ui";
 
 const needWords = (n: number) => `${n} ${n === 1 ? "needs" : "need"} you`;
@@ -78,7 +78,7 @@ export function workBanner(list: GateList): Work {
       !first && e.basis.measured && [el("span", { class: "quiet" }, `~${money(e.mean)}`), " "], kbd("r"));
     if (!first) return false;
     // research leads: the other column prices it, since no hint is pending to preview; load fills
-    // the foot with the rows the gates wait on
+    // the foot with what the researched matches are
     banner.dataset.research = "offered";
     fill(rcaps, `Research these ${plural(change!.rows, "match", "matches")}`);
     fill(outcomes,
@@ -179,16 +179,16 @@ export function workBanner(list: GateList): Work {
       return el("div", { class: "r", "data-testid": "work-outcome", "data-gate": g.id, "data-before": before, "data-after": a },
         status(before), el("span", { class: "arrow" }, "→"), status(a), el("b", {}, g.id));
     }));
-    // what each gate hints don't pass still waits on: its open rows no hint labels
-    const waits = await Promise.all(gates.filter((g) => after.get(g.id) !== "pass").map(async (g) => {
+    // research leading, the foot is one sentence on what it covers and why the rest don't count;
+    // otherwise it is what each gate hints don't pass still waits on: its open rows no hint labels
+    const lead = priced ? leadWords(change!, group(plan, "none")?.rows) : "";
+    const waits = priced ? [] : await Promise.all(gates.filter((g) => after.get(g.id) !== "pass").map(async (g) => {
       const p = labels.get(g.id) ?? {};
       const rest: OpenRow[] = gateRows(await gateState(g.id)).filter((x) => x.row && isOpen(x) && !p[x.row])
         .map((x) => ({ gate: g.id, row: x.row!, vuln: x.vuln, pkg: x.pkg }));
       return rest.length ? waitWords(g.id, rest) : "";
     }));
-    // priced, the foot names the rows research would take on, and how many change nothing
-    const none = priced && group(plan, "none")?.rows;
-    fill(foot, [...waits.filter(Boolean), none && `The other ${none} with no hint change no outcome.`, low > 0 && `${plural(low, "low-confidence hint")} left out.`].filter(Boolean).join(" "));
+    fill(foot, [lead, ...waits.filter(Boolean), low > 0 && `${plural(low, "low-confidence hint")} left out.`].filter(Boolean).join(" "));
   }
 
   work({ open: 0, hinted: 0, needYou: 0 }, 1, null, null);

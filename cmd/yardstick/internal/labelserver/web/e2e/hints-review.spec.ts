@@ -95,7 +95,13 @@ test.describe("hint review", () => {
     await expect(gateRow(page, "deb-java").getByTestId("gate-unlabeled")).toHaveText(/^1 open/);
     await expect(page.getByTestId("work-open")).toHaveText("2");
     await expect(page.getByTestId("work-need")).toHaveText("2");
-    await expect(page.getByTestId("work-foot")).toContainText("deb-java then waits on 1 match with no hint: tar CVE-2026-18508.");
+    // with no hint left, research of what deb-java waits on leads, and its foot is one sentence
+    await expect(page.getByTestId("work-foot")).toHaveText("1 match across 1 gate can still change an outcome. The other 1 changes none.");
+    await page.keyboard.press("r");
+    const job = page.locator("[data-testid=research-group][data-group=change]").getByTestId("research-job");
+    await expect(job).toHaveCount(1);
+    await expect(job).toHaveAttribute("data-gate", "deb-java");
+    await expect(job).toContainText("CVE-2026-18508");
   });
 
   test("low-confidence hints are hidden until asked for, and never preselected", async ({ page }) => {
