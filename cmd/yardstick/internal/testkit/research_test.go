@@ -111,6 +111,19 @@ func TestE2EResearchQueue(t *testing.T) {
 	if j := p.Groups[0].Jobs[0]; j.Vulnerability != "CVE-2026-41992" || j.Package.Name != "gzip" || j.Package.Version != "1.12-1" || j.Image != "vulnerabilities-debian-12-tar-util-linux:617d48d" {
 		t.Errorf("the gzip job: %+v", j)
 	}
+	// each open row is one match of one job, the research page's rows: a log4j pair is one job of two
+	for _, g := range p.Groups {
+		n := 0
+		for _, j := range g.Jobs {
+			n += len(j.Matches)
+		}
+		if n != g.Rows {
+			t.Errorf("%s lists %d matches for %d rows", g.Group, n, g.Rows)
+		}
+	}
+	if j := p.Groups[0].Jobs[2]; len(j.Matches) != 2 || j.Matches[0].Row != "e1af7851f0e60bb4" || j.Matches[1].Row != "783bbb63489d81a6" || j.ImageSlug == "" {
+		t.Errorf("a log4j pair's job: %+v", j)
+	}
 	if p := plan(map[string]any{"scope": "gate:deb-java", "dryRun": true}); len(p.Groups[0].Jobs) != 2 || p.Groups[0].Jobs[0].Rows[0] != "e1af7851f0e60bb4" {
 		t.Errorf("deb-java's plan: %v", planLines(p))
 	}

@@ -62,13 +62,25 @@ type ResearchGroup struct {
 }
 
 // ResearchJobPlan is one job a start would queue: the row it starts from and its siblings (Rows,
-// that row first), researched under Gate.
+// that row first), researched under Gate. Matches are the open rows of Rows that research could
+// start on, each in one job of the plan, which the research page lists one per row.
 type ResearchJobPlan struct {
+	Vulnerability string          `json:"vulnerability"`
+	Package       PackageInfo     `json:"package"`
+	Image         string          `json:"image"`
+	ImageSlug     string          `json:"imageSlug"`
+	Gate          string          `json:"gate"`
+	Rows          []string        `json:"rows"`
+	Matches       []ResearchMatch `json:"matches"`
+}
+
+// ResearchMatch is one open row of a job, and what labeling it does in scope (the queue's effect,
+// or with a check its effect on that check).
+type ResearchMatch struct {
+	Row           string      `json:"row"`
 	Vulnerability string      `json:"vulnerability"`
 	Package       PackageInfo `json:"package"`
-	Image         string      `json:"image"`
-	Gate          string      `json:"gate"`
-	Rows          []string    `json:"rows"`
+	Effect        string      `json:"effect"`
 }
 
 // ResearchSkipped counts the open rows in scope left out: research finished on them, an agent
@@ -263,6 +275,7 @@ func (b *queueBuild) researchCandidates(idx *researchIndex, scope queueScope, on
 			skipped.Hinted++
 			continue
 		}
+		q.Effect = cmp.Or(effect, effectNone)
 		c := researchCandidate{queued: q, group: researchNone, gate: b.researchGate(&q.CrossFinding, scope)}
 		if effect == effectDecides || effect == effectCouldMove {
 			c.group = researchChange
@@ -320,6 +333,10 @@ func (b *queueBuild) planResearch(cands []researchCandidate, open, selected map[
 	var out []ResearchGroup
 	var start []planned
 	covered := map[string]bool{}
+	byRow := map[string]*researchCandidate{}
+	for i := range cands {
+		byRow[cands[i].Row] = &cands[i]
+	}
 	for _, g := range groups {
 		grp := ResearchGroup{Group: g, Selected: selected[g], Jobs: []ResearchJobPlan{}}
 		for _, c := range cands {
@@ -335,8 +352,11 @@ func (b *queueBuild) planResearch(cands []researchCandidate, open, selected map[
 			r.Gate, r.Source, r.Model, r.From = c.gate, research.FromLabelUI, model, FromResearchPage
 			pkg := v.rows[c.Row].pm.Package
 			p := planned{ResearchJobPlan{Vulnerability: r.Vulnerability, Package: PackageInfo{Name: pkg.Name, Version: pkg.Version, PURL: r.Package},
-				Image: c.Image, Gate: c.gate, Rows: r.Rows}, r}
+				Image: c.Image, ImageSlug: c.slug, Gate: c.gate, Rows: r.Rows, Matches: []ResearchMatch{}}, r}
 			for _, id := range r.Rows {
+				if m, rr := byRow[id], v.rows[id]; m != nil && rr != nil && !covered[id] {
+					p.Matches = append(p.Matches, ResearchMatch{Row: id, Vulnerability: m.Vulnerability, Package: PackageInfo{Name: rr.pm.Package.Name, Version: rr.pm.Package.Version}, Effect: m.Effect})
+				}
 				covered[id] = true
 			}
 			grp.Rows += openRows(open, r.Rows)

@@ -54,7 +54,7 @@ describe("batch words", () => {
 
 describe("lead words", () => {
   const change = (rows: number, ...gates: string[]): ResearchGroup =>
-    ({ group: "change", selected: true, rows, jobs: gates.map((gate) => ({ vulnerability: "CVE-1", package: { name: "p", version: "1" }, image: "i", gate, rows: [] })) });
+    ({ group: "change", selected: true, rows, jobs: gates.map((gate) => ({ vulnerability: "CVE-1", package: { name: "p", version: "1" }, image: "i", imageSlug: "i", gate, rows: [], matches: [] })) });
   test("the banner's foot counts the matches and gates research covers, then the rest", () => {
     expect(leadWords(change(6, "deb-npm", "deb-npm", "deb-java", "deb-java"), 6)).toBe("6 matches across 2 gates can still change an outcome. The other 6 change none.");
     expect(leadWords(change(1, "deb-java"), 1)).toBe("1 match across 1 gate can still change an outcome. The other 1 changes none.");
