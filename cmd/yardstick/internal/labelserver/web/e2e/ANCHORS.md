@@ -8,7 +8,7 @@ Select with `getByTestId("<testid>")`, narrow with the `data-*` identity attribu
 - Table rows are `tbody tr[data-id]` inside the table's testid; `data-id` is the row id (16 hex), or a made-up key for a row with no finding page.
 - Pick one instance by its identity attribute: `page.locator('[data-testid=check-row][data-check=f1NotWorse]')`.
 
-Routes (`route.ts`): `/ui/gates/` (level 0, `?tab=unlabeled|labels`), `/ui/gates/<gate>/` and `findings` / `labels` / `map` (level 1), `/ui/gates/<gate>/checks/<check>` (level 2), and a finding at `/ui/gates/<gate>/checks/<check>/<row>` or `/ui/gates/<gate>/findings/<row>` (level 3). Filters ride in the query: `image` (slug), `verdict`, `hint`, `pkg`, `q`, `page`. The labeling flow's screens sit beside them: hint review at `/ui/hints?gate=&image=&low=1`, the queue at `/ui/queue` and `/ui/queue/<row>` (`?scope=all|gate:<g>|image:<slug>`, `check`, `low=1`), and `/ui/history` (`?verdict=`, `q`, `page`, `since=all|<RFC 3339 time>`, left out for since the server started). `h` on any screen opens hint review for the gate and image on screen; `n` enters the queue for the screen's scope.
+Routes (`route.ts`): `/ui/gates/` (level 0, `?tab=unlabeled|labels`), `/ui/gates/<gate>/` and `findings` / `labels` / `map` (level 1), `/ui/gates/<gate>/checks/<check>` (level 2), and a finding at `/ui/gates/<gate>/checks/<check>/<row>` or `/ui/gates/<gate>/findings/<row>` (level 3). Filters ride in the query: `image` (slug), `verdict`, `hint`, `pkg`, `q`, `page`. The labeling flow's screens sit beside them: hint review at `/ui/hints?gate=&image=&low=1`, research at `/ui/research?scope=all|gate:<g>|image:<slug>`, the queue at `/ui/queue` and `/ui/queue/<row>` (`?scope=all|gate:<g>|image:<slug>`, `check`, `low=1`), and `/ui/history` (`?verdict=`, `q`, `page`, `since=all|<RFC 3339 time>`, left out for since the server started). `h` on any screen opens hint review for the gate and image on screen; `r` on the gates screen opens research; `n` enters the queue for the screen's scope.
 
 ## Shell (every screen)
 
@@ -27,7 +27,7 @@ Routes (`route.ts`): `/ui/gates/` (level 0, `?tab=unlabeled|labels`), `/ui/gates
 | `theme-option` | System, Light or Dark | `value` (`system`, `light`, `dark`), `checked` |
 | `palette` | the go-to palette (Basecoat's command), visible while open | |
 | `palette-input` | its search box | |
-| `palette-item` | one entry, a link | `data-group` (`Gates`, `Images`, `Checks`, `Findings`, `Actions`), `data-id` (gate, image ref, `<gate>/<check>`, row id, or `hints` / `queue` / `history`) |
+| `palette-item` | one entry, a link | `data-group` (`Gates`, `Images`, `Checks`, `Findings`, `Actions`), `data-id` (gate, image ref, `<gate>/<check>`, row id, or `hints` / `queue` / `research` / `history`) |
 | `palette-more` | how many more findings match than are shown | |
 | `title-row` | the title line | |
 | `title` | the screen's `h1` | |
@@ -66,12 +66,19 @@ Routes (`route.ts`): `/ui/gates/` (level 0, `?tab=unlabeled|labels`), `/ui/gates
 | `gate-row` | one gate, a link into it | `data-gate`, `data-state`, `href` |
 | `gate-unlabeled` | "N open of M changed": open is unlabeled or unclear, as everywhere | |
 | `gate-work` | "N hinted · M need you" (open rows), and "K hints · what hints alone do" | |
-| `work-banner` | the open-work banner over the gate list | |
+| `work-banner` | the open-work banner over the gate list | `data-research`: `none`, `offered` (research is the primary), `running` (the banner is a batch's progress) or `finished` (the newest batch is over) |
+| `work-caps` | its first line: "Open work across N gates", "Researching · N jobs", or the finished batch's "Research finished · N jobs · $X" | |
 | `work-open`, `work-hinted`, `work-need` | its numbers: open findings across gates (each once), those with an agent hint, the rest | |
 | `work-stack` | the hinted / no hint bar | |
 | `work-outcome` | one gate if every hint were accepted (its preview) | `data-gate`, `data-before`, `data-after` |
 | `work-foot` | what each gate not passing still waits on | |
-| `review-hints`, `label-left` | "Review N hints" (`h`) and "Label what's left" (`n`); the first is primary while hints are pending, else the second | |
+| `review-hints`, `label-left` | "Review N hints" (`h`) and "Label what's left" (`n`); review is primary while hints are pending. `label-left` is there in every state | |
+| `research-rows` | "Research N rows…" (`r`), a link to `/ui/research`; primary with no hint pending and rows that can change a gate, else ghost with its price; hidden while a batch runs or with nothing to research | `data-rows`, `hidden` |
+| `research-price`, `research-summary` | with research primary, the other column's price ("about $0.92") and "N jobs · about 2 min · about 1.3M tokens" | |
+| `research-done`, `research-spent`, `research-left` | while a batch runs: jobs done, spent so far, time left | |
+| `research-so-far` | one verdict's hints the batch has left | `data-verdict` |
+| `research-cancel` | "Cancel N jobs" while a batch runs | |
+| `gate-research` | in a gate row's `gate-work`, "research ~$X" for the jobs that can change a gate researched under it | |
 | `unlabeled-table` | the Unlabeled tab: open findings across gates | rows keyed by finding |
 | `labels-table` | the Labels tab (and the gate's) | |
 
@@ -92,6 +99,27 @@ Routes (`route.ts`): `/ui/gates/` (level 0, `?tab=unlabeled|labels`), `/ui/gates
 | `impact-left`, `impact-left-item` | what stays open after the selection | |
 | `accept-hints` | "Accept N hints on M rows" | `data-hints`, `data-rows`, `disabled` with none |
 | `hints-empty` | the body when no hint is pending in scope | |
+
+## Research (`/ui/research`)
+
+| testid | where | attributes |
+|---|---|---|
+| `research-gate-chip` | a scope chip in the title row, a link; "All gates" first | `data-gate` (empty for all), `aria-pressed` |
+| `research-group` | a group of jobs by effect | `data-group` = change / none, `hidden` with no jobs |
+| `research-group-toggle` | its checkbox; change starts checked, none unchecked | |
+| `research-job` | one job: vulnerability, package, image, rows, price | `data-gate` (researched under), `data-row` (the row it starts from) |
+| `research-more` | "and N more jobs" | |
+| `research-skipped` | what was left out: researched, hinted, queued or running | |
+| `research-empty` | the body when nothing in scope qualifies | |
+| `research-estimate` | the sticky panel | |
+| `research-cost`, `research-range` | the mean ("$0.92", or "not measured") and the range ("$0.72 to $1.12", or the job count) | |
+| `research-jobs`, `research-rows`, `research-tokens`, `research-time` | the panel's numbers | |
+| `research-model`, `research-limit` | the model select and "Stop after" | |
+| `research-unmeasured` | the line saying the model has no finished jobs here | `hidden` when measured |
+| `research-start` | "Start N research jobs" | `data-jobs`, `disabled` with none |
+| `research-basis` | where the per-job numbers come from | |
+
+`label-left` is in the title row here too.
 
 ## Gate (level 1)
 
@@ -157,6 +185,7 @@ Filter chips are buttons with `data-chip` (`all`, `unlabeled`, `tp`, `fp`, `uncl
 | `save-label` | "Save and next", or "Save" with the cog's `advance-checkbox` off | |
 | `skip-button` | Skip (`j`) | |
 | `research-foot`, `research-button`, `research-status` | research (`R`) | `research-button` has `data-researched`; `research-status` has `data-state` |
+| `research-price`, `research-shares` | on the button, one job's price ("~$0.23") when measured; under it, "One job, about a minute, shared with …" naming the sibling packages | |
 
 ## Component kit (`/ui/gates/_kit`)
 
