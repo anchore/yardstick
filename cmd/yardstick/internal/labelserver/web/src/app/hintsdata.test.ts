@@ -116,4 +116,5 @@ test("waitWords name the first few rows a gate still waits on", () => {
   const r = (n: number) => ({ gate: "g", row: `r${n}`, vuln: `CVE-${n}`, pkg: "p" });
   expect(waitWords("deb-java", [r(1)])).toBe("deb-java then waits on 1 match with no hint: p CVE-1.");
   expect(waitWords("g", [r(1), r(2), r(3), r(4)])).toBe("g then waits on 4 matches with no hint: p CVE-1, p CVE-2, p CVE-3 and 1 more.");
+  expect(waitWords("deb-java", [r(1)], false)).toBe("deb-java waits on 1 match with no hint: p CVE-1.");
 });

@@ -179,6 +179,8 @@ test.describe("the work banner", () => {
     // tar CVE-2026-18508 now decides deb-java and has no hint: researching it is the primary
     await expect(page.getByTestId("research-rows")).not.toHaveAttribute("data-variant", /.+/);
     await expect(page.getByTestId("work-foot")).toHaveText("1 match across 1 gate can still change an outcome. The other 1 changes none.");
+    await expect(page.getByTestId("work-rcaps")).toHaveText("Research this match");
+    await expect(page.getByTestId("work-legend").locator("[data-segment=hinted]")).toHaveCount(0);
     await expect(page.getByTestId("label-left")).toHaveAttribute("data-variant", "outline");
     await expect(page.getByTestId("label-left")).toBeVisible();
     for (const g of ["deb-java", "deb-npm"]) await expect(gateRow(page, g).getByTestId("gate-work")).toContainText("no hints");

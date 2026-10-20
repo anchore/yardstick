@@ -20,6 +20,7 @@ const banner = (page: Page) => page.getByTestId("work-banner");
 const group = (page: Page, id: string) => page.locator(`[data-testid=research-group][data-group=${id}]`);
 const toggle = (page: Page, id: string) => group(page, id).getByTestId("research-group-toggle");
 const start = (page: Page) => page.getByTestId("research-start");
+const segment = (page: Page, id: string) => page.getByTestId("work-legend").locator(`[data-segment=${id}]`);
 const gateResearch = (page: Page, gate: string) => page.locator(`[data-testid=gate-row][data-gate=${gate}]`).getByTestId("gate-research");
 
 // a batch partway through, since the stand-in's jobs finish in a second or two
@@ -47,11 +48,39 @@ test.describe("labeling by hand never waits on research", () => {
     await expect(page.getByTestId("review-hints")).toBeHidden();
     await expect(page.getByTestId("research-price")).toHaveText("about $0.92");
     await expect(page.getByTestId("research-summary")).toHaveText("4 jobs · about 2 min · about 1.3M tokens");
+    // nothing is hinted, so the other column prices research rather than previewing hints, and the
+    // legend names only the bar's one segment
+    await expect(page.getByTestId("work-rcaps")).toHaveText("Research these 6 matches");
+    await expect(page.getByTestId("work-outcome")).toHaveCount(0);
+    await expect(segment(page, "you")).toHaveText("no hint");
+    await expect(segment(page, "hinted")).toHaveCount(0);
     // the foot is one sentence on what research covers, not every match each gate waits on
     await expect(page.getByTestId("work-foot")).toHaveText("6 matches across 2 gates can still change an outcome. The other 6 change none.");
     // each gate prices the jobs researched under it
     await expect(gateResearch(page, "deb-npm")).toHaveText("research ~$0.46");
     await expect(gateResearch(page, "deb-java")).toHaveText("research ~$0.46");
+    await enterQueue(page);
+  });
+
+  test("with no hint pending and nothing to research, the banner says where each gate stands and Label what's left leads", async ({ page }) => {
+    noHints();
+    // a dry run with nothing in it draws the banner as research being off does
+    await page.route("**/api/research", async (r) => r.fulfill({ json: { ...await (await r.fetch()).json(), groups: [] } }));
+    await page.goto(gatesPage);
+    await expect(page.getByTestId("work-rcaps")).toHaveText("Where each gate stands");
+    await expect(page.locator("[data-testid=work-standing][data-gate=deb-java]")).toHaveAttribute("data-outcome", "fail");
+    await expect(page.locator("[data-testid=work-standing][data-gate=deb-npm]")).toHaveAttribute("data-outcome", "undecided");
+    await expect(page.getByTestId("work-outcome")).toHaveCount(0);
+    await expect(banner(page)).not.toContainText("If you accept every hint");
+    // the foot is what each gate not passing waits on now, with no "then" since no hint comes first
+    await expect(page.getByTestId("work-foot")).toContainText("deb-npm waits on 3 matches with no hint: gzip CVE-2026-41992, tar CVE-2005-2541, traverse GHSA-67hx-6x53-jw92.");
+    await expect(page.getByTestId("work-foot")).toContainText(/(^| )deb-java waits on 10 matches with no hint: .* and 7 more\./);
+    await expect(segment(page, "you")).toHaveText("no hint");
+    await expect(segment(page, "hinted")).toHaveCount(0);
+    await expect(banner(page)).toHaveAttribute("data-research", "none");
+    await expect(page.getByTestId("research-rows")).toBeHidden();
+    await expect(page.getByTestId("review-hints")).toBeHidden();
+    await expect(page.getByTestId("label-left")).not.toHaveAttribute("data-variant", /.+/);
     await enterQueue(page);
   });
 
@@ -62,6 +91,8 @@ test.describe("labeling by hand never waits on research", () => {
     await expect(page.getByTestId("review-hints")).not.toHaveAttribute("data-variant", /.+/);
     await expect(page.getByTestId("label-left")).toBeVisible();
     await expect(page.getByTestId("work-outcome")).toHaveCount(2);
+    await expect(page.getByTestId("work-rcaps")).toHaveText("If you accept every hint");
+    await expect(segment(page, "hinted")).toHaveText("hinted, ready to review");
     await expect(page.getByTestId("gate-research")).toHaveCount(0);
   });
 

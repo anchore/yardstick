@@ -150,9 +150,10 @@ export function workNumbers(rows: CrossFinding[]): Work {
   return { open: by.size, hinted, needYou: by.size - hinted };
 }
 
-// waitWords say what a gate still waits on after every hint: the open rows no hint labels
-export function waitWords(gate: string, left: OpenRow[], show = 3): string {
+// waitWords say what a gate still waits on after every hint: the open rows no hint labels. Without
+// then, it is what the gate waits on now, for when no hint is pending.
+export function waitWords(gate: string, left: OpenRow[], then = true, show = 3): string {
   const names = left.slice(0, show).map((r) => `${r.pkg} ${r.vuln}`).join(", ");
   const more = left.length > show ? ` and ${left.length - show} more` : "";
-  return `${gate} then waits on ${plural(left.length, "match", "matches")} with no hint: ${names}${more}.`;
+  return `${gate}${then ? " then" : ""} waits on ${plural(left.length, "match", "matches")} with no hint: ${names}${more}.`;
 }

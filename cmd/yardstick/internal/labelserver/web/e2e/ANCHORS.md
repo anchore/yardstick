@@ -69,9 +69,12 @@ Routes (`route.ts`): `/ui/gates/` (level 0, `?tab=unlabeled|labels`), `/ui/gates
 | `work-banner` | the open-work banner over the gate list | `data-research`: `none`, `offered` (research is the primary), `running` (the banner is a batch's progress) or `finished` (the newest batch is over) |
 | `work-caps` | its first line: "Open work across N gates", "Researching · N jobs", or the finished batch's "Research finished · N jobs · $X" | |
 | `work-open`, `work-hinted`, `work-need` | its numbers: open findings across gates (each once), those with an agent hint, the rest | |
-| `work-stack` | the hinted / no hint bar | |
-| `work-outcome` | one gate if every hint were accepted (its preview) | `data-gate`, `data-before`, `data-after` |
-| `work-foot` | with research leading, one sentence: "N matches across M gates can still change an outcome. The other K change none."; otherwise what each gate not passing still waits on | |
+| `work-stack` | the hinted / no hint bar (done / running / queued while a batch runs), only its non-empty segments | |
+| `work-legend` | the bar's legend, one entry per segment the bar has | each entry's `data-segment`: `hinted`, `you`, `done`, `running`, `queued` |
+| `work-rcaps` | the other column's heading: "If you accept every hint" while hints are pending, "Research these N matches" with research leading, "Where each gate stands" otherwise, "So far" while a batch runs | |
+| `work-outcome` | one gate if every hint were accepted (its preview), only while hints are pending | `data-gate`, `data-before`, `data-after` |
+| `work-standing` | one gate's outcome now, in place of the previews when no hint is pending and research doesn't lead | `data-gate`, `data-outcome` |
+| `work-foot` | with research leading, one sentence: "N matches across M gates can still change an outcome. The other K change none."; otherwise what each gate not passing still waits on ("then waits on" after the hints, "waits on" with none pending) | |
 | `review-hints`, `label-left` | "Review N hints" (`h`) and "Label what's left" (`n`); review is there and primary while hints are pending, and hidden when none are (`h` still opens an empty review). `label-left` is there in every state | |
 | `research-rows` | "Research N matches…" (`r`), a link to `/ui/research`; primary with no hint pending and matches that can change a gate, else ghost with its price; hidden while a batch runs or with nothing to research | `data-rows`, `hidden` |
 | `research-price`, `research-summary` | with research primary, the other column's price ("about $0.92") and "N jobs · about 2 min · about 1.3M tokens" | |

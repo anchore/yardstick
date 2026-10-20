@@ -1,5 +1,6 @@
 // banner.ts is the gates page's work banner: how much is open across gates, how much an agent has
-// hinted, what accepting every hint would do to each gate (one preview per gate), and the ways in:
+// hinted, what accepting every hint would do to each gate (one preview per gate, or with no hint
+// pending, where each gate stands), and the ways in:
 // review the hints (only while some are pending), research the open rows no agent has looked at, or
 // label what's left. Whichever fits is the screen's one primary button (the title row has none here).
 // While a research batch runs, the banner is its progress. It also fills each gate row's hint column.
@@ -36,19 +37,26 @@ export function workBanner(list: GateList): Work {
   const caps = el("span", { class: "caps", "data-testid": "work-caps" }, `Open work across ${plural(gates.length, "gate")}`);
   const bigs = el("div", { class: "bigs" });
   const bar = el("div", { class: "workstack", "data-testid": "work-stack", "aria-hidden": "true" });
-  const legend = el("div", { class: "legend" });
+  const legend = el("div", { class: "legend", "data-testid": "work-legend" });
   const review = el("a", { class: "btn", href: hintsHref({}), "data-testid": "review-hints" }, "Review hints ", kbd("h"));
   const left = el("a", { class: "btn", "data-variant": "outline", href: "/ui/queue", "data-testid": "label-left" }, "Label what's left ", kbd("n"));
   const research = el("a", { class: "btn", "data-variant": "ghost", href: "/ui/research", hidden: true, "data-testid": "research-rows" });
   const cancel = el("button", { type: "button", class: "btn", "data-variant": "ghost", hidden: true, "data-testid": "research-cancel" });
   const acts = el("div", { class: "acts" }, review, left, research, cancel);
-  const rcaps = el("span", { class: "caps" }, "If you accept every hint");
-  const outcomes = el("div", { class: "outc" }, el("span", { class: "muted" }, "Previewing…"));
+  const rcaps = el("span", { class: "caps", "data-testid": "work-rcaps" });
+  const outcomes = el("div", { class: "outc" }, el("span", { class: "muted" }, "Loading…"));
   const foot = el("p", { class: "foot", "data-testid": "work-foot" });
   const banner = el("section", { class: "work", "data-testid": "work-banner", "aria-label": "Open work" },
     el("div", {}, caps, bigs, bar, legend, acts),
     el("div", {}, rcaps, outcomes, foot));
   const cells = new Map(gates.map((g) => [g.id, el("div", { class: "lnum", "data-testid": "gate-work" })]));
+
+  // stack fills the bar, and the legend with only the segments the bar has
+  const stack = (segs: [string, number, string][]) => {
+    const on = segs.filter(([, n]) => n > 0);
+    fill(bar, on.map(([c, n]) => el("i", { class: c, style: `flex:${n}` })));
+    fill(legend, on.map(([c, , w]) => el("span", { class: c, "data-segment": c }, w)));
+  };
 
   // primary makes b the banner's one primary button (UI-RULES 7); the others are outline, research ghost
   const primary = (b: HTMLElement) => {
@@ -63,8 +71,7 @@ export function workBanner(list: GateList): Work {
     banner.dataset.research = last ? "finished" : "none";
     fill(caps, last ? finishedWords(last) : `Open work across ${plural(gates.length, "gate")}`);
     fill(bigs, big(nums.open, "open findings"), big(nums.hinted, "have an agent hint"), big(nums.need, "need you"));
-    fill(bar, n.hinted > 0 && el("i", { class: "hinted", style: `flex:${n.hinted}` }), n.needYou > 0 && el("i", { class: "you", style: `flex:${n.needYou}` }));
-    fill(legend, el("span", { class: "hinted" }, "hinted, ready to review"), el("span", { class: "you" }, "no hint"));
+    stack([["hinted", n.hinted, "hinted, ready to review"], ["you", n.needYou, "no hint"]]);
     cancel.hidden = true;
     review.hidden = !pending;
     const change = group(plan, "change"), offer = change?.jobs.length ? change : group(plan, "none");
@@ -80,7 +87,7 @@ export function workBanner(list: GateList): Work {
     // research leads: the other column prices it, since no hint is pending to preview; load fills
     // the foot with what the researched matches are
     banner.dataset.research = "offered";
-    fill(rcaps, `Research these ${plural(change!.rows, "match", "matches")}`);
+    fill(rcaps, change!.rows === 1 ? "Research this match" : `Research these ${change!.rows} matches`);
     fill(outcomes,
       el("div", { class: "r" }, e.basis.measured
         ? [el("span", { class: "costpill", "data-testid": "research-price" }, `about ${money(e.mean)}`), el("span", { class: "quiet" }, `${money(e.low)} to ${money(e.high)}`)]
@@ -98,10 +105,7 @@ export function workBanner(list: GateList): Work {
     fill(bigs, big(el("b", { "data-testid": "research-done" }, String(b.done)), w.done),
       big(el("b", { class: "cost", "data-testid": "research-spent" }, money(b.spent)), w.spent),
       big(el("b", { "data-testid": "research-left" }, w.left), w.leftWhy));
-    const over = b.total - act;
-    fill(bar, over > 0 && el("i", { class: "done", style: `flex:${over}` }), b.running > 0 && el("i", { class: "running", style: `flex:${b.running}` }),
-      b.queued > 0 && el("i", { class: "queued", style: `flex:${b.queued}` }));
-    fill(legend, el("span", { class: "done" }, "done"), el("span", { class: "running" }, "running"), el("span", { class: "queued" }, "queued"));
+    stack([["done", b.total - act, "done"], ["running", b.running, "running"], ["queued", b.queued, "queued"]]);
     research.hidden = true;
     review.hidden = !pending;
     primary(pending ? review : left);
@@ -158,7 +162,8 @@ export function workBanner(list: GateList): Work {
     const run = active(batch) ? batch : null;
     let priced = false;
     if (run) { running(run, hints.length); watch(); } else priced = work(n, hints.length, plan, batch);
-    if (!run && !priced) fill(rcaps, "If you accept every hint");
+    // with no hint pending there is nothing to preview: the column says where each gate stands
+    if (!run && !priced) fill(rcaps, hints.length ? "If you accept every hint" : "Where each gate stands");
     const after = new Map(await Promise.all(gates.map(async (g) => {
       const p = labels.get(g.id);
       return [g.id, (p ? (await preview(g.id, p)).outcome : g.gateOutcome ?? "undecided") as Status] as const;
@@ -176,17 +181,20 @@ export function workBanner(list: GateList): Work {
     if (run) return;
     if (!priced) fill(outcomes, gates.map((g) => {
       const before = (g.gateOutcome ?? "undecided") as Status, a = after.get(g.id)!;
-      return el("div", { class: "r", "data-testid": "work-outcome", "data-gate": g.id, "data-before": before, "data-after": a },
-        status(before), el("span", { class: "arrow" }, "→"), status(a), el("b", {}, g.id));
+      return hints.length
+        ? el("div", { class: "r", "data-testid": "work-outcome", "data-gate": g.id, "data-before": before, "data-after": a },
+          status(before), el("span", { class: "arrow" }, "→"), status(a), el("b", {}, g.id))
+        : el("div", { class: "r", "data-testid": "work-standing", "data-gate": g.id, "data-outcome": before }, status(before), el("b", {}, g.id));
     }));
     // research leading, the foot is one sentence on what it covers and why the rest don't count;
     // otherwise it is what each gate hints don't pass still waits on: its open rows no hint labels
+    // (with no hint pending, what each gate not passing waits on now)
     const lead = priced ? leadWords(change!, group(plan, "none")?.rows) : "";
     const waits = priced ? [] : await Promise.all(gates.filter((g) => after.get(g.id) !== "pass").map(async (g) => {
       const p = labels.get(g.id) ?? {};
       const rest: OpenRow[] = gateRows(await gateState(g.id)).filter((x) => x.row && isOpen(x) && !p[x.row])
         .map((x) => ({ gate: g.id, row: x.row!, vuln: x.vuln, pkg: x.pkg }));
-      return rest.length ? waitWords(g.id, rest) : "";
+      return rest.length ? waitWords(g.id, rest, hints.length > 0) : "";
     }));
     fill(foot, [lead, ...waits.filter(Boolean), low > 0 && `${plural(low, "low-confidence hint")} left out.`].filter(Boolean).join(" "));
   }
