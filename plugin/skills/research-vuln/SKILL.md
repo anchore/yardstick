@@ -2,6 +2,7 @@
 name: research-vuln
 description: Deep-dive one vulnerability finding from a yardstick gate — what the bug is, when upstream fixed it, whether the distro shipped or declined the fix, why the two grype DBs disagree — and record a verdict with justification, confidence, reasoning, facts, open questions and a report as a `yardstick claims agent propose` proposal.
 argument-hint: <CVE or GHSA id | row:<row id>> [workspace dir] [package name]
+disable-model-invocation: true
 allowed-tools: Bash, Read, Write, Edit, Grep, Glob, WebFetch, WebSearch, Agent
 ---
 
