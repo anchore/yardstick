@@ -91,3 +91,9 @@ __pycache__/
 # the label UI's Playwright results and report (make e2e)
 /cmd/yardstick/internal/labelserver/web/test-results/
 /cmd/yardstick/internal/labelserver/web/playwright-report/
+
+# stray `go build` output from the main packages, which lands in whatever directory it ran from
+/yardstick
+/seed
+/cmd/yardstick/internal/seed
+/cmd/yardstick/internal/testkit/seed/seed
