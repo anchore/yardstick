@@ -6,7 +6,7 @@ import { columnHelp } from "../shared/words";
 import { noCounts, sumCounts, type RailImage } from "./images";
 import { imageRail } from "./rail";
 import { withFilters, type Route, type VerdictFilter } from "./route";
-import { renderShell, type Nav, type View } from "./shell";
+import { renderShell, type Nav, type ShellView, type View } from "./shell";
 import { countBy, filterRows } from "./table";
 import { dataTable, type Column } from "./tableview";
 import { outcome as outcomeOf, outcomeRank } from "../shared/rows";
@@ -85,7 +85,8 @@ export function kitView(host: HTMLElement, r0: Route, nav: Nav): View {
   });
 
   const imageOf = (s: string | undefined) => images.find((i) => i.slug === s);
-  const shell = renderShell(host, r, {
+  // the kit's shell, drawn again with the image filter's chip on every update
+  const frame: ShellView = {
     title: "Component kit",
     status: status("fail", true),
     sub: "Each shell component on sample data from the grype-upgrade mockup. Nothing links here.",
@@ -113,13 +114,13 @@ export function kitView(host: HTMLElement, r0: Route, nav: Nav): View {
       el("div", { class: "filters" }, chips, search),
       table.el,
     ],
-  });
+  };
 
   function update(next: Route) {
     r = next;
     const img = imageOf(r.filters.image);
     rail.select(img?.slug ?? null);
-    shell.scope(img ? imageName(img.name, img.ref) : null, () => nav(withFilters(r, { image: undefined })));
+    renderShell(host, r, { ...frame, scope: img && { label: imageName(img.name, img.ref), clear: () => nav(withFilters(r, { image: undefined })) } });
     if (search.value !== (r.filters.q ?? "")) search.value = r.filters.q ?? "";
     // the chips count what the image and the search leave, so they follow the rail
     const scoped = filterRows(findings.filter((x) => !img || x.image === img.name), r.filters.q ?? "", (x) => `${x.vuln} ${x.pkg} ${x.version} ${x.image}`);

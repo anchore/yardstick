@@ -1,6 +1,7 @@
 // shell.ts is the chrome every screen shares (UI-RULES 5): one app bar, one breadcrumb, one title
 // row, then the image rail beside the tabs and the screen's body.
-import { el, fill, type Child } from "../shared/dom";
+import { html, nothing, render } from "lit-html";
+import { nodes, type Child } from "../shared/dom";
 import { activityChip } from "./activity";
 import { historyLink } from "./historylink";
 import type { Rail } from "./rail";
@@ -8,7 +9,6 @@ import { crumbs, formatRoute, gateTabs, gatesTabs, type Route } from "./route";
 import { openPalette } from "./palette";
 import { settings } from "./settings";
 import { gateSwitch } from "./switcher";
-import { kbd } from "./ui";
 
 // View is what main.ts keeps of the screen on show: its keys, and a way to take a change of filters
 // in place (true when it did) rather than being drawn again
@@ -28,6 +28,7 @@ export interface ShellView {
   actions?: Child;       // the screen's one primary button, and any secondary ones
   above?: Child;         // full width under the title, such as the gate's verdict bar
   rail?: Rail | null;
+  scope?: { label: Child; clear: () => void } | null; // the image filter's chip beside the rail's dropdown
   tabCounts?: Partial<Record<string, number>>;
   body: Child;
   row?: string;          // the finding's crumb, its vulnerability ID, once known
@@ -35,13 +36,6 @@ export interface ShellView {
   meta?: Child;          // the app bar's right side
   bar?: Child;           // under the app bar, such as the queue's
   prefs?: () => void;    // a setting in the cog changed, for a screen that draws its effect
-}
-
-export interface Shell {
-  // scope puts the image filter's chip beside the rail's dropdown, or takes it away
-  scope(label: Child | null, clear?: () => void): void;
-  // retab points the tabs at a route whose filters changed in place, so they keep its image
-  retab(r: Route): void;
 }
 
 const tabWords: Record<string, string> = { gates: "Gates", unlabeled: "Unlabeled", labels: "Labels", checks: "Checks", findings: "Matches", map: "Scan map" };
@@ -54,48 +48,47 @@ function tabsFor(r: Route): { id: string; href: string; on: boolean }[] {
   return [];
 }
 
-export function renderShell(host: HTMLElement, r: Route, v: ShellView): Shell {
+// the gate crumb's switcher is kept while the route stays, so drawing the shell again leaves its
+// menu open
+let switcher: { at: string; el: HTMLElement } | null = null;
+function switchFor(r: Route, gate: string) {
+  const at = `${formatRoute(r)}|${gate}`;
+  if (switcher?.at !== at) switcher = { at, el: gateSwitch(r, gate) };
+  return switcher.el;
+}
+
+// renderShell draws a screen into host as a lit-html template. Drawn again with new data, the frame
+// changes in place, and a component passed as the same node as last time (a table, the rail, the
+// label panel) is left alone with its focus, scroll and open menus; a new node replaces it. So a
+// screen builds its components once and draws the shell with all its data on every load. lit keeps
+// markers in host, so nothing else writes to it.
+export function renderShell(host: HTMLElement, r: Route, v: ShellView) {
   const trail = crumbs(r, v.row);
-  const breadcrumb = el("nav", { class: "breadcrumb", "aria-label": "Breadcrumb", "data-testid": "breadcrumb" },
-    el("ol", {}, trail.map((c, i) => [
-      i > 0 && el("li", { "aria-hidden": "true", class: "sep" }, "›"),
-      el("li", {}, i === trail.length - 1 ? el("span", { "aria-current": "page" }, c.label) : el("a", { href: c.href }, c.label), c.gate && gateSwitch(r, c.gate)),
-    ])));
+  const breadcrumb = html`<nav class="breadcrumb" aria-label="Breadcrumb" data-testid="breadcrumb"><ol>${trail.map((c, i) => html`${i > 0 ? html`<li aria-hidden="true" class="sep">›</li>` : nothing}<li>${i === trail.length - 1 ? html`<span aria-current="page">${c.label}</span>` : html`<a href=${c.href}>${c.label}</a>`}${c.gate ? switchFor(r, c.gate) : nothing}</li>`)}</ol></nav>`;
 
   const tabs = tabsFor(r);
-  const tablist = tabs.length > 0 && el("nav", { class: "tabs", "data-testid": "tabs" },
-    el("div", { role: "tablist" }, tabs.map((t) => el("a", { role: "tab", href: t.href, "aria-selected": String(t.on), "data-tab": t.id },
-      tabWords[t.id], v.tabCounts?.[t.id] != null && el("span", { class: "ct" }, v.tabCounts[t.id]!.toLocaleString())))));
+  const tablist = tabs.length > 0 ? html`<nav class="tabs" data-testid="tabs"><div role="tablist">${tabs.map((t) => html`<a role="tab" href=${t.href} aria-selected=${String(t.on)} data-tab=${t.id}>${tabWords[t.id]}${v.tabCounts?.[t.id] != null ? html`<span class="ct">${v.tabCounts[t.id]!.toLocaleString()}</span>` : nothing}</a>`)}</div></nav>` : nothing;
 
-  const chip = el("span", { class: "scope", hidden: true, "data-testid": "scope-chip" });
-  const navrow = el("div", { class: "navrow" }, v.rail?.picker, chip);
+  const scope = v.scope ? html`image: ${nodes(v.scope.label)}<button type="button" class="x" aria-label="Clear image filter" @click=${v.scope.clear}>×</button>` : nothing;
 
-  fill(host,
-    el("header", { class: "appbar", "data-testid": "app-bar" },
-      el("a", { class: "brand", href: "/ui/gates/" }, "yardstick ", el("span", {}, "claims")),
-      el("span", { class: "sp" }),
-      el("span", { class: "meta" }, v.meta),
-      activityChip(),
-      historyLink(),
-      el("button", { type: "button", class: "btn goto", "data-variant": "ghost", "data-size": "sm", "data-testid": "goto-button", onclick: openPalette }, "Go to… ", kbd(/Mac|iP/.test(navigator.platform) ? "⌘K" : "Ctrl K")),
-      settings(v.prefs)),
-    v.bar,
-    el("main", { class: "page" },
-      v.crumbEnd ? el("div", { class: "crumbrow" }, breadcrumb, el("span", { class: "sp" }), v.crumbEnd) : breadcrumb,
-      el("div", { class: "titlerow", "data-testid": "title-row" },
-        v.status, el("h1", { "data-testid": "title" }, v.title), v.after, el("span", { class: "sp" }), v.actions,
-        v.sub && el("p", { class: "sub" }, v.sub)),
-      v.above,
-      el("div", { class: "layout" }, v.rail?.rail, el("div", { class: "content" }, navrow, tablist, v.body))));
-
-  return {
-    retab(next) {
-      if (!tablist) return;
-      for (const t of tabsFor(next)) tablist.querySelector(`[data-tab="${t.id}"]`)?.setAttribute("href", t.href);
-    },
-    scope(label, clear) {
-      chip.hidden = label == null;
-      fill(chip, label != null && ["image: ", label, el("button", { type: "button", class: "x", "aria-label": "Clear image filter", onclick: () => clear?.() }, "×")]);
-    },
-  };
+  render(html`
+    <header class="appbar" data-testid="app-bar">
+      <a class="brand" href="/ui/gates/">yardstick <span>claims</span></a>
+      <span class="sp"></span>
+      <span class="meta">${nodes(v.meta)}</span>
+      ${activityChip()}
+      ${historyLink()}
+      <button type="button" class="btn goto" data-variant="ghost" data-size="sm" data-testid="goto-button" @click=${openPalette}>Go to… <kbd class="kbd">${/Mac|iP/.test(navigator.platform) ? "⌘K" : "Ctrl K"}</kbd></button>
+      ${settings(v.prefs)}
+    </header>
+    ${nodes(v.bar)}
+    <main class="page">
+      ${v.crumbEnd ? html`<div class="crumbrow">${breadcrumb}<span class="sp"></span>${nodes(v.crumbEnd)}</div>` : breadcrumb}
+      <div class="titlerow" data-testid="title-row">
+        ${nodes(v.status)}<h1 data-testid="title">${nodes(v.title)}</h1>${nodes(v.after)}<span class="sp"></span>${nodes(v.actions)}
+        ${v.sub ? html`<p class="sub">${nodes(v.sub)}</p>` : nothing}
+      </div>
+      ${nodes(v.above)}
+      <div class="layout">${v.rail?.rail ?? nothing}<div class="content"><div class="navrow">${v.rail?.picker ?? nothing}<span class="scope" ?hidden=${!v.scope} data-testid="scope-chip">${scope}</span></div>${tablist}${nodes(v.body)}</div></div>
+    </main>`, host);
 }

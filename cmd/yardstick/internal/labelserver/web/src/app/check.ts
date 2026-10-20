@@ -57,19 +57,25 @@ export function checkView(host: HTMLElement, r0: CheckRoute, nav: Nav): View {
     // research of the rows that bear on this check, in its gate whatever the image filter
     const research = scopedResearch({ key: true });
     research.set(researchFor(r), (k, _, g) => (g === "change" ? `${k} that could move it` : `${k} that ${k === 1 ? "changes" : "change"} no outcome`));
-    const shell = renderShell(host, r, {
+    let img = imageOf(r.filters.image);
+    // the shell is drawn again on each filter change, for the image's chip
+    const frame = () => renderShell(host, r, {
       title: check, status: status(c.state as Status, true),
       sub: f.note || `${c.description.charAt(0).toUpperCase()}${c.description.slice(1)}. ${sentenceCase(countWords(n))}.`,
-      actions: [checkMeter(c), research.el, primary("Label next", first ? formatRoute(queueFor(r)) : null)],
+      actions: [checkMeter(c), research.el, labelNext],
       meta: st.scans.gate.split("/").pop(),
       rail,
-      body: el("div", { class: "screen" }, list.el),
+      scope: img && { label: imageName(img.name, img.ref), clear: () => nav(withFilters(r, { image: undefined })) },
+      body,
     });
+    const body = el("div", { class: "screen" }, list.el);
+    const labelNext = primary("Label next", first ? formatRoute(queueFor(r)) : null);
+    frame();
     const update = (nr: Route) => {
       r = nr as CheckRoute;
-      const img = imageOf(r.filters.image);
+      img = imageOf(r.filters.image);
       rail.select(img?.slug ?? null);
-      shell.scope(img ? imageName(img.name, img.ref) : null, () => nav(withFilters(r, { image: undefined })));
+      frame();
       shownRows = list.update(r, rows, img?.slug ?? null);
       return true;
     };

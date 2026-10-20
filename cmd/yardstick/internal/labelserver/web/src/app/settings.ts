@@ -34,12 +34,18 @@ const themeIcons: Record<string, () => SVGElement> = {
   dark: () => icon(svg("path", { d: "M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z" })),
 };
 
-let seq = 0;
+let root: HTMLElement | null = null, changed: (() => void) | undefined;
 
-// settings is the cog and its popover; changed tells the screen on show, which may draw a setting's
-// effect (the Save button's words, the queue's pager)
-export function settings(changed?: () => void) {
-  const id = `settings-${++seq}`;
+// settings is the cog and its popover, made once so the shell drawn again leaves it open; changed
+// tells the screen on show, which may draw a setting's effect (the Save button's words, the queue's
+// pager)
+export function settings(onChange?: () => void) {
+  changed = onChange;
+  return (root ??= cogPopover());
+}
+
+function cogPopover() {
+  const id = "settings-popover";
   // a row is one label, so the whole row flips its switch; the name labels the switch and the
   // line under it describes it, rather than both reading out as its name
   const toggle = (key: string, testid: string, name: string, desc: string, wrap?: string) =>
@@ -53,7 +59,7 @@ export function settings(changed?: () => void) {
   const now = document.documentElement.dataset.theme ?? "system";
   const trigger = el("button", { type: "button", class: "btn", "data-variant": "ghost", "data-size": "icon-sm", "aria-label": "Settings", title: "Settings",
     "aria-haspopup": "dialog", "aria-controls": id, "aria-expanded": "false", "data-testid": "settings-button" }, cog());
-  const root = el("div", { class: "popover settings", "data-testid": "settings",
+  return el("div", { class: "popover settings", "data-testid": "settings",
     // keys pressed inside the open popover are its own: Esc closes it rather than walking up a
     // crumb, and j or n don't move the page. Stopping them here leaves Space on a switch and the
     // arrows in the radio group working, which preventDefault (the switcher's way) would not. This
@@ -74,5 +80,4 @@ export function settings(changed?: () => void) {
           themeIcons[t](), t[0].toUpperCase() + t.slice(1),
           el("input", { type: "radio", name: id, value: t, checked: t === now, "data-testid": "theme-option", onchange: () => setTheme(t) }))))),
     el("p", { class: "where" }, "Saved in this browser only.")));
-  return root;
 }

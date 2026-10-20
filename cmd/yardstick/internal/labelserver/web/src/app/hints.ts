@@ -129,17 +129,17 @@ export function hintsView(host: HTMLElement, r0: Route & { level: "hints" }, _na
       accept,
       el("p", { class: "foot" }, "Nothing is written until you accept. Accepted hints become labels with the agent's note, attributed to you."));
 
-    const shell = renderShell(host, r, {
+    renderShell(host, r, {
       title: "Agent hints",
       sub: hints.length ? `${plural(hints.length, "hint")} on ${plural(rowCount(hints), "match", "matches")} · ${uniq(hints.map((h) => h.skill || h.author.skill || "agent")).join(", ")}` : undefined,
       actions: chips,
       rail,
+      scope: img && { label: imageName(img.name, img.ref), clear: () => go(hintsHref({ ...scope, image: undefined })) },
       body: el("div", { class: "screen" }, onTheWay(), filters,
         hints.length
           ? el("div", { class: "review" }, el("div", { class: "hgroups" }, groupEls), impact)
           : el("div", { class: "placeholder", "data-testid": "hints-empty" }, "No pending agent hints here.")),
     });
-    shell.scope(img ? imageName(img.name, img.ref) : null, () => go(hintsHref({ ...scope, image: undefined })));
     out.key = (e) => rail.key(e);
 
     // the open rows in scope, for what stays open

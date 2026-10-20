@@ -8,6 +8,7 @@
     "@types/bun": "1.4.3"
   },
   "dependencies": {
-    "basecoat-css": "1.0.2"
+    "basecoat-css": "1.0.2",
+    "lit-html": "3.3.3"
   }
 }

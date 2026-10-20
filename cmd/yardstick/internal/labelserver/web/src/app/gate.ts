@@ -61,14 +61,18 @@ export function gateView(host: HTMLElement, r0: GateRoute, nav: Nav): View {
     // Research and Label next both follow the image filter (UI-RULES: research wherever labeling is offered)
     const research = scopedResearch({ key: true });
     const labelNext = primary("Label next", n ? formatRoute(queueFor(r)) : null);
-    const shell = renderShell(host, r, {
+    // the shell is drawn again on each filter change, for the tabs' links and the image's chip
+    const frame = () => renderShell(host, r, {
       title: gate, status: head.status, sub: head.sub, meta: head.meta,
       actions: [research.el, labelNext],
       above: verdictBar(sumTally(st.subjects.map((s) => s.changes))),
       rail,
+      scope: img && { label: imageName(img.name, img.ref), clear: () => nav(withFilters(r, { image: undefined })) },
       tabCounts: { checks: st.gate?.result?.checks.length ?? 0, findings: rows.length, labels: all.total },
       body,
     });
+    let img = imageOf(r.filters.image);
+    frame();
     const tab = r.tab === "findings" ? findingsTab(gate, () => rows, async () => (rows = gateRows(await freshState(gate))), r, nav, st, load)
       : r.tab === "labels" ? labelsTab(gate, r, nav, (slug) => !!imageOf(slug))
         : r.tab === "map" ? mapTab(st, r, nav)
@@ -76,10 +80,9 @@ export function gateView(host: HTMLElement, r0: GateRoute, nav: Nav): View {
     fill(body, tab.el);
     const update = (nr: Route) => {
       r = nr as GateRoute;
-      const img = imageOf(r.filters.image);
+      img = imageOf(r.filters.image);
       rail.select(img?.slug ?? null);
-      shell.retab(r);
-      shell.scope(img ? imageName(img.name, img.ref) : null, () => nav(withFilters(r, { image: undefined })));
+      frame();
       tab.update(r, img?.slug ?? null);
       research.set(researchFor(r), (n, _, g) => (img ? `${n} on ${img.name}` : g === "change" ? `${n} that can change the gate` : `${n} that ${n === 1 ? "changes" : "change"} no outcome`));
       if (labelNext instanceof HTMLAnchorElement) labelNext.href = formatRoute(queueFor(r));
