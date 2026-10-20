@@ -32,6 +32,8 @@ test("the gates screen lists each gate with its images, and its tabs list the op
   await expect(page).toHaveURL(/tab=labels$/);
   await expect(tableRows(page, "labels-table")).toHaveCount(4);
   await expect(chip(page, "fp")).toHaveText("2");
+  // paged, so newest first and no column sorts (a sort would order one page)
+  await expect(page.getByTestId("labels-table").locator("th button.sort")).toHaveCount(0);
 
   await tabs.getByRole("tab", { name: /Gates/ }).click();
   await java.click();
