@@ -170,7 +170,7 @@ func (s *Server) handleLabels(w http.ResponseWriter, req *http.Request) {
 // the causes listing it, when its verdict differs from theirs.
 func (s *Server) overrides(e *entry, v *view, r *rowRef, l claimsv1.Label, reason *agentstore.Reason, now time.Time) []agentstore.Override {
 	var against []string
-	if h := v.hints[r.match.Row]; h != nil && h.Status == "pending" && h.Proposal.Verdict != l.Verdict {
+	if h := v.hints[r.match.Row]; h != nil && h.Status == hintPending && h.Proposal.Verdict != l.Verdict {
 		against = append(against, h.Proposal.ID)
 	}
 	for _, cv := range v.rowCauses[r.match.Row] {

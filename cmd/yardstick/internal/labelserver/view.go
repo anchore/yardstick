@@ -160,6 +160,9 @@ type rowRef struct {
 	pm    *pairing.Match
 }
 
+// changed says only one setup reports the row.
+func (r *rowRef) changed() bool { return r.match.InCandidate != r.match.InReference }
+
 func (r *rowRef) open() bool {
 	return verdictOf(r) == unlabeled || verdictOf(r) == string(claimsv1.Unclear)
 }
@@ -272,6 +275,9 @@ func (v *view) orderedRows() []*rowRef {
 	return out
 }
 
+// hintPending is a hint's status while its row is open.
+const hintPending = "pending"
+
 // hint is the newest proposal on a row and where it stands against the row's label and the policy.
 type Hint struct {
 	Proposal agentstore.Proposal `json:"proposal"`
@@ -333,7 +339,7 @@ func (s *Server) attachHints(e *entry, v *view) error {
 		if found == nil {
 			continue
 		}
-		h := &Hint{Proposal: *found, Policy: PolicyCheck{Rule: ruleOf(v.vocab, found.Evidence), Problems: found.Problems(v.vocab)}, Status: "pending"}
+		h := &Hint{Proposal: *found, Policy: PolicyCheck{Rule: ruleOf(v.vocab, found.Evidence), Problems: found.Problems(v.vocab)}, Status: hintPending}
 		switch {
 		case r.open():
 		case verdictOf(r) == string(found.Verdict):
