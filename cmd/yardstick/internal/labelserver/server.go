@@ -138,6 +138,9 @@ func (s *Server) Handler() http.Handler {
 	mux := http.NewServeMux()
 	mux.Handle("GET /assets/", http.StripPrefix("/assets/", http.FileServerFS(static)))
 	mux.HandleFunc("GET /{$}", s.handleRoot)
+	// the four-level UI routes on the client, so every path under /ui/gates/ is the one page
+	mux.HandleFunc("GET /ui/gates/{$}", func(w http.ResponseWriter, _ *http.Request) { s.servePage(w, "assets/app/index.html") })
+	mux.HandleFunc("GET /ui/gates/{rest...}", func(w http.ResponseWriter, _ *http.Request) { s.servePage(w, "assets/app/index.html") })
 	mux.HandleFunc("GET /ui/map/gates/{$}", func(w http.ResponseWriter, _ *http.Request) { s.servePage(w, "assets/map/gates.html") })
 	mux.HandleFunc("GET /ui/map/gates/{gate}/{rest...}", func(w http.ResponseWriter, req *http.Request) {
 		if e := s.gateFor(w, req); e != nil {
