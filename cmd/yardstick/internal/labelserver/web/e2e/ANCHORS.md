@@ -32,6 +32,7 @@ Routes (`route.ts`): `/ui/gates/` (level 0, `?tab=unlabeled|labels`), `/ui/gates
 | `scope-chip` | "image: …" beside the tabs while an image is picked | `hidden` without one |
 | `label-next` | the primary "Label next" button (a link, or disabled when nothing is open); on the gates screen only on the Unlabeled and Labels tabs, since the Gates tab's work banner carries the primary action | |
 | `loading`, `load-error` | the body while loading, or when it failed | |
+| `placeholder` | the body of a screen with nothing to show: an unknown URL, a finding that isn't there, a queue row that isn't open | |
 | `toast` | transient message | visible while `hidden` is off |
 
 ## Image rail (levels 1 and 2)
@@ -92,7 +93,7 @@ Routes (`route.ts`): `/ui/gates/` (level 0, `?tab=unlabeled|labels`), `/ui/gates
 | `check-rows` | the Checks tab | |
 | `check-row` | one check, a link to it | `data-check`, `data-state` |
 | `meter` | a check's value against its limit, captioned "0.500 worse · limit 0" | |
-| `check-count` | "N unlabeled" and what labeling does for it | |
+| `check-count` | "N open" and what labeling does for it | |
 | `findings-table` | the Findings tab | |
 | `package-chip` | the scan map's `pkg` filter on the Findings tab | `hidden` without one |
 | `page-info`, `page-next`, `page-prev` | the Labels tab's pager | |
@@ -122,6 +123,7 @@ Filter chips are buttons with `data-chip` (`all`, `unlabeled`, `tp`, `fp`, `uncl
 | `pager-previous`, `pager-next` | its `k` / `j` links | |
 | `finding-effect` | what its label does, in the title row | `data-effect` = decides / could-move |
 | `finding-sub`, `finding-package`, `finding-image`, `finding-direction` | the subtitle and its parts | `finding-image` has the full ref in `title` |
+| `finding-purl` | the package's purl, decoded, under Why it differs | the raw purl in `title` |
 | `finding` | the page body | `data-row`, `data-verdict` |
 | `finding-tabs` | the content tabs, `role=tab` | `aria-selected`, `data-tab` = why / evidence / raw / labels |
 | `tab-why`, `tab-evidence`, `tab-raw`, `tab-labels` | their panels | |
