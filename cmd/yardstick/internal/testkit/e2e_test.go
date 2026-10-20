@@ -189,6 +189,12 @@ func TestE2EWorkspace(t *testing.T) {
 	if got := findingLines(fn); fn.Check.State != "fail" || !slices.Equal(got, []string{"e3bfd3b0b0c30ee6 decides tp -"}) {
 		t.Errorf("noNewFalseNegatives after a tp on a dropped row: %s %v", fn.Check.State, got)
 	}
+	if got := failsOn(t, h, "deb-java")["noNewFalseNegatives"]; !slices.Equal(got, []string{"e3bfd3b0b0c30ee6"}) {
+		t.Errorf("noNewFalseNegatives failsOn in /state: %v", got)
+	}
+	if got := rowEffects(t, h, "deb-java")["e3bfd3b0b0c30ee6"]; got != "decides" {
+		t.Errorf("the tar tp row's effect in /state: %q", got)
+	}
 	var tar labelserver.GateLabels
 	get(t, h, "/api/gates/deb-java/labels?q=CVE-2026-18508", &tar)
 	if len(tar.Labels) != 1 || !slices.Contains(tar.Labels[0].Decides, "noNewFalseNegatives") || tar.Labels[0].Row != "e3bfd3b0b0c30ee6" {
@@ -201,6 +207,36 @@ const (
 	javaSlug = "grype-quality-java-log4j-two-jars-e363e44"
 	npmSlug  = "grype-quality-npm-babel-8e253b5"
 )
+
+// failsOn are each check's failsOn in a gate's /state: the rows deciding it.
+func failsOn(t *testing.T, h http.Handler, gate string) map[string][]string {
+	t.Helper()
+	var st struct {
+		Gate struct{ Result struct{ Checks []labelserver.CheckResult } }
+	}
+	get(t, h, "/api/gates/"+gate+"/state", &st)
+	out := map[string][]string{}
+	for _, c := range st.Gate.Result.Checks {
+		out[c.Name] = c.FailsOn
+	}
+	return out
+}
+
+// rowEffects are each row's effect in a gate's /state, by row id.
+func rowEffects(t *testing.T, h http.Handler, gate string) map[string]string {
+	t.Helper()
+	var st struct {
+		Subjects []struct{ Rows []struct{ ID, Effect string } }
+	}
+	get(t, h, "/api/gates/"+gate+"/state", &st)
+	out := map[string]string{}
+	for _, s := range st.Subjects {
+		for _, r := range s.Rows {
+			out[r.ID] = r.Effect
+		}
+	}
+	return out
+}
 
 // findingLines are a check's findings as "<row> <effect> <label verdict|-> <hint kind|->", in order.
 func findingLines(f labelserver.CheckFindings) []string {
@@ -247,6 +283,18 @@ func checkGateTables(t *testing.T, h http.Handler) {
 	}
 	if f1.Check.State != "fail" || f1.Check.Threshold != 0 || !maps.Equal(f1.Images, wantImages) {
 		t.Errorf("f1NotWorse: %+v %+v", f1.Check, f1.Images)
+	}
+	// /state says the same: no label decides f1NotWorse, since the subject its labels count in passes
+	if got := failsOn(t, h, "deb-java")["f1NotWorse"]; len(got) != 0 {
+		t.Errorf("f1NotWorse failsOn in /state: %v", got)
+	}
+	// and each row's effect in /state is its strongest over the checks: the deb fp labels count, the
+	// java rows could move f1NotWorse
+	effects := rowEffects(t, h, "deb-java")
+	for id, want := range map[string]string{"c54934489d4ac861": "counted", "6d210210168e93db": "counted", "e1af7851f0e60bb4": "could-move", "d2572e8f87a44f74": "counted"} {
+		if effects[id] != want {
+			t.Errorf("row %s effect in /state: %q, want %q", id, effects[id], want)
+		}
 	}
 	x := f1.Findings[4]
 	if x.Image.Name != "vulnerabilities-debian-12-tar-util-linux:617d48d" || x.Image.Slug != debSlug || !strings.HasPrefix(x.Image.Ref, "oci:ghcr.io/anchore/test-images/vulnerabilities-debian-12-tar-util-linux:617d48d@sha256:") ||

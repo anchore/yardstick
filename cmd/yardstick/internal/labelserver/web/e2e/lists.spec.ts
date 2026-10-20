@@ -45,6 +45,8 @@ test("a gate lists its checks with meters, and a check row opens the check", asy
   await expect(checks).toHaveCount(4);
   await expect(page.locator("[data-testid=check-row][data-check=unjudgedChangesAtMost]")).toHaveAttribute("data-state", "undecided");
   await expect(page.locator("[data-testid=check-row][data-check=f1NotWorse] [data-testid=meter]")).toContainText("0.500 worse · limit 0");
+  // deb passes f1NotWorse, so its two fp labels count without deciding it, as the check screen says
+  await expect(page.locator("[data-testid=check-row][data-check=f1NotWorse] [data-testid=check-count]")).toContainText("4 could move it alone");
   await page.locator("[data-testid=check-row][data-check=f1NotWorse]").click();
   await expect(page).toHaveURL(/\/ui\/gates\/deb-java\/checks\/f1NotWorse$/);
   await expect(page.getByTestId("breadcrumb")).toHaveText(/Gates\s*›\s*deb-java\s*›\s*f1NotWorse/);

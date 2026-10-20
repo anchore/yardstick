@@ -56,12 +56,11 @@ describe("rows", () => {
   test("a gate's changed rows, with the cause a row is pending in as its hint", () => {
     const st = {
       scans: { subjects: [{ name: img.name, slug: img.slug, ref: img.ref }] },
-      gate: { result: { checks: [{ failsOn: ["r2"] }] } },
       causes: [{ id: "c1", verdict: "tp", confidence: "medium", pending: ["r3"] }],
       subjects: [{ name: img.name, slug: img.slug, rows: [
-        { id: "r1", vulnerability: "GHSA-1", package: { ref: "pkg:maven/org.apache.logging.log4j/log4j-core@2.14.1" }, verdict: "unlabeled", inCandidate: true, inReference: false, hint: { verdict: "tp", confidence: "medium", status: "pending" }, gate: { couldFlip: ["f1NotWorse"] } },
-        { id: "r2", vulnerability: "GHSA-2", package: { ref: "pkg:deb/debian/tar@1.34" }, verdict: "fp", inCandidate: false, inReference: true },
-        { id: "r3", vulnerability: "GHSA-3", package: { ref: "pkg:deb/debian/mount@2.38" }, verdict: "unlabeled", inCandidate: true, inReference: false, sourcePackage: "util-linux", gate: { bears: ["x"] } },
+        { id: "r1", vulnerability: "GHSA-1", package: { ref: "pkg:maven/org.apache.logging.log4j/log4j-core@2.14.1" }, verdict: "unlabeled", inCandidate: true, inReference: false, hint: { verdict: "tp", confidence: "medium", status: "pending" }, effect: "could-move" },
+        { id: "r2", vulnerability: "GHSA-2", package: { ref: "pkg:deb/debian/tar@1.34" }, verdict: "fp", inCandidate: false, inReference: true, effect: "decides" },
+        { id: "r3", vulnerability: "GHSA-3", package: { ref: "pkg:deb/debian/mount@2.38" }, verdict: "unlabeled", inCandidate: true, inReference: false, sourcePackage: "util-linux", effect: "counted" },
         { id: "r4", vulnerability: "GHSA-4", package: { ref: "pkg:deb/debian/libc6@2.36" }, verdict: "tp", inCandidate: true, inReference: true },
       ] }],
     } as unknown as State;
