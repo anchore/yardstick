@@ -119,6 +119,8 @@ type RowEffect struct {
 
 type OutcomeEffect struct {
 	Outcome analysis.State `json:"outcome"`
+	// Fails are the checks that would fail with the label and don't now.
+	Fails []string `json:"fails,omitempty"`
 }
 
 // effectOf is a row's effect when its label bears on some check, else nil.
@@ -127,10 +129,15 @@ func (v *view) effectOf(id string) *RowEffect {
 	if !ok {
 		return nil
 	}
-	out := &RowEffect{Bears: eff.Narrows, IfTP: OutcomeEffect{eff.Outcome[claimsv1.TP]}, IfFP: OutcomeEffect{eff.Outcome[claimsv1.FP]}}
+	out := &RowEffect{Bears: eff.Narrows, IfTP: OutcomeEffect{Outcome: eff.Outcome[claimsv1.TP]}, IfFP: OutcomeEffect{Outcome: eff.Outcome[claimsv1.FP]}}
 	for _, c := range v.verdict.Checks {
 		if eff.States[claimsv1.TP][c.Name] != c.State || eff.States[claimsv1.FP][c.Name] != c.State {
 			out.CouldFlip = append(out.CouldFlip, c.Name)
+		}
+		for v, o := range map[claimsv1.Verdict]*OutcomeEffect{claimsv1.TP: &out.IfTP, claimsv1.FP: &out.IfFP} {
+			if eff.States[v][c.Name] == analysis.Fail && c.State != analysis.Fail {
+				o.Fails = append(o.Fails, c.Name)
+			}
 		}
 	}
 	if len(out.Bears) == 0 && len(out.CouldFlip) == 0 {

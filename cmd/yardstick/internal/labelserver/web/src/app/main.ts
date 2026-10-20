@@ -16,9 +16,12 @@ import { gateView } from "./gate";
 import { gatesView } from "./gates";
 import { hintsView } from "./hints";
 import { hintsHref } from "./hintsdata";
+import { historyView } from "./history";
 import { gateItems, nextGate } from "./goto";
 import { kitView } from "./kit";
 import { openPalette } from "./palette";
+import { queueView } from "./queue";
+import { queueFor } from "./queuelist";
 import { crumbs, formatRoute, gateOf, inGate, parseRoute, up, type Route } from "./route";
 import { renderShell, type View } from "./shell";
 
@@ -51,16 +54,8 @@ function render() {
           : next.level === "check" ? checkView(host, next, nav)
             : next.level === "finding" ? findingView(host, next, nav)
               : next.level === "hints" ? hintsView(host, next, nav)
-                : placeholder(next);
-}
-
-// placeholder is a labeling flow screen its next wave builds
-function placeholder(r: Route): View {
-  renderShell(host, r, {
-    title: crumbs(r).at(-1)!.label,
-    body: el("div", { class: "placeholder", "data-testid": "placeholder" }, "This screen isn't built yet."),
-  });
-  return {};
+                : next.level === "queue" ? queueView(host, next, nav)
+                  : historyView(host, next, nav);
 }
 
 function notFound(): View {
@@ -115,6 +110,12 @@ document.addEventListener("keydown", (e) => {
   }
   if (view.key?.(e)) {
     e.preventDefault();
+    return;
+  }
+  // n enters the queue at the next open row in this screen's scope (queuelist.ts queueFor)
+  if (e.key === "n" && !e.altKey && route) {
+    e.preventDefault();
+    nav(queueFor(route));
     return;
   }
   // Esc walks up one crumb (UI-RULES 4)

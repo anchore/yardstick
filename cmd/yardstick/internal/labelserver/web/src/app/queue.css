@@ -1,0 +1,35 @@
+/* queue.css is the queue's bar, "why this one is next", the cards between gates and at the end,
+   and the history page's few extras (queue.ts, cards.ts, history.ts). */
+
+/* the bar under the app bar: what's labeled, in what scope, and how much is left */
+.qbar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; padding: 8px 28px; background: var(--muted); border-bottom: 1px solid var(--border); font-size: 13px; }
+.qbar .select { width: auto; height: 32px; font-size: 13px; }
+.qbar .qsel { color: var(--muted-foreground); }
+.qbar .qskip { display: inline-flex; align-items: center; gap: 8px; cursor: pointer; }
+.qbar .prog { flex: 1; min-width: 200px; display: grid; gap: 4px; }
+.qbar .track { height: 6px; border-radius: 3px; background: var(--border); overflow: hidden; }
+.qbar .track i { display: block; height: 100%; background: var(--foreground); }
+.qbar .quiet { color: var(--muted-foreground); font-variant-numeric: tabular-nums; }
+.qbar .pager { font-size: 13px; }
+
+.why-next { display: grid; gap: 4px; margin-bottom: 16px; padding: 12px 16px; border: 1px solid var(--border); border-radius: 10px; background: var(--muted); font-size: 13.5px; }
+.why-next b { font-weight: 600; }
+.lpanel .outcomes { color: var(--foreground); }
+
+/* a card in the finding's place */
+.qcard { display: grid; gap: 16px; align-content: start; max-width: 640px; padding: 24px; border: 1px solid var(--border); border-radius: 12px; background: var(--card); }
+.qcard .lbl { font-size: 12px; text-transform: uppercase; letter-spacing: .07em; color: var(--muted-foreground); font-weight: 600; }
+.qcard .outc { display: grid; gap: 8px; }
+.qcard .outc .r { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; font-size: 13.5px; }
+.qcard .arrow { color: var(--faint); }
+.qcard .foot { margin: 0; font-size: 13px; color: var(--muted-foreground); }
+.qcard .qleft { margin: 0; padding-left: 16px; display: grid; gap: 4px; font-size: 13px; }
+
+/* history: a note reads as text, the findings are gate chips */
+.dt [data-testid="history-note"] { color: var(--muted-foreground); }
+.dt a.gchip { color: var(--foreground); text-decoration: none; }
+.dt a.gchip:hover { border-color: var(--foreground); }
+
+@media (max-width: 760px) {
+  .qbar { padding: 8px 16px; }
+}

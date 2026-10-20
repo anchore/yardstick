@@ -8,8 +8,8 @@
 // /ui/gates/<gate>/checks/<check>/<row>               finding, reached from a check (level 3)
 // /ui/gates/<gate>/findings/<row>                     finding, reached from the gate's Findings tab
 // /ui/gates/_kit                                      the component kit (not linked from anywhere)
-// /ui/hints, /ui/queue[/<row>], /ui/history           the labeling flow's screens, placeholders until
-//                                                     its next wave builds them
+// /ui/hints, /ui/history                              the labeling flow's screens
+// /ui/queue[/<row>]?scope=&check=&low=                the queue, one open row at a time (queue.ts)
 //
 // Filters ride in the query string on every level: image (slug), verdict, hint, pkg, q, page.
 
@@ -40,7 +40,9 @@ export type Route =
   | { level: "finding"; gate: string; check: string | null; row: string; filters: Filters }
   | { level: "kit"; filters: Filters }
   | { level: "hints"; filters: Filters }
-  | { level: "queue"; row?: string; filters: Filters }
+  // scope is all, gate:<gate> or image:<slug> (all when absent); check, with a gate scope, puts that
+  // check's open rows first; low keeps low-confidence hints
+  | { level: "queue"; row?: string; scope?: string; check?: string; low?: boolean; filters: Filters }
   | { level: "history"; filters: Filters };
 
 const seg = (s: string) => encodeURIComponent(s);
@@ -81,7 +83,13 @@ export function formatRoute(r: Route): string {
       return `${base}${seg(r.gate)}/${list}/${seg(r.row)}${query(r.filters)}`;
     }
     case "hints": case "history": return `/ui/${r.level}${query(r.filters)}`;
-    case "queue": return `/ui/queue${r.row ? `/${seg(r.row)}` : ""}${query(r.filters)}`;
+    case "queue": {
+      const extra: [string, string][] = [];
+      if (r.scope && r.scope !== "all") extra.push(["scope", r.scope]);
+      if (r.check) extra.push(["check", r.check]);
+      if (r.low) extra.push(["low", "1"]);
+      return `/ui/queue${r.row ? `/${seg(r.row)}` : ""}${query(r.filters, extra)}`;
+    }
   }
 }
 
@@ -92,7 +100,9 @@ export function parseRoute(pathname: string, search = ""): Route | null {
   if (flow) {
     if (flow[1]) return { level: flow[1] as "hints" | "history", filters };
     try {
-      return flow[2] ? { level: "queue", row: decodeURIComponent(flow[2]), filters } : { level: "queue", filters };
+      const q = { scope: params.get("scope") || undefined, check: params.get("check") || undefined, low: params.get("low") === "1" || undefined };
+      for (const k of Object.keys(q) as (keyof typeof q)[]) if (q[k] === undefined) delete q[k];
+      return flow[2] ? { level: "queue", row: decodeURIComponent(flow[2]), ...q, filters } : { level: "queue", ...q, filters };
     } catch {
       return null;
     }
