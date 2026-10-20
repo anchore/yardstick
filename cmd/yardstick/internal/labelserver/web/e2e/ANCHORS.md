@@ -73,7 +73,7 @@ Routes (`route.ts`): `/ui/gates/` (level 0, `?tab=unlabeled|labels`), `/ui/gates
 | `work-outcome` | one gate if every hint were accepted (its preview) | `data-gate`, `data-before`, `data-after` |
 | `work-foot` | what each gate not passing still waits on | |
 | `review-hints`, `label-left` | "Review N hints" (`h`) and "Label what's left" (`n`); review is primary while hints are pending. `label-left` is there in every state | |
-| `research-rows` | "Research N rows…" (`r`), a link to `/ui/research`; primary with no hint pending and rows that can change a gate, else ghost with its price; hidden while a batch runs or with nothing to research | `data-rows`, `hidden` |
+| `research-rows` | "Research N matches…" (`r`), a link to `/ui/research`; primary with no hint pending and matches that can change a gate, else ghost with its price; hidden while a batch runs or with nothing to research | `data-rows`, `hidden` |
 | `research-price`, `research-summary` | with research primary, the other column's price ("about $0.92") and "N jobs · about 2 min · about 1.3M tokens" | |
 | `research-done`, `research-spent`, `research-left` | while a batch runs: jobs done, spent so far, time left | |
 | `research-so-far` | one verdict's hints the batch has left | `data-verdict` |
@@ -107,7 +107,7 @@ Routes (`route.ts`): `/ui/gates/` (level 0, `?tab=unlabeled|labels`), `/ui/gates
 | `research-gate-chip` | a scope chip in the title row, a link; "All gates" first | `data-gate` (empty for all), `aria-pressed` |
 | `research-group` | a group of jobs by effect | `data-group` = change / none, `hidden` with no jobs |
 | `research-group-toggle` | its checkbox; change starts checked, none unchecked | |
-| `research-job` | one job: vulnerability, package, image, rows, price | `data-gate` (researched under), `data-row` (the row it starts from) |
+| `research-job` | one job: vulnerability, package, image, matches, price | `data-gate` (researched under), `data-row` (the row it starts from) |
 | `research-more` | "and N more jobs" | |
 | `research-skipped` | what was left out: researched, hinted, queued or running | |
 | `research-empty` | the body when nothing in scope qualifies | |

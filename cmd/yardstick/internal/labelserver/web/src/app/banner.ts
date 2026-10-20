@@ -72,13 +72,13 @@ export function workBanner(list: GateList): Work {
     if (!plan || !offer?.jobs.length) return false;
     const e = estimate(offer.jobs.length, plan.estimate.basis, plan.concurrency, offer.rows);
     research.dataset.rows = String(offer.rows);
-    fill(research, `Research ${last ? `${offer.rows} more` : plural(offer.rows, "row")}… `,
+    fill(research, `Research ${last ? `${offer.rows} more` : plural(offer.rows, "match", "matches")}… `,
       !first && e.basis.measured && [el("span", { class: "quiet" }, `~${money(e.mean)}`), " "], kbd("r"));
     if (!first) return false;
     // research leads: the other column prices it, since no hint is pending to preview; load fills
     // the foot with the rows the gates wait on
     banner.dataset.research = "offered";
-    fill(rcaps, `Research these ${plural(change!.rows, "row")}`);
+    fill(rcaps, `Research these ${plural(change!.rows, "match", "matches")}`);
     fill(outcomes,
       el("div", { class: "r" }, e.basis.measured
         ? [el("span", { class: "costpill", "data-testid": "research-price" }, `about ${money(e.mean)}`), el("span", { class: "quiet" }, `${money(e.low)} to ${money(e.high)}`)]

@@ -40,7 +40,7 @@ test.describe("labeling by hand never waits on research", () => {
     await page.goto(gatesPage);
     await expect(banner(page)).toHaveAttribute("data-research", "offered");
     const research = page.getByTestId("research-rows");
-    await expect(research).toHaveText(/^Research 6 rows… r$/);
+    await expect(research).toHaveText(/^Research 6 matches… r$/);
     await expect(research).not.toHaveAttribute("data-variant", /.+/);
     await expect(page.getByTestId("label-left")).toBeVisible();
     await expect(page.getByTestId("label-left")).toHaveAttribute("data-variant", "outline");
@@ -55,7 +55,7 @@ test.describe("labeling by hand never waits on research", () => {
 
   test("on the seed, with hints pending, review leads and research is offered for the rows that change no outcome", async ({ page }) => {
     await page.goto(gatesPage);
-    await expect(page.getByTestId("research-rows")).toHaveText(/^Research 2 rows… ~\$0\.46 r$/);
+    await expect(page.getByTestId("research-rows")).toHaveText(/^Research 2 matches… ~\$0\.46 r$/);
     await expect(page.getByTestId("research-rows")).toHaveAttribute("data-variant", "ghost");
     await expect(page.getByTestId("review-hints")).not.toHaveAttribute("data-variant", /.+/);
     await expect(page.getByTestId("label-left")).toBeVisible();
@@ -130,9 +130,9 @@ test.describe("the research page", () => {
     await expect(group(page, "change")).toBeHidden();
     await expect(group(page, "none").getByTestId("research-job")).toHaveCount(2);
     await expect(toggle(page, "none")).not.toBeChecked();
-    await expect(page.getByTestId("research-skipped")).toContainText("0 rows already researched, 10 with an agent hint, 0 queued or running");
+    await expect(page.getByTestId("research-skipped")).toContainText("0 matches already researched, 10 with an agent hint, 0 queued or running");
     await expect(start(page)).toBeDisabled();
-    await expect(start(page)).toHaveText("Select rows to research");
+    await expect(start(page)).toHaveText("Select matches to research");
     await toggle(page, "none").check();
     await expect(start(page)).toHaveText("Start 2 research jobs");
     await expect(page.getByTestId("research-cost")).toHaveText("$0.46");

@@ -34,8 +34,8 @@ export function researchView(host: HTMLElement, r: ResearchRoute, nav: Nav): Vie
 
   Promise.all([gateList(), api.researchQueue({ scope, dryRun: true })]).then(([list, first]) => {
     if (alive()) draw(list, first);
-  }).catch((e) => alive() && renderShell(host, r, { title: "Research open rows", actions: left, body: failed(e) }));
-  renderShell(host, r, { title: "Research open rows", actions: left, body: loading() });
+  }).catch((e) => alive() && renderShell(host, r, { title: "Research open matches", actions: left, body: failed(e) }));
+  renderShell(host, r, { title: "Research open matches", actions: left, body: loading() });
 
   function draw(list: GateList, first: ResearchQueueResponse) {
     const gates = list.gates.filter((g) => !g.error);
@@ -46,22 +46,22 @@ export function researchView(host: HTMLElement, r: ResearchRoute, nav: Nav): Vie
     const inGates = new Set(first.groups.flatMap((g) => g.jobs.map((j) => j.gate))).size;
     const s = first.skipped;
     const skipped = el("div", { class: "skipped", "data-testid": "research-skipped" },
-      `Skipped: ${plural(s.researched, "row")} already researched, ${s.hinted} with an agent hint, ${s.active} queued or running. A row with a hint or a job in flight never gets a second job from here.`);
+      `Skipped: ${plural(s.researched, "match", "matches")} already researched, ${s.hinted} with an agent hint, ${s.active} queued or running. A match with a hint or a job in flight never gets a second job from here.`);
 
     const shell = (body: HTMLElement) => renderShell(host, r, {
-      title: "Research open rows",
-      sub: total ? `${plural(total, "open row")} with no hint, in ${plural(inGates, "gate")}` : undefined,
+      title: "Research open matches",
+      sub: total ? `${plural(total, "open match", "open matches")} with no hint, in ${plural(inGates, "gate")}` : undefined,
       actions: [chips, left], body: el("div", { class: "screen" }, body),
     });
     if (!total) {
-      shell(el("div", { class: "rgroups" }, el("div", { class: "placeholder", "data-testid": "research-empty" }, "Nothing here to research: every open row in scope has an agent hint, finished research or a job in flight."), skipped));
+      shell(el("div", { class: "rgroups" }, el("div", { class: "placeholder", "data-testid": "research-empty" }, "Nothing here to research: every open match in scope has an agent hint, finished research or a job in flight."), skipped));
       return;
     }
 
     // the groups, each with its select box; their job lists follow every plan, since a selected
     // group claims shared rows first
     const parts = groups.map((g) => {
-      const box: HTMLInputElement = el("input", { type: "checkbox", checked: on[g.id], "aria-label": `Research the rows that ${g.title.toLowerCase()}`, "data-testid": "research-group-toggle",
+      const box: HTMLInputElement = el("input", { type: "checkbox", checked: on[g.id], "aria-label": `Research the matches that ${g.title.toLowerCase()}`, "data-testid": "research-group-toggle",
         onchange: () => { on[g.id] = box.checked; schedule(); } });
       const count = el("span", { class: "n" }), jobs = el("div", { class: "rjobs" });
       const root = el("div", { class: "rgrp", "data-testid": "research-group", "data-group": g.id },
@@ -72,7 +72,7 @@ export function researchView(host: HTMLElement, r: ResearchRoute, nav: Nav): Vie
     const cost = el("b", { "data-testid": "research-cost" }), range = el("span", { "data-testid": "research-range" });
     const band = el("div", { class: "band" }), mean = el("div", { class: "mean" });
     const kv = (label: string, testid: string) => { const v = el("span", { "data-testid": testid }); return { v, els: [el("span", {}, label), v] }; };
-    const jobsKV = kv("Jobs", "research-jobs"), rowsKV = kv("Rows covered", "research-rows"), tokKV = kv("Tokens", "research-tokens"), timeKV = kv(`Time, ${first.concurrency} at a time`, "research-time");
+    const jobsKV = kv("Jobs", "research-jobs"), rowsKV = kv("Matches covered", "research-rows"), tokKV = kv("Tokens", "research-tokens"), timeKV = kv(`Time, ${first.concurrency} at a time`, "research-time");
     const configured = first.estimate.basis.model;
     const model: HTMLSelectElement = el("select", { id: "research-model", "data-testid": "research-model", onchange: () => schedule() },
       [...new Set([configured, ...models])].filter(Boolean).map((m) => el("option", { value: m, selected: m === configured }, modelWords(m))));
@@ -102,7 +102,7 @@ export function researchView(host: HTMLElement, r: ResearchRoute, nav: Nav): Vie
       for (const part of parts) {
         const g = p.groups.find((x) => x.group === part.id)!;
         part.root.hidden = !g.jobs.length;
-        fill(part.count, `${plural(g.rows, "row")} · ${plural(g.jobs.length, "job")}`, b.measured && [" · ", el("span", { class: "cost" }, money(g.jobs.length * b.mean))]);
+        fill(part.count, `${plural(g.rows, "match", "matches")} · ${plural(g.jobs.length, "job")}`, b.measured && [" · ", el("span", { class: "cost" }, money(g.jobs.length * b.mean))]);
         fill(part.jobs, jobList(g, b.measured ? b.mean : 0));
       }
       // nothing checked asks the server for nothing; the panel says so
@@ -116,7 +116,7 @@ export function researchView(host: HTMLElement, r: ResearchRoute, nav: Nav): Vie
       band.hidden = mean.hidden = !b.measured || !e.jobs;
       band.style.left = pct(e.low); band.style.width = pct(e.high - e.low); mean.style.left = pct(e.mean);
       warn.hidden = b.measured;
-      fill(start, e.jobs ? `Start ${plural(e.jobs, "research job")}` : "Select rows to research");
+      fill(start, e.jobs ? `Start ${plural(e.jobs, "research job")}` : "Select matches to research");
       start.disabled = !e.jobs;
       start.dataset.jobs = String(e.jobs);
       fill(basis, basisWords(b));
@@ -166,7 +166,7 @@ function jobList(g: ResearchGroup, each: number) {
     g.jobs.slice(0, listed).map((j) => el("div", { class: "rjob", "data-testid": "research-job", "data-gate": j.gate, "data-row": j.rows[0] },
       el("span", { class: "v" }, j.vulnerability),
       el("span", { class: "pk", title: `${j.package.name} ${j.package.version ?? ""} · ${j.image} · researched in ${j.gate}` }, `${j.package.name} ${j.package.version ?? ""} · `, imageName(j.image)),
-      el("span", { class: "r" }, plural(j.rows.length, "row")),
+      el("span", { class: "r" }, plural(j.rows.length, "match", "matches")),
       el("span", { class: "r cost" }, each ? money(each) : ""))),
     rest.length > 0 && el("div", { class: "more", "data-testid": "research-more" }, `and ${plural(rest.length, "more job")}${pkgs.size === 1 ? ` on ${[...pkgs][0]}` : ""}`),
   ];
