@@ -27,12 +27,12 @@ export interface FRow {
   effect: Effect;
 }
 
+const effectOf = (e: string | undefined): Effect => (e === "decides" || e === "could-move" || e === "counted" ? e : "");
 const verdictOf = (v: string | undefined): Verdict => (v === "tp" || v === "fp" || v === "unclear" ? v : "unlabeled");
 const isOpen = (r: FRow) => r.label === "unlabeled" || r.label === "unclear";
 
 // gateRows are a gate's changed matches (one setup reports them) from its /state, in image order
 export function gateRows(st: State): FRow[] {
-  const failsOn = new Set((st.gate?.result?.checks ?? []).flatMap((c) => c.failsOn ?? []));
   const out: FRow[] = [];
   st.subjects.forEach((s, si) => {
     const info = st.scans.subjects[si];
@@ -47,7 +47,7 @@ export function gateRows(st: State): FRow[] {
       out.push({
         id: r.id, row: r.id, label, vuln: r.vulnerability, pkg: p.name, version: p.version, purl: r.package.ref, src: srcPkg(r), image,
         change: r.inCandidate ? "added" : "dropped", hint,
-        effect: failsOn.has(r.id) ? "decides" : r.gate?.couldFlip?.length ? "could-move" : r.gate?.bears?.length ? "counted" : "",
+        effect: effectOf(r.effect), // the server's, as the check findings say it
       });
     }
   });
@@ -61,7 +61,7 @@ export function checkRows(f: CheckFindings): FRow[] {
     vuln: x.vulnerability, pkg: x.package.name || pkgOf(x.package.purl).name, version: x.package.version || pkgOf(x.package.purl).version,
     purl: x.package.purl ?? "", src: x.package.name, image: x.image, change: x.direction,
     hint: x.hint ? { verdict: x.hint.verdict, confidence: x.hint.confidence, kind: x.hint.kind === "cause" ? "cause" : "proposal" } : null,
-    effect: (["decides", "could-move", "counted"].includes(x.effect) ? x.effect : "") as Effect,
+    effect: effectOf(x.effect),
   }));
 }
 

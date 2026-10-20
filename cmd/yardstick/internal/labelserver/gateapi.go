@@ -138,17 +138,35 @@ func (v *view) finding(r *rowRef, imgs []ImageRef, effect string) Finding {
 		Direction: direction(r.match), Label: labelOf(r.pm.Label, verdict), Hint: v.hintFor(r), Effect: effect}
 }
 
-// checkFindings are every finding a check counts. Per subject: the labeled matches behind its
-// value (decides where the subject fails it, else counted), the open ones it counts, and any open
-// row whose label narrows or changes it (could-move when a label alone changes its state). A
-// per-gate check counts its unmet expectations, which decide it when it fails.
+// checkFindings are every finding a check counts: its rows (checkRows), then a per-gate check's
+// unmet expectations, which decide it when it fails. Deciding ones first, then could-move.
 func (v *view) checkFindings(c analysis.Check, imgs []ImageRef) []Finding {
 	var out []Finding
+	for _, re := range v.checkRows(c) {
+		out = append(out, v.finding(v.rows[re.id], imgs, re.effect))
+	}
+	for _, x := range c.Unmet {
+		out = append(out, v.unmetFinding(x, imgs, map[bool]string{true: effectDecides, false: effectCounted}[c.State == analysis.Fail]))
+	}
+	slices.SortStableFunc(out, func(a, b Finding) int { return cmp.Compare(effectRank[a.Effect], effectRank[b.Effect]) })
+	return out
+}
+
+var effectRank = map[string]int{effectDecides: 0, effectCouldMove: 1, effectCounted: 2}
+
+type rowEffect struct{ id, effect string }
+
+// checkRows are the rows a check counts and each one's effect. Per subject: the labeled matches
+// behind its value (decides where the subject fails it, else counted), then in report order the
+// open ones it counts and any open row whose label narrows or changes it (could-move when a label
+// alone changes its state).
+func (v *view) checkRows(c analysis.Check) []rowEffect {
+	var out []rowEffect
 	seen := map[string]bool{}
 	add := func(id, effect string) {
-		if r := v.rows[id]; r != nil && !seen[id] {
+		if v.rows[id] != nil && !seen[id] {
 			seen[id] = true
-			out = append(out, v.finding(r, imgs, effect))
+			out = append(out, rowEffect{id, effect})
 		}
 	}
 	for _, sc := range c.Subjects {
@@ -156,7 +174,6 @@ func (v *view) checkFindings(c analysis.Check, imgs []ImageRef) []Finding {
 			add(pairing.RowID(sc.Subject, id), map[bool]string{true: effectDecides, false: effectCounted}[sc.State == analysis.Fail])
 		}
 	}
-	// open rows in report order: what the analysis counts, and what a label moves
 	counted := map[string]bool{}
 	for _, sc := range c.Subjects {
 		for _, id := range sc.Rows {
@@ -173,11 +190,26 @@ func (v *view) checkFindings(c analysis.Check, imgs []ImageRef) []Finding {
 			add(id, effectCounted)
 		}
 	}
-	for _, x := range c.Unmet {
-		out = append(out, v.unmetFinding(x, imgs, map[bool]string{true: effectDecides, false: effectCounted}[c.State == analysis.Fail]))
+	return out
+}
+
+// rowEffects are each row's strongest effect over every check, as the check findings have it: the
+// gate's Findings tab shows them.
+func (v *view) rowEffects() map[string]string {
+	out := map[string]string{}
+	set := func(id, effect string) {
+		if have, ok := out[id]; !ok || effectRank[effect] < effectRank[have] {
+			out[id] = effect
+		}
 	}
-	rank := map[string]int{effectDecides: 0, effectCouldMove: 1, effectCounted: 2}
-	slices.SortStableFunc(out, func(a, b Finding) int { return cmp.Compare(rank[a.Effect], rank[b.Effect]) })
+	for _, c := range v.verdict.Checks {
+		for _, re := range v.checkRows(c) {
+			set(re.id, re.effect)
+		}
+		for _, id := range v.decidingRows(c) {
+			set(id, effectDecides)
+		}
+	}
 	return out
 }
 
@@ -186,26 +218,71 @@ func (v *view) checkFindings(c analysis.Check, imgs []ImageRef) []Finding {
 func (v *view) unmetFinding(x analysis.Expectation, imgs []ImageRef, effect string) Finding {
 	f := Finding{Vulnerability: x.Vulnerability, Package: PackageInfo{PURL: x.Package}, Direction: "neither", Effect: effect,
 		Label: &FindingLabel{Verdict: string(x.Verdict)}}
+	si, b := v.unmetLabel(x)
+	if si < 0 {
+		return f
+	}
+	f.Image = imgs[si]
+	if b == nil {
+		return f
+	}
+	if r := v.unmetRow(si, b); r != nil {
+		return v.finding(r, imgs, effect)
+	}
+	f.Package.Name, f.Package.Version = b.Fields.Name, b.Fields.Version
+	f.Label = labelOf(b, string(x.Verdict))
+	return f
+}
+
+// unmetLabel is the subject index of an unmet expectation (-1 when no subject has its name) and
+// the label it is, nil when none agrees with it.
+func (v *view) unmetLabel(x analysis.Expectation) (int, *pairing.Bound) {
 	for si, in := range v.paired.Inputs {
 		if in.Name != x.Subject {
 			continue
 		}
-		f.Image = imgs[si]
 		for _, b := range in.Result.Labels {
-			if b.Package != x.Package || b.Vulnerability != x.Vulnerability || b.Verdict != x.Verdict || b.Disagrees() {
-				continue
+			if b.Package == x.Package && b.Vulnerability == x.Vulnerability && b.Verdict == x.Verdict && !b.Disagrees() {
+				return si, b
 			}
-			f.Package.Name, f.Package.Version = b.Fields.Name, b.Fields.Version
-			f.Label = labelOf(b, string(x.Verdict))
-			if len(b.Matches) > 0 {
-				if r := v.rows[pairing.RowID(x.Subject, analysis.MatchID(b.Matches[0]))]; r != nil {
-					return v.finding(r, imgs, effect)
-				}
-			}
-			return f
+		}
+		return si, nil
+	}
+	return -1, nil
+}
+
+// unmetRow is the row of the first match an unmet expectation's label pairs, nil when none does.
+func (v *view) unmetRow(si int, b *pairing.Bound) *rowRef {
+	if len(b.Matches) == 0 {
+		return nil
+	}
+	return v.rows[pairing.RowID(v.paired.Inputs[si].Name, analysis.MatchID(b.Matches[0]))]
+}
+
+// decidingRows are the rows whose label is behind a check failing: the FailsOn of each subject
+// failing it, and for a failing per-gate check the rows its unmet expectations sit on. This is
+// what "decides" means on every screen: the check findings' effect, and failsOn in /state.
+func (v *view) decidingRows(c analysis.Check) []string {
+	var out []string
+	for _, sc := range c.Subjects {
+		if sc.State != analysis.Fail {
+			continue
+		}
+		for _, id := range sc.FailsOn {
+			out = append(out, pairing.RowID(sc.Subject, id))
 		}
 	}
-	return f
+	if c.State != analysis.Fail {
+		return out
+	}
+	for _, x := range c.Unmet {
+		if si, b := v.unmetLabel(x); b != nil {
+			if r := v.unmetRow(si, b); r != nil && !slices.Contains(out, r.match.Row) {
+				out = append(out, r.match.Row)
+			}
+		}
+	}
+	return out
 }
 
 func (s *Server) handleCheckFindings(w http.ResponseWriter, req *http.Request) {

@@ -35,7 +35,8 @@
 //	row.explanation           ← the agentstore.Explanation of this gate and run listing the row
 //	state.gate                ← report.Gate: outcome, ci from passed, checks from analysis.Check with
 //	                            valueMeans, counts and direction from this package (checkWords);
-//	                            failsOn as row ids; no result while the scans are stale (note says why)
+//	                            failsOn the row ids deciding it (a failing subject's FailsOn, a failing
+//	                            per-gate check's unmet rows); no result while the scans are stale
 //	state.candidate/reference ← runrecord.Record.Setups (grype.spec.version, db, config)
 //	state.vocabulary          ← the claims vocabulary's justifications, for the justification picker
 //	rows/{id}.label           ← the full label deciding the row, from the pairing (delta's history)
@@ -50,6 +51,8 @@
 //
 // The /ui/gates/ tables, new and not delta's:
 //
+//	state…rows[].effect       ← the row's strongest effect over every check's findings (below), the
+//	                            gate's Findings tab's Effect column
 //	state.subjects[].changes  ← Tally over the subject's rows only one setup reports: verdictOf, and
 //	                            hinted for an unlabeled row with a pending proposal or pending cause member;
 //	                            gates[].changes in GET /api/gates is the same, per subject

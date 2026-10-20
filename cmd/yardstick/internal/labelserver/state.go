@@ -95,6 +95,9 @@ type StateRow struct {
 	Causes       []string     `json:"causes,omitempty"`
 	Explanation  string       `json:"explanation,omitempty"`
 	Gate         *RowEffect   `json:"gate,omitempty"`
+	// Effect is the row's strongest effect over the gate's checks (decides, could-move or counted),
+	// as their findings say it; absent when no check counts it. Only /state sets it.
+	Effect string `json:"effect,omitempty"`
 	// ResearchLevel is "", "triaged" or "researched"; Researched is it being "researched".
 	ResearchLevel string           `json:"researchLevel,omitempty"`
 	Researched    bool             `json:"researched,omitempty"`
@@ -213,7 +216,8 @@ type CheckResult struct {
 	Threshold   float64            `json:"threshold"`
 	Value       analysis.Value     `json:"value"`
 	State       analysis.State     `json:"state"`
-	FailsOn     []string           `json:"failsOn,omitempty"` // row ids
+	// FailsOn are the rows whose label decides the check: behind its failing (decidingRows).
+	FailsOn []string `json:"failsOn,omitempty"`
 }
 
 // which side of a check's threshold passes
@@ -258,11 +262,7 @@ func (v *view) result(g *gatefile.Gate, outcome analysis.State, checks []analysi
 		if c.Message != "" {
 			cr.Description += "; " + c.Message
 		}
-		for _, sc := range c.Subjects {
-			for _, id := range sc.FailsOn {
-				cr.FailsOn = append(cr.FailsOn, pairing.RowID(sc.Subject, id))
-			}
-		}
+		cr.FailsOn = v.decidingRows(c)
 		res.Checks = append(res.Checks, cr)
 	}
 	return res
@@ -293,11 +293,13 @@ func (s *Server) handleState(w http.ResponseWriter, req *http.Request) {
 	if r, ok := e.rec.Setups[pairing.Reference]; ok {
 		st.Reference = &r
 	}
-	changes := v.changes()
+	changes, effects := v.changes(), v.rowEffects()
 	for si, sub := range v.verdict.Subjects {
 		ss := StateSubject{Name: st.Scans.Subjects[si].Name, Slug: st.Scans.Subjects[si].Slug, Changes: changes[si], Rows: []StateRow{}}
 		for j := range sub.Matches {
-			ss.Rows = append(ss.Rows, v.listRow(v.rows[sub.Matches[j].Row], idx))
+			sr := v.listRow(v.rows[sub.Matches[j].Row], idx)
+			sr.Effect = effects[sr.ID]
+			ss.Rows = append(ss.Rows, sr)
 		}
 		st.Subjects = append(st.Subjects, ss)
 	}
