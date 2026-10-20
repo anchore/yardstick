@@ -4,7 +4,7 @@
 import type { GateList, GateResult, HintEntry, HintsAcceptResponse, HintsResponse, Queue, State, Vocabulary } from "../gen/wire";
 import { token } from "../shared/api";
 import { el, fill, toast, type Child } from "../shared/dom";
-import { dots, labels as words, plural } from "../shared/words";
+import { dots, labels as words, plural, sideWords } from "../shared/words";
 import { forget, gateList, gateState } from "./data";
 import { hintsHref, imageHints, inScope, parseScope, preselected, previewLabels, rowCount, stillOpen, type OpenRow } from "./hintsdata";
 import { noCounts, type RailImage } from "./images";
@@ -13,7 +13,7 @@ import { failed, loading, shown } from "./lists";
 import { imageRail, type Rail } from "./rail";
 import type { Route } from "./route";
 import { renderShell, type Nav, type View } from "./shell";
-import { imageName, status, verdict, type State as Status } from "./ui";
+import { imageName, outcome, status, verdict, type State as Status } from "./ui";
 
 async function call<T>(path: string, body?: unknown): Promise<T> {
   const r = await fetch(path, body === undefined ? undefined : {
@@ -47,7 +47,6 @@ const groups: { id: string; title: string; sub: string }[] = [
   { id: "none", title: "Close a row, no outcome change", sub: "accepting these changes no gate's outcome" },
 ];
 
-const dirWords: Record<string, string> = { added: "+ added by candidate", dropped: "− dropped by candidate" };
 const andList = (xs: string[]) => (xs.length < 2 ? xs.join("") : `${xs.slice(0, -1).join(", ")} and ${xs.at(-1)}`);
 const uniq = (xs: string[]) => [...new Set(xs)];
 
@@ -199,6 +198,15 @@ export function hintsView(host: HTMLElement, r0: Route & { level: "hints" }, _na
   return out;
 }
 
+// byLine is what accepting the hint makes its row (a TP or FP hint), else the side that reports it,
+// and the gates it's in
+function byLine(dir: string, v: string, gates: string[]): Child[] {
+  const o = v === "tp" || v === "fp" ? outcome(dir, v, true) : null;
+  const where = `in ${andList(gates)}`;
+  if (o) return ["accepting makes it ", o, ` · ${where}`];
+  return [[sideWords[dir], where].filter(Boolean).join(" · ")];
+}
+
 // hintRow is one hint: what it is about, what it says and why, and what it does per gate
 function hintRow(h: HintEntry, boxes: Map<string, HTMLInputElement>, on: boolean, vocab: Vocabulary | undefined, change: (on: boolean) => void) {
   const box: HTMLInputElement = el("input", { type: "checkbox", checked: on, "aria-label": `Accept ${h.rows[0]?.vulnerability ?? h.id}`, "data-testid": "hint-check", onchange: () => change(box.checked) });
@@ -212,7 +220,7 @@ function hintRow(h: HintEntry, boxes: Map<string, HTMLInputElement>, on: boolean
     el("div", { class: "what" },
       el("div", { class: "v" }, first?.vulnerability ?? h.id, " ", el("small", {}, [h.kind === "cause" ? "package hint" : "", rows].filter(Boolean).join(" · "))),
       el("div", { class: "pk", title: `${pkgs.join(", ")} · ${imgs.join(", ")}` }, `${pkgs.join(", ")} ${first?.package.version ?? ""} · ${imgs.join(", ")}`),
-      el("div", { class: "by" }, [dirWords[first?.direction ?? ""], `in ${andList(gates)}`].filter(Boolean).join(" · "))),
+      el("div", { class: "by" }, byLine(first?.direction ?? "", h.verdict, gates))),
     el("div", { class: "says" },
       el("div", {}, verdict(h.verdict as "tp" | "fp" | "unclear"), " ", el("span", { class: "conf", title: `${h.confidence || "no"} confidence` }, dots[h.confidence ?? ""] ?? "")),
       el("div", { class: "why" }, h.title || h.cause || vocab?.justifications?.[h.verdict]?.[h.justification ?? ""] || h.justification || words[h.verdict]?.long),

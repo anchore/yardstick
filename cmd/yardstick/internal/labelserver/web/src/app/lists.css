@@ -44,6 +44,7 @@
 .dt-foot a { color: var(--foreground); }
 .gates { display: inline-flex; gap: 4px; }
 .gchip { font-size: 12px; padding: 0 6px; border: 1px solid var(--border); border-radius: 6px; white-space: nowrap; }
+.gchip .o { color: var(--muted-foreground); }
 .titlerow .meter { width: 200px; }
 
 /* ---------- the scan map ---------- */

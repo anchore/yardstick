@@ -1,14 +1,15 @@
 // kit.ts is /ui/gates/_kit: every shell component on sample data from the grype-upgrade mockup (real
 // image names, packages and IDs; made-up counts), wired together the way the gate and check
 // screens will be. Nothing links here; it's for building and reviewing the components.
-import { el, fill } from "../shared/dom";
+import { el, fill, type Child } from "../shared/dom";
 import { noCounts, sumCounts, type RailImage } from "./images";
 import { imageRail } from "./rail";
 import { withFilters, type Route, type VerdictFilter } from "./route";
 import { renderShell, type Nav, type View } from "./shell";
 import { countBy, filterRows } from "./table";
 import { dataTable, type Column } from "./tableview";
-import { couldMove, hint, imageName, kbd, meter, status, verdict, verdictBar, type Verdict } from "./ui";
+import { outcome as outcomeOf, outcomeRank } from "../shared/rows";
+import { couldMove, hint, imageName, kbd, meter, outcome, status, verdict, verdictBar, type Verdict } from "./ui";
 
 // name, reference, then tp, fp, unclear, hinted, unlabeled without a hint
 const sample: [string, string, number, number, number, number, number][] = [
@@ -56,7 +57,7 @@ const columns: Column<Finding>[] = [
   { key: "vuln", label: "Vulnerability", cell: (r) => el("span", { class: "strong" }, r.vuln), sort: (r) => r.vuln },
   { key: "package", label: "Package", cell: (r) => el("span", { class: "mono" }, r.pkg, " ", el("small", {}, r.version)), sort: (r) => r.pkg, title: (r) => `${r.purl} ${r.version}`, truncate: true },
   { key: "image", label: "Image", cell: (r) => imageName(r.image, byName.get(r.image)?.ref), sort: (r) => r.image, title: (r) => byName.get(r.image)?.ref ?? r.image, truncate: true },
-  { key: "change", label: "Change", cell: (r) => el("span", { class: "change" }, r.change === "added" ? "+ added" : "− dropped"), sort: (r) => r.change },
+  { key: "outcome", label: "Outcome", cell: (r) => outcome(r.change, r.label), sort: (r) => outcomeRank(outcomeOf(r.change, r.label)) },
   { key: "hint", label: "Agent hint", cell: (r) => (r.hint ? hint(r.hint) : el("span", { class: "muted" }, "–")), sort: (r) => r.hint },
   { key: "effect", label: "Effect", cell: (r) => (r.effect === "could move" ? couldMove() : r.effect), sort: (r) => r.effect },
 ];
@@ -95,6 +96,7 @@ export function kitView(host: HTMLElement, r0: Route, nav: Nav): View {
       el("section", { class: "kit", "data-testid": "kit-gallery" },
         line("Status", status("pass"), status("fail"), status("undecided")),
         line("Verdict", verdict("tp"), verdict("fp"), verdict("unclear"), verdict("unlabeled"), hint("TP · medium"), couldMove()),
+        line("Outcome", outcome("added", "tp"), outcome("added", "fp"), outcome("dropped", "tp"), outcome("dropped", "fp"), outcome("added", undefined), outcome("dropped", undefined), outcome("dropped", "fp", true)),
         line("Buttons", el("button", { type: "button", class: "btn" }, "Accept hint ", kbd("a")),
           el("button", { type: "button", class: "btn", "data-variant": "outline" }, "Skip ", kbd("j")),
           el("button", { type: "button", class: "btn", "data-variant": "ghost" }, "Open")),
@@ -132,6 +134,6 @@ export function kitView(host: HTMLElement, r0: Route, nav: Nav): View {
   return { key: rail.key, update };
 }
 
-function line(caption: string, ...children: (Node | string)[]) {
+function line(caption: string, ...children: Child[]) {
   return el("div", { class: "kit-line" }, el("span", { class: "kit-cap" }, caption), el("div", { class: "kit-items" }, children));
 }

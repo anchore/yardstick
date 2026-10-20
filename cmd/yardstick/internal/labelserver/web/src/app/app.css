@@ -17,6 +17,7 @@
   --faint: oklch(0.65 0.015 260);
 
   --pass: #1a7f37; --fail: #c42b2b; --und: #8f5f00;
+  --pass-bg: #dcf2e2; --fail-bg: #fbe3e3;
   --tp: #2459d6; --tp-bg: #e2e9fc;
   --fp: #b0236f; --fp-bg: #fae1ef;
   --unc: #596273; --unc-bg: #e8ebf0;
@@ -25,6 +26,7 @@
 .dark {
   --faint: oklch(0.55 0.015 260);
   --pass: #5cc97a; --fail: #f07070; --und: #e7b84a;
+  --pass-bg: #173524; --fail-bg: #3d1c1e;
   --tp: #7ea2ff; --tp-bg: #1c2a4d;
   --fp: #f07ab8; --fp-bg: #40192f;
   --unc: #a2abba; --unc-bg: #2a303b;
@@ -135,6 +137,14 @@ a[role="tab"] { text-decoration: none; }
 
 .hint { display: inline-flex; gap: 4px; align-items: center; font-size: 12px; color: var(--hint); white-space: nowrap; }
 .hint::before { content: "✦"; }
+/* outcome: a label and a side together, in pass / fail hues so it never reads as a TP or FP badge */
+.badge.outcome { border-radius: 6px; font-weight: 600; font-size: 12px; padding: 1px 8px; gap: 5px; white-space: nowrap; border-color: transparent; }
+.badge.outcome.good { color: var(--pass); background: var(--pass-bg); }
+.badge.outcome.good::before { content: "✓"; font-size: 11px; }
+.badge.outcome.bad { color: var(--fail); background: var(--fail-bg); }
+.badge.outcome.bad::before { content: "!"; font-weight: 800; }
+.badge.outcome.open { color: var(--muted-foreground); background: transparent; border: 1px dashed var(--border); font-weight: 500; }
+.badge.outcome.soft { background: transparent; border-color: currentColor; font-weight: 500; }
 .could-move { font-size: 12px; white-space: nowrap; }
 .could-move::before { content: "◆ "; font-size: 10px; }
 .change { font-family: var(--font-mono); font-size: 12px; color: var(--muted-foreground); white-space: nowrap; }

@@ -11,7 +11,7 @@ export const labels: Record<string, LabelWords> = {
 };
 export const dots: Record<string, string> = { high: "•••", medium: "••◦", low: "•◦◦" };
 export const dirWords: Record<string, string> = { added: "the candidate added this", dropped: "the candidate dropped this", both: "both sides found this", neither: "neither side found this" };
-export const dirTitle: Record<string, string> = { added: "+ candidate added", dropped: "− candidate dropped" };
+export const sideWords: Record<string, string> = { added: "only in candidate", dropped: "only in reference", both: "in both scans", neither: "in neither scan" };
 
 export const plural = (n: number, w: string, many = `${w}s`) => `${n} ${n === 1 ? w : many}`;
 export const fmt = (x: number) => (Number.isInteger(x) ? String(x) : Math.abs(x) < 10 ? x.toFixed(3) : x.toFixed(1));

@@ -2,8 +2,8 @@
 // findings across gates (today's every-gate queue, as a table) and every label in the workspace.
 import type { CrossFinding, GateListItem, SharedState } from "../gen/wire";
 import { el, fill } from "../shared/dom";
-import { pkgOf } from "../shared/rows";
-import { plural } from "../shared/words";
+import { outcome as outcomeOf, pkgOf } from "../shared/rows";
+import { plural, sideWords } from "../shared/words";
 import { workBanner, type Work } from "./banner";
 import { acceptCross, everyLabel, gateList, labelCross, shared } from "./data";
 import { hintWords, labelPicker } from "./findings";
@@ -16,7 +16,7 @@ import { formatRoute, withFilters, type Route } from "./route";
 import { renderShell, type Nav, type View } from "./shell";
 import { filterRows } from "./table";
 import { dataTable } from "./tableview";
-import { couldMove, hint, imageName, status, type State as Status } from "./ui";
+import { couldMove, hint, imageName, outcome, status, type State as Status } from "./ui";
 
 const day = (iso: string) => {
   const d = new Date(iso);
@@ -76,6 +76,17 @@ function gatesTab(gates: GateListItem[], work: Work | null): Tab {
 
 const crossText = (f: CrossFinding) => `${f.vulnerability} ${f.package.ref} ${f.image} ${f.in.map((a) => a.gate).join(" ")}`;
 
+// gatesCell is the gates an open finding is in. Every row here is open, so its outcome is a question
+// (new FP? or new FN?): asked once when every gate sees the same side, else in each gate's chip.
+function gatesCell(f: CrossFinding) {
+  const agree = new Set(f.in.map((a) => a.dir)).size === 1;
+  return el("span", { class: "gates" }, agree && f.in[0] && outcome(f.in[0].dir, undefined),
+    f.in.map((a) => {
+      const o = !agree && outcomeOf(a.dir, undefined);
+      return el("span", { class: "gchip", title: `${a.gate}: ${sideWords[a.dir]}` }, a.gate, o && el("span", { class: "o", "data-testid": "outcome", "data-outcome": o.kind }, ` ${o.text}`));
+    }));
+}
+
 // unlabeledTab is every open finding across gates, the ones whose label decides the most gates first
 function unlabeledTab(sh: SharedState, r0: Route, nav: Nav, reload: () => void): Tab {
   let r = r0;
@@ -87,7 +98,7 @@ function unlabeledTab(sh: SharedState, r0: Route, nav: Nav, reload: () => void):
       { key: "vuln", label: "Vulnerability", cell: (f) => el("span", { class: "strong" }, f.vulnerability), sort: (f) => f.vulnerability, title: (f) => f.vulnerability, truncate: true },
       { key: "package", label: "Package", cell: (f) => { const p = pkgOf(f.package.ref); return el("span", { class: "mono" }, p.name, " ", el("small", {}, p.version)); }, sort: (f) => pkgOf(f.package.ref).name, title: (f) => f.package.ref, truncate: true },
       { key: "image", label: "Image", cell: (f) => imageName(f.image), sort: (f) => f.image, title: (f) => f.image, truncate: true },
-      { key: "gates", label: "Gates", cell: (f) => el("span", { class: "gates" }, f.in.map((a) => el("span", { class: "gchip", title: `${a.gate}: ${a.dir}` }, a.dir === "added" ? "+ " : a.dir === "dropped" ? "− " : "", a.gate))), sort: (f) => f.in.length, title: (f) => f.in.map((a) => a.gate).join(", "), truncate: true },
+      { key: "gates", label: "Gates", cell: gatesCell, sort: (f) => f.in.length, title: (f) => f.in.map((a) => `${a.gate}: ${sideWords[a.dir]}`).join(", "), truncate: true },
       { key: "hint", label: "Agent hint", cell: (f) => (f.hint?.status === "pending" ? hint(hintWords({ verdict: f.hint.verdict, confidence: f.hint.confidence, kind: "proposal" })) : f.cause ? hint("package hint") : el("span", { class: "muted" }, "–")), sort: (f) => f.hint?.verdict ?? (f.cause ? "~" : "") },
       { key: "effect", label: "Effect", cell: (f) => (f.flips ? [couldMove(), el("small", {}, ` in ${plural(f.flips, "gate")}`)] : el("span", { class: "muted" }, `bears on ${plural(f.bears, "gate")}`)), sort: (f) => f.flips * 100 + f.bears, num: false },
     ],

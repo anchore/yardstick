@@ -8,10 +8,10 @@ import { el, toast, type Child } from "../shared/dom";
 import { records, matchPath } from "../shared/matchpath";
 import { imageRelease } from "../shared/names";
 import { decoded, direction, pkgOf } from "../shared/rows";
-import { dirWords, justWords, labels, plural, ruleWords, whyText } from "../shared/words";
+import { dirWords, justWords, labels, plural, ruleWords, sideWords, whyText } from "../shared/words";
 import { forget } from "./data";
 import { loadFinding, researching, type FindingData } from "./finding-data";
-import { directionWords, effect, mutedReason, pendingCause, seenWith, shortSource, type Dir } from "./finding-words";
+import { effect, mutedReason, pendingCause, seenWith, shortSource, type Dir } from "./finding-words";
 import { labelPanel, type Draft, type LabelPanel } from "./labelpanel";
 import { nextOpen, position, type Item } from "./neighbors";
 import { formatRoute, type Route } from "./route";
@@ -102,7 +102,7 @@ export function findingView(host: HTMLElement, r: FindingRoute, nav: Nav, q?: Qu
         el("span", { class: "mono pkgv", "data-testid": "finding-package", title: row.package.ref }, `${pk.name} ${pk.version}`),
         el("span", {},
           el("span", { class: "img", title: d.image.ref, "data-testid": "finding-image" }, d.image.name),
-          " · ", el("span", { class: "change", "data-testid": "finding-direction" }, directionWords[dir]),
+          " · ", el("span", { class: "change", "data-testid": "finding-direction" }, sideWords[dir]),
           aliases.length ? ` · alias ${aliases.join(", ")}` : "")),
       crumbEnd: q ? null : pager,
       bar: q?.bar,

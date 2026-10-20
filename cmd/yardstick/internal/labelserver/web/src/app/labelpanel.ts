@@ -8,8 +8,8 @@ import { el, type Child } from "../shared/dom";
 import { direction, isResearched } from "../shared/rows";
 import { dots, justWords, labels, ruleWords } from "../shared/words";
 import type { FindingData } from "./finding-data";
-import { meaning, mutedReason, panel, reasons, seenWith, shortSource } from "./finding-words";
-import { kbd, verdict, type Verdict } from "./ui";
+import { mutedReason, panel, reasons, seenWith, shortSource } from "./finding-words";
+import { kbd, outcome, verdict, type Verdict } from "./ui";
 
 // Draft is the form as typed, kept across a repaint (research polling redraws the page)
 export interface Draft { verdict?: string; reason?: string; note: string }
@@ -111,7 +111,8 @@ export function labelPanel(d: FindingData, draft: Draft, advance: boolean, on: P
     el("h2", { class: p.onFile || h || c ? "rule" : null }, p.heading),
     el("div", { class: "segv", role: "group", "aria-label": "Verdict" }, segs),
     outcomes && el("p", { class: "help outcomes", "data-testid": "queue-outcomes" }, outcomes),
-    meaning[dir] && el("p", { class: "help", "data-testid": "label-meaning" }, meaning[dir]),
+    (dir === "added" || dir === "dropped") && el("p", { class: "help if-label", "data-testid": "label-meaning" },
+      "TP makes it ", outcome(dir, "tp", true), " · FP makes it ", outcome(dir, "fp", true)),
     el("label", { class: "field" }, "Reason", reason),
     el("label", { class: "field" }, "Note", note),
     el("div", { class: "acts" }, save, el("button", { type: "button", class: "btn", "data-variant": "outline", "data-testid": "skip-button", onclick: on.skip }, "Skip ", kbd("j"))),

@@ -70,6 +70,8 @@ test.describe("deb-npm", () => {
     await checkRow(page, "unjudgedChangesAtMost").click();
     const table = page.getByTestId("check-table");
     await expect(table.locator("tbody tr[data-id]")).toHaveCount(3);
+    // each is open and only the reference reports it, so its outcome is the question a TP would answer
+    await expect(table.getByTestId("outcome")).toHaveText(["new FN?", "new FN?", "new FN?"]);
     for (const id of [rows.gzip, rows.tarDropped]) {
       await expect(tableRow(page, "check-table", id).getByTestId("hint")).toHaveText("FP · medium");
       await expect(tableRow(page, "check-table", id)).toContainText("could move");

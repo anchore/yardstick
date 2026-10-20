@@ -17,7 +17,7 @@ test("a finding opened by URL shows its title, subtitle, tabs and the hint", asy
   await expect(page.getByTestId("finding-package")).toHaveText("tar 1.34+dfsg-1.2+deb12u1");
   await expect(page.getByTestId("finding-image")).toHaveText(images.deb.name);
   await expect(page.getByTestId("finding-image")).toHaveAttribute("title", /^ghcr\.io\/anchore\/test-images\/vulnerabilities-debian-12-tar-util-linux:617d48d@sha256:617d48dd/);
-  await expect(page.getByTestId("finding-direction")).toHaveText("− dropped by candidate");
+  await expect(page.getByTestId("finding-direction")).toHaveText("only in reference");
   await expect(page.getByTestId("pager")).toHaveAttribute("data-index", "4");
   await expect(page.getByTestId("pager")).toHaveAttribute("data-total", "10");
 
@@ -32,7 +32,7 @@ test("a finding opened by URL shows its title, subtitle, tabs and the hint", asy
   const hint = page.getByTestId("hint-card");
   await expect(hint).toHaveAttribute("data-verdict", "fp");
   await expect(hint).toHaveAttribute("data-confidence", "medium");
-  await expect(page.getByTestId("label-meaning")).toHaveText("TP: the candidate introduced a false negative. FP: it fixed a false positive.");
+  await expect(page.getByTestId("label-meaning")).toHaveText("TP makes it new FN · FP makes it fixed FP");
 
   await page.getByRole("tab", { name: "Evidence" }).click();
   await expect(page.getByTestId("evidence-links").getByRole("link").first()).toBeVisible();

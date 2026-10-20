@@ -1,6 +1,8 @@
 // ui.ts is the app's small components: status and verdict badges, the hint mark, image names, the
 // meter and the verdict bar. Each is the word and the shape as well as the color (UI-RULES 8).
 import { el, type Child } from "../shared/dom";
+import { outcome as outcomeOf } from "../shared/rows";
+import { sideWords } from "../shared/words";
 import { splitName, type Counts } from "./images";
 
 export type State = "pass" | "fail" | "undecided";
@@ -21,6 +23,14 @@ export const hint = (text: string) => el("span", { class: "hint", "data-testid":
 
 // couldMove marks a finding whose label can flip a check
 export const couldMove = () => el("span", { class: "could-move" }, "could move");
+
+// outcome is what a changed row does to the candidate: ✓ fixed FN or FP, ! a new one, or a dashed
+// question while the row is open. soft outlines it, for what a hint or a verdict would make it
+// rather than a label on file. The side that reports it is on hover.
+export function outcome(dir: string, v: string | undefined, soft = false) {
+  const o = outcomeOf(dir, v);
+  return o && el("span", { class: `badge outcome ${o.kind}${soft ? " soft" : ""}`, "data-variant": "outline", "data-testid": "outcome", "data-outcome": o.kind, title: sideWords[dir] }, o.text);
+}
 
 export const kbd = (k: string) => el("kbd", { class: "kbd" }, k);
 

@@ -29,6 +29,9 @@ test.describe("hint review", () => {
     await expect(box(page, "GHSA-vc5p-v9hr-52mj")).not.toBeChecked();
     await expect(item(page, "GHSA-vc5p-v9hr-52mj")).toHaveAttribute("data-replaces", "true");
     await expect(item(page, "GHSA-vc5p-v9hr-52mj").getByTestId("hint-replaces")).toHaveText('replaces an unclear label: "needs a look at the JNDI lookup config"');
+    // each says what accepting it makes the row: tar's FP on a dropped match fixes an FP, jfh8's TP on an added one an FN
+    await expect(item(page, "CVE-2005-2541").getByTestId("outcome")).toHaveText("fixed FP");
+    await expect(item(page, "GHSA-jfh8-c2jp-5v3q").getByTestId("outcome")).toHaveText("fixed FN");
     // tar in both gates is one row
     await expect(accept(page)).toHaveText("Accept 4 hints on 8 rows");
 

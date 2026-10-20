@@ -32,6 +32,8 @@ test.describe("every gate", () => {
     await expect(tar).toContainText("deb-npm");
     await expect(tar).toContainText(images.deb.name);
     await expect(tar.getByTestId("hint")).toHaveText("FP · medium");
+    // both gates see only the reference report it, so the question is asked once on the row
+    await expect(tar.getByTestId("outcome")).toHaveText("new FN?");
     // labeling it decides deb-npm either way
     await expect(tar).toContainText("could move in 1 gate");
     await expect(finding(page, "CVE-2026-18508").getByTestId("hint")).toHaveCount(0);

@@ -37,6 +37,7 @@ Gate and check screens (levels 1 and 2) carry the image rail on the left, collap
 9. **A spacing scale of 4, 8, 16, 24, 32.** 24 between sections, 16 inside a group, 8 between a label and its value. Rows are 44px comfortable, 34px compact. No one-off margins.
 10. **Design for real names.** A real gate has 14 to about 90 images, displayed names run 4 to 50 characters (`vulnerabilities-package-name-normalization:984794b`), versions run to 58 (`v17.12.0-ce-rc1.0.20200309214505-aa6a9891b09c+incompatible`), and a gate can count thousands of labels. Truncate the repository part of a name, never the tag. The full reference is one hover away everywhere a name appears, and the finding page shows it whole. Test layouts against those lengths, not `deb`.
 11. **Help is one line, or it's behind a "?".** Each screen gets at most one sentence of explanation under its title. Check definitions belong in a help drawer, not on every panel; none has shipped yet, so a check's description is its row's one line.
+12. **A changed row says what it does to the candidate.** Its outcome (fixed FN, new FP, new FN, fixed FP) folds its label and the side that reports it into one pill, in pass / fail hues so it never reads as a TP or FP badge. An open row asks the risk labeling settles (new FP? or new FN?), and a hint's or a verdict's outcome is outlined because it isn't on file. Which side reports it is on hover, and in words only where the side is the point (the finding's subtitle, the scan map's lanes).
 
 ## Screen specifics
 
@@ -69,6 +70,9 @@ Gate and check screens (levels 1 and 2) carry the image rail on the left, collap
 | no label yet | unlabeled | dashed outline | none |
 | agent hint | hint | ✦ | `--hint` |
 | a label here can flip a check | could move | ◆ | none |
-| candidate added / dropped | + added / − dropped | + / − | none |
+| only the candidate / only the reference reports it | only in candidate / only in reference | none | none |
+| a TP only the candidate reports, or an FP only the reference does | fixed FN / fixed FP | ✓ | `--pass` |
+| an FP only the candidate reports, or a TP only the reference does | new FP / new FN | ! | `--fail` |
+| an open row's risk, by side | new FP? / new FN? | dashed outline | none |
 
 Every key hint on screen is one style, `kbd()`, whether it sits in a button, a pager or a list. Keys stay the same at every level: `t` `f` `u` label, `a` accepts the hint, `j` / `k` next and previous (on a finding, the next open row, unlabeled or unclear; `⌥j` / `⌥k` walk every row), `n` enter the queue at the next open row in this screen's scope (every gate, this gate then the rest, this check then its gate, or the image filtered to), `h` opens hint review for the gate and image on screen, `⇧J` / `⇧K` next and previous gate with open rows, `⌘K` (or `ctrl+K`) the go-to palette (gates, images, checks, findings, and the actions review hints, label what's left and history), `0` to `9` pick an image, `Esc` up one level. Every gate-level list is in the check tables' order: decides, could move, counted, then the rest, each in report order, and "Label next" enters the queue as `n` does. In the queue, `j` / `k` walk the queue (stepping over rows it labeled while the cog's "Skip labeled rows" is on), `⏎` saves and goes on (on a card, it takes the card's primary button), and `Esc` leaves it for where it was entered from. A finding adds `A` (accept the package hint for every match it covers) and `R` (research); `t` `f` `u` pick the verdict and Save (or Enter in the note) writes it. Lists add `Enter` to open the row under the cursor, and the rail adds `[` / `]` and `/`.

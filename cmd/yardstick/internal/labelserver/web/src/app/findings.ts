@@ -3,13 +3,14 @@
 // search box, the table, and the bulk bar that accepts hints or labels the rows selected.
 import type { Vocabulary } from "../gen/wire";
 import { el, fill } from "../shared/dom";
+import { outcome as outcomeOf, outcomeRank } from "../shared/rows";
 import { labels as words } from "../shared/words";
 import { acceptHints, labelOptions, labelRows } from "./data";
 import { chipCounts, chipFilters, chipOf, chips, chipWords, effectRank, scopedRows, shownRows, type FRow } from "./listing";
 import { withFilters, type Route } from "./route";
 import type { Nav } from "./shell";
 import { dataTable, type Column, type Table } from "./tableview";
-import { couldMove, hint, imageName, verdict } from "./ui";
+import { couldMove, hint, imageName, outcome, verdict } from "./ui";
 
 const effectCell = (r: FRow) =>
   r.effect === "could-move" ? couldMove() : r.effect ? el("span", { class: r.effect === "counted" ? "muted" : "" }, r.effect) : el("span", { class: "muted" }, "–");
@@ -21,7 +22,7 @@ export const findingColumns: Column<FRow>[] = [
   { key: "vuln", label: "Vulnerability", cell: (r) => el("span", { class: "strong" }, r.vuln), sort: (r) => r.vuln, title: (r) => r.vuln, truncate: true },
   { key: "package", label: "Package", cell: (r) => el("span", { class: "mono" }, r.pkg, " ", el("small", {}, r.version)), sort: (r) => r.pkg, title: (r) => `${r.purl || r.pkg} ${r.version}`, truncate: true },
   { key: "image", label: "Image", cell: (r) => imageName(r.image.name, r.image.ref), sort: (r) => r.image.name, title: (r) => r.image.ref, truncate: true },
-  { key: "change", label: "Change", cell: (r) => el("span", { class: "change" }, r.change === "added" ? "+ added" : r.change === "dropped" ? "− dropped" : r.change), sort: (r) => r.change },
+  { key: "outcome", label: "Outcome", cell: (r) => outcome(r.change, r.label) ?? el("span", { class: "muted" }, "–"), sort: (r) => outcomeRank(outcomeOf(r.change, r.label)) },
   { key: "hint", label: "Agent hint", cell: (r) => (r.hint ? hint(hintWords(r.hint)) : el("span", { class: "muted" }, "–")), sort: (r) => hintWords(r.hint) },
   { key: "effect", label: "Effect", cell: effectCell, sort: (r) => effectRank(r.effect) },
 ];

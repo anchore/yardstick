@@ -24,14 +24,6 @@ export function effect(o: { check: string | null; checkEffect?: string; row: Sta
 
 export type Dir = "added" | "dropped" | "both" | "neither";
 
-export const directionWords: Record<Dir, string> = { added: "+ added by candidate", dropped: "− dropped by candidate", both: "= in both scans", neither: "in neither scan" };
-
-// meaning is what a TP and an FP label say about the candidate, by direction (the glossary's
-// fixed / introduced table); a match both or neither scan reports has none
-export const meaning: Partial<Record<Dir, string>> = {
-  added: "TP: the candidate fixed a false negative. FP: it introduced a false positive.",
-  dropped: "TP: the candidate introduced a false negative. FP: it fixed a false positive.",
-};
 
 // shortSource is a claims source as people say it: the corpus's last path segment and its ref,
 // e.g. "github.com/anchore/match-claims@main" → "match-claims@main", "/ws/claims" → "claims".

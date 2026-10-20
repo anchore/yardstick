@@ -4,7 +4,7 @@
 import type { State } from "../gen/wire";
 import { el, svg } from "../shared/dom";
 import { srcPkg } from "../shared/rows";
-import { clip, dirTitle, plural } from "../shared/words";
+import { clip, plural, sideWords } from "../shared/words";
 import { diffRows, groupBy, type Item, reasonTitle, tally, whyKey } from "./scandata";
 import { type Rect, squarify } from "./treemap";
 
@@ -28,7 +28,7 @@ export function scanMap(st: State, image: string | null, open: (pkg: string) => 
       // each direction gets its share of the width, but never under a fifth
       const width = dirs.length === 1 ? W - 4 : Math.min(Math.max(room * 0.22, (room * d.list.length) / rows.length), room * 0.78);
       tree.append(svg("rect", { x, y: 0, width, height: H, class: `dirbg ${d.dir}`, "data-testid": "dir-region", "data-dir": d.dir, "data-count": d.list.length }));
-      tree.append(svg("text", { x: x + 6, y: 15, class: "dir" }, `${dirTitle[d.dir]} · ${d.list.length}`));
+      tree.append(svg("text", { x: x + 6, y: 15, class: "dir" }, `${sideWords[d.dir]} · ${d.list.length}`));
       const reasons: Node[] = [...groupBy(d.list, (i) => whyKey(i.r.why))].map(([k, list]) => ({ key: k, title: reasonTitle(st, list, d.dir), list, value: list.length }));
       for (const b of squarify(reasons, { x: x + 2, y: 22, w: width - 4, h: H - 24 })) {
         const head = 20;
