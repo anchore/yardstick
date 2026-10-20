@@ -32,6 +32,8 @@ export interface ShellView {
 export interface Shell {
   // scope puts the image filter's chip beside the rail's dropdown, or takes it away
   scope(label: Child | null, clear?: () => void): void;
+  // retab points the tabs at a route whose filters changed in place, so they keep its image
+  retab(r: Route): void;
 }
 
 const tabWords: Record<string, string> = { gates: "Gates", unlabeled: "Unlabeled", labels: "Labels", checks: "Checks", findings: "Findings", map: "Scan map" };
@@ -67,13 +69,17 @@ export function renderShell(host: HTMLElement, r: Route, v: ShellView): Shell {
       el("span", { class: "meta" }, v.meta)),
     el("main", { class: "page" },
       v.crumbEnd ? el("div", { class: "crumbrow" }, breadcrumb, el("span", { class: "sp" }), v.crumbEnd) : breadcrumb,
-      el("div", { class: "titlerow" },
+      el("div", { class: "titlerow", "data-testid": "title-row" },
         v.status, el("h1", { "data-testid": "title" }, v.title), v.after, el("span", { class: "sp" }), v.actions,
         v.sub && el("p", { class: "sub" }, v.sub)),
       v.above,
       el("div", { class: "layout" }, v.rail?.rail, el("div", { class: "content" }, navrow, tablist, v.body))));
 
   return {
+    retab(next) {
+      if (!tablist) return;
+      for (const t of tabsFor(next)) tablist.querySelector(`[data-tab="${t.id}"]`)?.setAttribute("href", t.href);
+    },
     scope(label, clear) {
       chip.hidden = label == null;
       fill(chip, label != null && ["image: ", label, el("button", { type: "button", class: "x", "aria-label": "Clear image filter", onclick: () => clear?.() }, "×")]);
