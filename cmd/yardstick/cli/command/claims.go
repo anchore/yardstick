@@ -16,7 +16,6 @@ func Claims(app clio.Application) *cobra.Command {
 	})
 	cmd.AddCommand(
 		ClaimsAdd(app),
-		ClaimsPromote(app),
 		ClaimsValidate(app),
 		ClaimsSchema(app),
 		ClaimsImport(app),

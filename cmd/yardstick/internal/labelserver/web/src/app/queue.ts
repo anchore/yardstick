@@ -123,7 +123,7 @@ export function queueView(host: HTMLElement, r: QueueRoute, nav: Nav): View {
     try { written = sessionLabels((await getJSON<History>("/api/history?limit=500")).labels.map((l) => l.label.lastUpdated), s.start); } catch { /* the count is left at 0 */ }
     if (!alive()) return;
     showCard(q, "Nothing left to label", null,
-      endCard({ gates: q.gates, foot: `${sessionWords(written, s.hints, s.hand)} They are in ./claims; claims promote moves them on.`, back: gatesHref, history: "/ui/history" }),
+      endCard({ gates: q.gates, foot: `${sessionWords(written, s.hints, s.hand)} They are in ./claims.`, back: gatesHref, history: "/ui/history" }),
       () => nav({ level: "gates", tab: "gates", filters: {} }));
   }
 

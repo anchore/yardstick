@@ -22,7 +22,7 @@ type Placed struct {
 }
 
 // Writer writes labels into one claims source, the writable one, through the only path every
-// command shares: claims add, promote, import and migrate.
+// command shares: claims add, import and migrate.
 type Writer struct {
 	Dir   string
 	Vocab *Vocabulary
