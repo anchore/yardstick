@@ -2,7 +2,7 @@
 // and the writes the lists' actions make (labels, accepted hints) through the existing routes.
 import type { CheckFindings, CrossFinding, GateLabels, GateList, SharedState, State, Vocabulary } from "../gen/wire";
 import * as api from "../shared/api";
-import { $, el, toast } from "../shared/dom";
+import { toast } from "../shared/dom";
 import { labels as words, plural } from "../shared/words";
 import { crossByGate, type FRow } from "./listing";
 
@@ -47,21 +47,15 @@ export async function everyLabel() {
 
 // ---------- writes ----------
 
-// say shows what a write did; the app's page has no toast box until the first one
-export function say(text: string, error = false) {
-  if (!$("#toast")) document.body.append(el("div", { id: "toast", class: "toast", role: "status", hidden: true }));
-  toast(text, error);
-}
-
 async function write(what: () => Promise<string>) {
   try {
     const text = await what();
     cache.clear();
-    say(text);
+    toast(text);
     return true;
   } catch (e) {
     cache.clear();
-    say((e as Error).message, true);
+    toast((e as Error).message, true);
     return false;
   }
 }

@@ -66,10 +66,6 @@
 .tree .ttl { fill: var(--foreground); font-size: 12px; font-weight: 600; pointer-events: none; }
 .tree .sub { fill: var(--muted-foreground); font-size: 11px; pointer-events: none; }
 
-/* ---------- what a write did ---------- */
-
-.toast { position: fixed; bottom: 24px; left: 50%; translate: -50% 0; z-index: 60; max-width: min(640px, 90vw); padding: 8px 16px; border-radius: 8px; background: var(--foreground); color: var(--background); font-size: 13.5px; box-shadow: 0 4px 16px rgba(0, 0, 0, .18); }
-.toast.error { background: var(--fail); color: #fff; }
 
 @media (max-width: 960px) {
   .lrow { grid-template-columns: 88px minmax(0, 1fr) 140px 16px; }

@@ -2,9 +2,9 @@
 // Checks (one row per check, with its meter), Findings (every changed match), Labels (every label
 // the gate counts, paged) and Scan map (today's treemap).
 import type { CheckResult, GateLabels, State } from "../gen/wire";
-import { el, fill } from "../shared/dom";
+import { el, fill, toast } from "../shared/dom";
 import { fmt, plural } from "../shared/words";
-import { gateLabels, gateState, say } from "./data";
+import { gateLabels, gateState } from "./data";
 import { findingsList } from "./findings";
 import { noCounts, type RailImage } from "./images";
 import { labelsTable } from "./labelstable";
@@ -172,7 +172,7 @@ function labelsTab(gate: string, r0: Route, nav: Nav, known: (slug: string | und
       const f = r.filters, at = r;
       gateLabels(gate, { verdict: f.verdict === "unlabeled" ? undefined : f.verdict, image: known(image ?? undefined) ? image ?? undefined : undefined, q: f.q, offset: ((f.page ?? 1) - 1) * pageSize, limit: pageSize })
         .then((res: GateLabels) => { if (at === r) t.update(r, res.labels, res.total, res.counts, !!image); })
-        .catch((e) => say((e as Error).message, true));
+        .catch((e) => toast((e as Error).message, true));
     },
   };
 }
