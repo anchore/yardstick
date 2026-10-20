@@ -4,8 +4,8 @@ claims: [../claims]
 candidate: {grype: ../tools/candidate-a, db: "dir:../tools"}
 reference: {grype: ../tools/reference-a, db: "dir:../tools"}
 subjects:
-  - {ref: "oci:docker.io/anchore/yardstick-fixture-deb@sha256:617d48dd2601779266746a9a382bfb9f3fee2744fba698733b320366f41718b0", name: deb}
-  - {ref: "oci:docker.io/anchore/yardstick-fixture-java@sha256:e363e4447342edd5320a67f79c6980a1ab26f5a9af3e9fdee5bf14e86b2a4c65", name: java}
+  - oci:ghcr.io/anchore/test-images/vulnerabilities-debian-12-tar-util-linux:617d48d@sha256:617d48dd2601779266746a9a382bfb9f3fee2744fba698733b320366f41718b0
+  - oci:ghcr.io/anchore/test-images/grype-quality-java-log4j-two-jars:e363e44@sha256:e363e4447342edd5320a67f79c6980a1ab26f5a9af3e9fdee5bf14e86b2a4c65
 checks:
   - name: f1NotWorse
   - name: noNewFalseNegatives

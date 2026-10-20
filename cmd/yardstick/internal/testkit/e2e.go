@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"path"
 	"path/filepath"
 	"runtime"
 	"slices"
@@ -75,7 +76,15 @@ func E2E(t TB, dir, tools, bin string) {
 	}
 }
 
-// e2eImage is a fixture image as the gates refer to it: by its manifest digest, as syft recorded it.
+// e2eRepos are the repositories the gates name the fixture images by, as real gates name test images.
+var e2eRepos = map[string]string{
+	"deb":  "ghcr.io/anchore/test-images/vulnerabilities-debian-12-tar-util-linux",
+	"java": "ghcr.io/anchore/test-images/grype-quality-java-log4j-two-jars",
+	"npm":  "ghcr.io/anchore/test-images/grype-quality-npm-babel",
+}
+
+// e2eImage is a fixture image as the gates refer to it: <repo>:<short digest>@<digest>, the
+// manifest digest as syft recorded it.
 func e2eImage(name string) ref.Ref {
 	var sbom struct {
 		Source struct {
@@ -91,7 +100,8 @@ func e2eImage(name string) ref.Ref {
 	if err != nil {
 		panic(err)
 	}
-	r, err := ref.Parse("oci:docker.io/anchore/yardstick-fixture-" + name + "@" + sbom.Source.Metadata.ManifestDigest)
+	digest := sbom.Source.Metadata.ManifestDigest
+	r, err := ref.Parse("oci:" + e2eRepos[name] + ":" + strings.TrimPrefix(digest, "sha256:")[:7] + "@" + digest)
 	if err != nil {
 		panic(err)
 	}
@@ -151,7 +161,8 @@ func dropped(image string, drop []string) ([]byte, error) {
 
 // recordAgent records a gate's checked-in agent material through the yardstick CLI, as the skills
 // do. The files name rows as "<subject> <vulnerability> <package name> [<location>]", since row ids
-// are derived from the scan; they are resolved here.
+// are derived from the scan; they are resolved here. A subject is named as the UI shows it: the
+// image's repository base and tag, e.g. grype-quality-npm-babel:8e253b5.
 func recordAgent(gate, dir string, env []string, bin string) error {
 	rec, err := runrecord.Load(runrecord.DefaultName, gate)
 	if err != nil {
@@ -163,7 +174,8 @@ func recordAgent(gate, dir string, env []string, bin string) error {
 	}
 	ids := map[string]string{}
 	for id, r := range rows {
-		short := r.Subject.Name + " " + r.Match.Vulnerability + " " + r.Match.Package.Name
+		subject := path.Base(strings.SplitN(r.Subject.Name, "@", 2)[0])
+		short := subject + " " + r.Match.Vulnerability + " " + r.Match.Package.Name
 		// one package in two places (java's two jars) is told apart by its location
 		ids[short+" "+r.Match.Location] = id
 		if _, taken := ids[short]; taken {

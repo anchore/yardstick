@@ -7,9 +7,17 @@ The workspace `make e2e` serves (`testkit.E2E`, started by `testkit/seed`). Ever
 - `gates/deb-java.yaml`, `gates/deb-npm.yaml`: real gate files, copied from here
 - `claims/`: vocabulary, catalog, the labels below, and the SBOMs of the three images (written from `internal/fixture/testdata`, real syft output)
 - `tools/`: one stub grype per setup in `setups.yaml`. A stub prints the fixture grype output (v0.120.1, real grype) with the listed matches left out. It is not a grype, so the DB search the report does to explain a change fails and every change reads `unexplained`
-- `.yardstick/{proposals,causes,explanations}.jsonl`: recorded through `yardstick claims agent propose`, `propose-cause` and `agent explain propose` from `agent/<gate>/*.jsonl`. Those files name rows as `<subject> <vulnerability> <package name> [<location>]` and the seed resolves them to ids
+- `.yardstick/{proposals,causes,explanations}.jsonl`: recorded through `yardstick claims agent propose`, `propose-cause` and `agent explain propose` from `agent/<gate>/*.jsonl`. Those files name rows as `<subject> <vulnerability> <package name> [<location>]`, the subject by its UI name, and the seed resolves them to ids
 
-Images, as the gates refer to them (manifest digests from the SBOMs): `deb` (235 matches), `java` (14, log4j-core in two jars), `npm` (1).
+Images, as the gates refer to them: plain refs with no `name:`, so the UI calls each by its repository base and tag (`subjectName`), and `?image=` uses that with `:` as `-`. The digest is the fixture image's manifest digest from its SBOM, and the tag is its first 7 hex characters. Below, `deb`, `java` and `npm` are short for these:
+
+| short | ref | UI name | matches |
+|---|---|---|---|
+| deb | `oci:ghcr.io/anchore/test-images/vulnerabilities-debian-12-tar-util-linux:617d48d@sha256:617d48dd...` | `vulnerabilities-debian-12-tar-util-linux:617d48d` | 235 |
+| java | `oci:ghcr.io/anchore/test-images/grype-quality-java-log4j-two-jars:e363e44@sha256:e363e444...` | `grype-quality-java-log4j-two-jars:e363e44` | 14, log4j-core in two jars |
+| npm | `oci:ghcr.io/anchore/test-images/grype-quality-npm-babel:8e253b5@sha256:8e253b5f...` | `grype-quality-npm-babel:8e253b5` | 1 |
+
+The images are still the `yardstick-fixture-*` fixtures (the stub grype finds an image by that name inside its SBOM); only the refs the gates use look like real test images.
 
 Setups (`setups.yaml`, matches each stub leaves out, per image):
 
@@ -29,9 +37,9 @@ Written with `yardstick claims add` (author `e2e`), checked in under `claims/`:
 | file | package | vulnerability | verdict | justification |
 |---|---|---|---|---|
 | `claims/global/deb.json` | `pkg:deb/debian/libgnutls30` | CVE-2011-3389 | fp (global) | fix-installed |
-| `claims/pkg/oci/docker.io/anchore/yardstick-fixture-deb/sha256-617d48dd2601779266746a9a382bfb9f3fee2744fba698733b320366f41718b0/deb.json` | `pkg:deb/debian/libc6` | CVE-2026-5450 | tp | no-fix |
+| `claims/pkg/oci/ghcr.io/anchore/test-images/vulnerabilities-debian-12-tar-util-linux/sha256-617d48dd2601779266746a9a382bfb9f3fee2744fba698733b320366f41718b0/deb.json` | `pkg:deb/debian/libc6` | CVE-2026-5450 | tp | no-fix |
 | same file | `pkg:deb/debian/tar` | CVE-2026-5704 | fp | fix-installed, note "fixed in the installed 1.34+dfsg-1.2+deb12u1 build" |
-| `claims/pkg/oci/docker.io/anchore/yardstick-fixture-java/sha256-e363e4447342edd5320a67f79c6980a1ab26f5a9af3e9fdee5bf14e86b2a4c65/java-archive.json` | `pkg:maven/org.apache.logging.log4j/log4j-core` | GHSA-vc5p-v9hr-52mj | unclear | not-assessed, note "needs a look at the JNDI lookup config" |
+| `claims/pkg/oci/ghcr.io/anchore/test-images/grype-quality-java-log4j-two-jars/sha256-e363e4447342edd5320a67f79c6980a1ab26f5a9af3e9fdee5bf14e86b2a4c65/java-archive.json` | `pkg:maven/org.apache.logging.log4j/log4j-core` | GHSA-vc5p-v9hr-52mj | unclear | not-assessed, note "needs a look at the JNDI lookup config" |
 
 The two fp labels sit on dropped changes, so those are judged and not open. libc6 is on a match both setups report (it makes the deb subject score). The unclear label sits on the two vc5p rows, and **unclear does not judge a row**: both stay open.
 
@@ -54,18 +62,18 @@ Open rows (all `unlabeled` unless noted). Image is the subject, direction is fro
 
 | row | image | package | vulnerability | direction | hint | cause | explanation |
 |---|---|---|---|---|---|---|---|
-| `f6c84232c44b2e7c` | deb | tar 1.34+dfsg-1.2+deb12u1 | CVE-2005-2541 | dropped | fp fix-installed | | |
-| `f9df921776ca876d` | deb | tar | CVE-2026-18508 | dropped | none | | |
-| `2817af9158bb4920` | deb | util-linux 2.38.1-5+deb12u3 | CVE-2026-3184 | added | | yes | yes |
-| `7686e908f573f7b7` | deb | libblkid1 | CVE-2026-3184 | added | | yes | yes |
-| `f3639433e8dd7e25` | deb | libmount1 | CVE-2026-3184 | added | | yes | yes |
-| `497821ed48240b13` | deb | mount | CVE-2026-3184 | added | | yes | yes |
-| `92028af2aa075929` | java | log4j-core 2.14.1, `/opt/app-a/lib/log4j-core-2.14.1.jar` | GHSA-jfh8-c2jp-5v3q (group CVE-2021-44228) | added | tp no-fix | | |
-| `db296d8425f164e0` | java | log4j-core 2.14.1, `/opt/app-b/lib/log4j-core-2.14.1.jar` | GHSA-jfh8-c2jp-5v3q | added | tp no-fix | | |
-| `95d913cf49b90d65` | java | log4j-core, app-a jar | GHSA-vc5p-v9hr-52mj (group CVE-2025-68161), verdict `unclear` | added | tp no-fix | | |
-| `b5049885e0df8561` | java | log4j-core, app-b jar | GHSA-vc5p-v9hr-52mj, verdict `unclear` | added | tp no-fix | | |
+| `0fe9fc814bcd060a` | deb | tar 1.34+dfsg-1.2+deb12u1 | CVE-2005-2541 | dropped | fp fix-installed | | |
+| `e3bfd3b0b0c30ee6` | deb | tar | CVE-2026-18508 | dropped | none | | |
+| `9f5eb52729c83cc1` | deb | util-linux 2.38.1-5+deb12u3 | CVE-2026-3184 | added | | yes | yes |
+| `d2572e8f87a44f74` | deb | libblkid1 | CVE-2026-3184 | added | | yes | yes |
+| `781d813b74ed9e10` | deb | libmount1 | CVE-2026-3184 | added | | yes | yes |
+| `12fab8dbf4fcf9e8` | deb | mount | CVE-2026-3184 | added | | yes | yes |
+| `e1af7851f0e60bb4` | java | log4j-core 2.14.1, `/opt/app-a/lib/log4j-core-2.14.1.jar` | GHSA-jfh8-c2jp-5v3q (group CVE-2021-44228) | added | tp no-fix | | |
+| `783bbb63489d81a6` | java | log4j-core 2.14.1, `/opt/app-b/lib/log4j-core-2.14.1.jar` | GHSA-jfh8-c2jp-5v3q | added | tp no-fix | | |
+| `42c45bf99e4f741b` | java | log4j-core, app-a jar | GHSA-vc5p-v9hr-52mj (group CVE-2025-68161), verdict `unclear` | added | tp no-fix | | |
+| `a88b3bd584c62516` | java | log4j-core, app-b jar | GHSA-vc5p-v9hr-52mj, verdict `unclear` | added | tp no-fix | | |
 
-Not open, deltas already labeled fp: `3bee1b307603c2cf` (libgnutls30 CVE-2011-3389, the global label) and `77c75cc959067818` (tar CVE-2026-5704).
+Not open, deltas already labeled fp: `c54934489d4ac861` (libgnutls30 CVE-2011-3389, the global label) and `6d210210168e93db` (tar CVE-2026-5704).
 
 Agent material:
 
@@ -78,11 +86,11 @@ Labels that flip deb-java to PASS. Accepting hints and the cause does most of it
 
 | action | rows | verdict |
 |---|---|---|
-| accept the tar hint, or label by hand | `f6c84232c44b2e7c` | fp, fix-installed |
-| label by hand (no hint) | `f9df921776ca876d` | fp, fix-installed |
+| accept the tar hint, or label by hand | `0fe9fc814bcd060a` | fp, fix-installed |
+| label by hand (no hint) | `e3bfd3b0b0c30ee6` | fp, fix-installed |
 | accept the cause for all 4 members, or label each | the 4 util-linux rows | tp, no-fix |
-| accept the log4j hint (or label) | `92028af2aa075929`, `db296d8425f164e0` | tp, no-fix |
-| accept the vc5p hint (or label), replacing the unclear | `95d913cf49b90d65`, `b5049885e0df8561` | tp, no-fix |
+| accept the log4j hint (or label) | `e1af7851f0e60bb4`, `783bbb63489d81a6` | tp, no-fix |
+| accept the vc5p hint (or label), replacing the unclear | `42c45bf99e4f741b`, `a88b3bd584c62516` | tp, no-fix |
 
 The outcome moves as the labels land (measured with `claims add` in this order, and the same through the UI). A subject with no tp or fp label at all fails the three checks that read labels (f1NotWorse, noNewFalseNegatives, noNewFalsePositives) with "no tp or fp label applies to this subject", and java has none until its first tp lands:
 
@@ -102,20 +110,20 @@ Subjects `deb` and `npm`. One check, `unjudgedChangesAtMost` (max 1), undecided 
 
 | row | image | package | vulnerability | hint |
 |---|---|---|---|---|
-| `f6c84232c44b2e7c` | deb | tar | CVE-2005-2541 | fp fix-installed (medium) |
-| `e49d34ea0fd16e94` | deb | gzip 1.12-1 | CVE-2026-41992 | fp fix-installed (medium) |
-| `d19a1ab46b67fd84` | npm | @babel/traverse 7.22.0 (`/app/node_modules/@babel/traverse/package.json`) | GHSA-67hx-6x53-jw92 (group CVE-2023-45133) | none |
+| `0fe9fc814bcd060a` | deb | tar | CVE-2005-2541 | fp fix-installed (medium) |
+| `5e50fe5b2007001a` | deb | gzip 1.12-1 | CVE-2026-41992 | fp fix-installed (medium) |
+| `24160b879ac36bf5` | npm | @babel/traverse 7.22.0 (`/app/node_modules/@babel/traverse/package.json`) | GHSA-67hx-6x53-jw92 (group CVE-2023-45133) | none |
 
 No cause or explanation. The tar row is the same row as in deb-java (same id), so labeling it in either gate moves the other: once it is labeled, deb has 1 open and npm 1, and deb-npm is **pass**. That is the cross-gate effect. Verified by labeling the two tar rows and the rest of deb-java: deb-npm reports pass with 2 rows still open (gzip, babel).
 
 ## Cross-gate page (`/ui/map/gates/`)
 
-`GET /api/gates/shared` lists both gates (deb-npm: undecided, open 3; deb-java: fail, open 10) and 10 findings. The tar CVE-2005-2541 finding is in both gates (rows `deb-npm` and `deb-java`, both `f6c84232c44b2e7c`, dropped) with the fp hint. Each other finding is in one gate: gzip CVE-2026-41992 (deb-npm), GHSA-jfh8-c2jp-5v3q and GHSA-vc5p-v9hr-52mj (deb-java, two rows each), GHSA-67hx-6x53-jw92 (deb-npm), tar CVE-2026-18508 (deb-java), and CVE-2026-3184 on util-linux as four findings (deb-java, one row each).
+`GET /api/gates/shared` lists both gates (deb-npm: undecided, open 3; deb-java: fail, open 10) and 10 findings. The tar CVE-2005-2541 finding is in both gates (rows `deb-npm` and `deb-java`, both `0fe9fc814bcd060a`, dropped) with the fp hint. Each other finding is in one gate: gzip CVE-2026-41992 (deb-npm), GHSA-jfh8-c2jp-5v3q and GHSA-vc5p-v9hr-52mj (deb-java, two rows each), GHSA-67hx-6x53-jw92 (deb-npm), tar CVE-2026-18508 (deb-java), and CVE-2026-3184 on util-linux as four findings (deb-java, one row each).
 
 ## Notes for the test writer
 
 - every test starts from this workspace: the seed's `POST /__e2e/reset` (called by the shared fixture in `web/e2e/fixtures.ts`) puts the seeded files back and starts a fresh server. Tests run on one worker, since there is one server. Labeling deb-java through is also what settles deb-npm (pass)
-- labels land in the files above; `smoke.spec.ts` reads the deb image's `deb.json`, not `claims/global/deb.json`
+- labels land in the files above, with `subject.image` as the gate wrote the ref (tag included); `smoke.spec.ts` reads the deb image's `deb.json`, not `claims/global/deb.json`
 - the first group the board opens is the log4j one (GHSA ids), so do not assume a `CVE-` id
 - a board group's key carries its tier (`p|<tier>|<dir>|<pkg>`), and the tier moves as labels land, so select a group by `data-package` (and `data-hinted`) after the first label; deb-java starts with log4j in tier 0, tar CVE-2005-2541 in 2, util-linux (the cause) and tar CVE-2026-18508 in 3
 - the gates are listed newest scan first, and two scans across a minute boundary swap, so open a gate by its URL rather than `/`

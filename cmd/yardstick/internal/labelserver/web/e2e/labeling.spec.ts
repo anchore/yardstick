@@ -1,5 +1,5 @@
 import { expect, test } from "./fixtures";
-import { causeGroup, labelsOf, openGate, openGroup, pick, rows, tarGroup, verdictButton } from "./helpers";
+import { causeGroup, images, labelsOf, openGate, openGroup, pick, rows, tarGroup, verdictButton } from "./helpers";
 
 // the four util-linux rows are the group to walk: several rows, no labels, no hand-made state
 async function openUtilLinux(page: import("@playwright/test").Page) {
@@ -19,7 +19,7 @@ test.describe("a label from the tile", () => {
 
     await expect.poll(() => labelsOf("CVE-2026-3184").length).toBe(1);
     const [l] = labelsOf("CVE-2026-3184");
-    expect(l).toMatchObject({ subject: "deb", verdict: "tp" });
+    expect(l).toMatchObject({ subject: images.deb.name, verdict: "tp" });
     await expect(page.getByTestId("receipt")).toBeVisible();
     await expect(page.getByTestId("receipt")).toHaveAttribute("data-moved", "true");
     // the tile is on the next unlabeled match, which is another row of the group
@@ -138,6 +138,6 @@ test.describe("a label from the tile", () => {
     await expect(page.getByTestId("hint-card")).toHaveAttribute("data-status", "none");
     await pick(page, "fp:fix-installed");
     await expect.poll(() => labelsOf("CVE-2026-18508").length).toBe(1);
-    expect(labelsOf("CVE-2026-18508")[0]).toMatchObject({ subject: "deb", package: "pkg:deb/debian/tar", verdict: "fp", justification: "fix-installed" });
+    expect(labelsOf("CVE-2026-18508")[0]).toMatchObject({ subject: images.deb.name, package: "pkg:deb/debian/tar", verdict: "fp", justification: "fix-installed" });
   });
 });

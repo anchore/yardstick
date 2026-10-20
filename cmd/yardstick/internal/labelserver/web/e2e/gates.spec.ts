@@ -1,5 +1,5 @@
 import { expect, test } from "./fixtures";
-import { gatesPage, labelsOf, rows } from "./helpers";
+import { gatesPage, images, labelsOf, rows } from "./helpers";
 import type { Page } from "@playwright/test";
 
 const card = (page: Page, gate: string) => page.locator(`[data-testid=gate-card][data-gate=${gate}]`);
@@ -51,7 +51,7 @@ test.describe("every gate", () => {
     await expect(page.locator("[data-testid=finding-group][data-package=util-linux]")).toHaveAttribute("data-count", "4");
 
     // the tar finding that is in both gates comes first: it is the one that flips deb-npm
-    const tar = fgroup(page, "p:deb|tar");
+    const tar = fgroup(page, `p:${images.deb.name}|tar`);
     await expect(tar).toHaveAttribute("data-count", "2");
     await expect(tar.locator("[data-testid=gate-chip][data-gate=deb-java]")).toHaveAttribute("data-bears", "2");
     await expect(tar.locator("[data-testid=gate-chip][data-gate=deb-npm]")).toHaveAttribute("data-bears", "1");
@@ -60,14 +60,15 @@ test.describe("every gate", () => {
 
   test("an open group shows its findings with what a label would do to each gate", async ({ page }) => {
     await openGates(page);
-    const tar = fgroup(page, "p:deb|tar");
+    const tar = fgroup(page, `p:${images.deb.name}|tar`);
     await tar.getByTestId("group-head").click();
     await expect(tar).toHaveAttribute("data-open", "true");
     await expect(tar.getByTestId("finding")).toHaveCount(2);
 
-    const shared = finding(page, rows.tarDropped, "deb-java");
+    // the row is in both gates with one id; the finding carries whichever gate ran last, so find it by row
+    const shared = finding(page, rows.tarDropped);
     await expect(shared).toHaveAttribute("data-vulnerability", "CVE-2005-2541");
-    await expect(shared).toHaveAttribute("data-image", "deb");
+    await expect(shared).toHaveAttribute("data-image", images.deb.name);
     await expect(shared.getByTestId("hint-chip")).toHaveAttribute("data-verdict", "fp");
     // labeling it ends deb-npm either way, and does nothing to deb-java
     const npm = shared.locator("[data-testid=gate-effect][data-gate=deb-npm]");
@@ -102,12 +103,12 @@ test.describe("every gate", () => {
 test.describe("labeling from every gate", () => {
   test("accepting the tar hint labels it and decides deb-npm without touching deb-java's outcome", async ({ page }) => {
     await openGates(page);
-    const tar = fgroup(page, "p:deb|tar");
+    const tar = fgroup(page, `p:${images.deb.name}|tar`);
     await tar.getByTestId("group-head").click();
-    await finding(page, rows.tarDropped, "deb-java").getByTestId("accept-button").click();
+    await finding(page, rows.tarDropped).getByTestId("accept-button").click();
 
     await expect.poll(() => labelsOf("CVE-2005-2541").length).toBe(1);
-    expect(labelsOf("CVE-2005-2541")[0]).toMatchObject({ subject: "deb", package: "pkg:deb/debian/tar", verdict: "fp", justification: "fix-installed" });
+    expect(labelsOf("CVE-2005-2541")[0]).toMatchObject({ subject: images.deb.name, package: "pkg:deb/debian/tar", verdict: "fp", justification: "fix-installed" });
     // deb has gzip left and npm has babel, one each, which is what deb-npm allows
     await expect(card(page, "deb-npm")).toHaveAttribute("data-state", "pass");
     await expect(card(page, "deb-java")).toHaveAttribute("data-open", "9");
@@ -120,12 +121,12 @@ test.describe("labeling from every gate", () => {
     await cause.getByTestId("group-head").click();
     await finding(page, rows.utilLinux[0]).getByTestId("label-button").click();
     await expect.poll(() => labelsOf("CVE-2026-3184").length).toBe(1);
-    expect(labelsOf("CVE-2026-3184")[0]).toMatchObject({ subject: "deb", verdict: "tp" });
+    expect(labelsOf("CVE-2026-3184")[0]).toMatchObject({ subject: images.deb.name, verdict: "tp" });
   });
 
   test("FP with a reason on a group labels all its findings", async ({ page }) => {
     await openGates(page);
-    const tar = fgroup(page, "p:deb|tar");
+    const tar = fgroup(page, `p:${images.deb.name}|tar`);
     await tar.getByTestId("group-head").click();
     await tar.locator("[data-testid=actions][data-scope=group] [data-testid=label-select][data-verdict=fp]").selectOption({ value: "fix-installed" });
     await expect.poll(() => labelsOf("CVE-2026-18508").length).toBe(1);
@@ -138,7 +139,7 @@ test.describe("labeling from every gate", () => {
     const cause = page.locator("[data-testid=finding-group][data-package=util-linux]");
     await cause.locator("[data-testid=actions][data-scope=group] [data-testid=label-button]").click();
     await expect.poll(() => labelsOf("CVE-2026-3184").length).toBe(4);
-    for (const l of labelsOf("CVE-2026-3184")) expect(l).toMatchObject({ subject: "deb", verdict: "tp" });
+    for (const l of labelsOf("CVE-2026-3184")) expect(l).toMatchObject({ subject: images.deb.name, verdict: "tp" });
     await expect(card(page, "deb-java")).toHaveAttribute("data-open", "6");
   });
 });

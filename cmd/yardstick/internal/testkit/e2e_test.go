@@ -120,17 +120,19 @@ func TestE2EWorkspace(t *testing.T) {
 	if a.Gate.Result.Outcome != "fail" || !maps.Equal(checks, wantChecks) {
 		t.Errorf("deb-java: %s %v", a.Gate.Result.Outcome, checks)
 	}
+	// the UI names a subject by its repository's base and tag
+	const deb, java, npm = "vulnerabilities-debian-12-tar-util-linux:617d48d ", "grype-quality-java-log4j-two-jars:e363e44 ", "grype-quality-npm-babel:8e253b5 "
 	wantA := []string{
-		"deb added CVE-2026-3184 libblkid1 cause",
-		"deb added CVE-2026-3184 libmount1 cause",
-		"deb added CVE-2026-3184 mount cause",
-		"deb added CVE-2026-3184 util-linux cause",
-		"deb dropped CVE-2005-2541 tar hint:fp",
-		"deb dropped CVE-2026-18508 tar",
-		"java added GHSA-jfh8-c2jp-5v3q log4j-core hint:tp",
-		"java added GHSA-jfh8-c2jp-5v3q log4j-core hint:tp",
-		"java added GHSA-vc5p-v9hr-52mj log4j-core unclear hint:tp",
-		"java added GHSA-vc5p-v9hr-52mj log4j-core unclear hint:tp",
+		java + "added GHSA-jfh8-c2jp-5v3q log4j-core hint:tp",
+		java + "added GHSA-jfh8-c2jp-5v3q log4j-core hint:tp",
+		java + "added GHSA-vc5p-v9hr-52mj log4j-core unclear hint:tp",
+		java + "added GHSA-vc5p-v9hr-52mj log4j-core unclear hint:tp",
+		deb + "added CVE-2026-3184 libblkid1 cause",
+		deb + "added CVE-2026-3184 libmount1 cause",
+		deb + "added CVE-2026-3184 mount cause",
+		deb + "added CVE-2026-3184 util-linux cause",
+		deb + "dropped CVE-2005-2541 tar hint:fp",
+		deb + "dropped CVE-2026-18508 tar",
 	}
 	if got := a.open(); !slices.Equal(got, wantA) {
 		t.Errorf("deb-java open:\n%s\nwant:\n%s", strings.Join(got, "\n"), strings.Join(wantA, "\n"))
@@ -141,7 +143,7 @@ func TestE2EWorkspace(t *testing.T) {
 
 	var b state
 	get(t, h, "/api/gates/deb-npm/state", &b)
-	wantB := []string{"deb dropped CVE-2005-2541 tar hint:fp", "deb dropped CVE-2026-41992 gzip hint:fp", "npm dropped GHSA-67hx-6x53-jw92 traverse"}
+	wantB := []string{npm + "dropped GHSA-67hx-6x53-jw92 traverse", deb + "dropped CVE-2005-2541 tar hint:fp", deb + "dropped CVE-2026-41992 gzip hint:fp"}
 	if got := b.open(); b.Gate.Result.Outcome != "undecided" || !slices.Equal(got, wantB) {
 		t.Errorf("deb-npm: %s\n%s", b.Gate.Result.Outcome, strings.Join(got, "\n"))
 	}
@@ -157,14 +159,14 @@ func TestE2EWorkspace(t *testing.T) {
 		}
 	}
 	for _, v := range []string{"CVE-2005-2541", "CVE-2026-18508"} {
-		add("deb-java", "deb", "pkg:deb/debian/tar", v, "fp", "fix-installed")
+		add("deb-java", e2eImage("deb").String(), "pkg:deb/debian/tar", v, "fp", "fix-installed")
 	}
 	for _, p := range []string{"util-linux", "libblkid1", "libmount1", "mount"} {
-		add("deb-java", "deb", "pkg:deb/debian/"+p, "CVE-2026-3184", "tp", "no-fix")
+		add("deb-java", e2eImage("deb").String(), "pkg:deb/debian/"+p, "CVE-2026-3184", "tp", "no-fix")
 	}
 	const log4j = "pkg:maven/org.apache.logging.log4j/log4j-core"
-	add("deb-java", "java", log4j, "GHSA-jfh8-c2jp-5v3q", "tp", "no-fix")
-	add("deb-java", "java", log4j, "GHSA-vc5p-v9hr-52mj", "tp", "no-fix")
+	add("deb-java", e2eImage("java").String(), log4j, "GHSA-jfh8-c2jp-5v3q", "tp", "no-fix")
+	add("deb-java", e2eImage("java").String(), log4j, "GHSA-vc5p-v9hr-52mj", "tp", "no-fix")
 
 	get(t, h, "/api/gates/deb-java/state", &a)
 	if a.Gate.Result.Outcome != "pass" || len(a.open()) != 0 {

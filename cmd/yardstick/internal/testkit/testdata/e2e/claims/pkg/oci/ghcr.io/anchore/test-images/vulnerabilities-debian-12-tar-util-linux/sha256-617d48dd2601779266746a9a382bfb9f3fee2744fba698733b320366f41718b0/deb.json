@@ -1,7 +1,7 @@
 {
   "schema": "1.0.0",
   "subject": {
-    "image": "docker.io/anchore/yardstick-fixture-deb@sha256:617d48dd2601779266746a9a382bfb9f3fee2744fba698733b320366f41718b0"
+    "image": "ghcr.io/anchore/test-images/vulnerabilities-debian-12-tar-util-linux:617d48d@sha256:617d48dd2601779266746a9a382bfb9f3fee2744fba698733b320366f41718b0"
   },
   "labels": [
     {

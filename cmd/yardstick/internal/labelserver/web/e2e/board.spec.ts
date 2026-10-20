@@ -1,5 +1,5 @@
 import { expect, test } from "./fixtures";
-import { causeGroup, check, group, openGate } from "./helpers";
+import { causeGroup, check, group, imageTile, openGate } from "./helpers";
 
 test.describe("deb-java", () => {
   test.beforeEach(async ({ page }) => openGate(page, "deb-java"));
@@ -23,11 +23,11 @@ test.describe("deb-java", () => {
     await expect(page.getByTestId("image-all")).toHaveAttribute("data-active", "true");
     await expect(page.getByTestId("image")).toHaveCount(2);
     // open leaves out the unclear rows, which have their own mark
-    const deb = page.locator("[data-testid=image][data-subject=deb]");
+    const deb = imageTile(page, "deb");
     await expect(deb).toHaveAttribute("data-index", "0");
     await expect(deb).toHaveAttribute("data-diffs", "8");
     await expect(deb).toHaveAttribute("data-open", "6");
-    const java = page.locator("[data-testid=image][data-subject=java]");
+    const java = imageTile(page, "java");
     await expect(java).toHaveAttribute("data-index", "1");
     await expect(java).toHaveAttribute("data-diffs", "4");
     await expect(java).toHaveAttribute("data-open", "2");
@@ -96,10 +96,10 @@ test.describe("deb-npm", () => {
   });
 
   test("shows the deb and npm images", async ({ page }) => {
-    const deb = page.locator("[data-testid=image][data-subject=deb]");
+    const deb = imageTile(page, "deb");
     await expect(deb).toHaveAttribute("data-diffs", "2");
     await expect(deb).toHaveAttribute("data-open", "2");
-    const npm = page.locator("[data-testid=image][data-subject=npm]");
+    const npm = imageTile(page, "npm");
     await expect(npm).toHaveAttribute("data-diffs", "1");
     await expect(npm).toHaveAttribute("data-open", "1");
   });
