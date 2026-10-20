@@ -25,8 +25,9 @@ import (
 
 // DefaultCommand runs the plugin's research-vuln skill headless, on the configured model
 // ($YARDSTICK_MODEL). Values are passed in the environment (see Job.env), never interpolated into
-// the command, so a crafted path or ID can't inject shell.
-const DefaultCommand = `claude -p "/yardstick:research-vuln row:$YARDSTICK_ROW $YARDSTICK_ROOT" --model "${YARDSTICK_MODEL:-sonnet}" --allowedTools "Bash,Read,Write,Edit,Grep,Glob,WebFetch,WebSearch"`
+// the command, so a crafted path or ID can't inject shell. The JSON output ends in the result line
+// the job's Usage is read from.
+const DefaultCommand = `claude -p "/yardstick:research-vuln row:$YARDSTICK_ROW $YARDSTICK_ROOT" --model "${YARDSTICK_MODEL:-sonnet}" --allowedTools "Bash,Read,Write,Edit,Grep,Glob,WebFetch,WebSearch" --output-format json`
 
 // DefaultModel is the model research runs on unless configured otherwise: a name or alias the
 // command understands (for claude, "sonnet", "opus", "haiku" or a full model ID).
@@ -65,8 +66,10 @@ type Job struct {
 	Gate          string   `json:"gate,omitempty"` // the gate whose scans the rows belong to
 	Run           string   `json:"run,omitempty"`  // the run name the gate was scanned under
 	Source        string   `json:"source,omitempty"`
-	// Model is the model the job runs on (Config.Model when it was queued).
-	Model    string    `json:"model,omitempty"`
+	// Model is the model the job runs on (Request.Model, else Config.Model when it was queued).
+	Model string `json:"model,omitempty"`
+	// Batch is the id shared by the jobs one start of many created, empty for a job started alone.
+	Batch    string    `json:"batch,omitempty"`
 	Status   Status    `json:"status"`
 	Error    string    `json:"error,omitempty"`
 	Command  string    `json:"command"`
@@ -82,6 +85,8 @@ type Job struct {
 	// in it was still alive after the command exited (e.g. a sandbox refused to signal the agent),
 	// so a person can stop it; Error says how.
 	SurvivingGroup int `json:"survivingGroup,omitempty"`
+	// Usage is what the run cost, from the result line the command printed last; nil when it printed none.
+	Usage *Usage `json:"usage,omitempty"`
 }
 
 // Config is how research runs.
@@ -140,6 +145,8 @@ type Request struct {
 	Package       string
 	Gate          string // the gate whose scans the rows belong to
 	Source        string // where a person started it
+	Model         string // overrides Config.Model when set; see CheckModel
+	Batch         string
 }
 
 // Start queues a job and returns at once; the job runs when a slot is free and stops when ctx ends.
@@ -147,6 +154,11 @@ type Request struct {
 func (r *Runner) Start(ctx context.Context, req Request) (Job, error) {
 	if len(req.Rows) == 0 {
 		return Job{}, errors.New("nothing to research")
+	}
+	if req.Model != "" {
+		if err := CheckModel(req.Model); err != nil {
+			return Job{}, err
+		}
 	}
 	id := req.Rows[0]
 	r.mu.Lock()
@@ -163,7 +175,8 @@ func (r *Runner) Start(ctx context.Context, req Request) (Job, error) {
 		Gate:          req.Gate,
 		Run:           r.cfg.Run,
 		Source:        req.Source,
-		Model:         r.cfg.Model,
+		Model:         cmp.Or(req.Model, r.cfg.Model),
+		Batch:         req.Batch,
 		Status:        Queued,
 		Command:       r.cfg.Command,
 		Dir:           r.cfg.Dir,
@@ -235,6 +248,11 @@ func (r *Runner) Concurrency() int {
 	return r.cfg.Concurrency
 }
 
+// Model is the model jobs run on unless a request names another.
+func (r *Runner) Model() string {
+	return r.cfg.Model
+}
+
 // Wait blocks until every job this runner started has finished.
 func (r *Runner) Wait() {
 	r.wg.Wait()
@@ -285,6 +303,7 @@ func (r *Runner) run(ctx context.Context, job *Job) {
 
 func (r *Runner) finish(job *Job, s Status, err error) {
 	job.Status, job.Finished = s, time.Now().UTC()
+	job.Usage = readUsage(r.LogPath(job.ID))
 	if s == Done {
 		job.LastDone = job.Finished
 	}
