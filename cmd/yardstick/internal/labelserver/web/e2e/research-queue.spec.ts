@@ -44,7 +44,7 @@ test.describe("labeling by hand never waits on research", () => {
     await expect(research).not.toHaveAttribute("data-variant", /.+/);
     await expect(page.getByTestId("label-left")).toBeVisible();
     await expect(page.getByTestId("label-left")).toHaveAttribute("data-variant", "outline");
-    await expect(page.getByTestId("review-hints")).toHaveAttribute("data-variant", "outline");
+    await expect(page.getByTestId("review-hints")).toBeHidden();
     await expect(page.getByTestId("research-price")).toHaveText("about $0.92");
     await expect(page.getByTestId("research-summary")).toHaveText("4 jobs · about 2 min · about 1.3M tokens");
     // each gate prices the jobs researched under it
@@ -88,6 +88,7 @@ test.describe("labeling by hand never waits on research", () => {
     await page.goto(gatesPage);
     await expect(banner(page)).toHaveAttribute("data-research", "running");
     await expect(page.getByTestId("label-left")).not.toHaveAttribute("data-variant", /.+/);
+    await expect(page.getByTestId("review-hints")).toBeHidden();
     await page.getByTestId("label-left").click();
     await expect(page).toHaveURL(/\/ui\/queue\/[0-9a-f]{16}/);
   });

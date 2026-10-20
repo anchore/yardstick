@@ -167,15 +167,15 @@ test.describe("the work banner", () => {
     await expect(page.getByTestId("rail-review-all")).toHaveText("Review all 1 hint");
   });
 
-  test("once every hint is accepted research of the row deb-java waits on leads, Label what's left stays, and h opens an empty review", async ({ page }) => {
+  test("once every hint is accepted research of the row deb-java waits on leads, Label what's left stays, review is gone and h opens an empty review", async ({ page }) => {
     await openReview(page);
     await box(page, "GHSA-vc5p-v9hr-52mj").check();
     await accept(page).click();
     await expect(page.getByTestId("hints-empty")).toBeVisible();
 
     await page.goto(gatesPage);
-    await expect(page.getByTestId("review-hints")).toContainText("Review 0 hints");
-    await expect(page.getByTestId("review-hints")).toHaveAttribute("data-variant", "outline");
+    await expect(page.getByTestId("work-banner")).toHaveAttribute("data-research", "offered");
+    await expect(page.getByTestId("review-hints")).toBeHidden();
     // tar CVE-2026-18508 now decides deb-java and has no hint: researching it is the primary
     await expect(page.getByTestId("research-rows")).not.toHaveAttribute("data-variant", /.+/);
     await expect(page.getByTestId("label-left")).toHaveAttribute("data-variant", "outline");

@@ -1,10 +1,11 @@
 // banner.ts is the gates page's work banner: how much is open across gates, how much an agent has
 // hinted, what accepting every hint would do to each gate (one preview per gate), and the ways in:
-// review the hints, research the open rows no agent has looked at, or label what's left. Whichever
-// fits is the screen's one primary button (the title row has none here). While a research batch
-// runs, the banner is its progress. It also fills each gate row's hint column.
+// review the hints (only while some are pending), research the open rows no agent has looked at, or
+// label what's left. Whichever fits is the screen's one primary button (the title row has none here).
+// While a research batch runs, the banner is its progress. It also fills each gate row's hint column.
 //
-// Labeling by hand never waits on research: "Label what's left" is here in every state.
+// Labeling by hand never waits on research: "Label what's left" is here in every state. With no hint
+// pending, h still opens hint review, which says there is nothing to review.
 import type { GateList, ResearchBatch, ResearchGroup, ResearchQueueResponse } from "../gen/wire";
 import * as api from "../shared/api";
 import { el, fill, toast } from "../shared/dom";
@@ -65,6 +66,7 @@ export function workBanner(list: GateList): Work {
     fill(bar, n.hinted > 0 && el("i", { class: "hinted", style: `flex:${n.hinted}` }), n.needYou > 0 && el("i", { class: "you", style: `flex:${n.needYou}` }));
     fill(legend, el("span", { class: "hinted" }, "hinted, ready to review"), el("span", { class: "you" }, "no hint"));
     cancel.hidden = true;
+    review.hidden = !pending;
     const change = group(plan, "change"), offer = change?.jobs.length ? change : group(plan, "none");
     research.hidden = !offer?.jobs.length;
     const first = !pending && !!change?.jobs.length;
@@ -101,6 +103,7 @@ export function workBanner(list: GateList): Work {
       b.queued > 0 && el("i", { class: "queued", style: `flex:${b.queued}` }));
     fill(legend, el("span", { class: "done" }, "done"), el("span", { class: "running" }, "running"), el("span", { class: "queued" }, "queued"));
     research.hidden = true;
+    review.hidden = !pending;
     primary(pending ? review : left);
     cancel.hidden = false;
     fill(cancel, `Cancel ${plural(act, "job")}`);

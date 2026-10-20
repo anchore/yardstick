@@ -72,7 +72,7 @@ Routes (`route.ts`): `/ui/gates/` (level 0, `?tab=unlabeled|labels`), `/ui/gates
 | `work-stack` | the hinted / no hint bar | |
 | `work-outcome` | one gate if every hint were accepted (its preview) | `data-gate`, `data-before`, `data-after` |
 | `work-foot` | what each gate not passing still waits on | |
-| `review-hints`, `label-left` | "Review N hints" (`h`) and "Label what's left" (`n`); review is primary while hints are pending. `label-left` is there in every state | |
+| `review-hints`, `label-left` | "Review N hints" (`h`) and "Label what's left" (`n`); review is there and primary while hints are pending, and hidden when none are (`h` still opens an empty review). `label-left` is there in every state | |
 | `research-rows` | "Research N matches…" (`r`), a link to `/ui/research`; primary with no hint pending and matches that can change a gate, else ghost with its price; hidden while a batch runs or with nothing to research | `data-rows`, `hidden` |
 | `research-price`, `research-summary` | with research primary, the other column's price ("about $0.92") and "N jobs · about 2 min · about 1.3M tokens" | |
 | `research-done`, `research-spent`, `research-left` | while a batch runs: jobs done, spent so far, time left | |
