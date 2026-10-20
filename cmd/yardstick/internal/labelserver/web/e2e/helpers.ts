@@ -110,3 +110,39 @@ export async function label(page: Page, key: "t" | "f" | "u", reason?: string) {
   if (reason) await page.getByTestId("reason-picker").selectOption(reason);
   await page.getByTestId("save-label").click();
 }
+
+// screenText is what a write can change on a screen: the title row, the tab counts, the verdict bar,
+// the rail's counts, the label panel and the table rows
+const screenText = (page: Page) => page.evaluate(() => {
+  const text = (s: string) => [...document.querySelectorAll<HTMLElement>(s)].map((e) => e.innerText.replace(/\s+/g, " ").trim());
+  return {
+    title: text("[data-testid=title-row]"), tabs: text("[data-testid=tabs] [role=tab]"), verdicts: text("[data-testid=verdict-bar]"),
+    rail: text("[data-testid=rail-image]"), panel: text("[data-testid=label-panel]"), rows: text("tbody tr[data-id]"),
+  };
+});
+
+// expectFreshLoad expects the screen, refreshed in place after a write, to show what a fresh
+// navigation to its URL shows, so a region the refresh missed fails here whatever the screen
+export async function expectFreshLoad(page: Page) {
+  const fresh = await page.context().newPage();
+  await fresh.goto(page.url(), { waitUntil: "networkidle" });
+  const want = await screenText(fresh);
+  await fresh.close();
+  await expect.poll(() => screenText(page), { message: "the screen matches a fresh load of its URL" }).toEqual(want);
+}
+
+// keeps marks an element before a write and starts watching for a loading frame; the check it
+// returns expects the very same element still on screen, not a copy, and no loading frame shown
+export async function keeps(page: Page, kept: Locator) {
+  await kept.evaluate((e) => { (window as unknown as { kept: Element }).kept = e; });
+  await page.evaluate(() => {
+    const w = window as unknown as { flashed: boolean };
+    w.flashed = false;
+    new MutationObserver(() => { if (document.querySelector("[data-testid=loading]")) w.flashed = true; })
+      .observe(document.body, { childList: true, subtree: true });
+  });
+  return async () => {
+    expect(await page.evaluate(() => (window as unknown as { flashed: boolean }).flashed), "a loading frame showed").toBe(false);
+    expect(await kept.evaluate((e) => e === (window as unknown as { kept: Element }).kept), "the same element is on screen").toBe(true);
+  };
+}
