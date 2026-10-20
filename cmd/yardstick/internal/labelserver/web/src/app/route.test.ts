@@ -41,6 +41,14 @@ describe("formatRoute", () => {
   test("the labeling flow's screens sit beside /ui/gates/", () => {
     expect(routes.slice(-4).map(formatRoute)).toEqual(["/ui/hints", "/ui/queue", "/ui/queue/e1af7851f0e60bb4?image=core", "/ui/history"]);
   });
+  test("history's since rides the query: all or a time, anything else is the server start", () => {
+    for (const since of ["all", "2026-10-20T09:30:00.000Z"]) {
+      const h: Route = { level: "history", filters: { verdict: "fp", since } };
+      expect(parse(formatRoute(h))).toEqual(h);
+    }
+    expect(formatRoute({ level: "history", filters: { since: "all" } })).toBe("/ui/history?since=all");
+    expect(parse("/ui/history?since=yesterday")).toEqual({ level: "history", filters: {} });
+  });
   test("a queue keeps its scope, check and low in the query; all is the default", () => {
     const q: Route = { level: "queue", row: "e3bfd3b0b0c30ee6", scope: "gate:deb-java", check: "f1NotWorse", low: true, filters: {} };
     expect(formatRoute(q)).toBe("/ui/queue/e3bfd3b0b0c30ee6?scope=gate%3Adeb-java&check=f1NotWorse&low=1");

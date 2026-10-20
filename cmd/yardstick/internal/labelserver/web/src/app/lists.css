@@ -46,6 +46,9 @@
 .gchip { font-size: 12px; padding: 0 6px; border: 1px solid var(--border); border-radius: 6px; white-space: nowrap; }
 .gchip .o { color: var(--muted-foreground); }
 .titlerow .meter { width: 200px; }
+/* history's since control and its in-page confirm before removing more than one label */
+.filters .since-time { width: auto; height: 32px; font-size: 13px; }
+.confirm { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; padding: 8px 16px; border: 1px solid var(--fail); border-radius: 10px; background: color-mix(in oklab, var(--fail) 8%, var(--card)); font-size: 13.5px; }
 
 /* ---------- the scan map ---------- */
 

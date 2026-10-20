@@ -11,7 +11,8 @@
 // /ui/hints, /ui/history                              the labeling flow's screens
 // /ui/queue[/<row>]?scope=&check=&low=                the queue, one open row at a time (queue.ts)
 //
-// Filters ride in the query string on every level: image (slug), verdict, hint, pkg, q, page.
+// Filters ride in the query string on every level: image (slug), verdict, hint, pkg, q, page, and
+// history's since.
 
 export const base = "/ui/gates/";
 
@@ -30,6 +31,7 @@ export interface Filters {
   pkg?: string;            // a source package, as the scan map's blocks name it
   q?: string;              // free-text search
   page?: number;           // 1-based, left out on page 1
+  since?: string;          // history: "all" or an RFC 3339 time; left out for since the server started
 }
 
 export type Route =
@@ -55,19 +57,21 @@ function query(f: Filters, extra: [string, string][] = []): string {
   if (f.pkg) p.set("pkg", f.pkg);
   if (f.q) p.set("q", f.q);
   if (f.page && f.page > 1) p.set("page", String(f.page));
+  if (f.since) p.set("since", f.since);
   const s = p.toString();
   return s ? `?${s}` : "";
 }
 
 function parseFilters(p: URLSearchParams): Filters {
   const f: Filters = {};
-  const image = p.get("image"), verdict = p.get("verdict"), hint = p.get("hint"), pkg = p.get("pkg"), q = p.get("q"), page = Number(p.get("page"));
+  const image = p.get("image"), verdict = p.get("verdict"), hint = p.get("hint"), pkg = p.get("pkg"), q = p.get("q"), page = Number(p.get("page")), since = p.get("since");
   if (image) f.image = image;
   if (verdict && (verdicts as readonly string[]).includes(verdict)) f.verdict = verdict as VerdictFilter;
   if (hint) f.hint = hint;
   if (pkg) f.pkg = pkg;
   if (q) f.q = q;
   if (Number.isInteger(page) && page > 1) f.page = page;
+  if (since === "all" || (since && !Number.isNaN(Date.parse(since)))) f.since = since;
   return f;
 }
 
