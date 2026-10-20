@@ -221,6 +221,9 @@ test.describe("cards", () => {
     await expect(left.and(page.locator(`[data-row="${rows.gzip}"]`))).toHaveCount(1);
     await expect(left.and(page.locator(`[data-row="${rows.babel}"]`))).toHaveCount(1);
     await expect(card(page)).toContainText("The 2 matches left change no outcome; label them or stop here.");
+    // or research them first: babel has no hint, gzip's is pending
+    await expect(card(page).getByTestId("scoped-research").locator("small")).toHaveText("the 1 left, 1 job");
+    await expect(card(page).getByTestId("scoped-research")).toHaveAttribute("href", "/ui/research?groups=none");
 
     await page.keyboard.press("Enter");
     await onFinding(page, rows.gzip);

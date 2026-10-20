@@ -8,7 +8,7 @@ Select with `getByTestId("<testid>")`, narrow with the `data-*` identity attribu
 - Table rows are `tbody tr[data-id]` inside the table's testid; `data-id` is the row id (16 hex), or a made-up key for a row with no finding page.
 - Pick one instance by its identity attribute: `page.locator('[data-testid=check-row][data-check=f1NotWorse]')`.
 
-Routes (`route.ts`): `/ui/gates/` (level 0, `?tab=unlabeled|labels`), `/ui/gates/<gate>/` and `findings` / `labels` / `map` (level 1), `/ui/gates/<gate>/checks/<check>` (level 2), and a finding at `/ui/gates/<gate>/checks/<check>/<row>` or `/ui/gates/<gate>/findings/<row>` (level 3). Filters ride in the query: `image` (slug), `verdict`, `hint`, `pkg`, `q`, `page`. The labeling flow's screens sit beside them: hint review at `/ui/hints?gate=&image=&low=1`, research at `/ui/research?scope=all|gate:<g>|image:<slug>`, the queue at `/ui/queue` and `/ui/queue/<row>` (`?scope=all|gate:<g>|image:<slug>`, `check`, `low=1`), and `/ui/history` (`?verdict=`, `q`, `page`, `since=all|<RFC 3339 time>`, left out for since the server started). `h` on any screen opens hint review for the gate and image on screen; `r` on the gates screen opens research; `n` enters the queue for the screen's scope.
+Routes (`route.ts`): `/ui/gates/` (level 0, `?tab=unlabeled|labels`), `/ui/gates/<gate>/` and `findings` / `labels` / `map` (level 1), `/ui/gates/<gate>/checks/<check>` (level 2), and a finding at `/ui/gates/<gate>/checks/<check>/<row>` or `/ui/gates/<gate>/findings/<row>` (level 3). Filters ride in the query: `image` (slug), `verdict`, `hint`, `pkg`, `q`, `page`. The labeling flow's screens sit beside them: hint review at `/ui/hints?gate=&image=&low=1`, research at `/ui/research?scope=all|gate:<g>|image:<slug>` (`check`, `rows` comma-separated, `groups` comma-separated) and its jobs at `/ui/research/jobs`, the queue at `/ui/queue` and `/ui/queue/<row>` (`?scope=all|gate:<g>|image:<slug>`, `check`, `low=1`), and `/ui/history` (`?verdict=`, `q`, `page`, `since=all|<RFC 3339 time>`, left out for since the server started). `h` on any screen opens hint review for the gate and image on screen; `r` on the gates, gate and check screens opens research scoped as `n` is; `n` enters the queue for the screen's scope.
 
 ## Shell (every screen)
 
@@ -19,6 +19,7 @@ Routes (`route.ts`): `/ui/gates/` (level 0, `?tab=unlabeled|labels`), `/ui/gates
 | `gate-switch`, `gate-switch-button` | the gate crumb's switcher and its ▾ trigger; the menu is filled as it opens | |
 | `gate-option` | one gate in the switcher, a link to the same level there | `data-gate`, `data-state`, `data-open` (unlabeled and unclear rows), `aria-current` on this gate |
 | `goto-button` | "Go to…" in the app bar, which opens the palette like `⌘K` / `ctrl+K` | |
+| `activity` | the research chip in the app bar: "2 researching · 13 queued" (a link to the jobs page) or "✦ N new hints" (a link to hint review) | `data-state` `busy` or `hints`, `hidden` with neither |
 | `settings`, `settings-button` | the settings cog at the app bar's right end (Basecoat's popover) and its trigger, named "Settings" | `aria-expanded` on the button |
 | `settings-panel` | the open popover; keys pressed in it stay in it, and `Esc` closes it | `aria-hidden` while closed |
 | `advance-toggle`, `advance-checkbox` | the "Go to the next match" row and its switch (a checkbox with `role="switch"`); off, Save says "Save" and stays on the match, in the queue too | `checked` |
@@ -27,7 +28,7 @@ Routes (`route.ts`): `/ui/gates/` (level 0, `?tab=unlabeled|labels`), `/ui/gates
 | `theme-option` | System, Light or Dark | `value` (`system`, `light`, `dark`), `checked` |
 | `palette` | the go-to palette (Basecoat's command), visible while open | |
 | `palette-input` | its search box | |
-| `palette-item` | one entry, a link | `data-group` (`Gates`, `Images`, `Checks`, `Findings`, `Actions`), `data-id` (gate, image ref, `<gate>/<check>`, row id, or `hints` / `queue` / `research` / `history`) |
+| `palette-item` | one entry, a link | `data-group` (`Gates`, `Images`, `Checks`, `Findings`, `Actions`), `data-id` (gate, image ref, `<gate>/<check>`, row id, or `hints` / `queue` / `research` / `history` / `jobs`, and `research-gate` on a gate, check or finding, `research-check` on a check) |
 | `palette-more` | how many more findings match than are shown | |
 | `title-row` | the title line | |
 | `title` | the screen's `h1` | |
@@ -37,6 +38,7 @@ Routes (`route.ts`): `/ui/gates/` (level 0, `?tab=unlabeled|labels`), `/ui/gates
 | `outcome` | what a changed row does to the candidate: a table cell's pill, the unlabeled tab's question (a gate chip's when its gates disagree), a hint's by line | text `fixed FN`, `new FP`, `new FN`, `fixed FP`, `new FP?` or `new FN?`; `data-outcome` `good`, `bad` or `open` |
 | `tabs` | the screen's tabs (levels 0 and 1); each tab is `role=tab` | `aria-selected`, `data-tab` |
 | `scope-chip` | "image: …" beside the tabs while an image is picked | `hidden` without one |
+| `scoped-research` | the two-line Research on a gate, a check, hint review's panel and the queue's stopping point: "Research" over what it covers (the `small`), its price; a link to the research page, hidden while nothing in scope qualifies | `href`, `data-rows`, `data-group` (`change`, `none` or `all`) |
 | `label-next` | the primary "Label next" button (a link, or disabled when nothing is open); on the gates screen only on the Unlabeled and Labels tabs, since the Gates tab's work banner carries the primary action | |
 | `loading`, `load-error` | the body while loading, or when it failed | |
 | `placeholder` | the body of a screen with nothing to show: an unknown URL, a finding that isn't there, a queue row that isn't open | |
@@ -81,8 +83,9 @@ Routes (`route.ts`): `/ui/gates/` (level 0, `?tab=unlabeled|labels`), `/ui/gates
 | `research-done`, `research-spent`, `research-left` | while a batch runs: jobs done, spent so far, time left | |
 | `research-so-far` | one verdict's hints the batch has left | `data-verdict` |
 | `research-cancel` | "Cancel N jobs" while a batch runs | |
-| `gate-research` | in a gate row's `gate-work`, "research ~$X" for the jobs that can change a gate researched under it | |
-| `unlabeled-table` | the Unlabeled tab: open findings across gates | rows keyed by finding |
+| `gate-research` | in a gate row's `gate-work`, "research ~$X" for the jobs that can change a gate researched under it, a link to research scoped to the gate | `href` |
+| `work-jobs` | "View jobs" in the banner's foot while a batch runs | |
+| `unlabeled-table` | the Unlabeled tab: open findings across gates, with the findings tables' `research-cell` and bulk Research | rows keyed by finding |
 | `labels-table` | the Labels tab (and the gate's) | |
 
 ## Hint review (`/ui/hints`)
@@ -100,6 +103,8 @@ Routes (`route.ts`): `/ui/gates/` (level 0, `?tab=unlabeled|labels`), `/ui/gates
 | `impact-gate` | a gate the selection touches | `data-gate`, `data-before`, `data-after` |
 | `impact-check` | one of its checks | `data-check`, `data-before`, `data-after` |
 | `impact-left`, `impact-left-item` | what stays open after the selection | |
+| `impact-left-job` | on a still-open row with a job in flight, "researching 0:41" or "queued 3rd of 13" | `data-state` `running` or `queued` |
+| `hints-on-the-way`, `hints-jobs` | "N more on the way" over the hints while research is in flight, and its "View jobs" | `hidden` with nothing in flight |
 | `accept-hints` | "Accept N hints on M matches" | `data-hints`, `data-rows`, `disabled` with none |
 | `hints-empty` | the body when no hint is pending in scope | |
 
@@ -108,6 +113,8 @@ Routes (`route.ts`): `/ui/gates/` (level 0, `?tab=unlabeled|labels`), `/ui/gates
 | testid | where | attributes |
 |---|---|---|
 | `research-gate-chip` | a scope chip in the title row, a link; "All gates" first | `data-gate` (empty for all), `aria-pressed` |
+| `research-check-chip`, `research-rows-chip` | "check: f1NotWorse" with `check=`, "N selected matches" with `rows=`; each × clears it | |
+| `research-toggle` | "Open matches / Jobs N", here and on the jobs page; each is a link | each one's `data-tab` (`matches`, `jobs`) and `aria-pressed` |
 | `research-group` | a group of jobs by effect | `data-group` = change / none, `hidden` with no jobs |
 | `research-group-toggle` | its checkbox; change starts checked, none unchecked | |
 | `research-job` | one job: vulnerability, package, image, matches, price | `data-gate` (researched under), `data-row` (the row it starts from) |
@@ -123,6 +130,21 @@ Routes (`route.ts`): `/ui/gates/` (level 0, `?tab=unlabeled|labels`), `/ui/gates
 | `research-basis` | where the per-job numbers come from | |
 
 `label-left` is in the title row here too.
+
+## Research jobs (`/ui/research/jobs`)
+
+| testid | where | attributes |
+|---|---|---|
+| `jobs-summary` | the work in flight, or with none what has finished | `data-active` |
+| `jobs-running`, `jobs-queued`, `jobs-finished`, `jobs-spent`, `jobs-left` | its numbers | |
+| `jobs-cancel-all` | "Cancel N running and queued" | |
+| `jobs-review` | "Review N new hints", while jobs have left hints nobody has accepted | |
+| `jobs-list` | the list | |
+| `jobs-group` | a group's heading | `data-group` = running / queued / finished |
+| `job-row` | one job; `id` is `job-<id>`, which a cell's link names in its hash, and the row it names is marked | `data-job`, `data-state` (the job's status), `data-group` |
+| `job-log`, `job-cancel`, `job-retry`, `job-review` | its log, Cancel (queued or running), Retry (failed or cancelled), and the finding its hint is on | |
+| `jobs-more` | "show all" in a group cut short | |
+| `jobs-empty` | the body with no jobs | |
 
 ## Gate (level 1)
 
@@ -150,9 +172,12 @@ Routes (`route.ts`): `/ui/gates/` (level 0, `?tab=unlabeled|labels`), `/ui/gates
 | `group-by` | the "Group by" select | |
 | `bulk-bar` | the bar over a table while rows are checked | |
 | `bulk-accept` | "Accept hints (N)" | `disabled` with no hint selected |
+| `bulk-research`, `bulk-research-why` | "Research N · ~$X" (an ellipsis when over 10 jobs opens the research page), and the line under the buttons on what it skips | `data-rows`, `data-jobs`, `disabled` with nothing to research |
+| `research-cell` | the Agent hint cell when it says what research is doing: a link to the job while queued or running, a button for an open row nobody has looked at | `data-state` = running / queued / failed / nohint / offer |
+| `research-retry` | retry in a failed cell | |
 | `label-as` | the "Label as…" select, option values `<verdict>:<justification>` | |
 
-Filter chips are buttons with `data-chip` (`all`, `unlabeled`, `tp`, `fp`, `unclear`, `hint`) and `aria-pressed`; the count is the `b` inside.
+Filter chips are buttons with `data-chip` (`all`, `unlabeled`, `tp`, `fp`, `unclear`, `hint`, and `researching` only while a row in view has a job on it) and `aria-pressed`; the count is the `b` inside.
 
 ## Finding (level 3)
 
@@ -189,7 +214,8 @@ Filter chips are buttons with `data-chip` (`all`, `unlabeled`, `tp`, `fp`, `uncl
 | `note-input` | the note; Enter saves | |
 | `save-label` | "Save and next", or "Save" with the cog's `advance-checkbox` off | |
 | `skip-button` | Skip (`j`) | |
-| `research-foot`, `research-button`, `research-status` | research (`R`) | `research-button` has `data-researched`; `research-status` has `data-state` |
+| `research-foot`, `research-button`, `research-status` | research (`R`) | `research-button` has `data-researched`; `research-status` has `data-state` (the job's status), and while queued or running reads as the table cell does |
+| `research-job-link`, `research-cancel-row` | while a job is queued or running, "view job" and Cancel | |
 | `research-price`, `research-shares` | on the button, one job's price ("~$0.23") when measured; under it, "One job, about a minute, shared with …" naming the sibling packages | |
 
 ## Component kit (`/ui/gates/_kit`)
@@ -215,6 +241,7 @@ The finding page in queue mode: every Finding testid above is there too, except 
 | `card-continue` | Continue to the next gate, or Keep labeling (`⏎`) | |
 | `card-back`, `card-history` | Back to the gate or gates, and See the labels | |
 | `card-left` | the stopping point's list of rows left, one `li` each | `li[data-row]` |
+| `scoped-research` | on the stopping point, "Research the N left, M jobs" | `href` |
 | `card-session` | the end card's line on the labels written this session | |
 
 ## History (`/ui/history`)
