@@ -40,6 +40,11 @@ describe("match path", () => {
     // the same search and record line up undiffed; the distro check and the result differ
     const diffs = (side: string) => ls.find((l) => l.side === side)!.steps.filter((x) => x.diff).map((x) => x.k);
     expect(diffs("candidate")).toEqual(["distro", "result"]);
+    expect(diffs("reference")).toEqual(["distro", "result"]);
+    // the lanes diverge at the distro check: marked on both, the result after it only differs
+    const causes = (side: string) => ls.find((l) => l.side === side)!.steps.filter((x) => x.cause).map((x) => x.k);
+    expect(causes("candidate")).toEqual(["distro"]);
+    expect(causes("reference")).toEqual(["distro"]);
     // a grype that reported no distro for the image says so, rather than why it didn't apply the record
     const noDistro = { ...nak, reference: { ...nak.reference, distro: undefined } };
     expect(steps(noDistro, "reference", undefined, rel, setups).find((x) => x.k === "distro")).toMatchObject({ sub: "no distro detected",
@@ -63,6 +68,9 @@ describe("match path", () => {
     expect(steps(fix, "candidate", undefined, null).map((x) => x.k)).toEqual(["package", "searched", "record", "result"]);
     expect(steps(fix, "reference", undefined, null).map((x) => x.k)).toEqual(["package", "via", "searched", "record", "result"]);
     const absent: Row = { ...nak, why: { key: "record/absent-in-candidate" }, candidateStatus: "not-in-db", candidateRecords: [] };
+    // the lanes diverge at the first step that differs, whatever the reason
+    const absentLanes = lanes(absent as Row, undefined, null);
+    expect(absentLanes.map((l) => l.steps.filter((x) => x.cause).map((x) => x.k))).toEqual([["searched"], ["searched"]]);
     expect(steps(absent, "candidate", undefined, null).map((x) => x.t)).toEqual(["glibc-2.42 2.42-r4", "every namespace", "no record", "no match"]);
   });
   test("each of the other DB's records says how it relates to the row", () => {

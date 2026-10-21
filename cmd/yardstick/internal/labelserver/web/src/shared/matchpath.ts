@@ -18,7 +18,9 @@ interface SearchedBy { namespace?: string; cpes?: string[]; package?: { name?: s
 
 // Step is one cell of a lane: its text, a short subline, and the detail a click or Enter on the cell
 // shows in full
-export interface Step { k: string; t: string; sub?: string; title?: string; detail?: string; same?: boolean; ok?: boolean; miss?: boolean; diff?: boolean }
+// Diff marks a step the other lane lacks or has otherwise, and cause the first kind of step that differs:
+// where the lanes diverge. Neither says which lane is right; that is the labeler's call.
+export interface Step { k: string; t: string; sub?: string; title?: string; detail?: string; same?: boolean; diff?: boolean; cause?: boolean }
 
 // subFits is how long a subline can be and still fit its cell (11px mono in a 320px cell)
 export const subFits = 40;
@@ -45,7 +47,7 @@ export function steps(r: Row, side: Side, raw: GrypeMatch | undefined, rel: Rele
     const cons = fd.versionConstraint || (d.constraints || [])[0] || "";
     out.push({ k: "record", t: `${fd.vulnerabilityID || r.vulnerability}`, sub: `affected ${cons && cons !== "none" ? cons.replace(/\s*\((\w[\w-]*)\)$/, "") : "every version"}${d.fixState === "fixed" && d.fixVersions?.length ? ` · fixed in ${d.fixVersions[0]}` : d.fixState ? ` · ${d.fixState.replace(/-/g, " ")}` : ""}`, title: cons });
     if (r.why?.key === "record/distro-not-affected") out.push(notApplied(r, side, d, setups));
-    out.push({ k: "result", t: "matched", sub: (md?.type || (d.matchTypes || [])[0] || "").replace(/-match$/, ""), ok: true });
+    out.push({ k: "result", t: "matched", sub: (md?.type || (d.matchTypes || [])[0] || "").replace(/-match$/, "") });
     return out;
   }
   // no match on this side: where did it stop?
@@ -54,12 +56,12 @@ export function steps(r: Row, side: Side, raw: GrypeMatch | undefined, rel: Rele
   const other = side === "candidate" ? r.reference : r.candidate;
   const otherNs = other?.namespace;
   const mine = (recs || []).find((x) => sameRelease(x.namespace, rel)) || (recs || [])[0];
-  if (status === "rejected") { out.push({ k: "searched", t: nsHuman(otherNs), title: otherNs }, { k: "record", t: r.vulnerability, sub: "rejected", miss: true }, { k: "result", t: "no match", miss: true }); return out; }
-  if (status === "not-in-db" || /^record\/absent/.test(w)) { out.push({ k: "searched", t: "every namespace", sub: "all aliases" }, { k: "record", t: "no record", sub: `${r.vulnerability} is not in this DB`, miss: true }, { k: "result", t: "no match", miss: true }); return out; }
+  if (status === "rejected") { out.push({ k: "searched", t: nsHuman(otherNs), title: otherNs }, { k: "record", t: r.vulnerability, sub: "rejected" }, { k: "result", t: "no match" }); return out; }
+  if (status === "not-in-db" || /^record\/absent/.test(w)) { out.push({ k: "searched", t: "every namespace", sub: "all aliases" }, { k: "record", t: "no record", sub: `${r.vulnerability} is not in this DB` }, { k: "result", t: "no match" }); return out; }
   if (/^package\/absent/.test(w)) {
     out.push({ k: "searched", t: nsHuman(otherNs), title: otherNs, same: sameRelease(otherNs, rel) });
-    out.push({ k: "record", t: "no record for this package", sub: mine ? `the DB has it under ${nsHuman(mine.namespace)}` : `${r.vulnerability} is known, ${pk.name}${r.sourcePackage && r.sourcePackage !== pk.name ? ` / ${r.sourcePackage}` : ""} isn't listed`, miss: true, title: mine?.namespace });
-    out.push({ k: "result", t: "no match", miss: true });
+    out.push({ k: "record", t: "no record for this package", sub: mine ? `the DB has it under ${nsHuman(mine.namespace)}` : `${r.vulnerability} is known, ${pk.name}${r.sourcePackage && r.sourcePackage !== pk.name ? ` / ${r.sourcePackage}` : ""} isn't listed`, title: mine?.namespace });
+    out.push({ k: "result", t: "no match" });
     return out;
   }
   if (w === "record/distro-not-affected") {
@@ -78,9 +80,9 @@ export function steps(r: Row, side: Side, raw: GrypeMatch | undefined, rel: Rele
     }
     const pkg = nak?.package || pk.name;
     const grype = setups.grype?.[side] ? `grype ${setups.grype[side]}` : "its grype";
-    out.push({ k: "distro", t: `${distroName(ns)} records`, sub: "not affected (fixed in 0)", miss: true, diff: true,
+    out.push({ k: "distro", t: `${distroName(ns)} records`, sub: "not affected (fixed in 0)", diff: true,
       detail: `${ns} lists ${pkg} ${(nak?.constraints || ["< 0"]).join(" || ")}, fixed in 0: not affected, so ${grype} dropped the match` });
-    out.push({ k: "result", t: "dropped", sub: `${distroName(ns)} says not affected`, miss: true });
+    out.push({ k: "result", t: "dropped", sub: `${distroName(ns)} says not affected` });
     return out;
   }
   if (mine) {
@@ -88,10 +90,10 @@ export function steps(r: Row, side: Side, raw: GrypeMatch | undefined, rel: Rele
     const changed = /^(constraint|fix-state|namespace)\/changed$/.test(w);
     out.push({ k: "searched", t: nsHuman(mine.namespace), title: mine.namespace, same: sameRelease(mine.namespace, rel), diff: w === "namespace/changed" });
     out.push({ k: "record", t: mine.vulnerability || r.vulnerability, sub: `affected ${c && c !== "none" ? c.replace(/\s*\((\w[\w-]*)\)$/, "") : "every version"}${mine.fixVersions?.length ? ` · fixed in ${mine.fixVersions[0]}` : mine.fixStates?.length ? ` · ${mine.fixStates.join("/").replace(/-/g, " ")}` : ""}`, title: (mine.constraints || []).join(" || "), diff: changed });
-    out.push({ k: "result", t: "no match", sub: w === "record/same-but-unmatched" ? "same record: the matcher or its config differs" : changed ? "the record differs" : "", miss: true });
+    out.push({ k: "result", t: "no match", sub: w === "record/same-but-unmatched" ? "same record: the matcher or its config differs" : changed ? "the record differs" : "" });
     return out;
   }
-  out.push({ k: "result", t: "no match", sub: w === "unexplained" ? "unexplained by the match's data" : "", miss: true });
+  out.push({ k: "result", t: "no match", sub: w === "unexplained" ? "unexplained by the match's data" : "" });
   return out;
 }
 
@@ -124,13 +126,17 @@ export function lanes(r: Row, m: MatchesResponse | undefined, rel: Release | nul
     // the record's constraint and fix are part of what it is; a step's matcher or match type isn't
     if (!o || o.t !== s.t || (s.k === "record" && (o.sub || "") !== (s.sub || ""))) s.diff = true;
   }
+  // the first kind of step both lanes have and differ on, so the mark sits on both; else the first that differs
+  const both = (k: string) => out.every((l) => byKind(l, k)) && out.some((l) => byKind(l, k)?.diff);
+  const first = stepKinds.find(both) ?? stepKinds.find((k) => out.some((l) => byKind(l, k)?.diff));
+  for (const l of out) { const s = first && byKind(l, first); if (s) s.cause = true; }
   return out;
 }
 
 export function matchPath(r: Row, m: MatchesResponse | undefined, rel: Release | null, setups: Setups = {}) {
   const ls = lanes(r, m, rel, setups);
   const chip = (s: Step) => {
-    const n = el("span", { class: `step ${s.k}${s.diff ? " diff" : ""}${s.miss ? " miss" : ""}${s.ok ? " ok" : ""}${s.same ? " same" : ""}`, title: s.title || "" },
+    const n = el("span", { class: `step ${s.k}${s.diff ? " diff" : ""}${s.cause ? " cause" : ""}${s.same ? " same" : ""}`, title: s.title || "" },
       el("span", { class: "t" }, s.t), s.sub ? el("span", { class: "sub" }, s.sub) : null, s.same ? el("span", { class: "mine" }, "this image's release") : null);
     if (expandable(s)) opens(n, s.detail || s.sub || "");
     return n;
