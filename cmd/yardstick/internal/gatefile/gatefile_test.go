@@ -100,6 +100,19 @@ func TestLoadValid(t *testing.T) {
 	}
 }
 
+func TestLoadVulnerabilities(t *testing.T) {
+	g, err := load(t, validGate+"vulnerabilities:\n  maxYear: 2021\n  namespaces: [nvd:cpe, debian:distro:debian:12]\n")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if v := g.Vulnerabilities; v == nil || v.MaxYear != 2021 || strings.Join(v.Namespaces, ",") != "nvd:cpe,debian:distro:debian:12" {
+		t.Errorf("expected the filter as written, got %+v", v)
+	}
+	if g, err := load(t, validGate); err != nil || g.Vulnerabilities != nil {
+		t.Errorf("expected no filter by default, got %+v (%v)", g, err)
+	}
+}
+
 // each case changes one thing in a valid gate file and expects loading to fail with a message
 func TestLoadRefuses(t *testing.T) {
 	without := func(s, cut string) string { return strings.Replace(s, cut, "", 1) }
@@ -133,6 +146,11 @@ func TestLoadRefuses(t *testing.T) {
 		{"param above maximum", swap("  - name: noNewFalseNegatives", "  - name: unlabeledPercentAtMost\n    params: {max: 120}"), "at most 100"},
 		// undecided-policy
 		{"bad undecided", validGate + "undecided: maybe\n", "undecided must be fail or pass"},
+		// vulnerabilities
+		{"unknown vulnerabilities key", validGate + "vulnerabilities:\n  maxYears: 2021\n", `unknown key "vulnerabilities.maxYears" (line 14)`},
+		{"maxYear not a year", validGate + "vulnerabilities: {maxYear: 21}\n", "maxYear must be a four-digit year"},
+		{"maxYear not a number", validGate + "vulnerabilities: {maxYear: soon}\n", "cannot unmarshal"},
+		{"empty namespaces", validGate + "vulnerabilities: {namespaces: []}\n", "namespaces must list at least one"},
 		// subjects
 		{"tag without digest", swap("test_images@"+digest, "test_images:latest"), "pinned by digest"},
 		{"a purl literal", swap("oci:docker.io/anchore/test_images@"+digest, "pkg:deb/debian/libxml2@2.7.8"), "oci:<image>@sha256:<digest> or sbom:<path>"},
@@ -359,9 +377,11 @@ func TestFingerprint(t *testing.T) {
 		t.Fatal("expected the same file to fingerprint the same")
 	}
 	same := map[string]string{
-		"checks":      strings.Replace(validGate, "tolerance: 0.01", "tolerance: 0.05", 1),
-		"undecided":   validGate + "undecided: pass\n",
-		"description": strings.Replace(validGate, "quality images", "quality images, again", 1),
+		"checks":    strings.Replace(validGate, "tolerance: 0.01", "tolerance: 0.05", 1),
+		"undecided": validGate + "undecided: pass\n",
+		// filtered at scoring time, so the same scans are rescored
+		"vulnerabilities": validGate + "vulnerabilities: {maxYear: 2021}\n",
+		"description":     strings.Replace(validGate, "quality images", "quality images, again", 1),
 		// score checks these per subject, against the SBOM digest the run recorded
 		"catalog": validGate + "catalog: {syft: syft@v1.54.1}\n",
 		"claims":  strings.Replace(validGate, "  - ../claims\n", "  - github.com/anchore/delta-prototype@main\n", 1),

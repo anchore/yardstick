@@ -229,3 +229,32 @@ func TestLookupsExplainOneSidedRows(t *testing.T) {
 		t.Errorf("expected a vulnerability the reference DB lacks absent in the reference, got %q", got)
 	}
 }
+
+// the vulnerabilities filter is applied when scoring, so changing it rescores the same scans
+func TestVulnerabilitiesFilterRescores(t *testing.T) {
+	t.Chdir(t.TempDir())
+	g := gate(corpus(t, "", label("pkg:deb/debian/libc6", "CVE-2026-5450", claimsv1.TP)))
+	g.Checks = []gatefile.Check{{Name: analysis.MatchesAtLeast, Params: map[string]float64{"min": 1}}}
+	rec := scanned(t, g)
+	for _, tc := range []struct {
+		filter *gatefile.Vulnerabilities
+		want   analysis.State
+	}{
+		{nil, analysis.Pass},
+		{&gatefile.Vulnerabilities{Namespaces: []string{"debian:distro:debian:12"}}, analysis.Pass},
+		{&gatefile.Vulnerabilities{Namespaces: []string{"nvd:cpe"}}, analysis.Fail},
+		{&gatefile.Vulnerabilities{MaxYear: 2004}, analysis.Fail},
+	} {
+		g.Vulnerabilities = tc.filter
+		if g.Fingerprint() != rec.Gate.Fingerprint {
+			t.Fatalf("expected the filter to keep the fingerprint")
+		}
+		v, err := gateOf(t, g, rec)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if v.Outcome != tc.want {
+			t.Errorf("filter %+v: expected %s, got %s", tc.filter, tc.want, v.Outcome)
+		}
+	}
+}

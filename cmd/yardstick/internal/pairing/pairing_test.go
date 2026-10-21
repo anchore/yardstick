@@ -7,6 +7,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 
@@ -345,4 +346,69 @@ func TestVersionsCompareAsPurls(t *testing.T) {
 	if f, _ := purl.Label("pkg:rpm/rocky/openssl-libs@3.5.5-2.el9_8"); f.Matches(rpm) {
 		t.Error("expected a label without the epoch not to pair")
 	}
+}
+
+func TestIDYear(t *testing.T) {
+	for id, want := range map[string]int{
+		"CVE-2023-1234": 2023, "cve-2021-44228": 2021, "ALAS-2022-1234": 2022, "ELSA-2022-9359": 2022,
+		"ALASRUBY3.0-2023-003": 2023, "ALASSELINUX-NG-2023-001": 2023,
+		"CVE-1989-0001": 0, "CVE-20231-1": 0, "GHSA-jfh8-c2jp-5v3q": 0, "RHSA-2023:1234": 0, "CVE-2023": 0,
+	} {
+		if got := idYear(id); got != want {
+			t.Errorf("%s: expected %d, got %d", id, want, got)
+		}
+	}
+}
+
+func TestVulnerabilitiesFilter(t *testing.T) {
+	java := func() *models.Document { return scan(t, fixture.Grype("v0.120.1", "java")) }
+	filtered := func(f *gatefile.Vulnerabilities, candidate *models.Document, ls ...claims.Label) *Result {
+		a := NewAliases(isAdvisory)
+		reference := java()
+		a.AddScan(candidate)
+		a.AddScan(reference)
+		a.AddLabels(ls)
+		return Pair(a, Subject{Name: "s", Packages: packagesOf(t, sbomPath(t, "java")), Labels: ls,
+			Scans: map[string]*models.Document{Candidate: candidate, Reference: reference}, Vulnerabilities: f})
+	}
+	vulns := func(r *Result) []string {
+		var out []string
+		for _, m := range r.Matches {
+			out = append(out, m.Vulnerability)
+		}
+		return slices.Compact(slices.Sorted(slices.Values(out)))
+	}
+
+	t.Run("maxYear reads the related CVE of a GHSA", func(t *testing.T) {
+		r := filtered(&gatefile.Vulnerabilities{MaxYear: 2024}, java(),
+			label(log4j, "GHSA-jfh8-c2jp-5v3q", claimsv1.TP), // CVE-2021-44228
+			label(log4j, "GHSA-3pxv-7cmr-fjr4", claimsv1.TP), // CVE-2026-34480
+			label(log4j, "GHSA-aaaa-bbbb-cccc", claimsv1.TP), // no year and pairs nothing: kept
+			label(log4j, "CVE-2026-0001", claimsv1.TP))
+		if got := strings.Join(vulns(r), ","); got != "GHSA-7rjr-3q55-vv33,GHSA-8489-44mv-ggj8,GHSA-jfh8-c2jp-5v3q,GHSA-p6xc-xr62-6r2g" {
+			t.Errorf("expected the four 2021 vulnerabilities, got %s", got)
+		}
+		var labels []string
+		for _, b := range r.Labels {
+			labels = append(labels, b.Vulnerability)
+		}
+		if got := strings.Join(labels, ","); got != "GHSA-jfh8-c2jp-5v3q,GHSA-aaaa-bbbb-cccc" {
+			t.Errorf("expected the 2021 label and the one with no year, got %s", got)
+		}
+	})
+	t.Run("namespaces drop matches, not labels, and keep row indexes", func(t *testing.T) {
+		candidate := java()
+		candidate.Matches[0].Vulnerability.Namespace = "nvd:cpe"
+		candidate.Matches[1].Vulnerability.Namespace = "nvd:cpe"
+		r := filtered(&gatefile.Vulnerabilities{Namespaces: []string{"github:language:java"}}, candidate, label(log4j, "GHSA-jfh8-c2jp-5v3q", claimsv1.TP))
+		if b := bound(t, r, "GHSA-jfh8-c2jp-5v3q"); b.PairedIn(Candidate) || !b.PairedIn(Reference) {
+			t.Errorf("expected the label to pair only the reference's matches")
+		}
+		if m := find(t, r, "GHSA-7rjr-3q55-vv33", "log4j-core"); m.Rows[Candidate][0] < 2 {
+			t.Errorf("expected the candidate's row index into its scan, got %v", m.Rows[Candidate])
+		}
+		if r := filtered(&gatefile.Vulnerabilities{Namespaces: []string{"nvd:cpe"}}, java()); len(r.Matches) != 0 {
+			t.Errorf("expected no matches outside the namespace, got %d", len(r.Matches))
+		}
+	})
 }

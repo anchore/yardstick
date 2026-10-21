@@ -126,7 +126,8 @@ func Pair(run string, g *gatefile.Gate, rec *runrecord.Record, set *claims.Set) 
 
 	p := &Paired{Gate: g, Header: report.NewHeader(rec, set.Sources), Aliases: aliases}
 	for i, s := range rec.Subjects {
-		r := pairing.Pair(aliases, pairing.Subject{Name: s.Name, Packages: s.Packages, Filtered: len(s.KeepTypes) > 0, Labels: reads[i].labels.Labels, Scans: reads[i].scans})
+		r := pairing.Pair(aliases, pairing.Subject{Name: s.Name, Packages: s.Packages, Filtered: len(s.KeepTypes) > 0, Labels: reads[i].labels.Labels, Scans: reads[i].scans,
+			Vulnerabilities: g.Vulnerabilities})
 		warnings = append(warnings, r.Warnings...)
 		warnings = append(warnings, r.Skipped...)
 		for _, b := range r.Labels {

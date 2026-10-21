@@ -1,7 +1,8 @@
 // Package pairing binds labels to a subject and pairs them with what each setup reported. A label
 // pairs a match when their vulnerabilities share an alias group and every field the label's purl
 // states equals the match package's. Candidate and reference matches are one match when they are
-// on the same package and alias group. There is nothing to configure.
+// on the same package and alias group. The gate's vulnerabilities filter is the one thing to
+// configure: what it drops is never paired.
 package pairing
 
 import (
@@ -14,6 +15,7 @@ import (
 	"github.com/anchore/syft/syft/pkg"
 	"github.com/anchore/yardstick/cmd/yardstick/internal/claims"
 	claimsv1 "github.com/anchore/yardstick/cmd/yardstick/internal/claims/v1"
+	"github.com/anchore/yardstick/cmd/yardstick/internal/gatefile"
 	"github.com/anchore/yardstick/cmd/yardstick/internal/log"
 	"github.com/anchore/yardstick/cmd/yardstick/internal/purl"
 	"github.com/anchore/yardstick/cmd/yardstick/internal/subject"
@@ -118,6 +120,9 @@ type Subject struct {
 	Labels   []claims.Label
 	// Scans are each setup's grype output; a gate with no reference has no reference scan.
 	Scans map[string]*models.Document
+	// Vulnerabilities is the gate's filter, nil for none: the matches and labels it drops are left
+	// out, and a match keeps its rows' indexes into the scans.
+	Vulnerabilities *gatefile.Vulnerabilities
 }
 
 // Result is a subject's matches across both setups and the labels that apply to it.
@@ -131,18 +136,23 @@ type Result struct {
 
 	aliases *Aliases
 	pkgs    []purl.Fields
+	filter  *gatefile.Vulnerabilities
+	// years are each alias group's CVE year, from every reported match, for the filter
+	years   map[string]int
+	dropped int
 }
 
 // Pair binds the subject's labels and pairs them with both setups' matches. The aliases must
 // already hold every id of the gate's scans and labels.
 func Pair(a *Aliases, s Subject) *Result {
 	defer log.Timed("pairing %s", s.Name)()
-	r := &Result{aliases: a, Packages: s.Packages}
+	r := &Result{aliases: a, Packages: s.Packages, filter: s.Vulnerabilities, years: map[string]int{}}
 	for _, p := range s.Packages {
 		r.pkgs = append(r.pkgs, purl.Package(p.PURL, p.Version))
 	}
-	r.bind(s)
+	// matches first: a label with no year of its own takes its year from the matches
 	r.matches(s)
+	r.bind(s)
 	for _, m := range r.Matches {
 		r.pair(m)
 	}
@@ -167,7 +177,7 @@ func (r *Result) log(name string) {
 		}
 		log.Tracef("subject %s: label %s (%s) paired %d matches", name, b.Key(), b.Verdict, len(b.Matches))
 	}
-	log.Debugf("subject %s: %d matches, %d paired with a label, %d unlabeled; %d labels, %d not seen in its packages", name, len(r.Matches), paired, unlabeled, len(r.Labels), unseen)
+	log.Debugf("subject %s: %d matches, %d paired with a label, %d unlabeled; %d labels, %d not seen in its packages; the vulnerabilities filter dropped %d rows and labels", name, len(r.Matches), paired, unlabeled, len(r.Labels), unseen, r.dropped)
 }
 
 // bind decides which labels apply: a subject's own labels, except on a filtered subject where only
@@ -175,6 +185,10 @@ func (r *Result) log(name string) {
 func (r *Result) bind(s Subject) {
 	noPackage := 0
 	for _, l := range s.Labels {
+		if !r.keepsLabel(l.Vulnerability) {
+			r.dropped++
+			continue
+		}
 		b := &Bound{Label: l, Present: true}
 		if l.Package != "" {
 			f, err := purl.Label(l.Package)
@@ -216,6 +230,11 @@ func (r *Result) matches(s Subject) {
 			continue
 		}
 		for i, gm := range doc.Matches {
+			r.noteYears(gm)
+			if !r.keeps(gm) {
+				r.dropped++
+				continue
+			}
 			addresses := r.addresses(gm)
 			group := gm.Vulnerability.ID
 			if len(addresses) == 1 {

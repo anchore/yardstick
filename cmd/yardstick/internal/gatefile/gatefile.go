@@ -47,6 +47,8 @@ type Gate struct {
 	Subjects    []Subject `yaml:"-" json:"subjects"`
 	Checks      []Check   `yaml:"-" json:"checks"`
 	Undecided   string    `yaml:"undecided" json:"undecided"`
+	// Vulnerabilities narrows what is scored, nil for everything.
+	Vulnerabilities *Vulnerabilities `yaml:"vulnerabilities" json:"vulnerabilities,omitempty"`
 
 	Path   string `yaml:"-" json:"path"`   // the file, absolute
 	SHA256 string `yaml:"-" json:"sha256"` // of the file's bytes
@@ -58,6 +60,16 @@ type Setup struct {
 	DB     string            `yaml:"db" json:"db"`
 	Config string            `yaml:"config" json:"config,omitempty"`
 	Env    map[string]string `yaml:"env" json:"env,omitempty"`
+}
+
+// Vulnerabilities narrows which matches and labels are scored. It is applied at scoring time, so
+// changing it rescores the same scans.
+type Vulnerabilities struct {
+	// MaxYear drops matches and labels on a vulnerability from a later year; zero keeps every year.
+	MaxYear int `yaml:"maxYear" json:"maxYear,omitempty"`
+	// Namespaces keeps only matches from these grype namespaces; empty keeps every one. Labels are
+	// not filtered by namespace.
+	Namespaces []string `yaml:"namespaces" json:"namespaces,omitempty"`
 }
 
 // Catalog is how a missing image SBOM is built: syft pinned, its config, platform and env.
@@ -211,12 +223,13 @@ const keyName = "name"
 // the raw file: keys are checked against these before decoding, so an unknown key is named
 // with where it is, rather than with a Go type name
 var (
-	topKeys     = []string{"schema", keyName, "description", "candidate", "reference", "catalog", "claims", "subjects", "checks", "undecided"}
+	topKeys     = []string{"schema", keyName, "description", "candidate", "reference", "catalog", "claims", "subjects", "checks", "undecided", "vulnerabilities"}
 	setupKeys   = []string{"grype", "db", "config", "env"}
 	catalogKeys = []string{"syft", "config", "platform", "env"}
 	subjectKeys = []string{"ref", keyName, "platform", "packages"}
 	packageKeys = []string{"keepTypes"}
 	checkKeys   = []string{keyName, "params"}
+	vulnKeys    = []string{"maxYear", "namespaces"}
 )
 
 type rawGate struct {
@@ -276,6 +289,7 @@ func parse(data []byte, dir string, opts Options, errs *problems) *Gate {
 		errs.addf("candidate is required")
 	}
 	g.Catalog = catalog(doc.Content[0], g.Catalog, dir, errs)
+	g.Vulnerabilities = vulnerabilities(doc.Content[0], g.Vulnerabilities, errs)
 	g.Claims = claims(raw.Claims, opts, dir, errs)
 	g.Subjects = subjects(raw.Subjects, g.Catalog, dir, errs)
 	g.Checks = checks(raw.Checks, opts.Checks, g.Reference != nil, errs)
@@ -359,6 +373,27 @@ func catalog(top *yaml.Node, c *Catalog, dir string, errs *problems) *Catalog {
 	}
 	checkCatalog("catalog", n, c, dir, errs)
 	return c
+}
+
+func vulnerabilities(top *yaml.Node, v *Vulnerabilities, errs *problems) *Vulnerabilities {
+	n := child(top, "vulnerabilities")
+	if n == nil || v == nil {
+		return nil
+	}
+	checkKeysIn(n, "vulnerabilities", vulnKeys, errs)
+	// a year is read from an id only when it has four digits and is 1990 or later
+	if child(n, "maxYear") != nil && (v.MaxYear < 1990 || v.MaxYear > 9999) {
+		errs.addf("vulnerabilities.maxYear must be a four-digit year from 1990, got %d", v.MaxYear)
+	}
+	if child(n, "namespaces") != nil && len(v.Namespaces) == 0 {
+		errs.addf("vulnerabilities.namespaces must list at least one grype namespace, or be left out")
+	}
+	for _, ns := range v.Namespaces {
+		if ns == "" {
+			errs.addf("vulnerabilities.namespaces may not list an empty namespace")
+		}
+	}
+	return v
 }
 
 // ParseCatalog reads a corpus's catalog.yaml: the keys a gate's catalog: takes, with paths
@@ -742,7 +777,7 @@ func (g *Gate) HasReference() bool {
 }
 
 // Fingerprint identifies the gate's setups and subjects, but not its checks, undecided policy,
-// catalog or claims sources. The last two only decide which SBOM a subject resolves to, and score
+// vulnerabilities filter, catalog or claims sources. The last two only decide which SBOM a subject resolves to, and score
 // checks that per subject against the recorded digest, so another claims source rescores the
 // same scans.
 func (g *Gate) Fingerprint() string {

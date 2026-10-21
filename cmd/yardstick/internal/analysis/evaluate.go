@@ -148,16 +148,21 @@ func (e evaluator) evalCheck(c gatefile.Check) Check {
 		return e.gateCheck(c, res)
 	}
 	res.Threshold = threshold(c)
+	// the worst subject is the highest value, or for an at-least check the lowest
+	beyond := func(a, b float64) bool { return a > b }
+	if c.Name == MatchesAtLeast {
+		beyond = func(a, b float64) bool { return a < b }
+	}
 	first := true
 	for _, s := range e.subjects {
 		sc := e.subjectCheck(c, s)
 		res.Subjects = append(res.Subjects, sc)
 		res.State = worse(res.State, sc.State)
 		res.FailsOn = append(res.FailsOn, sc.FailsOn...)
-		if first || sc.Value.Worst > res.Value.Worst {
+		if first || beyond(sc.Value.Worst, res.Value.Worst) {
 			res.Value.Worst = sc.Value.Worst
 		}
-		if first || sc.Value.Best > res.Value.Best {
+		if first || beyond(sc.Value.Best, res.Value.Best) {
 			res.Value.Best = sc.Value.Best
 		}
 		first = false
@@ -166,7 +171,7 @@ func (e evaluator) evalCheck(c gatefile.Check) Check {
 }
 
 func threshold(c gatefile.Check) float64 {
-	for _, k := range []string{"tolerance", paramMax} {
+	for _, k := range []string{"tolerance", paramMax, paramMin} {
 		if v, ok := c.Params[k]; ok {
 			return v
 		}
@@ -359,10 +364,19 @@ func (e evaluator) subjectCheck(c gatefile.Check, s Subject) SubjectCheck {
 					values[x] = 100 * float64(e.unlabeledIn(r, pairing.Candidate)) / float64(n)
 				}
 			}
+		case MatchesAtLeast:
+			// labels do not move a count of matches, so both cases are the same
+			values[x] = float64(e.matchesIn(r, pairing.Candidate))
 		}
 	}
 	sc.Value = Value{Worst: values[worstCase], Best: values[bestCase]}
 	sc.State = decide(sc.Value, threshold(c))
+	if c.Name == MatchesAtLeast {
+		sc.State = Pass
+		if sc.Value.Worst < c.Params[paramMin] {
+			sc.State = Fail
+		}
+	}
 	sc.FailsOn, sc.Rows = e.rows(c, r)
 	return sc
 }
@@ -402,6 +416,16 @@ func (e evaluator) unlabeledDeltas(r *pairing.Result) []*pairing.Match {
 		}
 	}
 	return out
+}
+
+func (e evaluator) matchesIn(r *pairing.Result, setup string) int {
+	n := 0
+	for _, m := range r.Matches {
+		if m.In(setup) {
+			n++
+		}
+	}
+	return n
 }
 
 func (e evaluator) unlabeledIn(r *pairing.Result, setup string) int {
@@ -513,7 +537,7 @@ func (e evaluator) gateCheck(c gatefile.Check, res Check) Check {
 	}
 	switch c.Name {
 	case ExpectationsMetAtLeast:
-		atLeast := c.Params["min"]
+		atLeast := c.Params[paramMin]
 		required := atLeast
 		if atLeast < 1 {
 			// a fraction of all of them; the small epsilon keeps 0.95 of 80 at 76

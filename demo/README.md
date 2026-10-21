@@ -196,6 +196,8 @@ SBOMs made while labeling aren't copied anywhere either. They reach R2 when the 
 - `-o check` and `-o subject` lay the same report out by check or by image. `-o table` and `-o json` are there too, and `-o FORMAT=path` writes to a file. `--details passing` and `--details rows` add detail.
 - `-v`, `-vv` and `-vvv` log to stderr, so stdout stays the report.
 - `--vulnerability` and `--package` narrow the report to some rows. The checks and the exit code are still the whole gate's.
+- `vulnerabilities:` in a gate file narrows what every check sees, in both setups. `maxYear: 2021` drops matches and labels on a vulnerability from a later year: the year is read from a CVE, ALAS or ELSA id, else from the CVE grype relates to the match, and an id with no year is kept. `namespaces: [nvd:cpe, ...]` keeps only the matches from those grype namespaces and filters no labels. It applies when scoring, so `score` re-applies a changed filter without scanning again.
+- The `matchesAtLeast` check (`params: {min: 1}`) fails a subject the candidate reports fewer than `min` matches on, after `vulnerabilities:`. It reads no labels, so it is never undecided.
 - `--name` keeps several runs of one gate apart under `.yardstick/runs/<name>/`.
 - `collect sboms`, `collect scans` and `score` run a gate's three steps one at a time.
 - `cache status` and `cache delete` show and clean the scan, tool, DB and claims cache.

@@ -121,7 +121,7 @@ func TestCheckRegistry(t *testing.T) {
 	}{
 		F1NotWorse: {PerSubject, true}, NoNewFalseNegatives: {PerSubject, true}, NoNewFalsePositives: {PerSubject, true},
 		UnjudgedChangesAtMost: {PerSubject, true}, UnlabeledPercentAtMost: {PerSubject, false},
-		ExpectationsMetAtLeast: {PerGate, false}, NoNewMisses: {PerGate, true},
+		ExpectationsMetAtLeast: {PerGate, false}, NoNewMisses: {PerGate, true}, MatchesAtLeast: {PerSubject, false},
 	}
 	if len(Registry) != len(want) {
 		t.Fatalf("expected exactly %d checks, got %v", len(want), Names())
@@ -359,6 +359,23 @@ func TestUnlabeledPercentReadsTheCandidate(t *testing.T) {
 	none := pairOne(t, "npm", "npm", &models.Document{}, nil)
 	if c := evaluate([]gatefile.Check{check(UnlabeledPercentAtMost, map[string]float64{"max": 0})}, none).Checks[0]; c.State != Pass {
 		t.Errorf("expected a subject with no matches to pass, got %s", c.State)
+	}
+}
+
+func TestMatchesAtLeastTakesTheFewestMatches(t *testing.T) {
+	deb := grype(t, "deb")
+	// the reference's extra matches are unlabeled deltas, which a count of matches does not read
+	full := pairOne(t, "deb", "deb", without(deb, "CVE-2026-5450", "libc6"), deb)
+	empty := pairOne(t, "npm", "npm", &models.Document{}, deb)
+	c := evaluate([]gatefile.Check{check(MatchesAtLeast, map[string]float64{"min": 1})}, full, empty).Checks[0]
+	if c.State != Fail || c.Value.Worst != 0 || c.Value.Best != 0 || c.Threshold != 1 {
+		t.Errorf("expected a fail at the empty subject's 0 matches, got %s %+v threshold %v", c.State, c.Value, c.Threshold)
+	}
+	if c.Subjects[0].State != Pass || c.Subjects[0].Value.Worst != c.Subjects[0].Value.Best || c.Subjects[1].State != Fail {
+		t.Errorf("expected deb to pass with one value and npm to fail, got %+v", c.Subjects)
+	}
+	if c := evaluate([]gatefile.Check{check(MatchesAtLeast, map[string]float64{"min": 0})}, full, empty).Checks[0]; c.State != Pass {
+		t.Errorf("expected min 0 to pass, got %s", c.State)
 	}
 }
 

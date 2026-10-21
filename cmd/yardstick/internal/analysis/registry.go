@@ -17,6 +17,7 @@ const (
 	UnlabeledPercentAtMost = "unlabeledPercentAtMost"
 	ExpectationsMetAtLeast = "expectationsMetAtLeast"
 	NoNewMisses            = "noNewMisses"
+	MatchesAtLeast         = "matchesAtLeast"
 )
 
 // Scope is what a check is evaluated over.
@@ -35,7 +36,10 @@ type CheckType struct {
 	Scope       Scope
 }
 
-const paramMax = "max"
+const (
+	paramMax = "max"
+	paramMin = "min"
+)
 
 func zero() *float64         { v := 0.0; return &v }
 func ptr(v float64) *float64 { return &v }
@@ -79,10 +83,17 @@ var Registry = map[string]CheckType{
 	},
 	ExpectationsMetAtLeast: {
 		CheckDef: gatefile.CheckDef{Name: ExpectationsMetAtLeast, Params: []gatefile.Param{
-			{Name: "min", Description: "how many expectations must be met: a count when at least 1, a fraction of all of them when below 1"},
+			{Name: paramMin, Description: "how many expectations must be met: a count when at least 1, a fraction of all of them when below 1"},
 		}},
 		Description: "fails when fewer expectations are met than min",
 		Scope:       PerGate,
+	},
+	MatchesAtLeast: {
+		CheckDef: gatefile.CheckDef{Name: MatchesAtLeast, Params: []gatefile.Param{
+			{Name: paramMin, Description: "how many matches the candidate must report on each subject", Integer: true},
+		}},
+		Description: "fails when the candidate reports fewer than min matches on a subject, after the gate's vulnerabilities filter",
+		Scope:       PerSubject,
 	},
 	NoNewMisses: {
 		CheckDef: gatefile.CheckDef{Name: NoNewMisses, ReadsReference: true, Params: []gatefile.Param{

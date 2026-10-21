@@ -111,6 +111,7 @@ var checkUnits = map[string]string{
 	analysis.UnlabeledPercentAtMost: " percent unlabeled",
 	analysis.ExpectationsMetAtLeast: " expectations met",
 	analysis.NoNewMisses:            " expectations lost",
+	analysis.MatchesAtLeast:         " matches",
 }
 
 // check is a check's line, e.g. "FAIL noNewFalseNegatives  max 0   worst subject 3..73 tp dropped".
