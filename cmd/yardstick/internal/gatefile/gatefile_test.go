@@ -430,6 +430,44 @@ func TestFingerprintIgnoresPathSpelling(t *testing.T) {
 	}
 }
 
+// a gate file and the files it names, moved together to another directory, fingerprint the same,
+// with none of those files present; pointing a setup or subject at another file changes it
+func TestFingerprintIgnoresLocation(t *testing.T) {
+	const moved = `schema: v1
+claims: [../claims]
+candidate: {grype: ../../.tool/grype, db: ../build/vulnerability.db, config: grype.yaml}
+reference: {grype: grype@v0.119.0, db: "dir:../reference-db"}
+subjects:
+  - sbom:../sboms/deb.json
+checks:
+  - name: noNewFalseNegatives
+`
+	fp := func(dir, content string) string {
+		t.Helper()
+		g, err := Load(write(t, dir, "gates/g.yaml", content), Options{Checks: registry})
+		if err != nil {
+			t.Fatal(err)
+		}
+		return g.Fingerprint()
+	}
+	a, b := gateDir(t), gateDir(t)
+	base := fp(a, moved)
+	if fp(b, moved) != base {
+		t.Error("expected the same gate in another directory to keep the fingerprint")
+	}
+	for what, content := range map[string]string{
+		"grype path":   strings.Replace(moved, "../../.tool/grype", "../.tool/grype", 1),
+		"db path":      strings.Replace(moved, "../build/vulnerability.db", "../build/other.db", 1),
+		"dir: db path": strings.Replace(moved, "dir:../reference-db", "dir:../other-db", 1),
+		"config path":  strings.Replace(moved, "config: grype.yaml", "config: other.yaml", 1),
+		"sbom subject": strings.Replace(moved, "../sboms/deb.json", "../sboms/rpm.json", 1),
+	} {
+		if fp(b, content) == base {
+			t.Errorf("expected another %s to change the fingerprint", what)
+		}
+	}
+}
+
 // app-config: read from the working directory only, one of two names, claims its only key, and
 // the Python yardstick's config named as such
 func TestLoadAppConfig(t *testing.T) {

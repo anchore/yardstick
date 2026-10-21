@@ -38,8 +38,10 @@ func Score(app clio.Application, exit *int) *cobra.Command {
 the labels its claims sources hold now, so a label just written counts without scanning again. It
 never runs grype or syft. Claims sources may change freely, --claims included. A gate whose
 setups or subjects changed, or with a subject that no longer resolves to the SBOM it was scanned
-from without a build, is reported undecided until it is run again with yardstick <gate.yaml>. A
-gate is a gate file, or the name of a gate scanned under --name.`,
+from without a build, is reported undecided until it is run again with yardstick <gate.yaml>. It
+reads no grype binary or DB, and compares a setup's paths relative to the gate file, so a gate file
+and its .yardstick/runs copied to another checkout score there. A gate is a gate file, or the name
+of a gate scanned under --name.`,
 		Args: cobra.MinimumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if err := cfg.check(); err != nil {

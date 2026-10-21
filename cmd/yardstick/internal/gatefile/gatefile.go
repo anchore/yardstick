@@ -780,12 +780,50 @@ func (g *Gate) HasReference() bool {
 // vulnerabilities filter, catalog or claims sources. The last two only decide which SBOM a subject resolves to, and score
 // checks that per subject against the recorded digest, so another claims source rescores the
 // same scans.
+//
+// A path in a setup or an sbom: subject is fingerprinted relative to the gate file's directory,
+// so a gate file and its scans moved together, as a CI artifact is to another checkout, are
+// still the same gate. Nothing is read from the files themselves, so scoring needs no grype
+// binary or DB present; the run record carries their checksums.
 func (g *Gate) Fingerprint() string {
+	subjects := make([]Subject, len(g.Subjects))
+	for i, s := range g.Subjects {
+		if s.Ref.Kind == ref.SBOM {
+			s.Ref.Path = g.portable(s.Ref.Path)
+			s.Written = s.Ref.String()
+		}
+		subjects[i] = s
+	}
 	data, _ := json.Marshal(struct {
 		Candidate *Setup    `json:"candidate"`
 		Reference *Setup    `json:"reference"`
 		Subjects  []Subject `json:"subjects"`
-	}{g.Candidate, g.Reference, g.Subjects})
+	}{g.portableSetup(g.Candidate), g.portableSetup(g.Reference), subjects})
 	sum := sha256.Sum256(data)
 	return "sha256:" + hex.EncodeToString(sum[:])
+}
+
+func (g *Gate) portableSetup(s *Setup) *Setup {
+	if s == nil {
+		return nil
+	}
+	c := *s
+	c.Grype, c.Config = g.portable(c.Grype), g.portable(c.Config)
+	if d, ok := strings.CutPrefix(c.DB, "dir:"); ok {
+		c.DB = "dir:" + g.portable(d)
+	} else {
+		c.DB = g.portable(c.DB)
+	}
+	return &c
+}
+
+// portable is an absolute path relative to the gate file's directory; anything else as it is.
+func (g *Gate) portable(p string) string {
+	if g.Path == "" || !filepath.IsAbs(p) {
+		return p
+	}
+	if rel, err := filepath.Rel(filepath.Dir(g.Path), p); err == nil {
+		return filepath.ToSlash(rel)
+	}
+	return p
 }

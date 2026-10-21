@@ -258,3 +258,63 @@ func TestVulnerabilitiesFilterRescores(t *testing.T) {
 		}
 	}
 }
+
+// scans moved with their gate file to another directory, as a CI artifact is to another checkout,
+// still apply with no grype or DB there; another file named, or other SBOM content, does not
+func TestStaleIgnoresLocation(t *testing.T) {
+	t.Chdir(t.TempDir())
+	ctx := context.Background()
+	const content = `schema: v1
+candidate: {grype: ../.tool/grype, db: ../build/vulnerability.db}
+reference: {grype: grype@v0.119.0, db: latest}
+subjects:
+  - sbom:../sboms/deb.json
+checks:
+  - name: noNewFalseNegatives
+`
+	claimsDir := corpus(t, "")
+	load := func(content, sbom string) *gatefile.Gate {
+		t.Helper()
+		dir := t.TempDir()
+		data, err := os.ReadFile(sbom)
+		if err != nil {
+			t.Fatal(err)
+		}
+		for p, b := range map[string][]byte{"sboms/deb.json": data, "gates/deb.yaml": []byte(content)} {
+			if err := os.MkdirAll(filepath.Join(dir, filepath.Dir(p)), 0o755); err != nil {
+				t.Fatal(err)
+			}
+			if err := os.WriteFile(filepath.Join(dir, p), b, 0o600); err != nil {
+				t.Fatal(err)
+			}
+		}
+		g, err := gatefile.Load(filepath.Join(dir, "gates", "deb.yaml"), gatefile.Options{Checks: analysis.Definitions(), Claims: []string{claimsDir}})
+		if err != nil {
+			t.Fatal(err)
+		}
+		return g
+	}
+	deb := fixture.SBOM("deb", "syft")
+	scannedGate := load(content, deb)
+	res, err := (&subject.Resolver{}).Resolve(ctx, scannedGate.Subjects[0])
+	if err != nil {
+		t.Fatal(err)
+	}
+	rec := &runrecord.Record{Gate: runrecord.Gate{Name: "deb", Fingerprint: scannedGate.Fingerprint()}, Subjects: []runrecord.Subject{{Resolved: *res}}}
+	set, err := claims.OpenSet(scannedGate.Claims)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if v := Stale(ctx, runrecord.DefaultName, load(content, deb), rec, set); v != nil {
+		t.Errorf("expected the moved gate's scans to apply, got %s", v.Message)
+	}
+	for what, g := range map[string]*gatefile.Gate{
+		"grype":        load(strings.Replace(content, "../.tool/grype", "../.tool/grype-other", 1), deb),
+		"db":           load(strings.Replace(content, "../build/vulnerability.db", "../build/other.db", 1), deb),
+		"sbom content": load(content, fixture.SBOM("rpm", "syft")),
+	} {
+		if v := Stale(ctx, runrecord.DefaultName, g, rec, set); v == nil {
+			t.Errorf("expected another %s to make the scans stale", what)
+		}
+	}
+}
