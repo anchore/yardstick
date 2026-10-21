@@ -81,8 +81,7 @@ func (l *Log[T]) Add(values ...T) error {
 		return err
 	}
 	if _, err := f.Write(buf.Bytes()); err != nil {
-		f.Close()
-		return err
+		return errors.Join(err, f.Close())
 	}
 	return f.Close()
 }

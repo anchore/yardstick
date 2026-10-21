@@ -339,8 +339,7 @@ func writeAtomic(root *os.Root, target string, data []byte) error {
 	}
 	defer func() { _ = root.Remove(tmp) }()
 	if _, err := f.Write(data); err != nil {
-		f.Close()
-		return err
+		return errors.Join(err, f.Close())
 	}
 	if err := f.Close(); err != nil {
 		return err
