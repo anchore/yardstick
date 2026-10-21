@@ -75,6 +75,15 @@
 .lanes .step.ok { border-color: var(--pass); }
 .lanes .step.ok .t::before { content: "✓ "; color: var(--pass); }
 .lanes .step.same { border-color: var(--foreground); }
+/* a cell holding more than it shows: marked, and opens in place on a click or Enter */
+.lanes .step.more { cursor: pointer; position: relative; padding-right: 22px; }
+.lanes .step.more::after { content: "▾"; position: absolute; top: 6px; right: 8px; font-size: 10px; color: var(--muted-foreground); }
+.lanes .step.more:focus-visible { outline: 2px solid var(--ring); outline-offset: 2px; }
+.lanes .step .full { display: none; }
+.lanes .step.open { max-width: 480px; }
+.lanes .step.open::after { content: "▴"; }
+.lanes .step.open .sub { display: none; }
+.lanes .step.open .full { display: block; font-family: var(--font-mono); font-size: 11px; color: var(--muted-foreground); white-space: pre-wrap; overflow-wrap: anywhere; }
 .lanes .step .mine { font-size: 10px; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; }
 /* what the other DB has for the package: a section like the others, wherever it renders */
 .records { display: grid; gap: 8px; }

@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { lanes, recordLine, steps } from "./matchpath";
+import { expandable, lanes, recordLine, steps, subFits } from "./matchpath";
 import type { Row } from "./rows";
 import { whyText, whyTitle } from "./words";
 
@@ -8,7 +8,7 @@ import { whyText, whyTitle } from "./words";
 const nak: Row = {
   id: "r", match: "m", row: "r", vulnerability: "CVE-2026-4438", group: "g", sourcePackage: "glibc-2.42", verdict: "unlabeled",
   package: { ref: "pkg:apk/secureos/glibc-2.42@2.42-r4?arch=x86_64&distro=secureos-2025.09.09" }, inCandidate: false, inReference: true,
-  reference: { namespace: "nvd:cpe", matchTypes: ["cpe-match"], cpes: ["cpe:2.3:a:gnu:glibc:2.42:*:*:*:*:*:*:*"], constraints: [">= 2.38, <= 2.44 (unknown)"], distro: "secureos 2025.09.09" },
+  reference: { namespace: "nvd:cpe", matchTypes: ["cpe-match"], matchers: ["apk-matcher"], cpes: ["cpe:2.3:a:gnu:glibc:2.42:*:*:*:*:*:*:*"], constraints: [">= 2.38, <= 2.44 (unknown)"], distro: "secureos 2025.09.09" },
   why: { key: "record/distro-not-affected", to: "secureos:distro:secureos:rolling", secondary: [{ key: "record/same-but-unmatched" }] },
   candidateRecords: [
     { vulnerability: "CVE-2026-4438", namespace: "nvd:cpe", cpe: "cpe:2.3:a:gnu:glibc:*:*:*:*:*:*:*:*", constraints: [">= 2.38, <= 2.44"] },
@@ -24,17 +24,17 @@ describe("match path", () => {
     expect(cells("candidate")).toEqual([
       "package | glibc-2.42 2.42-r4 | apk",
       "via | as CPE | cpe:2.3:a:gnu:glibc:2.42:*:*:*:*:*:*:*",
-      "searched | NVD (CPE) | ",
+      "searched | NVD (CPE) | apk matcher",
       "record | CVE-2026-4438 | affected >= 2.38, <= 2.44",
-      "distro | SecureOS records | glibc-2.42 not affected · fixed in 0",
+      "distro | SecureOS records | not affected (fixed in 0)",
       "result | dropped | SecureOS says not affected",
     ]);
     expect(cells("reference")).toEqual([
       "package | glibc-2.42 2.42-r4 | apk",
       "via | as CPE | cpe:2.3:a:gnu:glibc:2.42:*:*:*:*:*:*:*",
-      "searched | NVD (CPE) | ",
+      "searched | NVD (CPE) | apk matcher",
       "record | CVE-2026-4438 | affected >= 2.38, <= 2.44",
-      "distro | SecureOS records | NAK not applied by grype v0.100.0",
+      "distro | SecureOS records | NAK not applied",
       "result | matched | cpe",
     ]);
     // the same search and record line up undiffed; the distro check and the result differ
@@ -42,7 +42,17 @@ describe("match path", () => {
     expect(diffs("candidate")).toEqual(["distro", "result"]);
     // a grype that reported no distro for the image says so, rather than why it didn't apply the record
     const noDistro = { ...nak, reference: { ...nak.reference, distro: undefined } };
-    expect(steps(noDistro, "reference", undefined, rel, setups).find((x) => x.k === "distro")?.sub).toBe("grype v0.100.0 detected no distro");
+    expect(steps(noDistro, "reference", undefined, rel, setups).find((x) => x.k === "distro")).toMatchObject({ sub: "no distro detected",
+      detail: "Its DB is the same and has the record saying not affected; grype v0.100.0 reported no distro for the image, so it did not apply the record." });
+    // the candidate's matcher is inferred, and says so; shared steps otherwise render alike
+    expect(ls[0].steps[2].title).toContain("inferred");
+    // every cell fits its subline, or opens to show all of it
+    for (const l of ls) for (const st of l.steps) {
+      if ((st.sub?.length ?? 0) > subFits) expect(expandable(st)).toBe(true);
+    }
+    const via = ls[0].steps[1];
+    expect(expandable(via) && via.detail).toBe("cpe:2.3:a:gnu:glibc:2.42:*:*:*:*:*:*:*");
+    expect(expandable(ls[0].steps[4])).toBe(true);
     expect(whyTitle(nak.why, "dropped")).toBe("SecureOS says not affected");
     expect(whyText(nak.why?.secondary?.[0], "dropped", nak.why?.key)).toBe("both DBs have the same record the reference matched");
     expect(whyText(nak.why?.secondary?.[0], "dropped")).toContain("a matcher or config difference");

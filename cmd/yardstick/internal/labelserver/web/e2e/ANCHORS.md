@@ -199,6 +199,7 @@ Filter chips are buttons with `data-chip` (`all`, `unlabeled`, `tp`, `fp`, `uncl
 | `finding-tabs` | the content tabs, `role=tab` | `aria-selected`, `data-tab` = why / evidence / raw / labels |
 | `tab-why`, `tab-evidence`, `tab-raw`, `tab-labels` | their panels | |
 | `why-text`, `match-path`, `finding-ref` | Why it differs | |
+| `lane-step-more` | a lane cell that holds more than it shows (a detail, or a clipped subline), `role=button`; a click, Enter or Space opens it in place | `aria-expanded` |
 | `evidence-links`, `explanation` | Evidence | |
 | `raw-candidate`, `raw-reference`, `raw-artifact` | Raw match | |
 | `label-record`, `label-note`, `label-sources`, `no-labels` | Labels on file | `label-record` has `data-verdict`, `data-author` |

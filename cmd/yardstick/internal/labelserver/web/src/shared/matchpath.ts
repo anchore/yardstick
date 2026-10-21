@@ -16,7 +16,14 @@ interface GrypeMatch {
 }
 interface SearchedBy { namespace?: string; cpes?: string[]; package?: { name?: string; version?: string } }
 
-export interface Step { k: string; t: string; sub?: string; title?: string; same?: boolean; ok?: boolean; miss?: boolean; diff?: boolean }
+// Step is one cell of a lane: its text, a short subline, and the detail a click or Enter on the cell
+// shows in full
+export interface Step { k: string; t: string; sub?: string; title?: string; detail?: string; same?: boolean; ok?: boolean; miss?: boolean; diff?: boolean }
+
+// subFits is how long a subline can be and still fit its cell (11px mono in a 320px cell)
+export const subFits = 40;
+// expandable says whether a cell holds more than it shows: a detail, or a subline its cell clips
+export const expandable = (s: Step) => !!s.detail || (s.sub?.length ?? 0) > subFits;
 type Side = "candidate" | "reference";
 // Setups is what the lanes know of each setup beyond the row: its grype version, and whether the two
 // read the same DB
@@ -32,7 +39,7 @@ export function steps(r: Row, side: Side, raw: GrypeMatch | undefined, rel: Rele
   if (d) {
     const sb: SearchedBy = md?.searchedBy || {}, fd = md?.found || {};
     const viaName = sb.package?.name && sb.package.name !== pk.name ? sb.package.name : (d.matchTypes || []).includes("exact-indirect-match") && (d.upstreams || [])[0] ? (d.upstreams || [])[0] : null;
-    if (sb.cpes?.length || (d.matchTypes || []).includes("cpe-match")) out.push({ k: "via", t: "as CPE", sub: (sb.cpes || d.cpes || [])[0] || "", title: (sb.cpes || d.cpes || []).join("\n") });
+    if (sb.cpes?.length || (d.matchTypes || []).includes("cpe-match")) out.push(viaCPE(sb.cpes || d.cpes || []));
     else if (viaName) out.push({ k: "via", t: `via source package ${viaName}`, sub: sb.package?.version && sb.package.version !== pk.version ? sb.package.version : "" });
     out.push({ k: "searched", t: nsHuman(sb.namespace || d.namespace), sub: (md?.matcher || (d.matchers || [])[0] || "").replace(/-matcher$/, " matcher"), title: sb.namespace || d.namespace, same: sameRelease(sb.namespace || d.namespace, rel) });
     const cons = fd.versionConstraint || (d.constraints || [])[0] || "";
@@ -61,13 +68,18 @@ export function steps(r: Row, side: Side, raw: GrypeMatch | undefined, rel: Rele
     const ns = r.why?.to || r.why?.from || "", nak = (recs || []).find((x) => x.namespace === ns);
     const found = other && (recs || []).find((x) => x.namespace === other.namespace && x !== nak);
     if (other && found) {
-      if ((other.matchTypes || []).includes("cpe-match")) out.push({ k: "via", t: "as CPE", sub: (other.cpes || [])[0] || "", title: (other.cpes || []).join("\n") });
-      out.push({ k: "searched", t: nsHuman(other.namespace), title: other.namespace, same: sameRelease(other.namespace, rel) });
+      if ((other.matchTypes || []).includes("cpe-match")) out.push(viaCPE(other.cpes || []));
+      // grype picks the matcher by package type, so this grype searched with the other's matcher
+      const matcher = (other.matchers || [])[0] || "", otherSide = side === "candidate" ? "reference" : "candidate";
+      out.push({ k: "searched", t: nsHuman(other.namespace), sub: matcher.replace(/-matcher$/, " matcher"), same: sameRelease(other.namespace, rel),
+        title: matcher ? `${other.namespace}, by the ${matcher}: inferred, since grype picks the matcher by package type and the ${otherSide}'s grype used it on this package` : other.namespace });
       const c = constraintsOf(found.constraints);
       out.push({ k: "record", t: found.vulnerability || r.vulnerability, sub: `affected ${c.length ? c.join(" || ") : "every version"}`, title: (found.constraints || []).join(" || ") });
     }
     const pkg = nak?.package || pk.name;
-    out.push({ k: "distro", t: `${distroName(ns)} records`, sub: `${pkg} not affected · fixed in 0`, title: `${ns}: ${pkg} ${(nak?.constraints || ["< 0"]).join(" || ")}, fixed in 0`, miss: true, diff: true });
+    const grype = setups.grype?.[side] ? `grype ${setups.grype[side]}` : "its grype";
+    out.push({ k: "distro", t: `${distroName(ns)} records`, sub: "not affected (fixed in 0)", miss: true, diff: true,
+      detail: `${ns} lists ${pkg} ${(nak?.constraints || ["< 0"]).join(" || ")}, fixed in 0: not affected, so ${grype} dropped the match` });
     out.push({ k: "result", t: "dropped", sub: `${distroName(ns)} says not affected`, miss: true });
     return out;
   }
@@ -83,14 +95,17 @@ export function steps(r: Row, side: Side, raw: GrypeMatch | undefined, rel: Rele
   return out;
 }
 
+// viaCPE is the step searching by the package's CPEs, all of them in its detail
+const viaCPE = (cpes: string[]): Step => ({ k: "via", t: "as CPE", sub: cpes[0] || "", detail: cpes.length ? cpes.join("\n") : undefined });
+
 // notApplied is the distro check on the side that matched though the other side's distro record says
 // not affected: what its scan shows, never a guess at why (it may not have looked, or looked and
 // not applied it)
 function notApplied(r: Row, side: Side, d: NonNullable<Row["candidate"]>, setups: Setups): Step {
   const ns = r.why?.to || r.why?.from || "", grype = setups.grype?.[side] ? `grype ${setups.grype[side]}` : "its grype";
-  const sub = d.distro ? `NAK not applied by ${grype}` : `${grype} detected no distro`;
-  const db = setups.sameDB ? "its DB is the same and has the record; " : "";
-  return { k: "distro", t: `${distroName(ns)} records`, sub, diff: true, title: `${db}${d.distro ? `${grype} scanned ${d.distro} and did not apply the record saying not affected` : `${grype} reported no distro for the image, so the record saying not affected was not applied`}` };
+  const db = setups.sameDB ? "Its DB is the same and has the record saying not affected; " : "";
+  return { k: "distro", t: `${distroName(ns)} records`, sub: d.distro ? "NAK not applied" : "no distro detected", diff: true,
+    detail: `${db}${d.distro ? `${grype} scanned ${d.distro} and did not apply the record` : `${grype} reported no distro for the image, so it did not apply the record`}.` };
 }
 
 // the kinds of step, in path order: a lane puts each step in its kind's column, so equivalent steps
@@ -114,15 +129,38 @@ export function lanes(r: Row, m: MatchesResponse | undefined, rel: Release | nul
 
 export function matchPath(r: Row, m: MatchesResponse | undefined, rel: Release | null, setups: Setups = {}) {
   const ls = lanes(r, m, rel, setups);
-  const chip = (s: Step) => el("span", { class: `step ${s.k}${s.diff ? " diff" : ""}${s.miss ? " miss" : ""}${s.ok ? " ok" : ""}${s.same ? " same" : ""}`, title: s.title || "" },
-    el("span", { class: "t" }, s.t), s.sub ? el("span", { class: "sub" }, s.sub) : null, s.same ? el("span", { class: "mine" }, "this image's release") : null);
+  const chip = (s: Step) => {
+    const n = el("span", { class: `step ${s.k}${s.diff ? " diff" : ""}${s.miss ? " miss" : ""}${s.ok ? " ok" : ""}${s.same ? " same" : ""}`, title: s.title || "" },
+      el("span", { class: "t" }, s.t), s.sub ? el("span", { class: "sub" }, s.sub) : null, s.same ? el("span", { class: "mine" }, "this image's release") : null);
+    if (expandable(s)) opens(n, s.detail || s.sub || "");
+    return n;
+  };
   const kinds = stepKinds.filter((k) => ls.some((l) => byKind(l, k)));
   // one grid row per lane: the side's name, then a cell per kind with an arrow before it
-  return el("div", { class: `path k${kinds.length}`, "data-testid": "match-lanes" }, ls.flatMap((l) => [
+  const path = el("div", { class: `path k${kinds.length}`, "data-testid": "match-lanes" }, ls.flatMap((l) => [
     el("span", { class: "lane-k" }, l.side),
     kinds.flatMap((k, i) => { const s = byKind(l, k);
       return [i ? el("span", { class: `arrow${s ? "" : " none"}` }, s ? "→" : "") : null, s ? chip(s) : el("span", { class: "slot", title: `no ${k} step on the ${l.side} side` })]; }),
   ]));
+  // once laid out, a subline its cell clips opens too, however short it was expected to be
+  requestAnimationFrame(() => path.querySelectorAll<HTMLElement>(".step:not(.more) .sub").forEach((sub) => {
+    if (sub.scrollWidth > sub.clientWidth) opens(sub.parentElement as HTMLElement, sub.textContent || "");
+  }));
+  return path;
+}
+
+// opens makes a cell that holds more than it shows open in place on a click, Enter or Space,
+// showing all of it
+function opens(n: HTMLElement, full: string) {
+  const toggle = () => { const open = n.classList.toggle("open"); n.setAttribute("aria-expanded", String(open)); };
+  n.classList.add("more");
+  n.setAttribute("role", "button");
+  n.setAttribute("tabindex", "0");
+  n.setAttribute("aria-expanded", "false");
+  n.dataset.testid = "lane-step-more";
+  n.addEventListener("click", toggle);
+  n.addEventListener("keydown", (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); toggle(); } });
+  n.append(el("span", { class: "full" }, full));
 }
 
 // constraintsOf are a record's or a match's version constraints as the DB lists them: grype's
