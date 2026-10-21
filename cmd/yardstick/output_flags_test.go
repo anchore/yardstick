@@ -32,9 +32,10 @@ func TestMultipleOutputs(t *testing.T) {
 	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
 		t.Fatal(err)
 	}
+	// both setups report the same matches, so the gate passes
 	stdout, stderr, code := yardstick(t, w.dir, "gates/deb.yaml", "-o", "check", "-o", "json="+path)
-	if code != 1 {
-		t.Fatalf("expected exit 1, got %d: %s %s", code, stdout, stderr)
+	if code != 0 {
+		t.Fatalf("expected exit 0, got %d: %s %s", code, stdout, stderr)
 	}
 	if !strings.Contains(stdout, "gate deb") || strings.HasPrefix(strings.TrimSpace(stdout), "{") {
 		t.Errorf("expected the check report on stdout, got %s", stdout)

@@ -93,7 +93,7 @@ Labels that flip deb-java to PASS. Accepting hints and the cause does most of it
 | accept the log4j hint (or label) | `e1af7851f0e60bb4`, `783bbb63489d81a6` | tp, no-fix |
 | accept the vc5p hint (or label), replacing the unclear | `42c45bf99e4f741b`, `a88b3bd584c62516` | tp, no-fix |
 
-The outcome moves as the labels land (measured with `claims add` in this order, and the same through the UI). A subject with no tp or fp label at all fails the three checks that read labels (f1NotWorse, noNewFalseNegatives, noNewFalsePositives) with "no tp or fp label applies to this subject", and java has none until its first tp lands:
+The outcome moves as the labels land (measured with `claims add` in this order, and the same through the UI). A subject with changed matches and no tp or fp label at all fails the three checks that read labels (f1NotWorse, noNewFalseNegatives, noNewFalsePositives) with "no tp or fp label applies to this subject", and java has none until its first tp lands:
 
 | after | outcome | checks |
 |---|---|---|

@@ -202,9 +202,9 @@ func TestLogsGoToStderr(t *testing.T) {
 	w.gate("deb", whole, whole, "", "  - name: noNewFalseNegatives\n")
 
 	stdout, stderr, code := yardstick(t, w.dir, "gates/deb.yaml", "-o", "json", "-vvv")
-	// the unlabeled gate is undecided and fails (exit 1); only exit 2 is an error
-	if code != 1 {
-		t.Fatalf("expected exit 1, got %d: %s %s", code, stdout, stderr)
+	// both setups report the same matches, so the gate passes (exit 0); only exit 2 is an error
+	if code != 0 {
+		t.Fatalf("expected exit 0, got %d: %s %s", code, stdout, stderr)
 	}
 	dec := json.NewDecoder(strings.NewReader(stdout))
 	var doc map[string]any

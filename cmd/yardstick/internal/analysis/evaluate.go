@@ -3,6 +3,7 @@ package analysis
 import (
 	"fmt"
 	"math"
+	"slices"
 	"sort"
 
 	claimsv1 "github.com/anchore/yardstick/cmd/yardstick/internal/claims/v1"
@@ -342,6 +343,12 @@ func (e evaluator) subjectCheck(c gatefile.Check, s Subject) SubjectCheck {
 	sc := SubjectCheck{Subject: s.Name}
 	readsLabels := c.Name == F1NotWorse || c.Name == NoNewFalseNegatives || c.Name == NoNewFalsePositives
 	if readsLabels && !e.hasLabels(r) {
+		// the gate compares the setups, so with nothing changed there is nothing for a label to
+		// judge, as python yardstick passed identical results before reading labels
+		if !slices.ContainsFunc(r.Matches, delta) {
+			sc.State, sc.Message = Pass, "both setups report the same matches"
+			return sc
+		}
 		sc.State, sc.Message = Fail, "no tp or fp label applies to this subject"
 		return sc
 	}

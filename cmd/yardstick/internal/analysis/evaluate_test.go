@@ -419,8 +419,8 @@ func TestExpectations(t *testing.T) {
 }
 
 func TestNoLabels(t *testing.T) {
-	// a misspelled digest: no label applies to the subject
-	bare := pairOne(t, "typo", "deb", grype(t, "deb"), grype(t, "deb"))
+	// a misspelled digest: no label applies to a subject the setups disagree on
+	bare := pairOne(t, "typo", "deb", without(grype(t, "deb"), "CVE-2026-5450", "libc6"), grype(t, "deb"))
 	g := evaluate([]gatefile.Check{check(F1NotWorse, nil), check(NoNewFalseNegatives, nil), check(NoNewFalsePositives, nil), check(ExpectationsMetAtLeast, map[string]float64{"min": 1})}, bare)
 	for _, c := range g.Checks[:3] {
 		if c.State != Fail || !strings.Contains(c.Subjects[0].Message, "no tp or fp label applies") {
@@ -429,6 +429,20 @@ func TestNoLabels(t *testing.T) {
 	}
 	if c := g.Checks[3]; c.State != Fail || !strings.Contains(c.Message, "no expectations") {
 		t.Errorf("expected the expectation check to fail with no expectations, got %+v", c)
+	}
+}
+
+func TestNoChangesPassWithoutLabels(t *testing.T) {
+	// both setups report the same matches and no label applies: the checks that compare them pass
+	same := pairOne(t, "deb", "deb", grype(t, "deb"), grype(t, "deb"))
+	g := evaluate([]gatefile.Check{check(F1NotWorse, nil), check(NoNewFalseNegatives, nil), check(NoNewFalsePositives, nil)}, same)
+	for _, c := range g.Checks {
+		if sc := c.Subjects[0]; c.State != Pass || sc.Message != "both setups report the same matches" || c.Value != (Value{}) {
+			t.Errorf("%s: expected a pass saying nothing changed, got %+v", c.Name, c)
+		}
+	}
+	if g.Outcome != Pass {
+		t.Errorf("expected the gate to pass, got %s", g.Outcome)
 	}
 }
 

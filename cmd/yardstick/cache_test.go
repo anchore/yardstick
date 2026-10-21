@@ -2,7 +2,6 @@ package main
 
 import (
 	"bytes"
-	"errors"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -93,14 +92,14 @@ func TestTwoRunsOfOneGateAtOnce(t *testing.T) {
 		}()
 	}
 	wg.Wait()
-	// the gate has no labels, so it fails; what matters is that both runs scanned and say the same
+	// both setups report the same matches, so the gate passes; what matters is that both runs
+	// scanned and say the same
 	verdicts := make([]string, len(results))
 	for i, r := range results {
-		var exit *exec.ExitError
-		if !errors.As(r.err, &exit) || exit.ExitCode() != 1 || strings.Contains(r.stderr, "vulnerability db") {
+		if r.err != nil || strings.Contains(r.stderr, "vulnerability db") {
 			t.Fatalf("run %d: expected a verdict, got %v\n%s\n%s", i, r.err, r.stdout, r.stderr)
 		}
-		_, verdicts[i], _ = strings.Cut(r.stdout, "FAIL gate deb")
+		_, verdicts[i], _ = strings.Cut(r.stdout, "PASS gate deb")
 	}
 	if verdicts[0] == "" || verdicts[0] != verdicts[1] {
 		t.Errorf("expected one verdict from both runs, got:\n%s\nand:\n%s", verdicts[0], verdicts[1])
