@@ -146,7 +146,7 @@ func (v *view) finding(r *rowRef, imgs []ImageRef, effect string) Finding {
 // checkFindings are every finding a check counts: its rows (checkRows), then a per-gate check's
 // unmet expectations, which decide it when it fails. Deciding ones first, then could-move.
 func (v *view) checkFindings(c analysis.Check, imgs []ImageRef) []Finding {
-	var out []Finding
+	out := []Finding{} // a check with none is an empty list to the UI, not null
 	for _, re := range v.checkRows(c) {
 		out = append(out, v.finding(v.rows[re.id], imgs, re.effect))
 	}
