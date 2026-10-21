@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
-import { recordLine, steps } from "./matchpath";
+import { lanes, recordLine, steps } from "./matchpath";
 import type { Row } from "./rows";
-import { whyTitle } from "./words";
+import { whyText, whyTitle } from "./words";
 
 // a CPE match only the reference reported, on a secureos package the candidate's distro record says
 // is not affected
@@ -17,13 +17,43 @@ const nak: Row = {
 };
 
 describe("match path", () => {
-  test("a side whose distro says not affected ends in dropped, on the distro's record", () => {
-    const s = steps(nak, "candidate", undefined, { distro: "secureos", version: "2025.09.09" });
-    expect(s.map((x) => x.k)).toEqual(["package", "searched", "record", "result"]);
-    expect(s[1].t).toBe("SecureOS rolling");
-    expect(s[2].sub).toBe("glibc-2.42 not affected · fixed in 0");
-    expect(s[3]).toMatchObject({ t: "dropped", sub: "SecureOS rolling says glibc-2.42 is not affected (fixed in 0)", miss: true });
-    expect(whyTitle(nak.why, "dropped")).toBe("SecureOS rolling says not affected");
+  test("both lanes search by CPE and find the same record; the distro check drops it on one side only", () => {
+    const rel = { distro: "secureos", version: "2025.09.09" }, setups = { grype: { candidate: "v0.120.1", reference: "v0.100.0" }, sameDB: true };
+    const ls = lanes(nak, undefined, rel, setups);
+    const cells = (side: string) => ls.find((l) => l.side === side)!.steps.map((x) => [x.k, x.t, x.sub ?? ""].join(" | "));
+    expect(cells("candidate")).toEqual([
+      "package | glibc-2.42 2.42-r4 | apk",
+      "via | as CPE | cpe:2.3:a:gnu:glibc:2.42:*:*:*:*:*:*:*",
+      "searched | NVD (CPE) | ",
+      "record | CVE-2026-4438 | affected >= 2.38, <= 2.44",
+      "distro | SecureOS records | glibc-2.42 not affected · fixed in 0",
+      "result | dropped | SecureOS says not affected",
+    ]);
+    expect(cells("reference")).toEqual([
+      "package | glibc-2.42 2.42-r4 | apk",
+      "via | as CPE | cpe:2.3:a:gnu:glibc:2.42:*:*:*:*:*:*:*",
+      "searched | NVD (CPE) | ",
+      "record | CVE-2026-4438 | affected >= 2.38, <= 2.44",
+      "distro | SecureOS records | NAK not applied by grype v0.100.0",
+      "result | matched | cpe",
+    ]);
+    // the same search and record line up undiffed; the distro check and the result differ
+    const diffs = (side: string) => ls.find((l) => l.side === side)!.steps.filter((x) => x.diff).map((x) => x.k);
+    expect(diffs("candidate")).toEqual(["distro", "result"]);
+    // a grype that reported no distro for the image says so, rather than why it didn't apply the record
+    const noDistro = { ...nak, reference: { ...nak.reference, distro: undefined } };
+    expect(steps(noDistro, "reference", undefined, rel, setups).find((x) => x.k === "distro")?.sub).toBe("grype v0.100.0 detected no distro");
+    expect(whyTitle(nak.why, "dropped")).toBe("SecureOS says not affected");
+    expect(whyText(nak.why?.secondary?.[0], "dropped", nak.why?.key)).toBe("both DBs have the same record the reference matched");
+    expect(whyText(nak.why?.secondary?.[0], "dropped")).toContain("a matcher or config difference");
+  });
+  test("other reasons keep their lanes", () => {
+    const fix: Row = { ...nak, why: { key: "fix-state/changed", from: "not-fixed", to: "fixed" },
+      candidateRecords: [{ vulnerability: "CVE-2026-4438", namespace: "nvd:cpe", cpe: "cpe:2.3:a:gnu:glibc:*:*:*:*:*:*:*:*", constraints: ["< 2.40"] }] };
+    expect(steps(fix, "candidate", undefined, null).map((x) => x.k)).toEqual(["package", "searched", "record", "result"]);
+    expect(steps(fix, "reference", undefined, null).map((x) => x.k)).toEqual(["package", "via", "searched", "record", "result"]);
+    const absent: Row = { ...nak, why: { key: "record/absent-in-candidate" }, candidateStatus: "not-in-db", candidateRecords: [] };
+    expect(steps(absent, "candidate", undefined, null).map((x) => x.t)).toEqual(["glibc-2.42 2.42-r4", "every namespace", "no record", "no match"]);
   });
   test("each of the other DB's records says how it relates to the row", () => {
     const [cpe, distro] = nak.candidateRecords ?? [];

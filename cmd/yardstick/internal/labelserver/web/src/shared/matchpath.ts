@@ -18,11 +18,14 @@ interface SearchedBy { namespace?: string; cpes?: string[]; package?: { name?: s
 
 export interface Step { k: string; t: string; sub?: string; title?: string; same?: boolean; ok?: boolean; miss?: boolean; diff?: boolean }
 type Side = "candidate" | "reference";
+// Setups is what the lanes know of each setup beyond the row: its grype version, and whether the two
+// read the same DB
+export interface Setups { grype?: Partial<Record<Side, string>>; sameDB?: boolean }
 
 
 // steps reads grype's matchDetails (from the raw match) into the steps of the path. Without a
 // match, the lane stops where the row's data says it diverged.
-export function steps(r: Row, side: Side, raw: GrypeMatch | undefined, rel: Release | null): Step[] {
+export function steps(r: Row, side: Side, raw: GrypeMatch | undefined, rel: Release | null, setups: Setups = {}): Step[] {
   const pk = pkgOf(r.package.ref), d = side === "candidate" ? r.candidate : r.reference;
   const out: Step[] = [{ k: "package", t: `${pk.name} ${pk.version}`, sub: pk.type || "" }];
   const md = raw?.matchDetails?.[0];
@@ -34,6 +37,7 @@ export function steps(r: Row, side: Side, raw: GrypeMatch | undefined, rel: Rele
     out.push({ k: "searched", t: nsHuman(sb.namespace || d.namespace), sub: (md?.matcher || (d.matchers || [])[0] || "").replace(/-matcher$/, " matcher"), title: sb.namespace || d.namespace, same: sameRelease(sb.namespace || d.namespace, rel) });
     const cons = fd.versionConstraint || (d.constraints || [])[0] || "";
     out.push({ k: "record", t: `${fd.vulnerabilityID || r.vulnerability}`, sub: `affected ${cons && cons !== "none" ? cons.replace(/\s*\((\w[\w-]*)\)$/, "") : "every version"}${d.fixState === "fixed" && d.fixVersions?.length ? ` · fixed in ${d.fixVersions[0]}` : d.fixState ? ` · ${d.fixState.replace(/-/g, " ")}` : ""}`, title: cons });
+    if (r.why?.key === "record/distro-not-affected") out.push(notApplied(r, side, d, setups));
     out.push({ k: "result", t: "matched", sub: (md?.type || (d.matchTypes || [])[0] || "").replace(/-match$/, ""), ok: true });
     return out;
   }
@@ -52,11 +56,19 @@ export function steps(r: Row, side: Side, raw: GrypeMatch | undefined, rel: Rele
     return out;
   }
   if (w === "record/distro-not-affected") {
-    // the distro's own record, fixed in 0: grype drops the match on it
+    // this grype searched as the other did and found the same record, then its distro check found
+    // the distro's record saying fixed in 0, and dropped the match
     const ns = r.why?.to || r.why?.from || "", nak = (recs || []).find((x) => x.namespace === ns);
-    out.push({ k: "searched", t: nsHuman(ns), title: ns, same: sameRelease(ns, rel) });
-    out.push({ k: "record", t: nak?.vulnerability || r.vulnerability, sub: `${nak?.package || pk.name} not affected · fixed in 0`, title: (nak?.constraints || []).join(" || "), diff: true });
-    out.push({ k: "result", t: "dropped", sub: `${nsHuman(ns)} says ${nak?.package || pk.name} is not affected (fixed in 0)`, miss: true });
+    const found = other && (recs || []).find((x) => x.namespace === other.namespace && x !== nak);
+    if (other && found) {
+      if ((other.matchTypes || []).includes("cpe-match")) out.push({ k: "via", t: "as CPE", sub: (other.cpes || [])[0] || "", title: (other.cpes || []).join("\n") });
+      out.push({ k: "searched", t: nsHuman(other.namespace), title: other.namespace, same: sameRelease(other.namespace, rel) });
+      const c = constraintsOf(found.constraints);
+      out.push({ k: "record", t: found.vulnerability || r.vulnerability, sub: `affected ${c.length ? c.join(" || ") : "every version"}`, title: (found.constraints || []).join(" || ") });
+    }
+    const pkg = nak?.package || pk.name;
+    out.push({ k: "distro", t: `${distroName(ns)} records`, sub: `${pkg} not affected · fixed in 0`, title: `${ns}: ${pkg} ${(nak?.constraints || ["< 0"]).join(" || ")}, fixed in 0`, miss: true, diff: true });
+    out.push({ k: "result", t: "dropped", sub: `${distroName(ns)} says not affected`, miss: true });
     return out;
   }
   if (mine) {
@@ -71,17 +83,27 @@ export function steps(r: Row, side: Side, raw: GrypeMatch | undefined, rel: Rele
   return out;
 }
 
+// notApplied is the distro check on the side that matched though the other side's distro record says
+// not affected: what its scan shows, never a guess at why (it may not have looked, or looked and
+// not applied it)
+function notApplied(r: Row, side: Side, d: NonNullable<Row["candidate"]>, setups: Setups): Step {
+  const ns = r.why?.to || r.why?.from || "", grype = setups.grype?.[side] ? `grype ${setups.grype[side]}` : "its grype";
+  const sub = d.distro ? `NAK not applied by ${grype}` : `${grype} detected no distro`;
+  const db = setups.sameDB ? "its DB is the same and has the record; " : "";
+  return { k: "distro", t: `${distroName(ns)} records`, sub, diff: true, title: `${db}${d.distro ? `${grype} scanned ${d.distro} and did not apply the record saying not affected` : `${grype} reported no distro for the image, so the record saying not affected was not applied`}` };
+}
+
 // the kinds of step, in path order: a lane puts each step in its kind's column, so equivalent steps
 // (namespace and namespace, record and record) line up, and a kind one side lacks is an empty slot
-const stepKinds = ["package", "via", "searched", "record", "result"];
+const stepKinds = ["package", "via", "searched", "record", "distro", "result"];
 
 export interface Lane { side: Side; steps: Step[] }
 const byKind = (l: Lane, k: string) => l.steps.find((s) => s.k === k);
 
 // lanes is both sides' steps, each step marked diff when the other lane has no step of that kind,
 // or its text differs
-export function lanes(r: Row, m: MatchesResponse | undefined, rel: Release | null): Lane[] {
-  const out = (["candidate", "reference"] as const).map((side) => ({ side, steps: steps(r, side, m?.[side]?.[0] as GrypeMatch | undefined, rel) }));
+export function lanes(r: Row, m: MatchesResponse | undefined, rel: Release | null, setups: Setups = {}): Lane[] {
+  const out = (["candidate", "reference"] as const).map((side) => ({ side, steps: steps(r, side, m?.[side]?.[0] as GrypeMatch | undefined, rel, setups) }));
   for (const l of out) for (const s of l.steps) {
     const ol = out.find((x) => x !== l), o = ol && byKind(ol, s.k);
     // the record's constraint and fix are part of what it is; a step's matcher or match type isn't
@@ -90,8 +112,8 @@ export function lanes(r: Row, m: MatchesResponse | undefined, rel: Release | nul
   return out;
 }
 
-export function matchPath(r: Row, m: MatchesResponse | undefined, rel: Release | null) {
-  const ls = lanes(r, m, rel);
+export function matchPath(r: Row, m: MatchesResponse | undefined, rel: Release | null, setups: Setups = {}) {
+  const ls = lanes(r, m, rel, setups);
   const chip = (s: Step) => el("span", { class: `step ${s.k}${s.diff ? " diff" : ""}${s.miss ? " miss" : ""}${s.ok ? " ok" : ""}${s.same ? " same" : ""}`, title: s.title || "" },
     el("span", { class: "t" }, s.t), s.sub ? el("span", { class: "sub" }, s.sub) : null, s.same ? el("span", { class: "mine" }, "this image's release") : null);
   const kinds = stepKinds.filter((k) => ls.some((l) => byKind(l, k)));
@@ -128,7 +150,9 @@ export function recordLine(r: Row, rec: Rec, dir: string): string {
 // records lists what the other DB has for the package, each saying how it relates to the row, the
 // image's own release first and bold, the rest dimmed
 export function records(r: Row, dir: string, rel: Release | null) {
-  const recs = otherRecords(r);
+  // a distro's NAK and the same record the other setup matched are in the lanes already
+  const shown = r.why?.key === "record/distro-not-affected";
+  const recs = otherRecords(r).filter((rec) => !shown || !/^(same record|.* says .* is not affected)/.test(recordLine(r, rec, dir)));
   if (!recs.length) return null;
   const sorted = [...recs].sort((a, b) => Number(sameRelease(b.namespace, rel)) - Number(sameRelease(a.namespace, rel)));
   return el("section", { class: "records", "data-testid": "other-records" },

@@ -62,6 +62,7 @@
 .lanes .path.k3 { grid-template-columns: 84px minmax(0, max-content) repeat(2, 24px minmax(0, max-content)); }
 .lanes .path.k4 { grid-template-columns: 84px minmax(0, max-content) repeat(3, 24px minmax(0, max-content)); }
 .lanes .path.k5 { grid-template-columns: 84px minmax(0, max-content) repeat(4, 24px minmax(0, max-content)); }
+.lanes .path.k6 { grid-template-columns: 84px minmax(0, max-content) repeat(5, 24px minmax(0, max-content)); }
 .lanes .lane-k { font-size: 12.5px; color: var(--muted-foreground); }
 .lanes .arrow { color: var(--faint); text-align: center; font-size: 12px; }
 /* an empty slot carries the lane's line through the column */

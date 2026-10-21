@@ -294,9 +294,12 @@ const kv = (pairs: [string, unknown][]) =>
 function whyTab(d: FindingData) {
   const { row } = d, dir = direction(row), rel = imageRelease(row);
   const flips = row.gate?.couldFlip ?? [], bears = (row.gate?.bears ?? []).filter((c) => !flips.includes(c));
+  const { candidate: cs, reference: rs } = d.state;
+  const setups = { grype: { candidate: cs?.grype.spec.version, reference: rs?.grype.spec.version }, sameDB: !!cs?.db.checksum && cs.db.checksum === rs?.db.checksum };
   return el("div", { class: "why" },
-    el("p", { "data-testid": "why-text" }, el("b", {}, cap(dirWords[dir])), row.why ? `: ${whyText(row.why, dir)}` : "", (row.why?.secondary ?? []).map((s) => ` · ${whyText(s, dir)}`)),
-    el("div", { class: "lanes", "data-testid": "match-path" }, matchPath(row, d.matches ?? undefined, rel)),
+    el("p", { "data-testid": "why-text" }, el("b", {}, cap(dirWords[dir])), row.why ? `: ${whyText(row.why, dir)}` : "", (row.why?.secondary ?? []).map((s) => ` · ${whyText(s, dir, row.why?.key)}`),
+      setups.sameDB ? " · both setups read the same DB" : ""),
+    el("div", { class: "lanes", "data-testid": "match-path" }, matchPath(row, d.matches ?? undefined, rel, setups)),
     records(row, dir, rel),
     kv([
       ["Package", el("span", { class: "mono", title: row.package.ref, "data-testid": "finding-purl" }, decoded(row.package.ref))],
