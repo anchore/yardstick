@@ -67,8 +67,14 @@ func label(pkg, vuln string, v claimsv1.Verdict) claims.Label {
 // labels on a package the SBOM lacks and on one grype matched nothing on.
 func rpmGate(t *testing.T, checks ...gatefile.Check) (Gate, *pairing.Result) {
 	t.Helper()
-	cand := scan(t, fixture.Path("grype", "v0.120.1-cpes", "rpm.json"))
-	refScan := scan(t, fixture.Grype("v0.120.1", "rpm"))
+	return rpmGateOf(t, nil, checks...)
+}
+
+// rpmGateOf is rpmGate on only the matches on vulns, or on every match when vulns is empty.
+func rpmGateOf(t *testing.T, vulns []string, checks ...gatefile.Check) (Gate, *pairing.Result) {
+	t.Helper()
+	cand := only(scan(t, fixture.Path("grype", "v0.120.1-cpes", "rpm.json")), vulns)
+	refScan := only(scan(t, fixture.Grype("v0.120.1", "rpm")), vulns)
 	ls := []claims.Label{
 		label("pkg:rpm/rocky/zlib", "CVE-2018-25032", claimsv1.TP),                       // added by the candidate: fixed
 		label("pkg:rpm/rocky/json-c", "CVE-2020-12762", claimsv1.FP),                     // added by the candidate: introduced
@@ -114,9 +120,25 @@ func render(t *testing.T, s Set, o Options) string {
 	return buf.String()
 }
 
+// only drops every match not on one of vulns, leaving the document whole when vulns is empty.
+func only(doc *models.Document, vulns []string) *models.Document {
+	if len(vulns) == 0 {
+		return doc
+	}
+	doc.Matches = slices.DeleteFunc(doc.Matches, func(m models.Match) bool {
+		return !slices.Contains(vulns, m.Vulnerability.ID)
+	})
+	return doc
+}
+
 func passing(t *testing.T) Gate {
 	t.Helper()
-	g, _ := rpmGate(t, gatefile.Check{Name: analysis.UnlabeledPercentAtMost, Params: map[string]float64{"max": 100}})
+	return passingOf(t, nil)
+}
+
+func passingOf(t *testing.T, vulns []string) Gate {
+	t.Helper()
+	g, _ := rpmGateOf(t, vulns, gatefile.Check{Name: analysis.UnlabeledPercentAtMost, Params: map[string]float64{"max": 100}})
 	g.Name, g.Path = "rpm-coverage", "gates/rpm-coverage.yaml"
 	return g
 }
@@ -126,6 +148,16 @@ func fixtureSet(t *testing.T) Set {
 	t.Helper()
 	failing, _ := rpmGate(t)
 	return Summarize([]Gate{passing(t), failing})
+}
+
+// smallSet is fixtureSet on a few of its matches, one of each kind the json renderer shows: a
+// candidate-added tp (fixed) and fp (introduced), an unlabeled candidate-only match (review), and
+// the match both setups report that a tp label near-misses.
+func smallSet(t *testing.T) Set {
+	t.Helper()
+	vulns := []string{"CVE-2018-25032", "CVE-2020-12762", "CVE-2023-48795", "CVE-2026-45447"}
+	failing, _ := rpmGateOf(t, vulns)
+	return Summarize([]Gate{passingOf(t, vulns), failing})
 }
 
 // snapshotLayout snapshots a layout at each details level, into __snapshots__/<format>_test.snap
@@ -156,14 +188,15 @@ func textFormats() []string {
 	return out
 }
 
-// the cause, check and subject layouts are snapshotted in their own test files
+// the cause, check and subject layouts are snapshotted in their own test files. Json prints every
+// match, so it is snapshotted on the small set.
 func TestRenderers(t *testing.T) {
-	set := fixtureSet(t)
-	for _, f := range []string{"table", "json"} {
-		t.Run(f, func(t *testing.T) {
-			snaps.MatchSnapshot(t, render(t, set, Options{Format: f}))
-		})
-	}
+	t.Run("table", func(t *testing.T) {
+		snaps.MatchSnapshot(t, render(t, fixtureSet(t), Options{Format: "table"}))
+	})
+	t.Run("json", func(t *testing.T) {
+		snaps.MatchSnapshot(t, render(t, smallSet(t), Options{Format: "json"}))
+	})
 }
 
 // verdict-set-is-immutable: every renderer shows the one set, and json is all of it
