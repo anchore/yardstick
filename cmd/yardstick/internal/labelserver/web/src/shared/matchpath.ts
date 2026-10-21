@@ -2,7 +2,7 @@
 // (or where it stopped), one lane per side, and what the other DB has for the package elsewhere.
 import type { MatchesResponse } from "../gen/wire";
 import { el } from "./dom";
-import { type Release, nsHuman, sameRelease } from "./names";
+import { type Release, distroName, nsHuman, sameRelease } from "./names";
 import { otherRecords, pkgOf, type Row } from "./rows";
 
 // GrypeMatch is the little of grype's raw match JSON the path reads; the wire passes it verbatim
@@ -19,7 +19,6 @@ interface SearchedBy { namespace?: string; cpes?: string[]; package?: { name?: s
 export interface Step { k: string; t: string; sub?: string; title?: string; same?: boolean; ok?: boolean; miss?: boolean; diff?: boolean }
 type Side = "candidate" | "reference";
 
-const nsChip = (ns: string, cls = "") => el("span", { class: `ns ${cls}`, title: ns }, nsHuman(ns));
 
 // steps reads grype's matchDetails (from the raw match) into the steps of the path. Without a
 // match, the lane stops where the row's data says it diverged.
@@ -104,14 +103,35 @@ export function matchPath(r: Row, m: MatchesResponse | undefined, rel: Release |
   ]));
 }
 
-// records lists what the other DB has for the package in other releases, the image's own release
-// first and bold, the rest dimmed
+// constraintsOf are a record's or a match's version constraints as the DB lists them: grype's
+// " (type)" suffix dropped, and its "||"-joined ranges apart
+const constraintsOf = (list: string[] | undefined) =>
+  (list || []).flatMap((c) => c.replace(/\s*\((\w[\w-]*)\)$/, "").split("||")).map((c) => c.trim()).filter((c) => c && c !== "none").sort();
+// cpeProduct is a CPE's product ("glibc" for cpe:2.3:a:gnu:glibc:*:...)
+const cpeProduct = (cpe: string) => cpe.split(":")[4] || cpe;
+type Rec = NonNullable<Row["candidateRecords"]>[number];
+
+// recordLine says how one of the other DB's records relates to the row: the same record the other
+// setup matched, a distro saying the package is not affected, else what the record covers
+export function recordLine(r: Row, rec: Rec, dir: string): string {
+  const found = dir === "added" ? r.candidate : r.reference, finder = dir === "added" ? "candidate" : "reference";
+  const what = rec.cpe ? `${nsHuman(rec.namespace)} ${cpeProduct(rec.cpe)}` : `${nsHuman(rec.namespace)} ${rec.package || ""}`.trim();
+  const cons = constraintsOf(rec.constraints);
+  if (rec.package && (cons.length ? cons.every((c) => c === "< 0") : (rec.fixVersions || []).join() === "0" && (rec.fixStates || []).includes("fixed")))
+    return `${distroName(rec.namespace)} says ${rec.package} is not affected (fixed in 0)`;
+  const fc = constraintsOf(found?.constraints);
+  if (found && rec.namespace === found.namespace && !!rec.cpe === (found.matchTypes || []).every((t) => t === "cpe-match") && cons.join("|") === fc.join("|"))
+    return `same record the ${finder} matched (${what}${cons.length ? `, ${cons.join(" ‖ ")}` : ""})`;
+  return `${what} · ${cons.length ? `affected ${cons.join(" ‖ ")}` : "every version"}${rec.fixVersions?.length ? ` · fixed in ${rec.fixVersions.join(", ")}` : rec.fixStates?.length ? ` · ${rec.fixStates.join("/").replace(/-/g, " ")}` : ""}`;
+}
+
+// records lists what the other DB has for the package, each saying how it relates to the row, the
+// image's own release first and bold, the rest dimmed
 export function records(r: Row, dir: string, rel: Release | null) {
   const recs = otherRecords(r);
   if (!recs.length) return null;
   const sorted = [...recs].sort((a, b) => Number(sameRelease(b.namespace, rel)) - Number(sameRelease(a.namespace, rel)));
-  const cons = (list: string[] | undefined) => (list || []).map((c) => c.replace(/\s*\((\w[\w-]*)\)$/, "")).join(" ‖ ");
-  return el("div", { class: "records", "data-testid": "other-records" }, el("span", { class: "k" }, `the ${dir === "added" ? "reference" : "candidate"} DB also has, for ${r.sourcePackage || pkgOf(r.package.ref).name}:`),
-    sorted.map((rec) => el("div", { class: `rec${sameRelease(rec.namespace, rel) ? " same" : " other"}` }, nsChip(rec.namespace),
-      ` · ${rec.constraints?.length ? `affected ${cons(rec.constraints)}` : "every version"}${rec.fixVersions?.length ? ` · fixed in ${rec.fixVersions.join(", ")}` : rec.fixStates?.length ? ` · ${rec.fixStates.join("/").replace(/-/g, " ")}` : ""}`)));
+  return el("section", { class: "records", "data-testid": "other-records" },
+    el("h3", {}, `What the ${dir === "added" ? "reference" : "candidate"} DB has for ${pkgOf(r.package.ref).name || r.sourcePackage}`),
+    el("ul", {}, sorted.map((rec) => el("li", { class: `rec${sameRelease(rec.namespace, rel) ? " same" : ""}`, title: rec.namespace }, recordLine(r, rec, dir)))));
 }

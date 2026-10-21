@@ -43,6 +43,12 @@ export function nsHuman(ns: string | undefined) {
   if (n.kind === "cpe") return "NVD (CPE)";
   return ns || "";
 }
+// distroName is a distro namespace's distro as people say it ("SecureOS" for
+// secureos:distro:secureos:rolling), else the namespace in words
+export function distroName(ns: string | undefined) {
+  const n = nsParse(ns);
+  return n.kind === "distro" ? distroNames[n.distro] || n.distro : nsHuman(ns);
+}
 // imageRelease is the distro the image is, from grype's view of it or the purl's distro qualifier
 export function imageRelease(r: Row): Release | null {
   const d = detail(r)?.distro || "";

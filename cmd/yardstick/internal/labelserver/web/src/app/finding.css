@@ -75,12 +75,10 @@
 .lanes .step.ok .t::before { content: "✓ "; color: var(--pass); }
 .lanes .step.same { border-color: var(--foreground); }
 .lanes .step .mine { font-size: 10px; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; }
-.why .records { display: grid; gap: 4px; font-size: 13px; }
-.why .records .k { color: var(--muted-foreground); }
-.why .records .rec { font-family: var(--font-mono); font-size: 12px; }
-.why .records .rec.same { font-weight: 600; }
-.why .records .rec.other { color: var(--muted-foreground); }
-.why .records .rec.same .ns::after { content: "  ← this image"; font-weight: 400; }
+/* what the other DB has for the package: a section like the others, wherever it renders */
+.records { display: grid; gap: 8px; }
+.records ul { margin: 0; padding-left: 16px; display: grid; gap: 4px; font-size: 13.5px; }
+.records .rec.same { font-weight: 500; }
 
 /* ---------- Evidence, Raw match, Labels on file ---------- */
 
