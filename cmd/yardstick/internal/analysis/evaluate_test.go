@@ -364,17 +364,29 @@ func TestUnlabeledPercentReadsTheCandidate(t *testing.T) {
 
 func TestMatchesAtLeastTakesTheFewestMatches(t *testing.T) {
 	deb := grype(t, "deb")
+	cand := without(deb, "CVE-2026-5450", "libc6")
 	// the reference's extra matches are unlabeled deltas, which a count of matches does not read
-	full := pairOne(t, "deb", "deb", without(deb, "CVE-2026-5450", "libc6"), deb)
-	empty := pairOne(t, "npm", "npm", &models.Document{}, deb)
-	c := evaluate([]gatefile.Check{check(MatchesAtLeast, map[string]float64{"min": 1})}, full, empty).Checks[0]
+	full := pairOne(t, "deb", "deb", cand, deb)
+	// only the reference reports anything: both setups count, as python's fail_on_empty_match_set did
+	refOnly := pairOne(t, "deb-ref-only", "deb", &models.Document{}, deb)
+	empty := pairOne(t, "npm", "npm", &models.Document{}, &models.Document{})
+	c := evaluate([]gatefile.Check{check(MatchesAtLeast, map[string]float64{"min": 1})}, full, refOnly, empty).Checks[0]
 	if c.State != Fail || c.Value.Worst != 0 || c.Value.Best != 0 || c.Threshold != 1 {
 		t.Errorf("expected a fail at the empty subject's 0 matches, got %s %+v threshold %v", c.State, c.Value, c.Threshold)
 	}
-	if c.Subjects[0].State != Pass || c.Subjects[0].Value.Worst != c.Subjects[0].Value.Best || c.Subjects[1].State != Fail {
-		t.Errorf("expected deb to pass with one value and npm to fail, got %+v", c.Subjects)
+	if got, want := c.Subjects[0].Value.Worst, float64(len(cand.Matches)+len(deb.Matches)); got != want {
+		t.Errorf("expected deb to count both setups' %v matches, got %v", want, got)
 	}
-	if c := evaluate([]gatefile.Check{check(MatchesAtLeast, map[string]float64{"min": 0})}, full, empty).Checks[0]; c.State != Pass {
+	if c.Subjects[0].State != Pass || c.Subjects[0].Value.Worst != c.Subjects[0].Value.Best {
+		t.Errorf("expected deb to pass with one value, got %+v", c.Subjects[0])
+	}
+	if s := c.Subjects[1]; s.State != Pass || s.Value.Worst != float64(len(deb.Matches)) {
+		t.Errorf("expected an empty candidate to pass on the reference's matches, got %+v", s)
+	}
+	if c.Subjects[2].State != Fail {
+		t.Errorf("expected npm, empty in both setups, to fail, got %+v", c.Subjects[2])
+	}
+	if c := evaluate([]gatefile.Check{check(MatchesAtLeast, map[string]float64{"min": 0})}, full, refOnly, empty).Checks[0]; c.State != Pass {
 		t.Errorf("expected min 0 to pass, got %s", c.State)
 	}
 }

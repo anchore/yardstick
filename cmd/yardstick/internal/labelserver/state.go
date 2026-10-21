@@ -251,7 +251,7 @@ var checkWords = map[string]struct{ means, counts, direction, summary string }{
 	analysis.UnlabeledPercentAtMost: {"percent of the candidate's matches unlabeled", "unjudged", atMost, "Unlabeled share of the candidate's matches stays under the limit"},
 	analysis.ExpectationsMetAtLeast: {"expectations the candidate meets", "", atLeast, "Enough expectations met by the candidate"},
 	analysis.NoNewMisses:            {"expectations the candidate newly misses", "", atMost, "No expectations newly missed by the candidate"},
-	analysis.MatchesAtLeast:         {"matches the candidate reports", "", atLeast, "Candidate reports enough matches on every subject"},
+	analysis.MatchesAtLeast:         {"matches both setups report", "", atLeast, "Both setups together report enough matches on every subject"},
 }
 
 func (v *view) gateStatus(e *entry) *GateStatus {

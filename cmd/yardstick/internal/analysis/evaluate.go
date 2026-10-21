@@ -365,8 +365,9 @@ func (e evaluator) subjectCheck(c gatefile.Check, s Subject) SubjectCheck {
 				}
 			}
 		case MatchesAtLeast:
-			// labels do not move a count of matches, so both cases are the same
-			values[x] = float64(e.matchesIn(r, pairing.Candidate))
+			// both setups' matches, as python yardstick's fail_on_empty_match_set summed them: only a
+			// subject where both are empty fails min 1. Labels do not move a count, so both cases agree
+			values[x] = float64(e.matchesIn(r, pairing.Candidate) + e.matchesIn(r, pairing.Reference))
 		}
 	}
 	sc.Value = Value{Worst: values[worstCase], Best: values[bestCase]}

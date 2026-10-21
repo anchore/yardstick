@@ -90,9 +90,9 @@ var Registry = map[string]CheckType{
 	},
 	MatchesAtLeast: {
 		CheckDef: gatefile.CheckDef{Name: MatchesAtLeast, Params: []gatefile.Param{
-			{Name: paramMin, Description: "how many matches the candidate must report on each subject", Integer: true},
+			{Name: paramMin, Description: "how many matches the candidate and the reference must report between them on each subject", Integer: true},
 		}},
-		Description: "fails when the candidate reports fewer than min matches on a subject, after the gate's vulnerabilities filter",
+		Description: "fails when the candidate and the reference together report fewer than min matches on a subject, after the gate's vulnerabilities filter",
 		Scope:       PerSubject,
 	},
 	NoNewMisses: {
