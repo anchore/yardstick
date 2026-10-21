@@ -134,7 +134,10 @@ func logResult(cmd *exec.Cmd, stderr []byte) {
 	if len(s) > traceStderrBytes {
 		s = "... (truncated)\n" + s[len(s)-traceStderrBytes:]
 	}
-	log.Tracef("exec stderr:\n%s", s)
+	// one entry per line, since the logger escapes a newline inside an argument
+	for _, line := range strings.Split(s, "\n") {
+		log.Tracef("exec stderr: %s", line)
+	}
 }
 
 func isToolVar(kv string) bool {
