@@ -1,6 +1,6 @@
 [project]
 name = "yardstick"
-requires-python = "<3.14,>=3.11"
+requires-python = "<3.16,>=3.11"
 authors = [
     {name = "Alex Goodman", email = "alex.goodman@anchore.com"},
 ]
@@ -65,8 +65,11 @@ style = "semver"
 fallback-version = "0.0.0"
 
 [tool.uv]
+required-version = ">=0.13.4"
 trusted-publishing = "always"
 exclude-newer = "1 week"
+# certifi carries CA bundle updates; take them as soon as they ship
+exclude-newer-package = { certifi = false }
 
 [[tool.uv.index]]
 explicit = true
