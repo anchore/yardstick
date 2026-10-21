@@ -23,9 +23,9 @@ The demo saw 26 glibc rows dropped. The 9 here are the ones with exactly one NVD
 | f1NotWorse | undecided | -1..0.88 |
 | noNewFalseNegatives | undecided | 0..7 |
 | noNewFalsePositives | pass | 0..0 |
-| unjudgedChangesAtMost | undecided | 0..7 |
+| unjudgedChangesAtMost | fail | 7..7 |
 
-Outcome **undecided**, exit 1.
+Outcome **fail**, exit 1: the unlabeled count is measured, not bounded, so 7 over a max of 0 fails.
 
 - fixed: CVE-2010-4756 and CVE-2019-1010022, fp no longer reported
 - review: the other 7, unlabeled. Each one's effect: tp fails f1NotWorse and noNewFalseNegatives, fp changes no state

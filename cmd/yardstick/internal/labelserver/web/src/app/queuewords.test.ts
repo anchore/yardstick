@@ -33,6 +33,15 @@ describe("whyNext", () => {
     const babel = entry("24160b879ac36bf5", "none", at("deb-npm", "pass"));
     expect(whyNext(babel, "deb-npm", [gate("deb-npm", "pass", 1, true)])).toBe("deb-npm passes and this is its only open match. No label here changes any gate's outcome: its gate is decided either way.");
   });
+  // pins a contradiction the seed can no longer reach, since its gates' unlabeled counts fail rather
+  // than leave them undecided: "decides" when one verdict moves the gate, and the other side reads
+  // "leaves it undecided"
+  test("pins: a row one verdict decides reads as deciding while the other leaves it undecided", () => {
+    const tar = entry("e3bfd3b0b0c30ee6", "decides", at("deb-java", "undecided", "fail", "undecided", { ifTP: { outcome: "fail", fails: ["noNewFalseNegatives"] } }));
+    expect(whyNext(tar, "deb-java", [gate("deb-java", "undecided", 8)]))
+      .toBe("deb-java is undecided, with 8 open matches. A label here decides it: FP leaves it undecided; TP fails noNewFalseNegatives.");
+    expect(outcomeLines(tar)).toEqual({ tp: "deb-java fails noNewFalseNegatives", fp: "deb-java stays undecided" });
+  });
   test("a row in two gates names the one it decides", () => {
     const tar = entry("0fe9fc814bcd060a", "decides", at("deb-npm", "undecided", "pass", "pass"), at("deb-java", "fail", "fail", "fail"));
     expect(whyNext(tar, "deb-java", [gate("deb-npm", "undecided", 3), gate("deb-java", "fail", 10)])).toBe("deb-java fails, with 10 open matches. A label here decides deb-npm: either label passes it.");

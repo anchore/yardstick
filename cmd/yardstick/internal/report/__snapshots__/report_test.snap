@@ -12,11 +12,11 @@ gate rpm-cpes (gates/rpm-cpes.yaml), scanned 2026-10-14T10:00:00Z
   varied: env (none -> GRYPE_MATCH_RPM_USING_CPES=true); held: grype, DB, config
   claims: github.com/anchore/delta-prototype@main at sha256:7df20f57, commit 77aa0000
   built: the SBOM of rpm, with syft 1.54.1
-GATE          CHECK                   SUBJECT  STATE      WORST  BEST  THRESHOLD  NOTE
-rpm-coverage  unlabeledPercentAtMost  rpm      pass       99.59  0     100
-rpm-cpes      noNewFalsePositives     rpm      fail       34     1     0
-rpm-cpes      unjudgedChangesAtMost   rpm      undecided  33     0     0
-rpm-cpes      noNewFalseNegatives     rpm      pass       0      0     0
+GATE          CHECK                   SUBJECT  STATE  WORST  BEST   THRESHOLD  NOTE
+rpm-coverage  unlabeledPercentAtMost  rpm      pass   99.59  99.59  100
+rpm-cpes      noNewFalsePositives     rpm      fail   34     1      0
+rpm-cpes      unjudgedChangesAtMost   rpm      fail   33     33     0
+rpm-cpes      noNewFalseNegatives     rpm      pass   0      0      0
 FAILED 1 of 2 gates
 
 ---
@@ -82,7 +82,7 @@ FAILED 1 of 2 gates
           "threshold": 100,
           "value": {
             "worst": 99.59016393442623,
-            "best": 0
+            "best": 99.59016393442623
           },
           "state": "pass",
           "subjects": [
@@ -90,7 +90,7 @@ FAILED 1 of 2 gates
               "subject": "rpm",
               "value": {
                 "worst": 99.59016393442623,
-                "best": 0
+                "best": 99.59016393442623
               },
               "state": "pass",
               "rows": [
@@ -33511,17 +33511,17 @@ FAILED 1 of 2 gates
           "threshold": 0,
           "value": {
             "worst": 33,
-            "best": 0
+            "best": 33
           },
-          "state": "undecided",
+          "state": "fail",
           "subjects": [
             {
               "subject": "rpm",
               "value": {
                 "worst": 33,
-                "best": 0
+                "best": 33
               },
-              "state": "undecided",
+              "state": "fail",
               "rows": [
                 "0c0dcde3bb91d5dd/CVE-2022-37434",
                 "3cfe7d6a1df21d77/CVE-2023-48795",
@@ -33595,12 +33595,12 @@ FAILED 1 of 2 gates
             "fp": {
               "noNewFalseNegatives": "pass",
               "noNewFalsePositives": "fail",
-              "unjudgedChangesAtMost": "undecided"
+              "unjudgedChangesAtMost": "fail"
             },
             "tp": {
               "noNewFalseNegatives": "pass",
               "noNewFalsePositives": "fail",
-              "unjudgedChangesAtMost": "undecided"
+              "unjudgedChangesAtMost": "fail"
             }
           },
           "outcome": {
@@ -33618,12 +33618,12 @@ FAILED 1 of 2 gates
             "fp": {
               "noNewFalseNegatives": "pass",
               "noNewFalsePositives": "fail",
-              "unjudgedChangesAtMost": "undecided"
+              "unjudgedChangesAtMost": "fail"
             },
             "tp": {
               "noNewFalseNegatives": "pass",
               "noNewFalsePositives": "fail",
-              "unjudgedChangesAtMost": "undecided"
+              "unjudgedChangesAtMost": "fail"
             }
           },
           "outcome": {
@@ -33641,12 +33641,12 @@ FAILED 1 of 2 gates
             "fp": {
               "noNewFalseNegatives": "pass",
               "noNewFalsePositives": "fail",
-              "unjudgedChangesAtMost": "undecided"
+              "unjudgedChangesAtMost": "fail"
             },
             "tp": {
               "noNewFalseNegatives": "pass",
               "noNewFalsePositives": "fail",
-              "unjudgedChangesAtMost": "undecided"
+              "unjudgedChangesAtMost": "fail"
             }
           },
           "outcome": {
@@ -33664,12 +33664,12 @@ FAILED 1 of 2 gates
             "fp": {
               "noNewFalseNegatives": "pass",
               "noNewFalsePositives": "fail",
-              "unjudgedChangesAtMost": "undecided"
+              "unjudgedChangesAtMost": "fail"
             },
             "tp": {
               "noNewFalseNegatives": "pass",
               "noNewFalsePositives": "fail",
-              "unjudgedChangesAtMost": "undecided"
+              "unjudgedChangesAtMost": "fail"
             }
           },
           "outcome": {
@@ -33687,12 +33687,12 @@ FAILED 1 of 2 gates
             "fp": {
               "noNewFalseNegatives": "pass",
               "noNewFalsePositives": "fail",
-              "unjudgedChangesAtMost": "undecided"
+              "unjudgedChangesAtMost": "fail"
             },
             "tp": {
               "noNewFalseNegatives": "pass",
               "noNewFalsePositives": "fail",
-              "unjudgedChangesAtMost": "undecided"
+              "unjudgedChangesAtMost": "fail"
             }
           },
           "outcome": {
@@ -33710,12 +33710,12 @@ FAILED 1 of 2 gates
             "fp": {
               "noNewFalseNegatives": "pass",
               "noNewFalsePositives": "fail",
-              "unjudgedChangesAtMost": "undecided"
+              "unjudgedChangesAtMost": "fail"
             },
             "tp": {
               "noNewFalseNegatives": "pass",
               "noNewFalsePositives": "fail",
-              "unjudgedChangesAtMost": "undecided"
+              "unjudgedChangesAtMost": "fail"
             }
           },
           "outcome": {
@@ -33733,12 +33733,12 @@ FAILED 1 of 2 gates
             "fp": {
               "noNewFalseNegatives": "pass",
               "noNewFalsePositives": "fail",
-              "unjudgedChangesAtMost": "undecided"
+              "unjudgedChangesAtMost": "fail"
             },
             "tp": {
               "noNewFalseNegatives": "pass",
               "noNewFalsePositives": "fail",
-              "unjudgedChangesAtMost": "undecided"
+              "unjudgedChangesAtMost": "fail"
             }
           },
           "outcome": {
@@ -33756,12 +33756,12 @@ FAILED 1 of 2 gates
             "fp": {
               "noNewFalseNegatives": "pass",
               "noNewFalsePositives": "fail",
-              "unjudgedChangesAtMost": "undecided"
+              "unjudgedChangesAtMost": "fail"
             },
             "tp": {
               "noNewFalseNegatives": "pass",
               "noNewFalsePositives": "fail",
-              "unjudgedChangesAtMost": "undecided"
+              "unjudgedChangesAtMost": "fail"
             }
           },
           "outcome": {
@@ -33779,12 +33779,12 @@ FAILED 1 of 2 gates
             "fp": {
               "noNewFalseNegatives": "pass",
               "noNewFalsePositives": "fail",
-              "unjudgedChangesAtMost": "undecided"
+              "unjudgedChangesAtMost": "fail"
             },
             "tp": {
               "noNewFalseNegatives": "pass",
               "noNewFalsePositives": "fail",
-              "unjudgedChangesAtMost": "undecided"
+              "unjudgedChangesAtMost": "fail"
             }
           },
           "outcome": {
@@ -33802,12 +33802,12 @@ FAILED 1 of 2 gates
             "fp": {
               "noNewFalseNegatives": "pass",
               "noNewFalsePositives": "fail",
-              "unjudgedChangesAtMost": "undecided"
+              "unjudgedChangesAtMost": "fail"
             },
             "tp": {
               "noNewFalseNegatives": "pass",
               "noNewFalsePositives": "fail",
-              "unjudgedChangesAtMost": "undecided"
+              "unjudgedChangesAtMost": "fail"
             }
           },
           "outcome": {
@@ -33825,12 +33825,12 @@ FAILED 1 of 2 gates
             "fp": {
               "noNewFalseNegatives": "pass",
               "noNewFalsePositives": "fail",
-              "unjudgedChangesAtMost": "undecided"
+              "unjudgedChangesAtMost": "fail"
             },
             "tp": {
               "noNewFalseNegatives": "pass",
               "noNewFalsePositives": "fail",
-              "unjudgedChangesAtMost": "undecided"
+              "unjudgedChangesAtMost": "fail"
             }
           },
           "outcome": {
@@ -33848,12 +33848,12 @@ FAILED 1 of 2 gates
             "fp": {
               "noNewFalseNegatives": "pass",
               "noNewFalsePositives": "fail",
-              "unjudgedChangesAtMost": "undecided"
+              "unjudgedChangesAtMost": "fail"
             },
             "tp": {
               "noNewFalseNegatives": "pass",
               "noNewFalsePositives": "fail",
-              "unjudgedChangesAtMost": "undecided"
+              "unjudgedChangesAtMost": "fail"
             }
           },
           "outcome": {
@@ -33871,12 +33871,12 @@ FAILED 1 of 2 gates
             "fp": {
               "noNewFalseNegatives": "pass",
               "noNewFalsePositives": "fail",
-              "unjudgedChangesAtMost": "undecided"
+              "unjudgedChangesAtMost": "fail"
             },
             "tp": {
               "noNewFalseNegatives": "pass",
               "noNewFalsePositives": "fail",
-              "unjudgedChangesAtMost": "undecided"
+              "unjudgedChangesAtMost": "fail"
             }
           },
           "outcome": {
@@ -33894,12 +33894,12 @@ FAILED 1 of 2 gates
             "fp": {
               "noNewFalseNegatives": "pass",
               "noNewFalsePositives": "fail",
-              "unjudgedChangesAtMost": "undecided"
+              "unjudgedChangesAtMost": "fail"
             },
             "tp": {
               "noNewFalseNegatives": "pass",
               "noNewFalsePositives": "fail",
-              "unjudgedChangesAtMost": "undecided"
+              "unjudgedChangesAtMost": "fail"
             }
           },
           "outcome": {
@@ -33917,12 +33917,12 @@ FAILED 1 of 2 gates
             "fp": {
               "noNewFalseNegatives": "pass",
               "noNewFalsePositives": "fail",
-              "unjudgedChangesAtMost": "undecided"
+              "unjudgedChangesAtMost": "fail"
             },
             "tp": {
               "noNewFalseNegatives": "pass",
               "noNewFalsePositives": "fail",
-              "unjudgedChangesAtMost": "undecided"
+              "unjudgedChangesAtMost": "fail"
             }
           },
           "outcome": {
@@ -33940,12 +33940,12 @@ FAILED 1 of 2 gates
             "fp": {
               "noNewFalseNegatives": "pass",
               "noNewFalsePositives": "fail",
-              "unjudgedChangesAtMost": "undecided"
+              "unjudgedChangesAtMost": "fail"
             },
             "tp": {
               "noNewFalseNegatives": "pass",
               "noNewFalsePositives": "fail",
-              "unjudgedChangesAtMost": "undecided"
+              "unjudgedChangesAtMost": "fail"
             }
           },
           "outcome": {
@@ -33963,12 +33963,12 @@ FAILED 1 of 2 gates
             "fp": {
               "noNewFalseNegatives": "pass",
               "noNewFalsePositives": "fail",
-              "unjudgedChangesAtMost": "undecided"
+              "unjudgedChangesAtMost": "fail"
             },
             "tp": {
               "noNewFalseNegatives": "pass",
               "noNewFalsePositives": "fail",
-              "unjudgedChangesAtMost": "undecided"
+              "unjudgedChangesAtMost": "fail"
             }
           },
           "outcome": {
@@ -33986,12 +33986,12 @@ FAILED 1 of 2 gates
             "fp": {
               "noNewFalseNegatives": "pass",
               "noNewFalsePositives": "fail",
-              "unjudgedChangesAtMost": "undecided"
+              "unjudgedChangesAtMost": "fail"
             },
             "tp": {
               "noNewFalseNegatives": "pass",
               "noNewFalsePositives": "fail",
-              "unjudgedChangesAtMost": "undecided"
+              "unjudgedChangesAtMost": "fail"
             }
           },
           "outcome": {
@@ -34009,12 +34009,12 @@ FAILED 1 of 2 gates
             "fp": {
               "noNewFalseNegatives": "pass",
               "noNewFalsePositives": "fail",
-              "unjudgedChangesAtMost": "undecided"
+              "unjudgedChangesAtMost": "fail"
             },
             "tp": {
               "noNewFalseNegatives": "pass",
               "noNewFalsePositives": "fail",
-              "unjudgedChangesAtMost": "undecided"
+              "unjudgedChangesAtMost": "fail"
             }
           },
           "outcome": {
@@ -34032,12 +34032,12 @@ FAILED 1 of 2 gates
             "fp": {
               "noNewFalseNegatives": "pass",
               "noNewFalsePositives": "fail",
-              "unjudgedChangesAtMost": "undecided"
+              "unjudgedChangesAtMost": "fail"
             },
             "tp": {
               "noNewFalseNegatives": "pass",
               "noNewFalsePositives": "fail",
-              "unjudgedChangesAtMost": "undecided"
+              "unjudgedChangesAtMost": "fail"
             }
           },
           "outcome": {
@@ -34055,12 +34055,12 @@ FAILED 1 of 2 gates
             "fp": {
               "noNewFalseNegatives": "pass",
               "noNewFalsePositives": "fail",
-              "unjudgedChangesAtMost": "undecided"
+              "unjudgedChangesAtMost": "fail"
             },
             "tp": {
               "noNewFalseNegatives": "pass",
               "noNewFalsePositives": "fail",
-              "unjudgedChangesAtMost": "undecided"
+              "unjudgedChangesAtMost": "fail"
             }
           },
           "outcome": {
@@ -34078,12 +34078,12 @@ FAILED 1 of 2 gates
             "fp": {
               "noNewFalseNegatives": "pass",
               "noNewFalsePositives": "fail",
-              "unjudgedChangesAtMost": "undecided"
+              "unjudgedChangesAtMost": "fail"
             },
             "tp": {
               "noNewFalseNegatives": "pass",
               "noNewFalsePositives": "fail",
-              "unjudgedChangesAtMost": "undecided"
+              "unjudgedChangesAtMost": "fail"
             }
           },
           "outcome": {
@@ -34101,12 +34101,12 @@ FAILED 1 of 2 gates
             "fp": {
               "noNewFalseNegatives": "pass",
               "noNewFalsePositives": "fail",
-              "unjudgedChangesAtMost": "undecided"
+              "unjudgedChangesAtMost": "fail"
             },
             "tp": {
               "noNewFalseNegatives": "pass",
               "noNewFalsePositives": "fail",
-              "unjudgedChangesAtMost": "undecided"
+              "unjudgedChangesAtMost": "fail"
             }
           },
           "outcome": {
@@ -34124,12 +34124,12 @@ FAILED 1 of 2 gates
             "fp": {
               "noNewFalseNegatives": "pass",
               "noNewFalsePositives": "fail",
-              "unjudgedChangesAtMost": "undecided"
+              "unjudgedChangesAtMost": "fail"
             },
             "tp": {
               "noNewFalseNegatives": "pass",
               "noNewFalsePositives": "fail",
-              "unjudgedChangesAtMost": "undecided"
+              "unjudgedChangesAtMost": "fail"
             }
           },
           "outcome": {
@@ -34147,12 +34147,12 @@ FAILED 1 of 2 gates
             "fp": {
               "noNewFalseNegatives": "pass",
               "noNewFalsePositives": "fail",
-              "unjudgedChangesAtMost": "undecided"
+              "unjudgedChangesAtMost": "fail"
             },
             "tp": {
               "noNewFalseNegatives": "pass",
               "noNewFalsePositives": "fail",
-              "unjudgedChangesAtMost": "undecided"
+              "unjudgedChangesAtMost": "fail"
             }
           },
           "outcome": {
@@ -34170,12 +34170,12 @@ FAILED 1 of 2 gates
             "fp": {
               "noNewFalseNegatives": "pass",
               "noNewFalsePositives": "fail",
-              "unjudgedChangesAtMost": "undecided"
+              "unjudgedChangesAtMost": "fail"
             },
             "tp": {
               "noNewFalseNegatives": "pass",
               "noNewFalsePositives": "fail",
-              "unjudgedChangesAtMost": "undecided"
+              "unjudgedChangesAtMost": "fail"
             }
           },
           "outcome": {
@@ -34193,12 +34193,12 @@ FAILED 1 of 2 gates
             "fp": {
               "noNewFalseNegatives": "pass",
               "noNewFalsePositives": "fail",
-              "unjudgedChangesAtMost": "undecided"
+              "unjudgedChangesAtMost": "fail"
             },
             "tp": {
               "noNewFalseNegatives": "pass",
               "noNewFalsePositives": "fail",
-              "unjudgedChangesAtMost": "undecided"
+              "unjudgedChangesAtMost": "fail"
             }
           },
           "outcome": {
@@ -34216,12 +34216,12 @@ FAILED 1 of 2 gates
             "fp": {
               "noNewFalseNegatives": "pass",
               "noNewFalsePositives": "fail",
-              "unjudgedChangesAtMost": "undecided"
+              "unjudgedChangesAtMost": "fail"
             },
             "tp": {
               "noNewFalseNegatives": "pass",
               "noNewFalsePositives": "fail",
-              "unjudgedChangesAtMost": "undecided"
+              "unjudgedChangesAtMost": "fail"
             }
           },
           "outcome": {
@@ -34239,12 +34239,12 @@ FAILED 1 of 2 gates
             "fp": {
               "noNewFalseNegatives": "pass",
               "noNewFalsePositives": "fail",
-              "unjudgedChangesAtMost": "undecided"
+              "unjudgedChangesAtMost": "fail"
             },
             "tp": {
               "noNewFalseNegatives": "pass",
               "noNewFalsePositives": "fail",
-              "unjudgedChangesAtMost": "undecided"
+              "unjudgedChangesAtMost": "fail"
             }
           },
           "outcome": {
@@ -34262,12 +34262,12 @@ FAILED 1 of 2 gates
             "fp": {
               "noNewFalseNegatives": "pass",
               "noNewFalsePositives": "fail",
-              "unjudgedChangesAtMost": "undecided"
+              "unjudgedChangesAtMost": "fail"
             },
             "tp": {
               "noNewFalseNegatives": "pass",
               "noNewFalsePositives": "fail",
-              "unjudgedChangesAtMost": "undecided"
+              "unjudgedChangesAtMost": "fail"
             }
           },
           "outcome": {
@@ -34285,12 +34285,12 @@ FAILED 1 of 2 gates
             "fp": {
               "noNewFalseNegatives": "pass",
               "noNewFalsePositives": "fail",
-              "unjudgedChangesAtMost": "undecided"
+              "unjudgedChangesAtMost": "fail"
             },
             "tp": {
               "noNewFalseNegatives": "pass",
               "noNewFalsePositives": "fail",
-              "unjudgedChangesAtMost": "undecided"
+              "unjudgedChangesAtMost": "fail"
             }
           },
           "outcome": {
@@ -34308,12 +34308,12 @@ FAILED 1 of 2 gates
             "fp": {
               "noNewFalseNegatives": "pass",
               "noNewFalsePositives": "fail",
-              "unjudgedChangesAtMost": "undecided"
+              "unjudgedChangesAtMost": "fail"
             },
             "tp": {
               "noNewFalseNegatives": "pass",
               "noNewFalsePositives": "fail",
-              "unjudgedChangesAtMost": "undecided"
+              "unjudgedChangesAtMost": "fail"
             }
           },
           "outcome": {
@@ -34331,12 +34331,12 @@ FAILED 1 of 2 gates
             "fp": {
               "noNewFalseNegatives": "pass",
               "noNewFalsePositives": "fail",
-              "unjudgedChangesAtMost": "undecided"
+              "unjudgedChangesAtMost": "fail"
             },
             "tp": {
               "noNewFalseNegatives": "pass",
               "noNewFalsePositives": "fail",
-              "unjudgedChangesAtMost": "undecided"
+              "unjudgedChangesAtMost": "fail"
             }
           },
           "outcome": {

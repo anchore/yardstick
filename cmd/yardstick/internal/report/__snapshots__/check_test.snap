@@ -12,10 +12,10 @@ rpm-cpes  gates/rpm-cpes.yaml, scanned 2026-10-14 10:00Z
   claims   github.com/anchore/delta-prototype@main at sha256:7df20f57, commit 77aa0000
   built    rpm with syft 1.54.1
 
-FAIL gate rpm-cpes  1 check fails, 1 undecided, 1 passes
+FAIL gate rpm-cpes  2 checks fail, 1 passes
 
-FAIL noNewFalsePositives  max 0          worst subject 1..34 fp added
-  FAIL       1..34  rpm
+FAIL noNewFalsePositives  max 0     worst subject 1..34 fp added
+  FAIL       1..34   rpm
     1 fp, added by the candidate
       CVE-2020-12762 on pkg:rpm/rocky/json-c@0.14-11.el9
       nvd:cpe cpe-match
@@ -39,8 +39,8 @@ FAIL noNewFalsePositives  max 0          worst subject 1..34 fp added
       CVE-2024-56171, CVE-2025-24928 on pkg:rpm/rocky/libxml2@2.9.13-14.el9_7
       nvd:cpe cpe-match; the gate fails however one is labeled
 
-UNDECIDED unjudgedChangesAtMost  max 0   worst subject 0..33 unjudged
-  UNDECIDED  0..33  rpm
+FAIL unjudgedChangesAtMost  max 0   worst subject 33..33 unjudged
+  FAIL       33..33  rpm
     1 unlabeled, added  same rows as noNewFalsePositives
     14 unlabeled, added  same rows as noNewFalsePositives
     1 unlabeled, added  same rows as noNewFalsePositives
@@ -67,10 +67,10 @@ rpm-cpes  gates/rpm-cpes.yaml, scanned 2026-10-14 10:00Z
   claims   github.com/anchore/delta-prototype@main at sha256:7df20f57, commit 77aa0000
   built    rpm with syft 1.54.1
 
-FAIL gate rpm-cpes  1 check fails, 1 undecided, 1 passes
+FAIL gate rpm-cpes  2 checks fail, 1 passes
 
-FAIL noNewFalsePositives  max 0          worst subject 1..34 fp added
-  FAIL       1..34  rpm
+FAIL noNewFalsePositives  max 0     worst subject 1..34 fp added
+  FAIL       1..34   rpm
     1 fp, added by the candidate
       CVE-2020-12762 on pkg:rpm/rocky/json-c@0.14-11.el9
       nvd:cpe cpe-match
@@ -94,8 +94,8 @@ FAIL noNewFalsePositives  max 0          worst subject 1..34 fp added
       CVE-2024-56171, CVE-2025-24928 on pkg:rpm/rocky/libxml2@2.9.13-14.el9_7
       nvd:cpe cpe-match; the gate fails however one is labeled
 
-UNDECIDED unjudgedChangesAtMost  max 0   worst subject 0..33 unjudged
-  UNDECIDED  0..33  rpm
+FAIL unjudgedChangesAtMost  max 0   worst subject 33..33 unjudged
+  FAIL       33..33  rpm
     1 unlabeled, added  same rows as noNewFalsePositives
     14 unlabeled, added  same rows as noNewFalsePositives
     1 unlabeled, added  same rows as noNewFalsePositives
@@ -103,12 +103,12 @@ UNDECIDED unjudgedChangesAtMost  max 0   worst subject 0..33 unjudged
     4 unlabeled, added  same rows as noNewFalsePositives
     2 unlabeled, added  same rows as noNewFalsePositives
 
-PASS noNewFalseNegatives  max 0          worst subject 0..0 tp dropped
+PASS noNewFalseNegatives  max 0     worst subject 0..0 tp dropped
   1 subject passes
 
 PASS gate rpm-coverage  1 check passes
 
-PASS unlabeledPercentAtMost  max 100   worst subject 0..99.59 percent unlabeled
+PASS unlabeledPercentAtMost  max 100   worst subject 99.59..99.59 percent unlabeled
   1 subject passes
 
 FAILED 1 of 2 gates
@@ -128,10 +128,10 @@ rpm-cpes  gates/rpm-cpes.yaml, scanned 2026-10-14 10:00Z
   claims   github.com/anchore/delta-prototype@main at sha256:7df20f57, commit 77aa0000
   built    rpm with syft 1.54.1
 
-FAIL gate rpm-cpes  1 check fails, 1 undecided, 1 passes
+FAIL gate rpm-cpes  2 checks fail, 1 passes
 
-FAIL noNewFalsePositives  max 0          worst subject 1..34 fp added
-  FAIL       1..34  rpm
+FAIL noNewFalsePositives  max 0     worst subject 1..34 fp added
+  FAIL       1..34   rpm
     1 fp, added by the candidate
       CVE-2020-12762 on pkg:rpm/rocky/json-c@0.14-11.el9
       nvd:cpe cpe-match
@@ -190,8 +190,8 @@ FAIL noNewFalsePositives  max 0          worst subject 1..34 fp added
       CVE-2024-56171   libxml2@2.9.13-14.el9_7   /var/lib/rpm/rpmdb.sqlite
       CVE-2025-24928   libxml2@2.9.13-14.el9_7   /var/lib/rpm/rpmdb.sqlite
 
-UNDECIDED unjudgedChangesAtMost  max 0   worst subject 0..33 unjudged
-  UNDECIDED  0..33  rpm
+FAIL unjudgedChangesAtMost  max 0   worst subject 33..33 unjudged
+  FAIL       33..33  rpm
     1 unlabeled, added  same rows as noNewFalsePositives
     14 unlabeled, added  same rows as noNewFalsePositives
     1 unlabeled, added  same rows as noNewFalsePositives
@@ -199,15 +199,15 @@ UNDECIDED unjudgedChangesAtMost  max 0   worst subject 0..33 unjudged
     4 unlabeled, added  same rows as noNewFalsePositives
     2 unlabeled, added  same rows as noNewFalsePositives
 
-PASS noNewFalseNegatives  max 0          worst subject 0..0 tp dropped
+PASS noNewFalseNegatives  max 0     worst subject 0..0 tp dropped
   1 subject passes
-  PASS       0..0   rpm
+  PASS       0..0    rpm
 
 PASS gate rpm-coverage  1 check passes
 
-PASS unlabeledPercentAtMost  max 100   worst subject 0..99.59 percent unlabeled
+PASS unlabeledPercentAtMost  max 100   worst subject 99.59..99.59 percent unlabeled
   1 subject passes
-  PASS       0..99.59  rpm
+  PASS       99.59..99.59  rpm
     3 unlabeled
       CVE-2026-13595, CVE-2026-27456, CVE-2026-53613
       on pkg:rpm/rocky/util-linux-core@2.37.4-25.el9

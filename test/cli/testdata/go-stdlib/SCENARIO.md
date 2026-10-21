@@ -17,7 +17,7 @@ grype v0.115.0 flipped `match.golang.always-use-cpe-for-stdlib` to false, so gry
 | f1NotWorse | fail | 0.22..0.34 |
 | noNewFalseNegatives | fail | 3..5 |
 | noNewFalsePositives | pass | 0..0 |
-| unjudgedChangesAtMost | undecided | 0..2 |
+| unjudgedChangesAtMost | fail | 2..2 |
 
 Outcome **fail**, exit 1.
 
@@ -37,7 +37,7 @@ Labeling both review rows tp leaves the gate failing: noNewFalseNegatives 5..5, 
 | f1NotWorse | pass | -0.34..-0.22 |
 | noNewFalseNegatives | pass | 0..0 |
 | noNewFalsePositives | fail | 1..3 |
-| unjudgedChangesAtMost | undecided | 0..2 |
+| unjudgedChangesAtMost | fail | 2..2 |
 
 Outcome **fail**: CVE-2021-44716 is a labeled fp the config brings back.
 

@@ -450,7 +450,7 @@ func TestServeSharedJoinsGates(t *testing.T) {
 		Gates []struct{ ID, GateOutcome string }
 	}
 	s.get("/api/gates", &list)
-	if list.Open != "deb" || len(list.Gates) != 1 || list.Gates[0].GateOutcome != "undecided" {
+	if list.Open != "deb" || len(list.Gates) != 1 || list.Gates[0].GateOutcome != "fail" {
 		t.Errorf("expected the deb gate listed, got %+v", list)
 	}
 }

@@ -116,7 +116,7 @@ func TestE2EWorkspace(t *testing.T) {
 	for _, g := range gates.Gates {
 		outcomes[g.ID] = g.GateOutcome
 	}
-	if !maps.Equal(outcomes, map[string]string{"deb-java": "fail", "deb-npm": "undecided"}) {
+	if !maps.Equal(outcomes, map[string]string{"deb-java": "fail", "deb-npm": "fail"}) {
 		t.Fatalf("gates: %+v", gates.Gates)
 	}
 
@@ -126,7 +126,7 @@ func TestE2EWorkspace(t *testing.T) {
 	for _, c := range a.Gate.Result.Checks {
 		checks[c.Name] = c.State
 	}
-	wantChecks := map[string]string{"f1NotWorse": "fail", "noNewFalseNegatives": "fail", "noNewFalsePositives": "fail", "unjudgedChangesAtMost": "undecided"}
+	wantChecks := map[string]string{"f1NotWorse": "fail", "noNewFalseNegatives": "fail", "noNewFalsePositives": "fail", "unjudgedChangesAtMost": "fail"}
 	if a.Gate.Result.Outcome != "fail" || !maps.Equal(checks, wantChecks) {
 		t.Errorf("deb-java: %s %v", a.Gate.Result.Outcome, checks)
 	}
@@ -154,7 +154,7 @@ func TestE2EWorkspace(t *testing.T) {
 	var b state
 	get(t, h, "/api/gates/deb-npm/state", &b)
 	wantB := []string{npm + "dropped GHSA-67hx-6x53-jw92 traverse", deb + "dropped CVE-2005-2541 tar hint:fp", deb + "dropped CVE-2026-41992 gzip hint:fp"}
-	if got := b.open(); b.Gate.Result.Outcome != "undecided" || !slices.Equal(got, wantB) {
+	if got := b.open(); b.Gate.Result.Outcome != "fail" || !slices.Equal(got, wantB) {
 		t.Errorf("deb-npm: %s\n%s", b.Gate.Result.Outcome, strings.Join(got, "\n"))
 	}
 

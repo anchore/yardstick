@@ -82,7 +82,8 @@ type Check struct {
 type Effect struct {
 	Subject string `json:"subject"`
 	Match   string `json:"match"`
-	// Narrows are the undecided checks whose range labeling the match narrows.
+	// Narrows are the checks labeling the match moves short of flipping: an undecided check whose
+	// range it narrows, or a failing measured one whose value it lowers.
 	Narrows []string `json:"narrows,omitempty"`
 	// States are each check's state, and Outcome the gate's, were the match labeled tp or fp.
 	States  map[claimsv1.Verdict]map[string]State `json:"states"`
@@ -353,16 +354,13 @@ func (e evaluator) subjectCheck(c gatefile.Check, s Subject) SubjectCheck {
 			values[x] = float64(len(e.newFalseNegatives(r, x)))
 		case NoNewFalsePositives:
 			values[x] = float64(len(e.newFalsePositives(r, x)))
+		// an unlabeled count is known exactly, so both cases agree and the check passes or fails
+		// outright, as python yardstick's max_unlabeled_percent did
 		case UnjudgedChangesAtMost:
-			if x == worstCase {
-				values[x] = float64(len(e.unlabeledDeltas(r)))
-			}
+			values[x] = float64(len(e.unlabeledDeltas(r)))
 		case UnlabeledPercentAtMost:
-			if x == worstCase {
-				st := e.stats(r, pairing.Candidate, x)
-				if n := st.TP + st.FP + st.Unlabeled; n > 0 {
-					values[x] = 100 * float64(e.unlabeledIn(r, pairing.Candidate)) / float64(n)
-				}
+			if n := e.matchesIn(r, pairing.Candidate); n > 0 {
+				values[x] = 100 * float64(e.unlabeledIn(r, pairing.Candidate)) / float64(n)
 			}
 		case MatchesAtLeast:
 			// both setups' matches, as python yardstick's fail_on_empty_match_set summed them: only a
@@ -580,7 +578,7 @@ func (e evaluator) effects(current Gate) []Effect {
 				eff.States[v] = map[string]State{}
 				for i, c := range g.Checks {
 					eff.States[v][c.Name] = c.State
-					if cur := current.Checks[i]; cur.State == Undecided && rangeOf(cur, s.Name) != rangeOf(c, s.Name) {
+					if cur := current.Checks[i]; (cur.State == Undecided || cur.State == Fail && measured(c.Name)) && rangeOf(cur, s.Name) != rangeOf(c, s.Name) {
 						narrows[c.Name] = true
 					}
 				}
@@ -593,6 +591,12 @@ func (e evaluator) effects(current Gate) []Effect {
 		}
 	}
 	return out
+}
+
+// measured says whether a check's value is known exactly rather than bounded: an unlabeled count,
+// which labeling moves without any case to choose between.
+func measured(check string) bool {
+	return check == UnjudgedChangesAtMost || check == UnlabeledPercentAtMost
 }
 
 // rangeOf is a check's value range on a subject, or the gate's for a per-gate check.

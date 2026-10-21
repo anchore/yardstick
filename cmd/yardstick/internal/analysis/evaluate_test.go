@@ -268,16 +268,21 @@ func TestUnlabeledDeltasAreBounded(t *testing.T) {
 		}
 	}
 	g := evaluate([]gatefile.Check{check(NoNewFalsePositives, nil), check(UnjudgedChangesAtMost, map[string]float64{"max": 0})}, s)
+	// the fp count is bounded, the unlabeled count is measured exactly
+	want := map[string]struct {
+		state State
+		best  float64
+	}{NoNewFalsePositives: {Undecided, 0}, UnjudgedChangesAtMost: {Fail, float64(added)}}
 	for _, c := range g.Checks {
-		if c.State != Undecided || c.Value.Worst != float64(added) || c.Value.Best != 0 {
-			t.Errorf("%s: expected undecided between 0 and %d, got %s %+v", c.Name, added, c.State, c.Value)
+		if w := want[c.Name]; c.State != w.state || c.Value.Worst != float64(added) || c.Value.Best != w.best {
+			t.Errorf("%s: expected %s between %v and %d, got %s %+v", c.Name, w.state, w.best, added, c.State, c.Value)
 		}
 		if len(c.Subjects[0].Rows) != added {
 			t.Errorf("%s: expected the %d unlabeled rows behind it, got %d", c.Name, added, len(c.Subjects[0].Rows))
 		}
 	}
-	if g.Outcome != Undecided {
-		t.Errorf("expected the gate undecided, got %s", g.Outcome)
+	if g.Outcome != Fail {
+		t.Errorf("expected the gate to fail, got %s", g.Outcome)
 	}
 
 	// one unlabeled match only the reference reports: worst 1, best 0
@@ -332,9 +337,12 @@ func TestUnjudgedChangesCountOnlyDeltas(t *testing.T) {
 	// every match both report is unlabeled; two only the candidate reports
 	ref := without(without(grype(t, "deb"), "CVE-2026-5450", "libc6"), "CVE-2023-50495", "ncurses-base")
 	s := pairOne(t, "deb", "deb", grype(t, "deb"), ref, label(libc, "CVE-2026-5928", claimsv1.TP))
-	c := evaluate([]gatefile.Check{check(UnjudgedChangesAtMost, map[string]float64{"max": 0})}, s).Checks[0]
-	if c.State != Undecided || c.Value.Worst != 2 || c.Value.Best != 0 {
-		t.Errorf("expected undecided at 2, got %s %+v", c.State, c.Value)
+	// a count known exactly: over the limit fails, at or under it passes
+	for limit, want := range map[float64]State{1: Fail, 2: Pass, 3: Pass} {
+		c := evaluate([]gatefile.Check{check(UnjudgedChangesAtMost, map[string]float64{"max": limit})}, s).Checks[0]
+		if c.State != want || c.Value.Worst != 2 || c.Value.Best != 2 {
+			t.Errorf("max %v: expected %s at 2, got %s %+v", limit, want, c.State, c.Value)
+		}
 	}
 }
 
@@ -350,10 +358,12 @@ func TestUnlabeledPercentReadsTheCandidate(t *testing.T) {
 		}
 	}
 	s := pairOne(t, "java", "java", java, nil, ls...)
-	c := evaluate([]gatefile.Check{check(UnlabeledPercentAtMost, map[string]float64{"max": 10})}, s).Checks[0]
 	want := 100 * 2.0 / float64(len(java.Matches))
-	if c.State != Undecided || c.Value.Worst != want || c.Value.Best != 0 {
-		t.Errorf("expected undecided at %v percent, got %s %+v", want, c.State, c.Value)
+	for limit, state := range map[float64]State{10: Fail, want: Pass, 20: Pass} {
+		c := evaluate([]gatefile.Check{check(UnlabeledPercentAtMost, map[string]float64{"max": limit})}, s).Checks[0]
+		if c.State != state || c.Value.Worst != want || c.Value.Best != want {
+			t.Errorf("max %v: expected %s at %v percent, got %s %+v", limit, state, want, c.State, c.Value)
+		}
 	}
 	// a subject with no candidate matches passes
 	none := pairOne(t, "npm", "npm", &models.Document{}, nil)

@@ -40,9 +40,10 @@ test.describe("entering and leaving", () => {
   test("the scope select moves to a gate's queue at its first row", async ({ page }) => {
     await page.goto("/ui/queue");
     await onFinding(page, rows.gzip);
+    // no one label decides deb-java, so its first row is the deb image's first in report order
     await page.getByTestId("queue-scope").selectOption("gate:deb-java");
-    await onFinding(page, rows.jfhA);
-    await expect(page).toHaveURL(new RegExp(`/ui/queue/${rows.jfhA}\\?scope=gate%3Adeb-java$`));
+    await onFinding(page, rows.utilLinux[1]);
+    await expect(page).toHaveURL(new RegExp(`/ui/queue/${rows.utilLinux[1]}\\?scope=gate%3Adeb-java$`));
   });
 
   test("Esc and Exit leave a check's queue for that check", async ({ page }) => {
@@ -176,26 +177,11 @@ test.describe("why this one is next", () => {
     await expect(whyText(page)).toHaveText("deb-java fails, with 10 open matches. A label here decides deb-npm: either label passes it.");
   });
 
-  test("pins: tar CVE-2026-18508 says a label decides deb-java while FP leaves it undecided", {
-    annotation: { type: "issue", description: "whyNext says \"decides\" when either verdict moves the gate (queuewords.ts changes / whyNext), so the side that doesn't reads \"leaves it undecided\"" },
-  }, async ({ page }) => {
-    // accept jfh8: deb-java goes undecided, and now only a TP on tar moves it
-    await openFinding(page, rows.jfhA, "f1NotWorse");
-    await page.keyboard.press("a");
-    await expect.poll(() => labelsOf("GHSA-jfh8-c2jp-5v3q").map((l) => l.verdict)).toEqual(["tp"]);
-
-    // the current wording, contradiction and all; a fix rewrites these two lines
-    await page.goto(queueRow(rows.tarHand, "gate:deb-java"));
-    await onFinding(page, rows.tarHand);
-    await expect(whyText(page)).toHaveText("deb-java is undecided, with 8 open matches. A label here decides it: FP leaves it undecided; TP fails noNewFalseNegatives.");
-    await expect(page.getByTestId("verdict-outcome")).toHaveText(["TP → new FN · deb-java fails noNewFalseNegatives", "FP → fixed FP · deb-java stays undecided"]);
-  });
-
   test("tar CVE-2026-18508 as deb-java's only open row decides it", async ({ page }) => {
     await reviewAccept(page);
     await page.goto(queueRow(rows.tarHand));
     await onFinding(page, rows.tarHand);
-    await expect(whyText(page)).toHaveText("deb-java is undecided and this is its only open match. A label here decides it: FP passes it; TP fails noNewFalseNegatives.");
+    await expect(whyText(page)).toHaveText("deb-java fails and this is its only open match. A label here decides it: FP passes it; TP leaves it failing.");
   });
 });
 

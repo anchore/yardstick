@@ -17,7 +17,7 @@ test("the gates screen lists each gate with its images, and its tabs list the op
   // open is unlabeled or unclear, as everywhere: 8 unlabeled and vc5p's two unclear rows
   await expect(java.getByTestId("gate-unlabeled")).toHaveText(/10 open\s*of 12 changed/);
   await expect(java.locator(".sq.open")).toHaveCount(2);
-  await expect(page.locator("[data-testid=gate-row][data-gate=deb-npm]")).toHaveAttribute("data-state", "undecided");
+  await expect(page.locator("[data-testid=gate-row][data-gate=deb-npm]")).toHaveAttribute("data-state", "fail");
 
   const tabs = page.getByTestId("tabs");
   await expect(tabs.getByRole("tab", { name: /Unlabeled/ })).toContainText("10");
@@ -45,7 +45,7 @@ test("a gate lists its checks with meters, and a check row opens the check", asy
   await expect(page.getByTestId("verdict-bar")).toContainText("12 changed matches");
   const checks = page.getByTestId("check-row");
   await expect(checks).toHaveCount(4);
-  await expect(page.locator("[data-testid=check-row][data-check=unjudgedChangesAtMost]")).toHaveAttribute("data-state", "undecided");
+  await expect(page.locator("[data-testid=check-row][data-check=unjudgedChangesAtMost]")).toHaveAttribute("data-state", "fail");
   await expect(page.locator("[data-testid=check-row][data-check=f1NotWorse] [data-testid=meter]")).toContainText("0.500 worse · limit 0");
   // a check row says what the check means in a line, and its definition on hover
   const f1desc = page.locator("[data-testid=check-row][data-check=f1NotWorse] .desc");

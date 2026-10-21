@@ -18,7 +18,7 @@ func TestVerdictFirst(t *testing.T) {
 	out := render(t, Summarize([]Gate{passing(t), failing}), Options{Format: "check"})
 	verdicts := out[strings.Index(out, "FAIL gate rpm-cpes"):]
 	lines := strings.Split(strings.TrimSpace(verdicts), "\n")
-	if lines[0] != "FAIL gate rpm-cpes  1 check fails, 1 undecided, 1 passes" {
+	if lines[0] != "FAIL gate rpm-cpes  2 checks fail, 1 passes" {
 		t.Errorf("expected the failing gate's outcome before any detail and before the passing gate, got %q", lines[0])
 	}
 	// the passing gate prints one line
@@ -43,7 +43,7 @@ func TestRowsSummarized(t *testing.T) {
 		}
 	}
 	section := func(out string) string {
-		out = out[strings.Index(out, "UNDECIDED unjudgedChangesAtMost"):]
+		out = out[strings.Index(out, "FAIL unjudgedChangesAtMost"):]
 		return out[:strings.Index(out, "\n\n")+1]
 	}
 	out := render(t, Summarize([]Gate{g}), Options{Format: "check"})

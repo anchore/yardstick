@@ -17,7 +17,7 @@ test.describe("every gate", () => {
   test("shows both gates with their outcomes and how much is open", async ({ page }) => {
     await page.goto(gatesPage);
     await expect(gateRow(page, "deb-java")).toHaveAttribute("data-state", "fail");
-    await expect(gateRow(page, "deb-npm")).toHaveAttribute("data-state", "undecided");
+    await expect(gateRow(page, "deb-npm")).toHaveAttribute("data-state", "fail");
     await expect(gateRow(page, "deb-npm").getByTestId("gate-unlabeled")).toHaveText(/^3 open\s*of 3 changed$/);
     await expect(gateRow(page, "deb-npm")).toHaveAttribute("href", "/ui/gates/deb-npm/");
     await expect(gateRow(page, "deb-npm")).toContainText("grype candidate-b vs reference-b");

@@ -11,7 +11,7 @@ test.describe("deb-java", () => {
   test("starts failing, with each check's state and its worst value against its limit", async ({ page }) => {
     await expect(outcome(page)).toHaveText("fail");
     await expect(page.getByTestId("title-row")).toContainText("grype candidate-a vs reference-a · 2 images");
-    await checkStates(page, { f1NotWorse: "fail", noNewFalseNegatives: "fail", noNewFalsePositives: "fail", unjudgedChangesAtMost: "undecided" });
+    await checkStates(page, { f1NotWorse: "fail", noNewFalseNegatives: "fail", noNewFalsePositives: "fail", unjudgedChangesAtMost: "fail" });
     await expect(meter(page, "f1NotWorse")).toContainText("0.500 worse · limit 0");
     await expect(meter(page, "noNewFalseNegatives")).toContainText("2 new · limit 0");
     await expect(meter(page, "noNewFalsePositives")).toContainText("4 new · limit 0");
@@ -53,10 +53,10 @@ test.describe("deb-java", () => {
 test.describe("deb-npm", () => {
   test.beforeEach(async ({ page }) => { await page.goto(gatePage("deb-npm")); });
 
-  test("starts undecided with its one check", async ({ page }) => {
-    await expect(outcome(page)).toHaveText("undecided");
+  test("starts failing with its one check", async ({ page }) => {
+    await expect(outcome(page)).toHaveText("fail");
     await expect(page.getByTestId("check-row")).toHaveCount(1);
-    await checkStates(page, { unjudgedChangesAtMost: "undecided" });
+    await checkStates(page, { unjudgedChangesAtMost: "fail" });
     // worst image: deb has 2 open, npm 1
     await expect(meter(page, "unjudgedChangesAtMost")).toContainText("2 unlabeled · limit 1");
   });

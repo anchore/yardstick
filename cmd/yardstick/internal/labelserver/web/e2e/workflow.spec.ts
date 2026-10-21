@@ -30,7 +30,7 @@ test("labeling through the UI flips deb-java to pass and settles deb-npm", async
   await page.goto(gatesPage);
   await gateRow(page, "deb-java").click();
   await expect(outcome(page)).toHaveText("fail");
-  await checkStates(page, { f1NotWorse: "fail", noNewFalseNegatives: "fail", noNewFalsePositives: "fail", unjudgedChangesAtMost: "undecided" });
+  await checkStates(page, { f1NotWorse: "fail", noNewFalseNegatives: "fail", noNewFalsePositives: "fail", unjudgedChangesAtMost: "fail" });
 
   // the check every open finding bears on, and the tar row with a hint: accepted, and the page moves
   // on to the tar row with none, labeled by hand
@@ -56,20 +56,20 @@ test("labeling through the UI flips deb-java to pass and settles deb-npm", async
   await expect(page.getByTestId("check-table").locator("tbody tr[data-id]")).toHaveCount(4);
   await expect(tableRow(page, "check-table", rows.tarHand)).toHaveCount(0);
   await page.keyboard.press("Escape");
-  await checkStates(page, { f1NotWorse: "fail", noNewFalseNegatives: "fail", noNewFalsePositives: "fail", unjudgedChangesAtMost: "undecided" });
+  await checkStates(page, { f1NotWorse: "fail", noNewFalseNegatives: "fail", noNewFalsePositives: "fail", unjudgedChangesAtMost: "fail" });
   await expect(railImage(page, "deb")).toContainText("0 open · 8");
   // open is unlabeled or unclear, so vc5p's two unclear rows count
   await expect(railImage(page, "java")).toContainText("4 open · 4");
 
   // n opens the next open finding, jfh8; its hint covers both jars and gives java a tp label, which
-  // leaves two checks undecided
+  // leaves noNewFalsePositives undecided and vc5p's two rows still failing the unlabeled count
   await page.keyboard.press("n");
   await onFinding(page, rows.jfhA);
   await page.keyboard.press("a");
   await expect.poll(() => labelsOf("GHSA-jfh8-c2jp-5v3q").length).toBe(1);
   await page.goto(gatePage());
-  await checkStates(page, { f1NotWorse: "pass", noNewFalseNegatives: "pass", noNewFalsePositives: "undecided", unjudgedChangesAtMost: "undecided" });
-  await expect(outcome(page)).toHaveText("undecided");
+  await checkStates(page, { f1NotWorse: "pass", noNewFalseNegatives: "pass", noNewFalsePositives: "undecided", unjudgedChangesAtMost: "fail" });
+  await expect(outcome(page)).toHaveText("fail");
 
   // vc5p replaces the unclear as the deciding label, and the last open match goes: the gate passes
   await page.keyboard.press("n");
@@ -123,6 +123,6 @@ test("hand labels on both tar rows by key and picker write what the hints would"
 
   await page.goto(gatePage());
   await checksTab(page);
-  await checkStates(page, { f1NotWorse: "fail", noNewFalseNegatives: "fail", noNewFalsePositives: "fail", unjudgedChangesAtMost: "undecided" });
+  await checkStates(page, { f1NotWorse: "fail", noNewFalseNegatives: "fail", noNewFalsePositives: "fail", unjudgedChangesAtMost: "fail" });
   await expect(page.getByTestId("verdict-bar")).toContainText("FP 4");
 });

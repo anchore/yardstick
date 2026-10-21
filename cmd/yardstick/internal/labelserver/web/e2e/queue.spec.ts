@@ -4,7 +4,8 @@ import type { Page } from "@playwright/test";
 
 // the queue: n from the gates screen labels the whole seed one row at a time, crossing gates with a
 // card between them, and stops when every gate is decided. Its order is the server's (GET
-// /api/queue): gzip first (it alone passes deb-npm), then deb-java's rows.
+// /api/queue): gzip first (it alone passes deb-npm), then deb-java's rows, tar CVE-2005-2541 first
+// (also in deb-npm, the gate with fewer open rows).
 const deb = images.deb.name, java = images.java.name;
 const seeded = [
   "global pkg:deb/debian/libgnutls30 CVE-2011-3389 fp fix-installed",
@@ -34,7 +35,7 @@ test("n from the gates screen labels the seed through the queue until every gate
   // the first row: gzip, deb-npm's, with why it's next and what each verdict does
   await onFinding(page, rows.gzip);
   await expect(page.getByTestId("queue-progress")).toHaveText("0 of 12 done · 12 left");
-  await expect(page.getByTestId("why-next")).toContainText("deb-npm is undecided, with 3 open matches. A label here decides it: either label passes it.");
+  await expect(page.getByTestId("why-next")).toContainText("deb-npm fails, with 3 open matches. A label here decides it: either label passes it.");
   await expect(page.getByTestId("verdict-outcome")).toHaveText(["TP → new FN · deb-npm passes", "FP → fixed FP · deb-npm passes"]);
   await expect(page.getByTestId("breadcrumb")).toContainText("deb-npm");
   await page.keyboard.press("a");
@@ -45,16 +46,17 @@ test("n from the gates screen labels the seed through the queue until every gate
   await expect(cardGate(page, "deb-npm")).toHaveAttribute("data-state", "pass");
   await expect(card(page)).toContainText("Next in the queue: deb-java, 10 open matches.");
   await page.keyboard.press("Enter");
-  await onFinding(page, rows.jfhA);
+  await onFinding(page, rows.tarDropped);
   await expect(page.getByTestId("breadcrumb")).toContainText("deb-java");
 
   // the rest: accept each hint, and label tar CVE-2026-18508 by hand, until a card stops the queue
   for (let i = 0; i < 12 && !(await card(page).isVisible()); i++) {
     const row = await panelRow(page);
     if (row === rows.tarHand) {
-      // no hint: a tp here would be a new false negative
-      await expect(page.getByTestId("why-next")).toContainText("TP fails noNewFalseNegatives");
-      await expect(page.locator("[data-testid=verdict-outcome][data-verdict=tp]")).toHaveText("TP → new FN · deb-java fails noNewFalseNegatives");
+      // no hint, and reached while java's rows are still open, so deb-java fails either way and the
+      // label only lowers its unlabeled count; a tp here would be a new false negative
+      await expect(page.getByTestId("why-next")).toContainText("No label here changes an outcome on its own, but it counts toward unjudgedChangesAtMost.");
+      await expect(page.locator("[data-testid=verdict-outcome][data-verdict=tp]")).toHaveText("TP → new FN");
       await label(page, "f", "fix-installed");
     } else await page.keyboard.press("a");
     // the next row, or a card; while the queue reads itself fresh the page shows neither
@@ -111,7 +113,7 @@ test("n from the gates screen labels the seed through the queue until every gate
 });
 
 test("Skip labeled steps over what the queue labeled; off, k goes back to it", async ({ page }) => {
-  await page.goto("/ui/queue?scope=gate:deb-java");
+  await page.goto(`/ui/queue/${rows.jfhA}?scope=gate:deb-java`);
   await onFinding(page, rows.jfhA);
   await page.keyboard.press("a");
   // one jfh8 label covers both jars, so both are done and the queue moves on

@@ -86,7 +86,7 @@ test.describe("between gates", () => {
     const option = (gate: string) => page.locator(`[data-testid=gate-option][data-gate=${gate}]`);
     await expect(option("deb-java")).toHaveAttribute("aria-current", "true");
     await expect(option("deb-java")).toHaveAttribute("data-open", "10");
-    await expect(option("deb-npm")).toHaveAttribute("data-state", "undecided");
+    await expect(option("deb-npm")).toHaveAttribute("data-state", "fail");
     await expect(option("deb-npm")).toContainText("3 open");
 
     // Esc closes the menu and leaves the screen alone

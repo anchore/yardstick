@@ -55,7 +55,8 @@ func TestScore(t *testing.T) {
 	w.label(tar, "CVE-2005-2541")
 	w.gate("passes", whole, whole, "", "  - name: noNewFalseNegatives\n")
 	w.gate("fails", noTar, whole, "", "  - name: noNewFalseNegatives\n")
-	w.gate("undecided", noNcurses, whole, "", "  - name: unjudgedChangesAtMost\n    params: {max: 0}\n")
+	// the unlabeled ncurses-base drop leaves noNewFalseNegatives between 0 and 1
+	w.gate("undecided", noNcurses, whole, "", "  - name: noNewFalseNegatives\n")
 
 	stdout, stderr, code := yardstick(t, w.dir, "gates/passes.yaml", "gates/fails.yaml", "gates/undecided.yaml", "-o", "check")
 	lines := strings.Split(strings.TrimSpace(stdout), "\n")
@@ -65,6 +66,18 @@ func TestScore(t *testing.T) {
 	if !strings.Contains(stdout, "FAIL gate fails") || !strings.Contains(stdout, "UNDECIDED gate undecided (undecided: fail, so it fails)") || !strings.Contains(stdout, "PASS gate passes") {
 		t.Errorf("expected each gate's outcome, got\n%s", stdout)
 	}
+	// an unlabeled count is measured, not bounded: over its max the gate fails under either undecided
+	// policy, and at its max it passes
+	for _, policy := range []string{"fail", "pass"} {
+		for limit, want := range map[string]string{"0": "FAIL gate unjudged  1 check fails", "1": "PASS gate unjudged  1 check passes"} {
+			w.gate("unjudged", noNcurses, whole, "", "  - name: unjudgedChangesAtMost\n    params: {max: "+limit+"}\nundecided: "+policy+"\n")
+			stdout, stderr, code := yardstick(t, w.dir, "gates/unjudged.yaml", "-o", "check")
+			if code != map[bool]int{true: 1, false: 0}[limit == "0"] || !strings.Contains(stdout, want) {
+				t.Errorf("undecided: %s, max %s: expected %q, got %d: %s %s", policy, limit, want, code, stdout, stderr)
+			}
+		}
+	}
+
 	// the header: grype varied (two stubs), the DB held
 	if !strings.Contains(stdout, "varied   grype  ") || !strings.Contains(stdout, "held     DB ") {
 		t.Errorf("expected the header to name grype varied and the DB held, got\n%s", stdout)
@@ -320,7 +333,7 @@ func rowless(t *testing.T, doc string) string {
 func TestFocusNeverMovesTheVerdict(t *testing.T) {
 	w := newWorkspace(t)
 	// tar and libc6 drop a tp each, failing noNewFalseNegatives on two CVEs on two packages, and
-	// the unlabeled ncurses-base drop leaves unjudgedChangesAtMost undecided
+	// the unlabeled ncurses-base drop fails unjudgedChangesAtMost
 	cand := w.grype("dropped", "CVE-2005-2541 tar", "CVE-2026-5450 libc6", "CVE-2025-69720 ncurses-base")
 	whole := w.grype("whole")
 	const cve, ghsa = "CVE-2005-2541", "GHSA-aaaa-bbbb-cccc"

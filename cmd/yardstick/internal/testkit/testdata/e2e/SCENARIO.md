@@ -54,9 +54,9 @@ Subjects `deb` and `java` (image order 1, 2). Checks:
 | f1NotWorse (tolerance 0) | fail | 0.5 |
 | noNewFalseNegatives (max 0) | fail | 2 |
 | noNewFalsePositives (max 0) | fail | 4 |
-| unjudgedChangesAtMost (max 0) | undecided | 6 |
+| unjudgedChangesAtMost (max 0) | fail | 6 |
 
-Undecided counts as fail (`undecided: fail`), so `/api/gates` reports `gateOutcome: "fail"`. 12 changes in all: 4 dropped (2 labeled fp), 8 added. 10 are open.
+unjudgedChangesAtMost is a count of unlabeled changes, known exactly, so it passes or fails and is never undecided. `/api/gates` reports `gateOutcome: "fail"`. 12 changes in all: 4 dropped (2 labeled fp), 8 added. 10 are open.
 
 Open rows (all `unlabeled` unless noted). Image is the subject, direction is from the candidate:
 
@@ -97,17 +97,17 @@ The outcome moves as the labels land (measured with `claims add` in this order, 
 
 | after | outcome | checks |
 |---|---|---|
-| nothing | fail | f1 fail, noNewFN fail, noNewFP fail, unjudged undecided (6) |
-| both tar rows fp | fail | f1 fail, noNewFN fail, noNewFP fail, unjudged undecided (4) |
-| plus the 4 util-linux rows tp | fail | f1 fail, noNewFN fail, noNewFP fail, unjudged undecided (4, the java rows) |
-| plus jfh8 tp (both jars) | undecided, counts as fail | f1 and noNewFN pass; noNewFP and unjudged undecided |
+| nothing | fail | f1 fail, noNewFN fail, noNewFP fail, unjudged fail (6) |
+| both tar rows fp | fail | f1 fail, noNewFN fail, noNewFP fail, unjudged fail (4) |
+| plus the 4 util-linux rows tp | fail | f1 fail, noNewFN fail, noNewFP fail, unjudged fail (4, the java rows) |
+| plus jfh8 tp (both jars) | fail | f1 and noNewFN pass; noNewFP undecided; unjudged fail (2, the vc5p rows) |
 | plus vc5p tp (both jars) | **pass** | all four pass, 0 open |
 
 A tp label on a dropped row would fail noNewFalseNegatives, and an fp label on an added row would fail noNewFalsePositives, so those verdicts do not flip the gate.
 
-## Gate deb-npm (initial outcome undecided, which counts as fail)
+## Gate deb-npm (initial outcome fail)
 
-Subjects `deb` and `npm`. One check, `unjudgedChangesAtMost` (max 1), undecided with worst-subject value 2 (deb has 2 open, npm has 1). 3 changes, all dropped, all open:
+Subjects `deb` and `npm`. One check, `unjudgedChangesAtMost` (max 1), failing with worst-subject value 2 (deb has 2 open, npm has 1). 3 changes, all dropped, all open:
 
 | row | image | package | vulnerability | hint |
 |---|---|---|---|---|
@@ -119,7 +119,7 @@ No cause or explanation. The tar row is the same row as in deb-java (same id), s
 
 ## Every gate (`/ui/gates/?tab=unlabeled`)
 
-`GET /api/gates/shared` lists both gates (deb-npm: undecided, open 3; deb-java: fail, open 10) and 10 findings. The tar CVE-2005-2541 finding is in both gates (rows `deb-npm` and `deb-java`, both `0fe9fc814bcd060a`, dropped) with the fp hint. Each other finding is in one gate: gzip CVE-2026-41992 (deb-npm), GHSA-jfh8-c2jp-5v3q and GHSA-vc5p-v9hr-52mj (deb-java, two rows each), GHSA-67hx-6x53-jw92 (deb-npm), tar CVE-2026-18508 (deb-java), and CVE-2026-3184 on util-linux as four findings (deb-java, one row each).
+`GET /api/gates/shared` lists both gates (deb-npm: fail, open 3; deb-java: fail, open 10) and 10 findings. The tar CVE-2005-2541 finding is in both gates (rows `deb-npm` and `deb-java`, both `0fe9fc814bcd060a`, dropped) with the fp hint. Each other finding is in one gate: gzip CVE-2026-41992 (deb-npm), GHSA-jfh8-c2jp-5v3q and GHSA-vc5p-v9hr-52mj (deb-java, two rows each), GHSA-67hx-6x53-jw92 (deb-npm), tar CVE-2026-18508 (deb-java), and CVE-2026-3184 on util-linux as four findings (deb-java, one row each).
 
 ## Notes for the test writer
 

@@ -12,8 +12,9 @@ import (
 
 var (
 	allPass = map[string]string{"f1NotWorse": "pass", "noNewFalseNegatives": "pass", "noNewFalsePositives": "pass", "unjudgedChangesAtMost": "pass"}
-	// the dropped glibc rows nobody has labeled: a tp would be a new false negative
-	glibcOpen = map[string]string{"f1NotWorse": "undecided", "noNewFalseNegatives": "undecided", "noNewFalsePositives": "pass", "unjudgedChangesAtMost": "undecided"}
+	// the dropped glibc rows nobody has labeled: a tp would be a new false negative, and their count
+	// is over the max of 0
+	glibcOpen = map[string]string{"f1NotWorse": "undecided", "noNewFalseNegatives": "undecided", "noNewFalsePositives": "pass", "unjudgedChangesAtMost": "fail"}
 )
 
 // a regression labels can't fix: the newer grype stops matching the Go stdlib by CPE
@@ -28,7 +29,7 @@ func TestGoStdlib(t *testing.T) {
 	step(t, "run", func(t *testing.T) {
 		r := w.run(t, "go-upgrade", assertReturnCode(1), assertInOutput("6 dropped by the candidate, 0 added"))
 		assertOutcome(t, r, "fail")
-		assertStates(t, r, map[string]string{"f1NotWorse": "fail", "noNewFalseNegatives": "fail", "noNewFalsePositives": "pass", "unjudgedChangesAtMost": "undecided"})
+		assertStates(t, r, map[string]string{"f1NotWorse": "fail", "noNewFalseNegatives": "fail", "noNewFalsePositives": "pass", "unjudgedChangesAtMost": "fail"})
 		assertHeader(t, r, "grype")
 		assertChanged(t, r, map[string][]string{
 			"introduced": {"CVE-2020-29509", "CVE-2020-29511", "CVE-2021-29923"},
@@ -47,7 +48,7 @@ func TestGoStdlib(t *testing.T) {
 		// the same rows come back as added when the candidate matches the stdlib by CPE again
 		r = w.run(t, "stdlib-cpe", assertReturnCode(1), assertInOutput("0 dropped by the candidate, 6 added"))
 		assertOutcome(t, r, "fail")
-		assertStates(t, r, map[string]string{"f1NotWorse": "pass", "noNewFalseNegatives": "pass", "noNewFalsePositives": "fail", "unjudgedChangesAtMost": "undecided"})
+		assertStates(t, r, map[string]string{"f1NotWorse": "pass", "noNewFalseNegatives": "pass", "noNewFalsePositives": "fail", "unjudgedChangesAtMost": "fail"})
 		assertHeader(t, r, "config")
 		assertChanged(t, r, map[string][]string{
 			"introduced": {"CVE-2021-44716"},
@@ -86,7 +87,7 @@ func TestSecureosGlibc(t *testing.T) {
 
 	step(t, "run", func(t *testing.T) {
 		r := w.run(t, "glibc", assertReturnCode(1), assertInOutput("9 dropped by the candidate, 0 added"))
-		assertOutcome(t, r, "undecided")
+		assertOutcome(t, r, "fail")
 		assertStates(t, r, glibcOpen)
 		assertHeader(t, r, "grype")
 		assertChanged(t, r, map[string][]string{
@@ -180,7 +181,7 @@ func TestStable(t *testing.T) {
 
 		for _, gate := range []string{"shared", "glibc"} {
 			r = w.run(t, gate, assertReturnCode(1))
-			assertOutcome(t, r, "undecided")
+			assertOutcome(t, r, "fail")
 			assertStates(t, r, glibcOpen)
 			assertChanged(t, r, map[string][]string{"review": {"CVE-2025-15281", "CVE-2026-95818"}})
 		}

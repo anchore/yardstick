@@ -70,7 +70,7 @@ test.describe("labeling by hand never waits on research", () => {
     await page.goto(gatesPage);
     await expect(page.getByTestId("work-rcaps")).toHaveText("Where each gate stands");
     await expect(page.locator("[data-testid=work-standing][data-gate=deb-java]")).toHaveAttribute("data-outcome", "fail");
-    await expect(page.locator("[data-testid=work-standing][data-gate=deb-npm]")).toHaveAttribute("data-outcome", "undecided");
+    await expect(page.locator("[data-testid=work-standing][data-gate=deb-npm]")).toHaveAttribute("data-outcome", "fail");
     await expect(page.getByTestId("work-outcome")).toHaveCount(0);
     await expect(banner(page)).not.toContainText("If you accept every hint");
     // the foot is what each gate not passing waits on now, with no "then" since no hint comes first

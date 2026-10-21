@@ -38,20 +38,20 @@ const gzip = "CVE-2026-41992", tar = "CVE-2005-2541";
 test.describe("selection", () => {
   test("an empty selection disables accept, and a partial one makes the group's checkbox indeterminate", async ({ page }) => {
     await openReview(page);
-    const toggle = group(page, "decides").getByTestId("hint-group-toggle");
+    const toggle = group(page, "needed").getByTestId("hint-group-toggle");
     // vc5p sits in this group and starts unchecked
     await expect(toggle).toHaveJSProperty("indeterminate", true);
     await box(page, "GHSA-vc5p-v9hr-52mj").check();
     await expect(toggle).toBeChecked();
     await expect(toggle).toHaveJSProperty("indeterminate", false);
-    await box(page, gzip).uncheck();
+    await box(page, "GHSA-jfh8-c2jp-5v3q").uncheck();
     await expect(toggle).toHaveJSProperty("indeterminate", true);
     await expect(toggle).not.toBeChecked();
 
     await toggle.check();
     await expect(toggle).toHaveJSProperty("indeterminate", false);
     await toggle.uncheck();
-    await group(page, "needed").getByTestId("hint-group-toggle").uncheck();
+    await group(page, "decides").getByTestId("hint-group-toggle").uncheck();
     await expect(page.getByTestId("hint-check")).toHaveCount(5);
     for (const b of await page.getByTestId("hint-check").all()) await expect(b).not.toBeChecked();
     await expect(accept(page)).toBeDisabled();

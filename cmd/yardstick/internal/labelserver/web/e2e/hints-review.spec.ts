@@ -23,8 +23,8 @@ test.describe("hint review", () => {
   test("groups the hints by effect and checks all but the one replacing a person's label", async ({ page }) => {
     await openReview(page);
     await expect(page.getByTestId("hint-item")).toHaveCount(5);
-    await expect(page.locator("[data-testid=hint-group][data-group=decides] [data-testid=hint-item]")).toHaveCount(4);
-    await expect(page.locator("[data-testid=hint-group][data-group=needed] [data-testid=hint-item]")).toHaveCount(1);
+    await expect(page.locator("[data-testid=hint-group][data-group=decides] [data-testid=hint-item]")).toHaveCount(2);
+    await expect(page.locator("[data-testid=hint-group][data-group=needed] [data-testid=hint-item]")).toHaveCount(3);
     for (const v of ["CVE-2005-2541", "CVE-2026-41992", "CVE-2026-3184", "GHSA-jfh8-c2jp-5v3q"]) await expect(box(page, v)).toBeChecked();
     await expect(box(page, "GHSA-vc5p-v9hr-52mj")).not.toBeChecked();
     await expect(item(page, "GHSA-vc5p-v9hr-52mj")).toHaveAttribute("data-replaces", "true");
@@ -35,11 +35,11 @@ test.describe("hint review", () => {
     // tar in both gates is one row
     await expect(accept(page)).toHaveText("Accept 4 hints on 8 matches");
 
-    // together they pass deb-npm and lift deb-java to undecided
-    await expect(impactGate(page, "deb-npm")).toHaveAttribute("data-before", "undecided");
+    // together they pass deb-npm; deb-java still fails on what they leave unlabeled
+    await expect(impactGate(page, "deb-npm")).toHaveAttribute("data-before", "fail");
     await expect(impactGate(page, "deb-npm")).toHaveAttribute("data-after", "pass");
     await expect(impactGate(page, "deb-java")).toHaveAttribute("data-before", "fail");
-    await expect(impactGate(page, "deb-java")).toHaveAttribute("data-after", "undecided");
+    await expect(impactGate(page, "deb-java")).toHaveAttribute("data-after", "fail");
     const left = page.getByTestId("impact-left");
     await expect(left).toContainText("tar CVE-2026-18508");
     await expect(left).toContainText("log4j-core GHSA-vc5p-v9hr-52mj (2 matches)");
@@ -60,7 +60,7 @@ test.describe("hint review", () => {
     await box(page, "GHSA-jfh8-c2jp-5v3q").uncheck();
     await expect(impactGate(page, "deb-java")).toHaveAttribute("data-after", "fail");
     // a group's checkbox selects every hint in it
-    await page.locator("[data-testid=hint-group][data-group=decides] [data-testid=hint-group-toggle]").check();
+    await page.locator("[data-testid=hint-group][data-group=needed] [data-testid=hint-group-toggle]").check();
     await expect(box(page, "GHSA-vc5p-v9hr-52mj")).toBeChecked();
     await expect(accept(page)).toHaveText("Accept 5 hints on 10 matches");
   });
@@ -83,15 +83,15 @@ test.describe("hint review", () => {
     await expect(page.getByTestId("hint-item")).toHaveCount(1);
     await expect(impactGate(page, "deb-java")).toHaveCount(0);
     await box(page, "GHSA-vc5p-v9hr-52mj").check();
-    await expect(impactGate(page, "deb-java")).toHaveAttribute("data-before", "undecided");
-    await expect(impactGate(page, "deb-java")).toHaveAttribute("data-after", "undecided");
+    await expect(impactGate(page, "deb-java")).toHaveAttribute("data-before", "fail");
+    await expect(impactGate(page, "deb-java")).toHaveAttribute("data-after", "fail");
     await accept(page).click();
     await expect(page.getByTestId("hints-empty")).toBeVisible();
     expect(labelsOf("GHSA-vc5p-v9hr-52mj").map((l) => l.verdict).sort()).toEqual(["tp", "unclear"]);
 
     await page.goto(gatesPage);
     await expect(gateRow(page, "deb-npm")).toHaveAttribute("data-state", "pass");
-    await expect(gateRow(page, "deb-java")).toHaveAttribute("data-state", "undecided");
+    await expect(gateRow(page, "deb-java")).toHaveAttribute("data-state", "fail");
     await expect(gateRow(page, "deb-java").getByTestId("gate-unlabeled")).toHaveText(/^1 open/);
     await expect(page.getByTestId("work-open")).toHaveText("2");
     await expect(page.getByTestId("work-need")).toHaveText("2");
@@ -150,10 +150,10 @@ test.describe("the work banner", () => {
     await expect(page.getByTestId("label-next")).toHaveCount(0);
     await expect(outcome(page, "deb-npm")).toHaveAttribute("data-after", "pass");
     await expect(outcome(page, "deb-java")).toHaveAttribute("data-before", "fail");
-    await expect(outcome(page, "deb-java")).toHaveAttribute("data-after", "undecided");
+    await expect(outcome(page, "deb-java")).toHaveAttribute("data-after", "fail");
     await expect(page.getByTestId("work-foot")).toHaveText("deb-java then waits on 1 match with no hint: tar CVE-2026-18508.");
     // per gate in rows: deb-java's 10 open rows, 9 of them hinted
-    await expect(gateRow(page, "deb-java").getByTestId("gate-work")).toHaveText(/^9 hinted · 1 needs you\s*4 hints · undecided on hints alone$/);
+    await expect(gateRow(page, "deb-java").getByTestId("gate-work")).toHaveText(/^9 hinted · 1 needs you\s*4 hints · hints alone don't change it$/);
     await expect(gateRow(page, "deb-npm").getByTestId("gate-work")).toHaveText(/^2 hinted · 1 needs you\s*2 hints · passes on hints alone$/);
     await page.getByTestId("review-hints").click();
     await expect(page).toHaveURL(/\/ui\/hints$/);

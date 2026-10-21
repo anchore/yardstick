@@ -77,22 +77,22 @@ func TestE2ELabelingFlow(t *testing.T) {
 	h := srv.Handler()
 
 	// every open change once, the tar row shared by both gates included: the rows that decide a gate
-	// first (gzip and tar each pass deb-npm, a java label lifts deb-java to undecided), closest gate
-	// to done first, then the rows that only narrow a check
+	// first (gzip and tar each pass deb-npm; no one label passes deb-java, whose unlabeled count
+	// fails until the last), then the rest closest gate to done first, by image and in report order
 	q := queue(t, h, "")
 	want := []string{
 		"5e50fe5b2007001a decides",
 		"0fe9fc814bcd060a decides",
-		"e1af7851f0e60bb4 decides",
-		"783bbb63489d81a6 decides",
-		"42c45bf99e4f741b decides",
-		"a88b3bd584c62516 decides",
 		"24160b879ac36bf5 counted",
 		"d2572e8f87a44f74 counted",
 		"781d813b74ed9e10 counted",
 		"12fab8dbf4fcf9e8 counted",
 		"e3bfd3b0b0c30ee6 counted",
 		"9f5eb52729c83cc1 counted",
+		"e1af7851f0e60bb4 could-move",
+		"783bbb63489d81a6 could-move",
+		"42c45bf99e4f741b could-move",
+		"a88b3bd584c62516 could-move",
 	}
 	if got := queueLines(q); !slices.Equal(got, want) {
 		t.Errorf("queue:\n%s\nwant:\n%s", strings.Join(got, "\n"), strings.Join(want, "\n"))
@@ -115,12 +115,12 @@ func TestE2ELabelingFlow(t *testing.T) {
 	if len(tar.In) != 2 || !decides["deb-npm"] || decides["deb-java"] || tar.Hint == nil || tar.Hint.Confidence != "medium" || tar.Label != nil {
 		t.Errorf("the shared tar entry: %+v", tar)
 	}
-	if vc5p := q.Entries[4]; vc5p.Label == nil || vc5p.Label.Verdict != "unclear" {
+	if vc5p := q.Entries[10]; vc5p.Label == nil || vc5p.Label.Verdict != "unclear" {
 		t.Errorf("the vc5p entry's unclear label: %+v", vc5p.Label)
 	}
-	// scoped to deb-java, the tar row only narrows its checks, so the java rows lead
+	// scoped to deb-java, no row decides it, so they are in image and report order
 	q = queue(t, h, "?scope=gate:deb-java")
-	if got := queueLines(q); len(got) != 10 || got[0] != "e1af7851f0e60bb4 decides" || !slices.Contains(got, "0fe9fc814bcd060a counted") {
+	if got := queueLines(q); len(got) != 10 || got[0] != "d2572e8f87a44f74 counted" || !slices.Contains(got, "0fe9fc814bcd060a counted") || !slices.Contains(got, "e1af7851f0e60bb4 could-move") {
 		t.Errorf("deb-java queue: %v", got)
 	}
 	q = queue(t, h, "?scope=image:"+npmSlug)
@@ -141,10 +141,10 @@ func TestE2ELabelingFlow(t *testing.T) {
 	slices.Sort(lines)
 	want = []string{
 		"cause CVE-2026-3184 tp needed deb-java:4:fail>fail",
-		"proposal CVE-2005-2541 fp decides deb-java:1:fail>fail deb-npm:1:undecided>pass",
-		"proposal CVE-2026-41992 fp decides deb-npm:1:undecided>pass",
-		"proposal GHSA-jfh8-c2jp-5v3q tp decides deb-java:2:fail>undecided",
-		"proposal GHSA-vc5p-v9hr-52mj tp decides replaces deb-java:2:fail>undecided",
+		"proposal CVE-2005-2541 fp decides deb-java:1:fail>fail deb-npm:1:fail>pass",
+		"proposal CVE-2026-41992 fp decides deb-npm:1:fail>pass",
+		"proposal GHSA-jfh8-c2jp-5v3q tp needed deb-java:2:fail>fail",
+		"proposal GHSA-vc5p-v9hr-52mj tp needed replaces deb-java:2:fail>fail",
 	}
 	if !slices.Equal(lines, want) || all.Low != 0 {
 		t.Errorf("hints (low %d):\n%s\nwant:\n%s", all.Low, strings.Join(lines, "\n"), strings.Join(want, "\n"))
@@ -158,7 +158,8 @@ func TestE2ELabelingFlow(t *testing.T) {
 		t.Errorf("java hints: %d", len(java.Hints))
 	}
 
-	// preview every hint, as review does before accepting: deb-npm passes, deb-java is undecided
+	// preview every hint, as review does before accepting: deb-npm passes, deb-java still fails on the
+	// one tar row no hint covers
 	preview := map[string]map[string]string{}
 	var ids []string
 	for _, x := range all.Hints {
@@ -172,7 +173,7 @@ func TestE2ELabelingFlow(t *testing.T) {
 			}
 		}
 	}
-	for gate, wantOutcome := range map[string]string{"deb-npm": "pass", "deb-java": "undecided"} {
+	for gate, wantOutcome := range map[string]string{"deb-npm": "pass", "deb-java": "fail"} {
 		var res labelserver.GateResult
 		if code := post(t, h, srv.Token(), "/api/gates/"+gate+"/preview", map[string]any{"labels": preview[gate]}, &res); code != http.StatusOK || string(res.Outcome) != wantOutcome {
 			t.Errorf("preview %s with every hint: %d %s", gate, code, res.Outcome)
@@ -237,7 +238,7 @@ func TestE2ELabelingFlow(t *testing.T) {
 	for _, g := range q.Gates {
 		outcomes[g.Name] = string(g.Outcome)
 	}
-	if got := queueLines(q); !slices.Equal(got, []string{"e3bfd3b0b0c30ee6 decides", "24160b879ac36bf5 none"}) || outcomes["deb-java"] != "undecided" || outcomes["deb-npm"] != "pass" || q.Settled {
+	if got := queueLines(q); !slices.Equal(got, []string{"e3bfd3b0b0c30ee6 decides", "24160b879ac36bf5 none"}) || outcomes["deb-java"] != "fail" || outcomes["deb-npm"] != "pass" || q.Settled {
 		t.Errorf("queue after accepting every hint: %v %v settled %v", got, outcomes, q.Settled)
 	}
 	// tar CVE-2026-18508 is deb-java's last open row: fp passes it, tp fails the check on new false negatives

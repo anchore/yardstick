@@ -24,10 +24,10 @@ Both grype versions report the same matches on a deb and an apk image, so the ga
 | f1NotWorse | undecided | 0..1 |
 | noNewFalseNegatives | undecided | 0..2 |
 | noNewFalsePositives | pass | 0..0 |
-| unjudgedChangesAtMost | undecided | 0..2 |
+| unjudgedChangesAtMost | fail | 2..2 |
 
-Outcome **undecided**.
+Outcome **fail**: the unlabeled count is measured, not bounded, so 2 over a max of 0 fails.
 
 ## Gate `glibc`: the secureos image alone
 
-The same 2 dropped rows, undecided. Labeling both fp through this gate moves it to **pass**, and moves `shared` to **pass** with no label written for it. `stable` stays pass.
+The same 2 dropped rows, failing the same way. Labeling both fp through this gate moves it to **pass**, and moves `shared` to **pass** with no label written for it. `stable` stays pass.

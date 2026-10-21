@@ -42,11 +42,11 @@ bin/yardstick demo/gates/grype-upgrade.yaml
 ```
 
 ```
-FAIL grype-upgrade  1 check fails, 2 undecided, 1 passes
+FAIL grype-upgrade  2 checks fail, 1 undecided, 1 passes
                                                  worst subject
   FAIL       noNewFalseNegatives    max 0        3..73    changes 1, 2
+  FAIL       unjudgedChangesAtMost  max 0        70..70   changes 1, 2
   UNDECIDED  f1NotWorse             tolerance 0  0..0.89  changes 1, 2
-  UNDECIDED  unjudgedChangesAtMost  max 0        0..70    changes 1, 2
 
 what changed  99 of 2709 matches: 99 dropped by the candidate, 0 added
 
@@ -72,7 +72,7 @@ what changed  99 of 2709 matches: 99 dropped by the candidate, 0 added
 FAILED 1 of 1 gates
 ```
 
-The exit code is 1. Each check shows a range: the best case (only what's labeled counts) to the worst case (every unlabeled row counts against it). A check that passes at one end and fails at the other is undecided, and undecided fails the gate.
+The exit code is 1. Each check shows a range: the best case (only what's labeled counts) to the worst case (every unlabeled row counts against it). A check that passes at one end and fails at the other is undecided, and undecided fails the gate. `unjudgedChangesAtMost` counts the unlabeled rows themselves, which is known exactly, so both ends are the same number and it passes or fails outright.
 
 The two changes need different fixes:
 
@@ -99,11 +99,11 @@ bin/yardstick demo/gates/grype-upgrade-stdlib-cpe.yaml
 ```
 
 ```
-UNDECIDED grype-upgrade-stdlib-cpe  3 checks undecided, 1 passes (undecided counts as fail)
+FAIL grype-upgrade-stdlib-cpe  1 check fails, 2 undecided, 1 passes
                                                  worst subject
+  FAIL       unjudgedChangesAtMost  max 0        21..21   change 1
   UNDECIDED  f1NotWorse             tolerance 0  0..0.89  change 1
   UNDECIDED  noNewFalseNegatives    max 0        0..21    change 1
-  UNDECIDED  unjudgedChangesAtMost  max 0        0..21    change 1
 ```
 
 ## 4. Label in the UI, with an agent's help
@@ -152,11 +152,11 @@ bin/yardstick score demo/gates/grype-upgrade-stdlib-cpe.yaml
 ```
 
 ```
-UNDECIDED grype-upgrade-stdlib-cpe  3 checks undecided, 1 passes (undecided counts as fail)
+FAIL grype-upgrade-stdlib-cpe  1 check fails, 2 undecided, 1 passes
                                                  worst subject
+  FAIL       unjudgedChangesAtMost  max 0        5..5     change 1
   UNDECIDED  f1NotWorse             tolerance 0  0..0.32  change 1
   UNDECIDED  noNewFalseNegatives    max 0        0..5     change 1
-  UNDECIDED  unjudgedChangesAtMost  max 0        0..5     change 1
 
 what changed  26 of 2709 matches: 26 dropped by the candidate, 0 added
 
@@ -167,10 +167,10 @@ what changed  26 of 2709 matches: 26 dropped by the candidate, 0 added
     review: 5 unlabeled
       CVE-2025-15281, CVE-2026-5928, CVE-2026-6368, CVE-2026-77117,
       CVE-2026-95818 on glibc-2.42@2.42-r4
-      one labeled tp: f1NotWorse FAIL, noNewFalseNegatives FAIL; fp: no change
+      one labeled tp: f1NotWorse FAIL, noNewFalseNegatives FAIL; fp: no change; the gate stays FAIL
 ```
 
-An `unclear` label counts as unjudged, so the gate stays undecided until a person settles those 5. The report says what each answer does: if all 5 are fp, every check reaches 0 and the gate passes, which means the newer grype was right to drop all 26. If even one is tp, `noNewFalseNegatives` fails, and grype v0.120.1 misses a real glibc vulnerability on secureos. Settling them means reading the secureos glibc package's patches.
+An `unclear` label counts as unjudged, so `unjudgedChangesAtMost` fails the gate until a person settles those 5. The report says what each answer does: if all 5 are fp, every check reaches 0 and the gate passes, which means the newer grype was right to drop all 26. If even one is tp, `noNewFalseNegatives` fails, and grype v0.120.1 misses a real glibc vulnerability on secureos. Settling them means reading the secureos glibc package's patches.
 
 The labels are worth keeping whatever the gate says, since every gate that scans this image reads them.
 
