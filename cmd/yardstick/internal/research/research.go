@@ -199,6 +199,8 @@ func (r *Runner) Start(ctx context.Context, req Request) (Job, error) {
 	r.live[id], r.cancels[id] = true, ctl
 	r.mu.Unlock()
 
+	// the goroutine owns job from here on; the caller gets it as queued
+	queued := job
 	r.wg.Add(1)
 	go func() {
 		defer r.wg.Done()
@@ -225,7 +227,7 @@ func (r *Runner) Start(ctx context.Context, req Request) (Job, error) {
 		defer func() { <-r.sem }()
 		r.run(ctx, &job)
 	}()
-	return job, nil
+	return queued, nil
 }
 
 // Cancel stops a job this process started, queued or running; its goroutine records Cancelled. Jobs
