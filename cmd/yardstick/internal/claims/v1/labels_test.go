@@ -439,7 +439,6 @@ func TestWriterRefuses(t *testing.T) {
 		"no author":                    {Placed{File: TypeFile(debDir, "deb"), Subject: debImage, Label: noAuthor}, "author is required"},
 		"package in image.json":        {Placed{File: debDir + "/" + NoPackageFile, Subject: debImage, Label: tp(libc, "CVE-2024-6")}, "package must be absent"},
 		"no package in a type file":    {Placed{File: TypeFile(debDir, "deb"), Subject: debImage, Label: tp("", "CVE-2024-7")}, "package is required"},
-		"advisory id":                  {Placed{File: TypeFile(debDir, "deb"), Subject: debImage, Label: tp(libc, "RHSA-2023:1234")}, "is an advisory"},
 		"unknown namespace":            {Placed{File: TypeFile(debDir, "deb"), Subject: debImage, Label: tp(libc, "FOO-2024-1")}, `namespace "FOO"`},
 		"subject not the path's":       {Placed{File: TypeFile(debDir, "deb"), Subject: &Subject{Image: "docker.io/anchore/other@" + debDigest}, Label: tp(libc, "CVE-2024-8")}, "which the path names"},
 		"not a place in the layout":    {Placed{File: "images/centos/labels.json", Subject: debImage, Label: tp(libc, "CVE-2024-9")}, "not a label file"},
@@ -460,6 +459,10 @@ func TestWriterRefuses(t *testing.T) {
 	}
 	if err := w.Write([]Placed{{File: TypeFile(debDir, "deb"), Subject: debImage, Label: tpOnly}}); err != nil {
 		t.Errorf("expected a tp with no justification written, got %v", err)
+	}
+	// a label on an advisory judges the match grype reported
+	if err := w.Write([]Placed{{File: TypeFile(debDir, "deb"), Subject: debImage, Label: tp(libc, "ELSA-2023-4428")}}); err != nil {
+		t.Errorf("expected a label on an advisory id written, got %v", err)
 	}
 	anyRule := tp(libc, "CVE-2024-16")
 	anyRule.Evidence = fp(libc, "CVE-2024-16").Evidence
@@ -546,7 +549,6 @@ func TestValidateCorpus(t *testing.T) {
 		{"rule with an unknown ceiling", edit(VocabularyFile, "ceiling: medium, decision: P-4, basis: Debian", "ceiling: certain, decision: P-4, basis: Debian"), VocabularyFile, "", `ceiling "certain"`},
 		{"unknown fact source", edit(debFile, `"debian-security-tracker"`, `"suse-oval"`), debFile, "CVE-2022-37434 on " + zlib, `"suse-oval"`},
 		{"package in image.json", edit(debDir+"/"+NoPackageFile, `"vulnerability":`, `"package": "pkg:deb/debian/libc6", "vulnerability":`), debDir + "/" + NoPackageFile, "CVE-2023-4911 on pkg:deb/debian/libc6", "package must be absent"},
-		{"advisory id", edit(debFile, `"CVE-2023-4911"`, `"ALAS2-2023-1234"`), debFile, "ALAS2-2023-1234 on " + libc, "is an advisory"},
 		{"unlisted namespace", edit(debFile, `"CVE-2023-4911"`, `"FOO-2024-1"`), debFile, "FOO-2024-1 on " + libc, `namespace "FOO"`},
 		{"descriptor not the catalog's", edit(CatalogFile, "syft@v1.54.1", "syft@v1.52.0"), debDir + "/" + ImageSBOMFile, "", "syft 1.54.1, where the catalog pins 1.52.0"},
 		{"config not the catalog's", func(t *testing.T, dir string) {
@@ -599,6 +601,15 @@ func TestValidateCorpus(t *testing.T) {
 			t.Errorf("expected a problem in %s about %q with %q, got %v", tt.file, tt.label, tt.want, problems)
 		})
 	}
+
+	// an id in an advisory namespace is valid
+	t.Run("advisory id", func(t *testing.T) {
+		dir := corpus(t)
+		edit(debFile, `"CVE-2023-4911"`, `"ALAS2-2023-1234"`)(t, dir)
+		if problems, err := ValidateCorpus(dir); err != nil || len(problems) != 0 {
+			t.Errorf("expected a label on an advisory id valid, got %v %v", problems, err)
+		}
+	})
 }
 
 func TestMarshalIsStable(t *testing.T) {

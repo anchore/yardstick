@@ -21,7 +21,8 @@ type Vocabulary struct {
 	Justifications map[Verdict]map[string]string `yaml:"justifications"`
 	FactSources    []string                      `yaml:"fact-sources"`
 	// AdvisoryIDs are namespace patterns (path.Match, so ALAS* covers ALAS2 and ALAS2023) of ids
-	// that are advisories rather than disclosures: never a label's vulnerability.
+	// that are advisories rather than disclosures. A label may name one: it pairs only a match grype
+	// reported under exactly that id, and the id never joins an alias group.
 	AdvisoryIDs []string `yaml:"advisory-ids"`
 	// Namespaces are the disclosure namespaces a label's vulnerability may use. An id in neither
 	// list is refused, so a new vendor prefix fails closed.
@@ -98,12 +99,9 @@ func (v *Vocabulary) IsAdvisory(id string) bool {
 	return false
 }
 
-// CheckVulnerability refuses an advisory-only id, and an id whose namespace is on neither list.
+// CheckVulnerability refuses an id whose namespace is on neither list.
 func (v *Vocabulary) CheckVulnerability(id string) error {
-	if v.IsAdvisory(id) {
-		return fmt.Errorf("vulnerability %s is an advisory, not a disclosure; label each CVE it addresses instead", id)
-	}
-	if !slices.Contains(v.Namespaces, Namespace(id)) {
+	if !v.IsAdvisory(id) && !slices.Contains(v.Namespaces, Namespace(id)) {
 		return fmt.Errorf("vulnerability %s: namespace %q is in neither advisory-ids nor vulnerability-namespaces in %s", id, Namespace(id), VocabularyFile)
 	}
 	return nil

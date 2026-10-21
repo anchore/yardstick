@@ -233,9 +233,7 @@ func (s *Set) Read(sub Subject) (*Labels, error) {
 			if f.Subject != nil && f.Subject.Platform != "" {
 				platforms[f.Subject.Platform] = true
 			}
-			if err := s.add(out, byKey, src, p, f); err != nil {
-				return nil, err
-			}
+			add(out, byKey, src, p, f)
 		}
 	}
 	for p := range platforms {
@@ -283,12 +281,9 @@ func (s *Source) readLabels(p string) (*claimsv1.File, error) {
 // add takes one file's labels into the union: a key new to the union is added, and a key already
 // there takes this source's label, since sources are read in order and the last one wins, while
 // recording its verdict beside the others. The same verdict twice counts once.
-func (s *Set) add(out *Labels, byKey map[scopedKey]int, src *Source, p string, f *claimsv1.File) error {
+func add(out *Labels, byKey map[scopedKey]int, src *Source, p string, f *claimsv1.File) {
 	global := strings.HasPrefix(p, "global/")
 	for _, l := range f.Labels {
-		if s.vocab != nil && s.vocab.IsAdvisory(l.Vulnerability) {
-			return fmt.Errorf("claims source %s: %s: label %s names an advisory, which no label may; label each CVE it addresses", src.Locator, p, l.Key())
-		}
 		k := scopedKey{global: global, Key: l.Key()}
 		held := SourceVerdict{Source: src.Locator, Verdict: l.Verdict}
 		if i, seen := byKey[k]; seen {
@@ -299,7 +294,6 @@ func (s *Set) add(out *Labels, byKey map[scopedKey]int, src *Source, p string, f
 		byKey[k] = len(out.Labels)
 		out.Labels = append(out.Labels, Label{Label: l, Global: global, File: p, Held: []SourceVerdict{held}})
 	}
-	return nil
 }
 
 func disagreement(subject string, l Label) string {

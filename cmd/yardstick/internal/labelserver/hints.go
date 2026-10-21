@@ -300,7 +300,7 @@ func (a *hintAccept) gate(e *entry, v *view) (*pending, error) {
 				continue
 			}
 			// the package and vulnerability come from the row, never from the stored member
-			if err := put(cv.ID, r, cv.Label(agentstore.Member{Package: r.match.Package, Vulnerability: labelVulnerability(v, r)}, a.author, a.now)); err != nil {
+			if err := put(cv.ID, r, cv.Label(agentstore.Member{Package: r.match.Package, Vulnerability: r.match.Vulnerability}, a.author, a.now)); err != nil {
 				return nil, err
 			}
 		}

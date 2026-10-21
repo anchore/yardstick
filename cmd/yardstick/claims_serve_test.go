@@ -40,8 +40,17 @@ func newServed(t *testing.T) *served {
 // newServedWith is newServed with the server's options adjusted first.
 func newServedWith(t *testing.T, adjust func(*labelserver.Options)) *served {
 	t.Helper()
+	return newServedFrom(t, nil, adjust)
+}
+
+// newServedFrom is newServedWith with the workspace changed before the scan.
+func newServedFrom(t *testing.T, before func(*workspace), adjust func(*labelserver.Options)) *served {
+	t.Helper()
 	w := newWorkspace(t)
 	whole := w.DebGate()
+	if before != nil {
+		before(w)
+	}
 	if _, stderr, code := yardstick(t, w.dir, "gates/deb.yaml"); code == 2 {
 		t.Fatalf("scan failed: %s", stderr)
 	}
@@ -283,6 +292,41 @@ func TestServeLabelingWritesAndRescores(t *testing.T) {
 	}
 	if got := s.tarRow(); got.Verdict != "fp" || got.Gate != nil {
 		t.Errorf("expected the label scored at once, got %+v", got)
+	}
+}
+
+// a row grype reported under an advisory is labeled with the
+// advisory, not a CVE it names
+func TestServeLabelsAnAdvisoryRowWithTheAdvisory(t *testing.T) {
+	const advisory = "ALSA-2026:0001"
+	s := newServedFrom(t, func(w *workspace) {
+		p := filepath.Join(w.tools, "whole.json")
+		data, _ := os.ReadFile(p)
+		writeFile(t, p, strings.ReplaceAll(string(data), `"id":"CVE-2005-2541"`, `"id":"`+advisory+`"`))
+		w.relate("whole", advisory, "CVE-2005-2541")
+	}, nil)
+	var st stateDoc
+	s.get("/api/gates/deb/state", &st)
+	var tar row
+	for _, r := range st.Subjects[0].Rows {
+		if r.Vulnerability == advisory && strings.Contains(r.Package.Ref, "/tar@") {
+			tar = r
+		}
+	}
+	if tar.ID == "" {
+		t.Fatal("no advisory-keyed tar row")
+	}
+	if rec := s.post("/labels", `{"rows":["`+tar.ID+`"],"verdict":"fp","justification":"fix-installed"}`); rec.Code != http.StatusOK {
+		t.Fatalf("expected the label written, got %d %s", rec.Code, rec.Body)
+	}
+	if l := s.labelOf(advisory); l == nil || l.Verdict != claimsv1.FP || s.labelOf("CVE-2005-2541") != nil {
+		t.Fatalf("expected one fp label on %s and none on its CVE, got %+v", advisory, s.debLabels())
+	}
+	s.get("/api/gates/deb/state", &st)
+	for _, r := range st.Subjects[0].Rows {
+		if r.ID == tar.ID && r.Verdict != "fp" {
+			t.Errorf("expected the advisory label to score the row fp, got %q", r.Verdict)
+		}
 	}
 }
 

@@ -16,7 +16,7 @@ func ClaimsValidate(app clio.Application) *cobra.Command {
 		Short: "Check a claims corpus the way its CI does",
 		Long: `validate checks every file of a corpus: the layout, each label file against the format
 schema, labels sorted with one per package and vulnerability, justifications and fact sources
-listed in vocabulary.yaml, no advisory-only vulnerability ids and no unknown namespaces, and each
+listed in vocabulary.yaml, every vulnerability id in a listed or advisory namespace, and each
 SBOM's descriptor against catalog.yaml. It prints every problem with its file and label, and
 exits 2 when there is any. Labels whose purl no package of their image's SBOM has, as after an
 SBOM rebuild, are listed on stdout and fail nothing.`,

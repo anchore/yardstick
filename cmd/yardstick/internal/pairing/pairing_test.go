@@ -278,6 +278,70 @@ func TestAdvisoryKeyedMatches(t *testing.T) {
 	}
 }
 
+// a label on an advisory pairs the match grype reported under
+// exactly that id, never a CVE-keyed match, and decides that match over labels on its CVEs
+func TestAdvisoryLabels(t *testing.T) {
+	ol := func() *models.Document { return scan(t, fixture.Path("vml", "grype-oraclelinux.json")) }
+	sbom := sbomPath(t, "oracle")
+	const expat = "pkg:rpm/ol/expat"
+
+	t.Run("pairs only its own advisory", func(t *testing.T) {
+		r := pairScans(t, sbom, ol(), ol(), label(expat, "ELSA-2022-9359", claimsv1.FP))
+		b := bound(t, r, "ELSA-2022-9359")
+		if len(b.Matches) != 1 || b.Matches[0].Vulnerability != "ELSA-2022-9359" || !b.PairedIn(Candidate) || !b.PairedIn(Reference) {
+			t.Fatalf("expected the label to pair ELSA-2022-9359 on expat in both setups, paired %d", len(b.Matches))
+		}
+		if m := find(t, r, "ELSA-2022-9359", "expat"); m.Verdict != claimsv1.FP {
+			t.Errorf("expected fp, got %q", m.Verdict)
+		}
+		// ELSA-2022-9962 is another advisory on the same package
+		if m := find(t, r, "ELSA-2022-9962", "expat"); len(m.Paired) != 0 {
+			t.Errorf("expected another advisory unpaired, paired %d", len(m.Paired))
+		}
+		if g := r.aliases.Group("ELSA-2022-9359"); g != "" {
+			t.Errorf("expected the advisory in no alias group, got %s", g)
+		}
+	})
+	t.Run("never pairs a CVE-keyed match", func(t *testing.T) {
+		candidate := ol()
+		for i, m := range candidate.Matches {
+			if m.Vulnerability.ID == "ELSA-2022-9359" && m.Artifact.Name == "expat" {
+				candidate.Matches[i].Vulnerability.ID = "CVE-2022-25235"
+				candidate.Matches[i].RelatedVulnerabilities = nil
+			}
+		}
+		r := pairScans(t, sbom, candidate, ol(), label(expat, "ELSA-2022-9359", claimsv1.FP), label(expat, "CVE-2022-25235", claimsv1.TP))
+		cve := find(t, r, "CVE-2022-25235", "expat")
+		if len(cve.Paired) != 1 || cve.Label.Vulnerability != "CVE-2022-25235" || cve.Verdict != claimsv1.TP {
+			t.Errorf("expected only the CVE label on the CVE-keyed match, paired %d", len(cve.Paired))
+		}
+		if b := bound(t, r, "ELSA-2022-9359"); b.PairedIn(Candidate) || !b.PairedIn(Reference) {
+			t.Errorf("expected the advisory label to pair only the reference's advisory-keyed match")
+		}
+	})
+	t.Run("decides over labels on its CVEs", func(t *testing.T) {
+		for _, tc := range []struct {
+			name   string
+			labels []claims.Label
+			want   claimsv1.Verdict
+		}{
+			{"advisory fp, CVE tp", []claims.Label{label(expat, "ELSA-2022-9359", claimsv1.FP), label(expat, "CVE-2022-25235", claimsv1.TP)}, claimsv1.FP},
+			// subject over global holds among labels on the advisory, but not across the two kinds
+			{"global advisory over a subject CVE label", []claims.Label{global(label(expat, "ELSA-2022-9359", claimsv1.TP)), label(expat+"@2.0.1-13.el6_8", "CVE-2022-25235", claimsv1.FP)}, claimsv1.TP},
+			{"advisory unclear", []claims.Label{label(expat, "ELSA-2022-9359", claimsv1.Unclear), label(expat, "CVE-2022-25235", claimsv1.TP)}, ""},
+			{"CVE labels alone still decide", []claims.Label{label(expat, "CVE-2022-25235", claimsv1.TP)}, claimsv1.TP},
+		} {
+			t.Run(tc.name, func(t *testing.T) {
+				r := pairScans(t, sbom, ol(), ol(), tc.labels...)
+				m := find(t, r, "ELSA-2022-9359", "expat")
+				if m.Verdict != tc.want || len(m.Paired) != len(tc.labels) {
+					t.Errorf("expected %q with every label paired, got %q with %d paired", tc.want, m.Verdict, len(m.Paired))
+				}
+			})
+		}
+	})
+}
+
 func TestMatchIdentity(t *testing.T) {
 	t.Run("the setups report different ids of one group", func(t *testing.T) {
 		candidate := scan(t, fixture.Grype("v0.120.1", "java"))

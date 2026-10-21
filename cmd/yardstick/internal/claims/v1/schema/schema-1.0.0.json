@@ -63,10 +63,10 @@
           "examples": ["pkg:deb/ubuntu/libudev1@245.4-4ubuntu3.16?distro=ubuntu-20.04"]
         },
         "vulnerability": {
-          "description": "The vulnerability id. It pairs a match whose vulnerability shares an alias group with it, so a CVE label pairs a match reported under a GHSA that aliases it. Its namespace, the part before the first -, must be listed in vocabulary.yaml's vulnerability-namespaces. An id in an advisory namespace (vocabulary.yaml's advisory-ids, such as RHSA or USN) is refused: label each CVE the advisory addresses instead.",
+          "description": "The vulnerability id. It pairs a match whose vulnerability shares an alias group with it, so a CVE label pairs a match reported under a GHSA that aliases it. Its namespace, the part before the first -, must be listed in vocabulary.yaml's vulnerability-namespaces or advisory-ids. An id in an advisory namespace (advisory-ids, such as ELSA or ALAS2) judges the match grype reported under exactly that id: it never joins an alias group, pairs no match reported under a CVE the advisory names, and on its own match decides over labels on those CVEs.",
           "type": "string",
           "minLength": 1,
-          "examples": ["CVE-2020-13776", "GHSA-jfh8-c2jp-5v3q"]
+          "examples": ["CVE-2020-13776", "GHSA-jfh8-c2jp-5v3q", "ELSA-2022-9359"]
         },
         "verdict": {
           "description": "The call. tp: the match is right, the vulnerability affects the package. fp: the match is wrong. unclear: someone looked and could not decide; a match with only unclear labels scores as unlabeled.",

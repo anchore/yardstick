@@ -114,7 +114,7 @@ func conformance(t *testing.T, open opener) {
 	t.Run("union across sources", func(t *testing.T) { union(t, open) })
 	t.Run("sources that disagree", func(t *testing.T) { disagree(t, open) })
 	t.Run("snapshot identity", func(t *testing.T) { snapshot(t, open) })
-	t.Run("advisory id refused", func(t *testing.T) { advisory(t, open) })
+	t.Run("advisory id read", func(t *testing.T) { advisory(t, open) })
 }
 
 // reads-limited-to-gate-subjects
@@ -271,6 +271,7 @@ func snapshot(t *testing.T, open opener) {
 	}
 }
 
+// a label on an advisory id reads as written
 func advisory(t *testing.T, open opener) {
 	root := corpus(t, at(claimsv1.TypeFile(dir, "deb"), label(libudv, "CVE-2020-13776", claimsv1.FP)))
 	p := filepath.Join(root, filepath.FromSlash(claimsv1.TypeFile(dir, "deb")))
@@ -278,9 +279,9 @@ func advisory(t *testing.T, open opener) {
 	if err := os.WriteFile(p, []byte(strings.Replace(string(data), "CVE-2020-13776", "RHSA-2023:1234", 1)), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	_, err := setOf(t, open(t, root)).Read(Subject{Name: "test-image", Dir: dir, Types: []string{"deb"}})
-	if err == nil || !strings.Contains(err.Error(), "deb.json") || !strings.Contains(err.Error(), "RHSA-2023:1234") {
-		t.Errorf("expected the file and label named, got %v", err)
+	got, err := setOf(t, open(t, root)).Read(Subject{Name: "test-image", Dir: dir, Types: []string{"deb"}})
+	if err != nil || len(got.Labels) != 1 || got.Labels[0].Vulnerability != "RHSA-2023:1234" {
+		t.Errorf("expected the advisory label read, got %v %v", got, err)
 	}
 }
 

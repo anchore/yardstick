@@ -84,21 +84,6 @@ func (s *Server) write(w http.ResponseWriter, v *view, p *pending) bool {
 	return true
 }
 
-// labelVulnerability is the id a label about a row names: the row's own, or when that is an
-// advisory (which no label may name), the first id of its alias group that is not.
-func labelVulnerability(v *view, r *rowRef) string {
-	id := r.match.Vulnerability
-	if v.vocab == nil || !v.vocab.IsAdvisory(id) {
-		return id
-	}
-	for _, a := range append([]string{r.match.Group}, r.match.Aliases...) {
-		if a != "" && !v.vocab.IsAdvisory(a) {
-			return a
-		}
-	}
-	return id
-}
-
 type LabelsRequest struct {
 	Rows          []string `json:"rows"`
 	Verdict       string   `json:"verdict"`
@@ -151,7 +136,7 @@ func (s *Server) handleLabels(w http.ResponseWriter, req *http.Request) {
 			http.Error(w, "no such row: "+id, http.StatusBadRequest)
 			return
 		}
-		l := claimsv1.Label{Package: r.match.Package, Vulnerability: labelVulnerability(v, r), Verdict: verdict, Justification: body.Justification,
+		l := claimsv1.Label{Package: r.match.Package, Vulnerability: r.match.Vulnerability, Verdict: verdict, Justification: body.Justification,
 			Author: s.opts.Author, Notes: claimsv1.NotesOf(body.Note, s.opts.Author, ts), FirstIssued: ts, LastUpdated: ts}
 		if err := batch.add(e, r, l, glob); err != nil {
 			http.Error(w, err.Error(), http.StatusBadRequest)
@@ -282,7 +267,7 @@ func (s *Server) handleAcceptCause(w http.ResponseWriter, req *http.Request) {
 			continue
 		}
 		// the package and vulnerability come from the row, never from the stored member
-		l := cv.Label(agentstore.Member{Package: r.match.Package, Vulnerability: labelVulnerability(v, r)}, s.opts.Author, now)
+		l := cv.Label(agentstore.Member{Package: r.match.Package, Vulnerability: r.match.Vulnerability}, s.opts.Author, now)
 		if err := batch.add(e, r, l, glob); err != nil {
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return

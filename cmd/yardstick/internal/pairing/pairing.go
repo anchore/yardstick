@@ -1,6 +1,7 @@
 // Package pairing binds labels to a subject and pairs them with what each setup reported. A label
 // pairs a match when their vulnerabilities share an alias group and every field the label's purl
-// states equals the match package's. Candidate and reference matches are one match when they are
+// states equals the match package's. A label on an advisory id pairs only a match grype reported
+// under exactly that id, and decides it over labels on the CVEs the advisory names. Candidate and reference matches are one match when they are
 // on the same package and alias group. The gate's vulnerabilities filter is the one thing to
 // configure: what it drops is never paired.
 package pairing
@@ -42,7 +43,7 @@ type Match struct {
 	// Vulnerability is the id grype reported: the candidate's, else the reference's.
 	Vulnerability string
 	// Addresses are the alias groups the match pairs labels in: its own, or for an advisory
-	// each CVE it names.
+	// each CVE it names. A label on the advisory itself pairs a match reporting exactly that id.
 	Addresses []string
 	Package   Package
 	// MatchType is how grype found the match: the vulnerability's namespace and the match
@@ -67,6 +68,8 @@ type Match struct {
 	Verdict claimsv1.Verdict
 
 	pkg purl.Fields
+	// reported are the ids grype gave as the match's vulnerability in any of its rows
+	reported []string
 }
 
 // In says whether a setup reported the match.
@@ -255,6 +258,7 @@ func (r *Result) matches(s Subject) {
 			}
 			m.Rows[setup] = append(m.Rows[setup], i)
 			m.Addresses = union(m.Addresses, addresses)
+			m.reported = union(m.reported, []string{gm.Vulnerability.ID})
 			m.Aliases = union(m.Aliases, []string{gm.Vulnerability.ID})
 			for _, rel := range gm.RelatedVulnerabilities {
 				m.Aliases = union(m.Aliases, []string{rel.ID})
@@ -332,26 +336,36 @@ func (r *Result) addresses(gm models.Match) []string {
 	return out
 }
 
-// pair finds the labels pairing a match and decides its verdict from the most specific.
+// pair finds the labels pairing a match and decides its verdict from the most specific. A label on
+// the advisory the match reported judges exactly that match, so when one pairs, only advisory
+// labels decide; labels on the CVEs it names still pair, and decide only when no advisory label does.
 func (r *Result) pair(m *Match) {
+	var exact []*Bound
 	for _, b := range r.Labels {
 		if !r.pairs(b, b.Fields, m) {
 			continue
 		}
 		m.Paired = append(m.Paired, b)
 		b.Matches = append(b.Matches, m)
+		if r.aliases.advisory(b.Vulnerability) {
+			exact = append(exact, b)
+		}
 	}
 	if len(m.Paired) == 0 {
 		return
 	}
-	best := m.Paired[0]
+	deciding := m.Paired
+	if len(exact) > 0 {
+		deciding = exact
+	}
+	best := deciding[0]
 	verdicts := map[claimsv1.Verdict]bool{}
-	for _, b := range m.Paired {
+	for _, b := range deciding {
 		if b.Specificity() > best.Specificity() {
 			best = b
 		}
 	}
-	for _, b := range m.Paired {
+	for _, b := range deciding {
 		if b.Specificity() == best.Specificity() {
 			verdicts[b.Verdict] = true
 		}
@@ -364,6 +378,10 @@ func (r *Result) pair(m *Match) {
 
 // pairs says whether a label, stating fields f, pairs a match.
 func (r *Result) pairs(b *Bound, f purl.Fields, m *Match) bool {
+	if r.aliases.advisory(b.Vulnerability) {
+		// an advisory has no alias group: its label pairs a match reporting exactly that id
+		return slices.Contains(m.reported, b.Vulnerability) && f.Matches(m.pkg)
+	}
 	g := r.aliases.Group(b.Vulnerability)
 	shared := false
 	for _, a := range m.Addresses {
