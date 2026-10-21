@@ -18,49 +18,38 @@ type Link struct {
 	URL   string `json:"url"`
 }
 
-// Links collects, for a row: the records each DB cited, lookups for every alias, distro trackers
-// and changelogs for the source package, and registry pages for an ecosystem package. Ported from
+// Links collects, for a row, in the order the Evidence tab shows them: distro trackers and
+// changelogs for the source package, and the distro's records; the records each DB cited; lookups
+// for every alias; and registry pages for an ecosystem package. Ported from
 // delta's labelserver/links.go, less the records' reference URLs, which a report row does not keep.
 func Links(m *report.Match) []Link {
 	out := []Link{}
+	// each group is complete on its own: a lookup stays though a cited record has the same URL
 	seen := map[string]bool{}
 	add := func(group, label, u string) {
-		if u == "" || seen[u] || (!strings.HasPrefix(u, "https://") && !strings.HasPrefix(u, "http://")) {
+		if u == "" || seen[group+" "+u] || (!strings.HasPrefix(u, "https://") && !strings.HasPrefix(u, "http://")) {
 			return
 		}
-		seen[u] = true
+		seen[group+" "+u] = true
 		out = append(out, Link{Group: group, Label: label, URL: u})
 	}
 
-	var details []*pairing.Detail
-	for _, side := range []struct {
+	type cited struct {
 		name string
 		d    *pairing.Detail
-	}{{"candidate", m.Candidate}, {"reference", m.Reference}} {
-		if side.d == nil {
-			continue
-		}
-		details = append(details, side.d)
-		add("Records the DBs cited", side.d.Namespace+" ("+side.name+")", side.d.DataSource)
-		for _, r := range side.d.Related {
-			add("Records the DBs cited", r.ID+" · "+r.Namespace, r.DataSource)
+	}
+	var sides []cited
+	var details []*pairing.Detail
+	for _, side := range []cited{{"candidate", m.Candidate}, {"reference", m.Reference}} {
+		if side.d != nil {
+			sides = append(sides, side)
+			details = append(details, side.d)
 		}
 	}
-
 	ids := append([]string{m.Vulnerability}, m.Aliases...)
-	for _, id := range ids {
-		e := url.PathEscape(id)
-		switch {
-		case strings.HasPrefix(id, "CVE-"):
-			add("Lookups", id+" · NVD", "https://nvd.nist.gov/vuln/detail/"+e)
-			add("Lookups", id+" · cve.org", "https://www.cve.org/CVERecord?id="+e)
-		case strings.HasPrefix(id, "GHSA-"):
-			add("Lookups", id+" · GitHub", "https://github.com/advisories/"+e)
-		}
-		add("Lookups", id+" · OSV", "https://osv.dev/vulnerability/"+e)
-	}
 
-	// an ecosystem package's fix ships upstream, not through the image's distro
+	// the distro's own pages first: for a distro package they say most about whether it is affected.
+	// An ecosystem package's fix ships upstream, not through the image's distro.
 	coords := purl.Package(m.Package, "")
 	if _, ecosystem := depsDevSystems[coords.Type]; !ecosystem {
 		// the scanned distro, else the purl's: a grype that doesn't know the distro reports none
@@ -80,6 +69,26 @@ func Links(m *report.Match) []Link {
 			}
 		}
 	}
+
+	for _, side := range sides {
+		add("Records the DBs cited", side.d.Namespace+" ("+side.name+")", side.d.DataSource)
+		for _, r := range side.d.Related {
+			add("Records the DBs cited", r.ID+" · "+r.Namespace, r.DataSource)
+		}
+	}
+
+	for _, id := range ids {
+		e := url.PathEscape(id)
+		switch {
+		case strings.HasPrefix(id, "CVE-"):
+			add("Lookups", id+" · NVD", "https://nvd.nist.gov/vuln/detail/"+e)
+			add("Lookups", id+" · cve.org", "https://www.cve.org/CVERecord?id="+e)
+		case strings.HasPrefix(id, "GHSA-"):
+			add("Lookups", id+" · GitHub", "https://github.com/advisories/"+e)
+		}
+		add("Lookups", id+" · OSV", "https://osv.dev/vulnerability/"+e)
+	}
+
 	for _, l := range packageLinks(coords) {
 		add("Package", l.Label, l.URL)
 	}

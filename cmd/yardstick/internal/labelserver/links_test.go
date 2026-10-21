@@ -1,6 +1,7 @@
 package labelserver
 
 import (
+	"slices"
 	"testing"
 
 	"github.com/anchore/yardstick/cmd/yardstick/internal/lookup"
@@ -95,5 +96,48 @@ func TestLinksForADistroPackage(t *testing.T) {
 		}})
 	if !got["https://alas.aws.amazon.com/AL2023/ALAS2023-2023-083.html"] || got["https://alas.aws.amazon.com/AL2/ALAS2-2023-1.html"] {
 		t.Errorf("expected only the Amazon Linux 2023 advisory, got %v", got)
+	}
+}
+
+// the Evidence tab shows groups in the order links come: a distro package's Distro group first,
+// an ecosystem package's records and lookups first and its registry pages last, with no Distro
+func TestLinkGroupOrder(t *testing.T) {
+	groups := func(m *report.Match) []string {
+		var out []string
+		for _, l := range Links(m) {
+			if len(out) == 0 || out[len(out)-1] != l.Group {
+				out = append(out, l.Group)
+			}
+		}
+		return out
+	}
+	distro := groups(&report.Match{Vulnerability: "CVE-2026-4438", SourcePackage: "glibc-2.42", Package: "pkg:apk/secureos/glibc-2.42@2.42-r4?distro=secureos-2025.09.09",
+		Reference:        &pairing.Detail{Namespace: "nvd:cpe", DataSource: "https://nvd.nist.gov/vuln/detail/CVE-2026-4438"},
+		CandidateRecords: []lookup.Affected{{Vulnerability: "CVE-2026-4438", Namespace: "secureos:distro:secureos:rolling", DataSource: "https://security.secureos.io/CVE-2026-4438"}}})
+	if want := []string{"Distro", "Records the DBs cited", "Lookups"}; !slices.Equal(distro, want) {
+		t.Errorf("distro package: want groups %v, got %v", want, distro)
+	}
+	// the cited NVD record's page is a lookup too, and the SecureOS page and record show once
+	var lookups, distroURLs []string
+	for _, l := range Links(&report.Match{Vulnerability: "CVE-2026-4438", SourcePackage: "glibc-2.42", Package: "pkg:apk/secureos/glibc-2.42@2.42-r4?distro=secureos-2025.09.09",
+		Reference:        &pairing.Detail{Namespace: "nvd:cpe", DataSource: "https://nvd.nist.gov/vuln/detail/CVE-2026-4438"},
+		CandidateRecords: []lookup.Affected{{Vulnerability: "CVE-2026-4438", Namespace: "secureos:distro:secureos:rolling", DataSource: "https://security.secureos.io/CVE-2026-4438"}}}) {
+		switch l.Group {
+		case "Lookups":
+			lookups = append(lookups, l.URL)
+		case "Distro":
+			distroURLs = append(distroURLs, l.URL)
+		}
+	}
+	if !slices.Contains(lookups, "https://nvd.nist.gov/vuln/detail/CVE-2026-4438") {
+		t.Errorf("expected the NVD lookup beside the cited NVD record, got %v", lookups)
+	}
+	if !slices.Equal(distroURLs, []string{"https://security.secureos.io/CVE-2026-4438"}) {
+		t.Errorf("expected the SecureOS page once, got %v", distroURLs)
+	}
+	eco := groups(&report.Match{Vulnerability: "GHSA-y", Package: "pkg:maven/org.eclipse.jetty/jetty-server@9.4.1", SourcePackage: "org.eclipse.jetty",
+		Candidate: &pairing.Detail{Namespace: "github:language:java", Distro: "debian 12", DataSource: "https://github.com/advisories/GHSA-y"}})
+	if want := []string{"Records the DBs cited", "Lookups", "Package"}; !slices.Equal(eco, want) {
+		t.Errorf("ecosystem package: want groups %v, got %v", want, eco)
 	}
 }
