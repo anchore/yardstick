@@ -53,18 +53,13 @@ func tsc() string {
 	}
 	url := fmt.Sprintf("https://github.com/microsoft/TypeScript/releases/download/v%s/typescript-%s-%s.tgz", tscVersion, runtime.GOOS, arch)
 
-	buf := bytes.Buffer{}
-	lang.Return(fetch.Fetch(url, fetch.Writer(&buf)))
-	sum := sha256.Sum256(buf.Bytes())
-	if got := hex.EncodeToString(sum[:]); got != want {
-		lang.Throw(fmt.Errorf("tsc %s: sha256 %s, want %s", url, got, want))
-	}
+	buf := fetchPinned(url, want)
 
 	// extract package/lib/ beside a temp name and move it into place, so a failed extract never
 	// looks installed
 	tmp := lang.Return(os.MkdirTemp(file.EnsureDir(filepath.Dir(dir)), "typescript-"))
 	defer func() { _ = os.RemoveAll(tmp) }()
-	zr := lang.Return(gzip.NewReader(&buf))
+	zr := lang.Return(gzip.NewReader(buf))
 	tr := tar.NewReader(zr)
 	for {
 		h, err := tr.Next()
@@ -84,4 +79,15 @@ func tsc() string {
 	lang.Throw(os.Rename(tmp, dir))
 	log.Info("installed tsc %s at %s", tscVersion, bin)
 	return bin
+}
+
+// fetchPinned downloads url and fails unless its sha256 is want.
+func fetchPinned(url, want string) *bytes.Buffer {
+	buf := &bytes.Buffer{}
+	lang.Return(fetch.Fetch(url, fetch.Writer(buf)))
+	sum := sha256.Sum256(buf.Bytes())
+	if got := hex.EncodeToString(sum[:]); got != want {
+		lang.Throw(fmt.Errorf("%s: sha256 %s, want %s", url, got, want))
+	}
+	return buf
 }
