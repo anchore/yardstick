@@ -28,8 +28,9 @@ test.describe("Label next", () => {
   test("and n on a gate enter it at that gate's first row", async ({ page }) => {
     await page.goto(gatePage());
     await page.getByTestId("label-next").click();
-    await onFinding(page, rows.jfhA);
-    await expect(page).toHaveURL(new RegExp(`/ui/queue/${rows.jfhA}\\?scope=gate%3Adeb-java$`));
+    // every open row counts toward the failing unjudgedChangesAtMost, so the deb image's come first
+    await onFinding(page, rows.utilLinux[1]);
+    await expect(page).toHaveURL(new RegExp(`/ui/queue/${rows.utilLinux[1]}\\?scope=gate%3Adeb-java$`));
     await expect(queuePager(page)).toHaveText(/1 of 12/);
 
     await page.goto(gatePage("deb-npm"));

@@ -69,7 +69,9 @@ test("each switch takes effect at once and stays across a reload", async ({ page
 });
 
 test("Skip labeled changes the queue's walk from inside an open queue, cog still open", async ({ page }) => {
-  await page.goto("/ui/queue?scope=gate:deb-java");
+  // jfhA isn't the gate's first row: the queue moves on from it to the first, so the walk below
+  // starts with the two jars done
+  await page.goto(`/ui/queue/${rows.jfhA}?scope=gate:deb-java`);
   await onFinding(page, rows.jfhA);
   await page.keyboard.press("a");
   // one jfh8 label covers both jars, so both are done and the queue moves on

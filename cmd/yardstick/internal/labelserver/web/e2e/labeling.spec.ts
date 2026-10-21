@@ -60,8 +60,11 @@ test.describe("a label from the finding page", () => {
     await expect(page.getByTestId("pager")).toHaveAttribute("data-total", "4");
     for (let i = 0; i < 4; i++) {
       await expect(page.getByTestId("label-panel")).toHaveAttribute("data-verdict", "unlabeled");
+      const row = (await page.getByTestId("label-panel").getAttribute("data-row"))!;
       await label(page, "t");
       await expect.poll(() => labelsOf("CVE-2026-3184").length).toBe(i + 1);
+      // the panel reads unlabeled until the page moves on, so a key typed before then labels this row again
+      if (i < 3) await expect(page.getByTestId("label-panel")).not.toHaveAttribute("data-row", row);
     }
     await expect(page.getByTestId("toast")).toContainText("nothing left to label in this list");
     await expect(page.getByTestId("label-panel")).toHaveAttribute("data-verdict", "tp");

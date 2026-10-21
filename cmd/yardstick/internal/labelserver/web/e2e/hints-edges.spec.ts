@@ -133,8 +133,8 @@ test.describe("unclear hints", () => {
     await expect(page.getByTestId("hint-item")).toHaveCount(4);
     await expect(page.getByTestId("hint-low-count")).toHaveText("1 unclear hint hidden");
     await expect(item(page, "CVE-2026-3184")).toHaveCount(0);
-    // it was the only hint in the needed group
-    await expect(group(page, "needed")).toHaveCount(0);
+    // the needed group keeps the two java hints
+    await expect(group(page, "needed").getByTestId("hint-item")).toHaveCount(2);
     // the four rows it covered are open and have no hint now
     await expect(page.getByTestId("impact-left")).toContainText("util-linux CVE-2026-3184");
     await expect(page.getByTestId("impact-left")).toContainText("no hint");
