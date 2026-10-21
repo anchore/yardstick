@@ -209,12 +209,11 @@ func Build(g *gatefile.Gate, header Header, eval analysis.Gate, subjects []Subje
 	return out
 }
 
-// Stale is a gate whose scans were made for another version of its file: undecided until it is
-// run again, with no check computed.
+// Stale is a gate whose scans were made for another version of its file: failing until it is run
+// again, with no check computed. It fails under either undecided policy, since that policy is for
+// checks unlabeled deltas leave open, and these scans do not belong to the gate at all.
 func Stale(g *gatefile.Gate, header Header, message string) Gate {
-	out := Gate{Name: g.Name, Path: g.Path, Outcome: analysis.Undecided, Undecided: g.Undecided, Header: header, Message: message}
-	out.Passed = passes(out.Outcome, g.Undecided)
-	return out
+	return Gate{Name: g.Name, Path: g.Path, Outcome: analysis.Fail, Undecided: g.Undecided, Header: header, Message: message}
 }
 
 func passes(o analysis.State, policy string) bool {

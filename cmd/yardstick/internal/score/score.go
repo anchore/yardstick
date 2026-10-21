@@ -23,7 +23,7 @@ import (
 	"github.com/anchore/yardstick/cmd/yardstick/internal/subject"
 )
 
-// Stale is the gate reported undecided when the current gate file would not scan what its last
+// Stale is the gate reported failing when the current gate file would not scan what its last
 // scans did, nil when they still apply. The setups and subjects are compared through the
 // fingerprint. Each subject is then resolved again under the current claims sources and catalog,
 // without building, and must reach the SBOM it was scanned from: another claims source changes

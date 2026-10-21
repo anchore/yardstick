@@ -502,7 +502,8 @@ func (s *Server) handleGateList(w http.ResponseWriter, _ *http.Request) {
 		if out.Open == "" {
 			out.Open = e.name // the gate scanned last that can be scored
 		}
-		l := GateListItem{RunSummary: summarize(e, v), Changes: v.changes(), GateOutcome: analysis.Undecided, GateNote: v.stale}
+		// stale scans fail the gate, as yardstick score reports them
+		l := GateListItem{RunSummary: summarize(e, v), Changes: v.changes(), GateOutcome: analysis.Fail, GateNote: v.stale}
 		if v.stale == "" {
 			l.GateOutcome = v.verdict.Outcome
 		}

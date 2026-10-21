@@ -125,7 +125,7 @@ type join struct {
 // add summarizes a gate and joins its open deltas.
 func (j *join) add(e *entry, v *view) GateSummary {
 	sum := summarize(e, v)
-	g := GateSummary{Name: e.name, Description: e.gate.Description, Compared: sum.Compared, Images: len(sum.Subjects), Outcome: analysis.Undecided, Note: v.stale}
+	g := GateSummary{Name: e.name, Description: e.gate.Description, Compared: sum.Compared, Images: len(sum.Subjects), Outcome: analysis.Fail, Note: v.stale}
 	if v.stale != "" {
 		return g // nothing is open in a gate that cannot be judged
 	}

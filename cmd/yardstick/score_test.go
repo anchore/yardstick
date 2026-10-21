@@ -124,11 +124,15 @@ func TestScoreNeverRunsGrype(t *testing.T) {
 		t.Errorf("expected exit 2 for an unknown gate name, got %d: %s", code, stderr)
 	}
 
-	// a new subject changes what the scans are of: undecided until the gate runs again
-	w.gate("deb", noTar, whole, `, "sbom:`+fixture.SBOM("npm", "syft")+`"`, "  - name: noNewFalseNegatives\nundecided: fail\n")
-	stdout, _, code = yardstick(t, w.dir, "score", "gates/deb.yaml", "-o", "check")
-	if code != 1 || !strings.Contains(stdout, "UNDECIDED gate deb") || !strings.Contains(stdout, "run yardstick ") || !strings.Contains(stdout, "gates/deb.yaml") {
-		t.Errorf("expected the gate undecided naming yardstick <file>, got %d: %s", code, stdout)
+	// a new subject changes what the scans are of: the gate fails until it runs again, under either
+	// undecided policy, since that policy is for unlabeled deltas and these scans are of something else
+	for _, policy := range []string{"fail", "pass"} {
+		w.gate("deb", noTar, whole, `, "sbom:`+fixture.SBOM("npm", "syft")+`"`, "  - name: noNewFalseNegatives\nundecided: "+policy+"\n")
+		stdout, _, code = yardstick(t, w.dir, "score", "gates/deb.yaml", "-o", "check")
+		if code != 1 || !strings.Contains(stdout, "FAIL gate deb: its scans were made for another version of") || !strings.Contains(stdout, "run yardstick ") ||
+			!strings.Contains(stdout, "gates/deb.yaml") || !strings.HasSuffix(stdout, "FAILED 1 of 1 gates\n") {
+			t.Errorf("undecided: %s: expected the stale gate to fail naming yardstick <file>, got %d: %s", policy, code, stdout)
+		}
 	}
 }
 
@@ -166,8 +170,8 @@ func TestScoreWithOtherClaims(t *testing.T) {
 	writeFile(t, filepath.Join(w.dir, "other", claimsv1.ImageDir(r), claimsv1.ImageSBOMFile), string(npm))
 	writeFile(t, filepath.Join(w.dir, ".yardstick.yaml"), "claims: [./other, ./claims]\n")
 	stdout, _, code = yardstick(t, w.dir, "score", "gates/deb.yaml", "-o", "check")
-	if code != 0 || !strings.Contains(stdout, "UNDECIDED gate deb") || !strings.Contains(stdout, "subject deb was scanned from SBOM") || !strings.Contains(stdout, "run yardstick ") {
-		t.Errorf("expected the gate undecided naming subject deb and yardstick <file>, got %d: %s", code, stdout)
+	if code != 1 || !strings.Contains(stdout, "FAIL gate deb: subject deb was scanned from SBOM") || !strings.Contains(stdout, "run yardstick ") {
+		t.Errorf("expected the gate failing under undecided: pass, naming subject deb and yardstick <file>, got %d: %s", code, stdout)
 	}
 
 	// the Python yardstick's config is refused by name
