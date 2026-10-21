@@ -325,6 +325,18 @@ func assertChanged(t *testing.T, r report, want map[string][]string) {
 	}
 }
 
+// assertWhy checks every changed row's primary computed reason.
+func assertWhy(t *testing.T, r report, key string) {
+	t.Helper()
+	for _, s := range r.Subjects {
+		for _, m := range s.Matches {
+			if m.InCandidate != m.InReference && (m.Why == nil || m.Why.Key != key) {
+				t.Errorf("gate %s: expected the reason %s for %s on %s, got %+v", r.Name, key, m.Vulnerability, m.Package, m.Why)
+			}
+		}
+	}
+}
+
 // labelAsPredicted labels the gate's first open row with verdict through `claims add`, re-scores,
 // and checks every check landed on the state that row's effect predicted for that verdict: the
 // report's promise rather than a hard-coded number. It also checks the score ran no scan and the

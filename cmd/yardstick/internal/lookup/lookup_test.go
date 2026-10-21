@@ -73,16 +73,19 @@ func TestParseStatuses(t *testing.T) {
 }
 
 // a DB is asked for the status of every one-sided row's ids, and for the records of only the rows
-// the other setup reported: by package and source package, or by CPE for a CPE match
+// the other setup reported: by package and source package, or by CPE for a CPE match, and for a
+// CPE match on a distro package by its names in its distro too
 func TestSearch(t *testing.T) {
-	row := func(id, setup, vuln, name string, d *pairing.Detail) Row {
-		return Row{ID: id, Match: &pairing.Match{Identity: pairing.Identity{PackageID: id, Group: vuln}, Vulnerability: vuln, Package: pairing.Package{Name: name},
+	row := func(id, setup, vuln, name, purl string, d *pairing.Detail) Row {
+		return Row{ID: id, Match: &pairing.Match{Identity: pairing.Identity{PackageID: id, Group: vuln}, Vulnerability: vuln, Package: pairing.Package{Name: name, PURL: purl},
 			Rows: map[string][]int{setup: {0}}, Details: map[string]*pairing.Detail{setup: d}}}
 	}
 	rows := []Row{
-		row("a", pairing.Reference, "CVE-2018-20796", "libc6", &pairing.Detail{Upstreams: []string{"glibc"}, MatchTypes: []string{"exact-indirect-match"}}),
-		row("b", pairing.Reference, "CVE-2023-28434", "minio", &pairing.Detail{MatchTypes: []string{"cpe-match"}, CPEs: []string{"cpe:2.3:a:minio:minio:7.0.30:*:*:*:*:*:*:*"}}),
-		row("c", pairing.Candidate, "CVE-3", "zlib", &pairing.Detail{MatchTypes: []string{"exact-direct-match"}}),
+		row("a", pairing.Reference, "CVE-2018-20796", "libc6", "pkg:deb/ubuntu/libc6@2.31?distro=ubuntu-20.04", &pairing.Detail{Upstreams: []string{"glibc"}, MatchTypes: []string{"exact-indirect-match"}}),
+		row("b", pairing.Reference, "CVE-2023-28434", "minio", "pkg:golang/github.com/minio/minio@7.0.30", &pairing.Detail{MatchTypes: []string{"cpe-match"}, CPEs: []string{"cpe:2.3:a:minio:minio:7.0.30:*:*:*:*:*:*:*"}}),
+		row("c", pairing.Candidate, "CVE-3", "zlib", "", &pairing.Detail{MatchTypes: []string{"exact-direct-match"}}),
+		row("d", pairing.Reference, "CVE-2026-4438", "glibc-2.42", "pkg:apk/secureos/glibc-2.42@2.42-r4?arch=x86_64&distro=secureos-2025.09.09",
+			&pairing.Detail{MatchTypes: []string{"cpe-match"}, CPEs: []string{"cpe:2.3:a:gnu:glibc:2.42:*:*:*:*:*:*:*"}}),
 	}
 	var calls []string
 	grype := func(_ context.Context, args ...string) ([]byte, error) {
@@ -97,9 +100,10 @@ func TestSearch(t *testing.T) {
 		t.Fatal(err)
 	}
 	want := []string{
-		"db search vuln -o json --limit 0 CVE-2018-20796 CVE-2023-28434 CVE-3",
+		"db search vuln -o json --limit 0 CVE-2018-20796 CVE-2023-28434 CVE-2026-4438 CVE-3",
 		"db search -o json --limit 0 --vuln CVE-2018-20796 --pkg glibc --pkg libc6",
-		"db search -o json --limit 0 --vuln CVE-2023-28434 --pkg cpe:2.3:a:minio:minio:7.0.30:*:*:*:*:*:*:* --broad-cpe-matching",
+		"db search -o json --limit 0 --vuln CVE-2023-28434 --vuln CVE-2026-4438 --pkg cpe:2.3:a:gnu:glibc:2.42:*:*:*:*:*:*:* --pkg cpe:2.3:a:minio:minio:7.0.30:*:*:*:*:*:*:* --broad-cpe-matching",
+		"db search -o json --limit 0 --vuln CVE-2026-4438 --pkg glibc-2.42 --distro secureos:2025.09",
 	}
 	if !slices.Equal(calls, want) {
 		t.Errorf("want calls\n%s\ngot\n%s", strings.Join(want, "\n"), strings.Join(calls, "\n"))
@@ -107,10 +111,55 @@ func TestSearch(t *testing.T) {
 	if f.Statuses["CVE-2018-20796"] != "active" || f.Statuses["CVE-3"] != NotInDB {
 		t.Errorf("expected each id's status, NotInDB when the DB has none, got %v", f.Statuses)
 	}
-	if !f.Looked("a") || !f.Looked("b") || f.Looked("c") {
+	if !f.Looked("a") || !f.Looked("b") || f.Looked("c") || !f.Looked("d") {
 		t.Errorf("expected only the reference's rows looked up in the candidate DB, got %+v", f.Queries)
 	}
 	if len(f.Records) != 3 {
 		t.Errorf("expected the records deduplicated across queries, got %+v", f.Records)
+	}
+}
+
+// a package's distro is its purl's, to the minor release, as grype's --distro takes it, and holds
+// the namespaces of the release it falls in or a rolling one
+func TestPackageOS(t *testing.T) {
+	os := func(purl string) OS { return PackageOS(&pairing.Match{Package: pairing.Package{PURL: purl}}) }
+	tests := []struct {
+		purl   string
+		search string
+		has    []string
+		hasNot []string
+	}{
+		{"pkg:apk/secureos/glibc-2.42@2.42-r4?arch=x86_64&distro=secureos-2025.09.09", "secureos:2025.09",
+			[]string{"secureos:distro:secureos:rolling"}, []string{"nvd:cpe", "wolfi:distro:wolfi:rolling"}},
+		{"pkg:deb/ubuntu/libc6@2.31?distro=ubuntu-20.04", "ubuntu:20.04",
+			[]string{"ubuntu:distro:ubuntu:20.04"}, []string{"ubuntu:distro:ubuntu:22.04", "debian:distro:debian:12"}},
+		{"pkg:rpm/redhat/glibc@2.34?distro=rhel-9.3", "rhel:9.3", []string{"redhat:distro:redhat:9"}, []string{"redhat:distro:redhat:8"}},
+		{"pkg:golang/github.com/minio/minio@7.0.30", "", nil, []string{"nvd:cpe", "wolfi:distro:wolfi:rolling"}},
+	}
+	for _, tt := range tests {
+		o := os(tt.purl)
+		if o.Search != tt.search {
+			t.Errorf("%s: want search %q, got %+v", tt.purl, tt.search, o)
+		}
+		for _, ns := range tt.has {
+			if !o.Has(ns) {
+				t.Errorf("%s: expected %s to hold its records", tt.purl, ns)
+			}
+		}
+		for _, ns := range tt.hasNot {
+			if o.Has(ns) {
+				t.Errorf("%s: expected %s not to hold its records", tt.purl, ns)
+			}
+		}
+	}
+}
+
+// a distro's "fixed in 0" is a record saying the package was never affected
+func TestNotAffected(t *testing.T) {
+	nak := Affected{Constraints: []string{"< 0"}, FixStates: []string{"fixed"}, FixVersions: []string{"0"}}
+	fixed := Affected{Constraints: []string{"< 2.42-r5"}, FixStates: []string{"fixed"}, FixVersions: []string{"2.42-r5"}}
+	notFixed := Affected{FixStates: []string{"not-fixed"}}
+	if !nak.NotAffected() || fixed.NotAffected() || notFixed.NotAffected() {
+		t.Errorf("expected only fixed in 0 to say not affected")
 	}
 }

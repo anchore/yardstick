@@ -29,6 +29,13 @@ func TestWhy(t *testing.T) {
 	cpeRec := func(constraint string) lookup.Affected {
 		return lookup.Affected{Vulnerability: "CVE-1", Namespace: "nvd:cpe", CPE: "cpe:2.3:a:minio:minio:*:*:*:*:*:*:*:*", FixStates: []string{"fixed"}, Constraints: []string{constraint}}
 	}
+	// a CPE match on a secureos package, which the candidate's distro record says is not affected
+	const secureosPURL = "pkg:apk/secureos/glibc@2.42-r4?arch=x86_64&distro=secureos-2025.09.09"
+	glibcCPE := &pairing.Detail{Namespace: "nvd:cpe", Constraints: []string{"< 2.43 (unknown)"}, MatchTypes: []string{"cpe-match"},
+		CPEs: []string{"cpe:2.3:a:gnu:glibc:2.42:*:*:*:*:*:*:*"}}
+	glibcCPERec := lookup.Affected{Vulnerability: "CVE-1", Namespace: "nvd:cpe", CPE: "cpe:2.3:a:gnu:glibc:*:*:*:*:*:*:*:*", Constraints: []string{"< 2.43"}}
+	nak := lookup.Affected{Vulnerability: "CVE-1", Namespace: "secureos:distro:secureos:rolling", Package: "glibc",
+		Constraints: []string{"< 0"}, FixStates: []string{"fixed"}, FixVersions: []string{"0"}}
 	// searched is a DB whose records were looked up for the row
 	searched := func(recs ...lookup.Affected) *lookup.File {
 		return &lookup.File{Statuses: map[string]string{"CVE-1": "active"}, Queries: []lookup.Query{{Rows: []string{"r"}}}, Records: recs}
@@ -40,6 +47,7 @@ func TestWhy(t *testing.T) {
 		reference bool // reported by the reference, else by the candidate
 		detail    *pairing.Detail
 		lookups   map[string]*lookup.File
+		purl      string
 		want      *Why
 	}{
 		{
@@ -116,6 +124,32 @@ func TestWhy(t *testing.T) {
 			want:    &Why{Key: WhySameButUnmatched, Secondary: []Reason{{Key: WhyCPEOnly}}},
 		},
 		{
+			name:      "the other DB's distro says the package is not affected: fixed in 0",
+			reference: true,
+			detail:    glibcCPE,
+			lookups:   map[string]*lookup.File{pairing.Candidate: searched(glibcCPERec, nak)},
+			purl:      secureosPURL,
+			want: &Why{Key: WhyDistroNotAffected, To: "secureos:distro:secureos:rolling",
+				Secondary: []Reason{{Key: WhySameButUnmatched}, {Key: WhyCPEOnly}}},
+		},
+		{
+			name:      "a distro record that is not a NAK explains nothing",
+			reference: true,
+			detail:    glibcCPE,
+			lookups: map[string]*lookup.File{pairing.Candidate: searched(glibcCPERec, lookup.Affected{Vulnerability: "CVE-1", Namespace: "secureos:distro:secureos:rolling", Package: "glibc",
+				Constraints: []string{"< 2.42-r5"}, FixStates: []string{"fixed"}, FixVersions: []string{"2.42-r5"}})},
+			purl: secureosPURL,
+			want: &Why{Key: WhySameButUnmatched, Secondary: []Reason{{Key: WhyCPEOnly}}},
+		},
+		{
+			name:      "a NAK in another distro explains nothing",
+			reference: true,
+			detail:    glibcCPE,
+			lookups:   map[string]*lookup.File{pairing.Candidate: searched(glibcCPERec, nak)},
+			purl:      "pkg:apk/wolfi/glibc@2.42-r4?distro=wolfi-20230201",
+			want:      &Why{Key: WhySameButUnmatched, Secondary: []Reason{{Key: WhyCPEOnly}}},
+		},
+		{
 			name:    "the CPE record's range changed",
 			detail:  cpeMatch("< 2023-03-20t20-16-18z (unknown)"),
 			lookups: map[string]*lookup.File{pairing.Reference: searched(cpeRec("< 2022-01-01"))},
@@ -128,7 +162,7 @@ func TestWhy(t *testing.T) {
 			if tt.reference {
 				setup = pairing.Reference
 			}
-			m := &pairing.Match{Identity: pairing.Identity{PackageID: "p", Group: "CVE-1"}, Vulnerability: "CVE-1", Package: pairing.Package{Name: "glibc"},
+			m := &pairing.Match{Identity: pairing.Identity{PackageID: "p", Group: "CVE-1"}, Vulnerability: "CVE-1", Package: pairing.Package{Name: "glibc", PURL: tt.purl},
 				Rows: map[string][]int{setup: {0}}, Details: map[string]*pairing.Detail{setup: tt.detail}}
 			row := Match{Row: "r", InCandidate: !tt.reference, InReference: tt.reference}
 			explain(&row, m, tt.lookups)
@@ -147,7 +181,7 @@ func TestRelatedRecords(t *testing.T) {
 		{Vulnerability: "CVE-1", Namespace: "github:language:javascript", Package: "lodash", FixStates: []string{"fixed"}},
 		{Vulnerability: "CVE-1", Namespace: "github:language:python", Package: "lodash"},
 		{Vulnerability: "CVE-2", Namespace: "github:language:javascript", Package: "lodash"},
-	}, d, []string{"GHSA-1", "CVE-1"}, []string{"lodash"})
+	}, d, []string{"GHSA-1", "CVE-1"}, []string{"lodash"}, lookup.OS{})
 	if len(got) != 1 || got[0].Namespace != "github:language:javascript" || got[0].Vulnerability != "CVE-1" {
 		t.Errorf("expected only the javascript lodash record for an alias of the row, got %+v", got)
 	}
@@ -157,9 +191,22 @@ func TestRelatedRecords(t *testing.T) {
 		{Vulnerability: "CVE-2023-28434", Namespace: "nvd:cpe", CPE: "cpe:2.3:a:minio:minio:*:*:*:*:*:*:*:*"},
 		{Vulnerability: "CVE-2023-28434", Namespace: "nvd:cpe", CPE: "cpe:2.3:a:minio:console:*:*:*:*:*:*:*:*"},
 		{Vulnerability: "CVE-2023-28434", Namespace: "wolfi:distro:wolfi:rolling", Package: "minio"},
-	}, cpe, []string{"CVE-2023-28434"}, []string{"minio"})
+	}, cpe, []string{"CVE-2023-28434"}, []string{"minio"}, lookup.OS{})
 	if len(got) != 1 || got[0].CPE != "cpe:2.3:a:minio:minio:*:*:*:*:*:*:*:*" {
 		t.Errorf("expected only the minio:minio CPE record, got %+v", got)
+	}
+
+	// a CPE match on a distro package keeps its distro's records for the package, a NAK included
+	glibc := &pairing.Detail{Namespace: "nvd:cpe", MatchTypes: []string{"cpe-match"}, CPEs: []string{"cpe:2.3:a:gnu:glibc:2.42:*:*:*:*:*:*:*"}}
+	secureos := lookup.PackageOS(&pairing.Match{Package: pairing.Package{PURL: "pkg:apk/secureos/glibc-2.42@2.42-r4?distro=secureos-2025.09.09"}})
+	got = related([]lookup.Affected{
+		{Vulnerability: "CVE-2026-4438", Namespace: "nvd:cpe", CPE: "cpe:2.3:a:gnu:glibc:*:*:*:*:*:*:*:*"},
+		{Vulnerability: "CVE-2026-4438", Namespace: "secureos:distro:secureos:rolling", Package: "glibc-2.42", Constraints: []string{"< 0"}, FixStates: []string{"fixed"}, FixVersions: []string{"0"}},
+		{Vulnerability: "CVE-2026-4438", Namespace: "wolfi:distro:wolfi:rolling", Package: "glibc-2.42"},
+		{Vulnerability: "CVE-2026-4438", Namespace: "secureos:distro:secureos:rolling", Package: "musl"},
+	}, glibc, []string{"CVE-2026-4438"}, []string{"glibc-2.42", "glibc"}, secureos)
+	if len(got) != 2 || got[1].Namespace != "secureos:distro:secureos:rolling" || !got[1].NotAffected() {
+		t.Errorf("expected the CPE record and the secureos glibc-2.42 NAK, got %+v", got)
 	}
 }
 

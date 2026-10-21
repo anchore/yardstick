@@ -38,6 +38,7 @@ const (
 	WhyNamespaceChanged    = "namespace/changed"
 	WhyFixStateChanged     = "fix-state/changed"
 	WhyConstraintChanged   = "constraint/changed"
+	WhyDistroNotAffected   = "record/distro-not-affected" // the other DB's record in the package's distro says fixed in 0 (a NAK)
 	WhySameButUnmatched    = "record/same-but-unmatched"
 	WhyCPEOnly             = "match-type/cpe-only"
 	WhyMatcherChanged      = "matcher/changed" // reserved: a one-sided row has no second matcher to compare
@@ -47,7 +48,7 @@ const (
 // WhyKeys are every reason key, in the order they are tried.
 var WhyKeys = []string{WhyRejectedInCandidate, WhyRejectedInReference, WhyAbsentInReference, WhyAbsentInCandidate,
 	WhyPackageAbsentInRef, WhyPackageAbsentInCand, WhyNamespaceChanged, WhyFixStateChanged, WhyConstraintChanged,
-	WhySameButUnmatched, WhyCPEOnly, WhyMatcherChanged, WhyUnexplained}
+	WhyDistroNotAffected, WhySameButUnmatched, WhyCPEOnly, WhyMatcherChanged, WhyUnexplained}
 
 const (
 	rejected = "rejected"
@@ -73,9 +74,10 @@ func explain(row *Match, m *pairing.Match, lookups map[string]*lookup.File) {
 	row.NewInCandidate = absent && row.InCandidate
 	found := m.Details[foundIn]
 	looked := lookups[otherDB].Looked(row.Row)
+	dist := lookup.PackageOS(m)
 	var records []lookup.Affected
 	if looked {
-		records = related(lookups[otherDB].Records, found, ids, lookup.Names(m))
+		records = related(lookups[otherDB].Records, found, ids, lookup.Names(m), dist)
 		if otherDB == pairing.Candidate {
 			row.CandidateRecords = records
 		} else {
@@ -110,7 +112,7 @@ func explain(row *Match, m *pairing.Match, lookups map[string]*lookup.File) {
 		reasons = append(reasons, change(lacksAbsent, namespace, ""))
 	}
 	if looked && found != nil && !absent {
-		reasons = append(reasons, compareRecords(found, records, lacksPackage, change)...)
+		reasons = append(reasons, notAffected(compareRecords(found, records, lacksPackage, change), records, dist, change)...)
 	}
 	if found != nil && found.CPEOnly() {
 		reasons = append(reasons, Reason{Key: WhyCPEOnly})
@@ -139,8 +141,9 @@ func notInDB(f *lookup.File, ids []string) bool {
 }
 
 // related are the records a DB search returned that are about the row: one of its ids, its
-// package (or CPE product), in its namespace's family or scope.
-func related(recs []lookup.Affected, found *pairing.Detail, ids, names []string) []lookup.Affected {
+// package (or CPE product), in its namespace's family or scope, or in its package's distro and
+// release.
+func related(recs []lookup.Affected, found *pairing.Detail, ids, names []string, dist lookup.OS) []lookup.Affected {
 	var products []string
 	if found != nil {
 		for _, c := range found.CPEs {
@@ -150,7 +153,7 @@ func related(recs []lookup.Affected, found *pairing.Detail, ids, names []string)
 	var out []lookup.Affected
 	for _, rec := range recs {
 		// records for other distros or ecosystems say nothing about this row
-		near := found == nil || namespaceFamily(rec.Namespace) == namespaceFamily(found.Namespace) || namespaceScope(rec.Namespace) == namespaceScope(found.Namespace)
+		near := found == nil || namespaceFamily(rec.Namespace) == namespaceFamily(found.Namespace) || namespaceScope(rec.Namespace) == namespaceScope(found.Namespace) || dist.Has(rec.Namespace)
 		forPackage := slices.Contains(names, rec.Package)
 		if rec.CPE != "" {
 			forPackage = slices.Contains(products, cpeProduct(rec.CPE))
@@ -210,6 +213,21 @@ func compareRecords(found *pairing.Detail, other []lookup.Affected, packageAbsen
 		out = append(out, Reason{Key: WhySameButUnmatched})
 	}
 	return out
+}
+
+// notAffected adds to the reasons from compareRecords the other DB's record in the package's distro
+// saying it was never affected, if it has one: after every change to the found record, before the
+// same record unmatched.
+func notAffected(reasons []Reason, other []lookup.Affected, dist lookup.OS, change func(key, foundValue, otherValue string) Reason) []Reason {
+	i := slices.IndexFunc(other, func(a lookup.Affected) bool { return dist.Has(a.Namespace) && a.NotAffected() })
+	if i < 0 {
+		return reasons
+	}
+	at := slices.IndexFunc(reasons, func(r Reason) bool { return r.Key == WhySameButUnmatched })
+	if at < 0 {
+		at = len(reasons)
+	}
+	return slices.Insert(reasons, at, change(WhyDistroNotAffected, "", other[i].Namespace))
 }
 
 // matchedConstraint is a constraint as grype reports a match ("< 1.2-3 (deb)", "none (unknown)") in

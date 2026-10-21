@@ -17,7 +17,7 @@ Both grype versions report the same matches on a deb and an apk image, so the ga
 
 ## Gate `shared`: the same two images plus the secureos image
 
-10 matches: 2 of them, CVE-2025-15281 and CVE-2026-95818 on glibc-2.42, dropped by the candidate and unlabeled, each with the reason `record/same-but-unmatched`.
+10 matches: 2 of them, CVE-2025-15281 and CVE-2026-95818 on glibc-2.42, dropped by the candidate and unlabeled, each with the reason `record/distro-not-affected` (the candidate DB's `secureos:rolling` record says fixed in 0), secondary `record/same-but-unmatched`.
 
 | check | state | best..worst |
 |---|---|---|

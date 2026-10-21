@@ -16,7 +16,7 @@ The demo saw 26 glibc rows dropped. The 9 here are the ones with exactly one NVD
 
 ## Gate `glibc`: grype v0.100.0 (reference) vs v0.120.1 (candidate)
 
-`header.varied` is grype alone. 9 of 9 matches are dropped by the candidate, by `apk-matcher`, `nvd:cpe cpe-match`, each with the reason `record/same-but-unmatched`, secondary `match-type/cpe-only`.
+`header.varied` is grype alone. 9 of 9 matches are dropped by the candidate, by `apk-matcher`, `nvd:cpe cpe-match`, each with the reason `record/distro-not-affected` (the candidate DB's `secureos:rolling` record says fixed in 0), secondary `record/same-but-unmatched` and `match-type/cpe-only`.
 
 | check | state | best..worst |
 |---|---|---|

@@ -8,12 +8,16 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"maps"
 	"os"
 	"slices"
 	"sort"
+	"strings"
 
+	"github.com/anchore/grype/grype/distro"
 	"github.com/anchore/yardstick/cmd/yardstick/internal/log"
 	"github.com/anchore/yardstick/cmd/yardstick/internal/pairing"
+	"github.com/anchore/yardstick/cmd/yardstick/internal/purl"
 )
 
 // NotInDB is the status of a vulnerability a DB has no record of.
@@ -57,6 +61,15 @@ type Affected struct {
 	Constraints []string `json:"constraints,omitempty"`
 }
 
+// NotAffected says whether the record says the package was never affected: a distro's "fixed in 0"
+// (a NAK), which grype reads as a range below every version.
+func (a Affected) NotAffected() bool {
+	if len(a.Constraints) > 0 && !slices.ContainsFunc(a.Constraints, func(c string) bool { return c != "< 0" }) {
+		return true
+	}
+	return slices.Equal(a.FixVersions, []string{"0"}) && slices.Contains(a.FixStates, "fixed")
+}
+
 // Query is the vulnerabilities and packages (names, or CPEs) searched together, and the rows
 // they were searched for.
 type Query struct {
@@ -66,6 +79,8 @@ type Query struct {
 	// BroadCPEMatching lets a CPE's specific attributes match a record's wildcards, as grype's CPE
 	// matcher does; set for CPE queries.
 	BroadCPEMatching bool `json:"broadCpeMatching,omitempty"`
+	// Distros refine a search by package name to these distros' records.
+	Distros []string `json:"distros,omitempty"`
 }
 
 // Row is a match only one setup reported, by its row id.
@@ -85,10 +100,12 @@ const (
 
 // Search asks the DB of setup, through its grype, about the rows: every row's ids for their
 // record status, and for the rows the other setup reported, the records for their ids and
-// packages (or the CPEs grype searched with, for a CPE match).
+// packages (or the CPEs grype searched with, for a CPE match, and the package's names in its
+// distro, whose record may say it is not affected).
 func Search(ctx context.Context, grype Grype, setup string, rows []Row) (*File, error) {
 	var ids []string
 	var byName, byCPE []Row
+	byDistro := map[string][]Row{}
 	for _, r := range rows {
 		ids = appendUnique(ids, IDs(r.Match)...)
 		found := r.Match.Details[other(setup)]
@@ -98,6 +115,9 @@ func Search(ctx context.Context, grype Grype, setup string, rows []Row) (*File, 
 			if len(found.CPEs) > 0 {
 				byCPE = append(byCPE, r)
 			}
+			if o := PackageOS(r.Match); o.Search != "" {
+				byDistro[o.Search] = append(byDistro[o.Search], r)
+			}
 		default:
 			byName = append(byName, r)
 		}
@@ -105,6 +125,12 @@ func Search(ctx context.Context, grype Grype, setup string, rows []Row) (*File, 
 	sort.Strings(ids)
 	log.Infof("looking up %d vulnerabilities and %d rows' records in the %s DB", len(ids), len(byName)+len(byCPE), setup)
 	f := &File{Queries: append(queries(byName, Names, false), queries(byCPE, func(m *pairing.Match) []string { return m.Details[other(setup)].CPEs }, true)...)}
+	for _, id := range slices.Sorted(maps.Keys(byDistro)) {
+		for _, q := range queries(byDistro[id], Names, false) {
+			q.Distros = []string{id}
+			f.Queries = append(f.Queries, q)
+		}
+	}
 	var err error
 	if f.Statuses, err = statuses(ctx, grype, ids); err != nil {
 		return nil, err
@@ -147,6 +173,9 @@ func records(ctx context.Context, grype Grype, qs []Query) ([]Affected, error) {
 		}
 		if q.BroadCPEMatching {
 			args = append(args, "--broad-cpe-matching")
+		}
+		for _, d := range q.Distros {
+			args = append(args, "--distro", d)
 		}
 		data, err := grype(ctx, args...)
 		if err != nil {
@@ -215,6 +244,50 @@ func Names(m *pairing.Match) []string {
 		names = appendUnique(names, d.Upstreams...)
 	}
 	return appendUnique(names, m.SourcePackage())
+}
+
+// OS is the distro a package came from, by its purl's distro qualifier; zero for a package no
+// distro shipped.
+type OS struct {
+	// Search is the distro as grype's --distro takes it, to the minor release ("ubuntu:20.04"):
+	// grype rejects a patch release, and finds the records of the release it falls in, a rolling
+	// distro's included.
+	Search string
+	// Name is grype's name for the distro, as its namespaces have it ("redhat" for "rhel"), and
+	// Major and Minor its release.
+	Name, Major, Minor string
+}
+
+// PackageOS is the distro a match's package came from.
+func PackageOS(m *pairing.Match) OS {
+	q := purl.Package(m.Package.PURL, "").Qualifiers["distro"]
+	if q == "" {
+		return OS{}
+	}
+	id, ver := distro.ParseDistroString(q)
+	d := distro.NewFromNameVersion(id, ver)
+	o := OS{Search: id, Name: d.Name(), Major: d.MajorVersion(), Minor: d.MinorVersion()}
+	switch {
+	case o.Major != "" && o.Minor != "":
+		o.Search += ":" + o.Major + "." + o.Minor
+	case o.Major != "":
+		o.Search += ":" + o.Major
+	case d.Codename != "":
+		o.Search += ":" + d.Codename
+	}
+	return o
+}
+
+// Has says whether a namespace holds the distro's records: its name, and its release or one the
+// release falls in ("ubuntu:distro:ubuntu:20.04" for 20.04.6, "redhat:distro:redhat:9" for 9.3), or
+// a release with no number ("rolling").
+func (o OS) Has(namespace string) bool {
+	parts := strings.Split(namespace, ":")
+	if o.Name == "" || len(parts) != 4 || parts[1] != "distro" || parts[2] != o.Name {
+		return false
+	}
+	rel := parts[3]
+	return !strings.ContainsAny(rel, "0123456789") || o.Major == "" || rel == o.Major || rel == o.Major+"."+o.Minor
 }
 
 // Load reads a lookups file.

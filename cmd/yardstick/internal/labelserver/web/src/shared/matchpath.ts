@@ -52,6 +52,14 @@ export function steps(r: Row, side: Side, raw: GrypeMatch | undefined, rel: Rele
     out.push({ k: "result", t: "no match", miss: true });
     return out;
   }
+  if (w === "record/distro-not-affected") {
+    // the distro's own record, fixed in 0: grype drops the match on it
+    const ns = r.why?.to || r.why?.from || "", nak = (recs || []).find((x) => x.namespace === ns);
+    out.push({ k: "searched", t: nsHuman(ns), title: ns, same: sameRelease(ns, rel) });
+    out.push({ k: "record", t: nak?.vulnerability || r.vulnerability, sub: `${nak?.package || pk.name} not affected · fixed in 0`, title: (nak?.constraints || []).join(" || "), diff: true });
+    out.push({ k: "result", t: "dropped", sub: `${nsHuman(ns)} says ${nak?.package || pk.name} is not affected (fixed in 0)`, miss: true });
+    return out;
+  }
   if (mine) {
     const c = (mine.constraints || [])[0] || "";
     const changed = /^(constraint|fix-state|namespace)\/changed$/.test(w);

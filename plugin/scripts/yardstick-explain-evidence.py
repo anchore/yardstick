@@ -60,7 +60,7 @@ SIDES = ("candidate", "reference")
 ROUTINE_IN_DB_RUN = {"record/absent-in-reference", "record/absent-in-candidate"}
 FOCUS = ["record/rejected-in-candidate", "record/rejected-in-reference", "package/absent-in-reference",
          "package/absent-in-candidate", "namespace/changed", "fix-state/changed", "constraint/changed",
-         "record/same-but-unmatched", "match-type/cpe-only", "matcher/changed", "unexplained"]
+         "record/distro-not-affected", "record/same-but-unmatched", "match-type/cpe-only", "matcher/changed", "unexplained"]
 
 SEARCH_RE = re.compile(r"searching for vulnerability matches package=(\S+)")
 FOUND_RE = re.compile(r"found (\d+) vulnerabilities package=(\S+)")
@@ -131,7 +131,7 @@ def node_priority(key: str, side_dates: dict, var: dict) -> tuple[int, str]:
         if older and absent_in == older:
             return 2, f"a record only the newer DB has ({absent_in} is the older DB): routine unless something is odd"
         return 0, f"the {absent_in} DB is the newer one, so the newer DB dropped a record: surprising"
-    return (0 if key in FOCUS[:9] else 1), "focus node"
+    return (0 if key in FOCUS[:FOCUS.index("matcher/changed")] else 1), "focus node"
 
 
 # ---------------------------------------------------------------------------

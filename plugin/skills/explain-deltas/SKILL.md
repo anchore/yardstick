@@ -96,7 +96,8 @@ Explain, in this order:
 1. Every node in a gate where **grype or its config varied**. Their rows are matcher or config effects
    until shown otherwise, and they are what a grype PR gate exists to surface.
 2. `record/rejected-*`, `package/absent-*`, `namespace/changed`, `fix-state/changed`,
-   `constraint/changed`, `record/same-but-unmatched`, `match-type/cpe-only`, `unexplained`.
+   `constraint/changed`, `record/distro-not-affected`, `record/same-but-unmatched`,
+   `match-type/cpe-only`, `unexplained`.
 3. `record/absent-in-<newer DB>` in a DB gate: the newer DB **dropped** a record, which is surprising.
 
 Usually skip `record/absent-in-<older DB>` in a DB gate (a record that is new in the newer DB): the

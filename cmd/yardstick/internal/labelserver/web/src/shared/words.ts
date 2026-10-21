@@ -1,6 +1,7 @@
 // words.ts is how the pages say things: label glyphs, directions, counts and numbers, and a
 // row's computed reason in words. Pure: no DOM, no page state.
 import type { Vocabulary, report } from "../gen/wire";
+import { nsHuman } from "./names";
 
 export interface LabelWords { glyph: string; word: string; long: string }
 export const labels: Record<string, LabelWords> = {
@@ -31,6 +32,7 @@ export function whyTitle(w: report.Reason | undefined, dir: string): string {
     case "namespace/changed": return `namespace ${w.from} → ${w.to}`;
     case "fix-state/changed": return `fix state ${w.from} → ${w.to}`;
     case "constraint/changed": return "version constraint changed";
+    case "record/distro-not-affected": return `${nsHuman(w.to || w.from)} says not affected`;
     case "record/same-but-unmatched": return `same record in the ${other} DB, no match`;
     case "match-type/cpe-only": return "matched by CPE only";
     case "matcher/changed": return "matcher changed";
@@ -53,6 +55,7 @@ export function whyText(w: report.Reason | undefined, dir: string): string {
     case "namespace/changed": return `the other DB's record is in another namespace: ${w.from} → ${w.to}`;
     case "fix-state/changed": return `the fix state changed: ${w.from} → ${w.to}`;
     case "constraint/changed": return "the version constraint changed between the two DBs";
+    case "record/distro-not-affected": return `the ${other} DB's ${nsHuman(w.to || w.from)} record says the package is not affected (fixed in 0), so its grype dropped the match`;
     case "record/same-but-unmatched": return `the ${other} DB has the same record and its grype still didn't match: a matcher or config difference`;
     case "match-type/cpe-only": return "the reporting side matched by CPE only";
     case "matcher/changed": return "the matcher changed";

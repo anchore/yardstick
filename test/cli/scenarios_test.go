@@ -94,6 +94,8 @@ func TestSecureosGlibc(t *testing.T) {
 			"fixed":  {"CVE-2010-4756", "CVE-2019-1010022"},
 			"review": {"CVE-2025-15281", "CVE-2026-0861", "CVE-2026-0915", "CVE-2026-18374", "CVE-2026-19499", "CVE-2026-89092", "CVE-2026-95818"},
 		})
+		// the candidate's DB has the secureos record saying not affected, which the newer grype honors
+		assertWhy(t, r, "record/distro-not-affected")
 	})
 
 	step(t, "predictions hold", func(t *testing.T) {
@@ -184,6 +186,7 @@ func TestStable(t *testing.T) {
 			assertOutcome(t, r, "fail")
 			assertStates(t, r, glibcOpen)
 			assertChanged(t, r, map[string][]string{"review": {"CVE-2025-15281", "CVE-2026-95818"}})
+			assertWhy(t, r, "record/distro-not-affected")
 		}
 	})
 
