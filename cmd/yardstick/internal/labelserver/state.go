@@ -59,6 +59,9 @@ type State struct {
 	Reference  *setup.Prepared `json:"reference,omitempty"`
 	Vocabulary *Vocabulary     `json:"vocabulary,omitempty"`
 	Warnings   []string        `json:"warnings,omitempty"`
+	// OutdatedLookups says the computed reasons read DB lookups an older yardstick made, and how
+	// to redo them; empty when they are current.
+	OutdatedLookups string `json:"outdatedLookups,omitempty"`
 	// ResearchConcurrency is how many research jobs run at once, absent when research cannot
 	// start, which hides the UI's research controls; Research says why.
 	ResearchConcurrency int                    `json:"researchConcurrency,omitempty"`
@@ -294,7 +297,7 @@ func (s *Server) handleState(w http.ResponseWriter, req *http.Request) {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	st := State{Scans: summarize(e, v), Author: s.opts.Author, Gate: v.gateStatus(e), Vocabulary: vocabOf(v.vocab), Warnings: v.verdict.Warnings,
+	st := State{Scans: summarize(e, v), Author: s.opts.Author, Gate: v.gateStatus(e), Vocabulary: vocabOf(v.vocab), Warnings: v.verdict.Warnings, OutdatedLookups: v.paired.OutdatedLookups,
 		Causes: v.stateCauses(), Explanations: v.stateExplanations()}
 	if s.opts.Research != nil {
 		a := s.opts.ResearchAvailability

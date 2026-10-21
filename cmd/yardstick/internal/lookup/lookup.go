@@ -23,15 +23,27 @@ import (
 // NotInDB is the status of a vulnerability a DB has no record of.
 const NotInDB = "not-in-db"
 
+// Version is what a lookups file holds, raised whenever Search looks up more: a file of an older
+// version lacks records the computed reasons now read (version 0, before it was written: the
+// distro records of a CPE match).
+const Version = 1
+
 // File is what one setup's DB says about the rows the other setup alone reported, stored beside
 // that setup's scans as <setup>/lookups.json.
 type File struct {
+	// Version is the Version of the Search that wrote the file.
+	Version int `json:"version"`
 	// Statuses are each one-sided row's ids' record status in this DB (active, rejected, ...) or
 	// NotInDB.
 	Statuses map[string]string `json:"statuses"`
 	// Queries are the record searches that were made, with the rows each was made for.
 	Queries []Query    `json:"queries"`
 	Records []Affected `json:"records"`
+}
+
+// Outdated says whether the file was written by a Search that looked up less than this one.
+func (f *File) Outdated() bool {
+	return f != nil && f.Version < Version
 }
 
 // Looked says whether this DB's records were searched for a row.
@@ -126,7 +138,7 @@ func Search(ctx context.Context, grype Grype, setup string, rows []Row) (*File, 
 	}
 	sort.Strings(ids)
 	log.Infof("looking up %d vulnerabilities and %d rows' records in the %s DB", len(ids), len(byName)+len(byCPE), setup)
-	f := &File{Queries: append(queries(byName, Names, false), queries(byCPE, func(m *pairing.Match) []string { return m.Details[other(setup)].CPEs }, true)...)}
+	f := &File{Version: Version, Queries: append(queries(byName, Names, false), queries(byCPE, func(m *pairing.Match) []string { return m.Details[other(setup)].CPEs }, true)...)}
 	for _, id := range slices.Sorted(maps.Keys(byDistro)) {
 		for _, q := range queries(byDistro[id], Names, false) {
 			q.Distros = []string{id}

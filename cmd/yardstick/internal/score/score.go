@@ -79,6 +79,9 @@ type Paired struct {
 	Inputs   []report.SubjectInput
 	Warnings []string
 	Aliases  *pairing.Aliases
+	// OutdatedLookups says the DB lookups were made by an older yardstick, and how to refresh them;
+	// empty when they are current. It is among the Warnings too.
+	OutdatedLookups string
 }
 
 // Pair reads a gate's scans under a run name and the labels its subjects need, and pairs them.
@@ -123,8 +126,16 @@ func Pair(run string, g *gatefile.Gate, rec *runrecord.Record, set *claims.Set) 
 		}
 		lookups[setup] = f
 	}
-
 	p := &Paired{Gate: g, Header: report.NewHeader(rec, set.Sources), Aliases: aliases}
+	for _, setup := range []string{pairing.Candidate, pairing.Reference} {
+		if lookups[setup].Outdated() {
+			p.OutdatedLookups = fmt.Sprintf("the DB lookups were made by an older yardstick, so the computed reasons may miss what it now looks up; "+
+				"run %s to redo them (it reuses the stored scans)", runrecord.Rerun(run, g.Path))
+			warnings = append(warnings, p.OutdatedLookups)
+			break
+		}
+	}
+
 	for i, s := range rec.Subjects {
 		r := pairing.Pair(aliases, pairing.Subject{Name: s.Name, Packages: s.Packages, Filtered: len(s.KeepTypes) > 0, Labels: reads[i].labels.Labels, Scans: reads[i].scans,
 			Vulnerabilities: g.Vulnerabilities})

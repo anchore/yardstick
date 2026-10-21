@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 
@@ -227,6 +228,27 @@ func TestLookupsExplainOneSidedRows(t *testing.T) {
 	rec.Lookups = map[string]string{"reference": "reference/lookups.json"}
 	if got := why()["CVE-2026-5450"]; got != report.WhyAbsentInReference {
 		t.Errorf("expected a vulnerability the reference DB lacks absent in the reference, got %q", got)
+	}
+
+	// lookups an older yardstick made still score, with a warning naming how to redo them
+	outdated := func() bool {
+		v, err := gateOf(t, g, rec)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return slices.ContainsFunc(v.Warnings, func(w string) bool {
+			return strings.Contains(w, "DB lookups were made by an older yardstick") && strings.Contains(w, "run yardstick "+g.Path)
+		})
+	}
+	if !outdated() {
+		t.Error("expected a warning that lookups with no version are outdated")
+	}
+	data, _ = json.Marshal(lookup.File{Version: lookup.Version, Statuses: map[string]string{"CVE-2026-5450": lookup.NotInDB}})
+	if err := os.WriteFile(filepath.Join(dir, "reference/lookups.json"), data, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if outdated() {
+		t.Error("expected no warning for current lookups")
 	}
 }
 

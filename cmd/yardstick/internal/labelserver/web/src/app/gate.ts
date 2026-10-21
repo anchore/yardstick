@@ -41,6 +41,11 @@ export function gateHead(st: State) {
   };
 }
 
+// lookupsAlert says the computed reasons read lookups an older yardstick made, and how to redo them
+export const lookupsAlert = (st: State) => st.outdatedLookups
+  ? el("div", { class: "alert", role: "status", "data-testid": "outdated-lookups" }, el("h2", {}, "Computed reasons may be out of date"), el("section", {}, st.outdatedLookups))
+  : null;
+
 export function gateView(host: HTMLElement, r0: GateRoute, nav: Nav): View {
   let r = r0;
   const gate = r.gate, alive = shown(r), out: View = { update: () => false };
@@ -65,7 +70,7 @@ export function gateView(host: HTMLElement, r0: GateRoute, nav: Nav): View {
     renderShell(host, r, {
       title: gate, status: head.status, sub: head.sub, meta: head.meta,
       actions: [research.el, labelNext(href)],
-      above: verdictBar(sumTally(st.subjects.map((s) => s.changes))),
+      above: [lookupsAlert(st), verdictBar(sumTally(st.subjects.map((s) => s.changes)))],
       rail,
       scope: img && { label: imageName(img.name, img.ref), clear: () => nav(withFilters(r, { image: undefined })) },
       tabCounts: { checks: st.gate?.result?.checks.length ?? 0, findings: rows.length, labels: all.total },
