@@ -2,8 +2,10 @@ package labelserver
 
 import (
 	"net/url"
+	"slices"
 	"strings"
 
+	"github.com/anchore/yardstick/cmd/yardstick/internal/lookup"
 	"github.com/anchore/yardstick/cmd/yardstick/internal/pairing"
 	"github.com/anchore/yardstick/cmd/yardstick/internal/purl"
 	"github.com/anchore/yardstick/cmd/yardstick/internal/report"
@@ -61,8 +63,21 @@ func Links(m *report.Match) []Link {
 	// an ecosystem package's fix ships upstream, not through the image's distro
 	coords := purl.Package(m.Package, "")
 	if _, ecosystem := depsDevSystems[coords.Type]; !ecosystem {
-		for _, l := range distroLinks(m.SourcePackage, firstCVE(ids), distroOf(details)) {
+		// the scanned distro, else the purl's: a grype that doesn't know the distro reports none
+		dist := lookup.PurlOS(m.Package)
+		distro := distroOf(details)
+		if distro == "" {
+			distro = dist.Name
+		}
+		for _, l := range distroLinks(m.SourcePackage, firstCVE(ids), distro) {
 			add("Distro", l.Label, l.URL)
+		}
+		// the distro's own records of the package, as the other DB has them: the page for a distro
+		// distroLinks has no pattern for, or one keyed by its advisory (ALAS, ELSA)
+		for _, r := range append(slices.Clone(m.CandidateRecords), m.ReferenceRecords...) {
+			if dist.Has(r.Namespace) {
+				add("Distro", r.Vulnerability+" · "+r.Namespace, r.DataSource)
+			}
 		}
 	}
 	for _, l := range packageLinks(coords) {
@@ -91,15 +106,21 @@ func distroLinks(srcPkg, cve, distro string) []Link {
 		add("Debian tracker for "+srcPkg, "https://tracker.debian.org/pkg/"+src)
 		add("Debian changelog for "+srcPkg, "https://metadata.ftp-master.debian.org/changelogs/main/"+debianPrefix(srcPkg)+"/"+src+"/unstable_changelog")
 	}
+	// each pattern is the one the distro's records in the grype DB cite
+	if cve == "" {
+		return out
+	}
 	switch distro {
 	case "alpine":
-		if cve != "" {
-			add("Alpine secdb", "https://security.alpinelinux.org/vuln/"+cve)
-		}
-	case "redhat", "rhel", "centos", "rocky", "almalinux":
-		if cve != "" {
-			add("Red Hat CVE page", "https://access.redhat.com/security/cve/"+cve)
-		}
+		add("Alpine secdb", "https://security.alpinelinux.org/vuln/"+cve)
+	case "redhat", "rhel", "centos", "rocky", "almalinux", "hummingbird":
+		add("Red Hat CVE page", "https://access.redhat.com/security/cve/"+cve)
+	case "wolfi", "chainguard":
+		add("Chainguard security page", "https://images.chainguard.dev/security/"+cve)
+	case "secureos":
+		add("SecureOS security page", "https://security.secureos.io/"+cve)
+	case "sles":
+		add("SUSE CVE page", "https://www.suse.com/security/cve/"+cve)
 	}
 	return out
 }

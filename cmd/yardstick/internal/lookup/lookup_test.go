@@ -13,7 +13,7 @@ import (
 // trimmed from `grype db search --vuln CVE-2018-20796 --pkg glibc -o json` (grype v0.120.1), as
 // delta's test has it
 const affectedOutput = `[
- {"vulnerability": {"id": "CVE-2018-20796", "provider": "ubuntu", "status": "active"},
+ {"vulnerability": {"id": "CVE-2018-20796", "provider": "ubuntu", "status": "active", "refs": [{"url": "https://ubuntu.com/security/CVE-2018-20796"}]},
   "packages": [
    {"os": {"name": "ubuntu", "version": "20.04"}, "package": {"name": "glibc", "ecosystem": "deb"},
     "namespace": "ubuntu:distro:ubuntu:20.04",
@@ -38,7 +38,8 @@ func TestParseAffected(t *testing.T) {
 		t.Fatal(err)
 	}
 	want := []Affected{
-		{Vulnerability: "CVE-2018-20796", Namespace: "ubuntu:distro:ubuntu:20.04", Package: "glibc", Ecosystem: "deb", FixStates: []string{"wont-fix"}},
+		{Vulnerability: "CVE-2018-20796", Namespace: "ubuntu:distro:ubuntu:20.04", Package: "glibc", Ecosystem: "deb", FixStates: []string{"wont-fix"},
+			DataSource: "https://ubuntu.com/security/CVE-2018-20796"},
 		{Vulnerability: "CVE-2018-20796", Namespace: "mariner:distro:mariner:1.0", Package: "glibc", Ecosystem: "rpm",
 			FixStates: []string{"fixed"}, FixVersions: []string{"0:2.28-12.cm1"}, Constraints: []string{"< 0:2.28-12.cm1"}},
 		{Vulnerability: "CVE-2023-28434", Namespace: "nvd:cpe", CPE: "cpe:2.3:a:minio:minio:*:*:*:*:*:*:*:*",

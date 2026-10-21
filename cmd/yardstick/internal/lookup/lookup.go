@@ -59,6 +59,8 @@ type Affected struct {
 	FixStates   []string `json:"fixStates,omitempty"`
 	FixVersions []string `json:"fixVersions,omitempty"`
 	Constraints []string `json:"constraints,omitempty"`
+	// DataSource is the record's page at its provider, e.g. a distro's tracker.
+	DataSource string `json:"dataSource,omitempty"`
 }
 
 // NotAffected says whether the record says the package was never affected: a distro's "fixed in 0"
@@ -260,7 +262,12 @@ type OS struct {
 
 // PackageOS is the distro a match's package came from.
 func PackageOS(m *pairing.Match) OS {
-	q := purl.Package(m.Package.PURL, "").Qualifiers["distro"]
+	return PurlOS(m.Package.PURL)
+}
+
+// PurlOS is the distro a package came from, by its purl.
+func PurlOS(p string) OS {
+	q := purl.Package(p, "").Qualifiers["distro"]
 	if q == "" {
 		return OS{}
 	}
@@ -331,7 +338,10 @@ func parseStatuses(data []byte, into map[string]string) error {
 func parseAffected(data []byte) ([]Affected, error) {
 	var results []struct {
 		Vulnerability struct {
-			ID string `json:"id"`
+			ID   string `json:"id"`
+			Refs []struct {
+				URL string `json:"url"`
+			} `json:"refs"`
 		} `json:"vulnerability"`
 		Packages []struct {
 			Namespace string `json:"namespace"`
@@ -358,8 +368,13 @@ func parseAffected(data []byte) ([]Affected, error) {
 	}
 	var out []Affected
 	for _, res := range results {
+		// the first reference is the record's own page, as grype's match dataSource has it
+		source := ""
+		if len(res.Vulnerability.Refs) > 0 {
+			source = res.Vulnerability.Refs[0].URL
+		}
 		for _, pkg := range res.Packages {
-			a := Affected{Vulnerability: res.Vulnerability.ID, Namespace: pkg.Namespace, Package: pkg.Package.Name, Ecosystem: pkg.Package.Ecosystem, CPE: pkg.CPE}
+			a := Affected{Vulnerability: res.Vulnerability.ID, Namespace: pkg.Namespace, Package: pkg.Package.Name, Ecosystem: pkg.Package.Ecosystem, CPE: pkg.CPE, DataSource: source}
 			for _, r := range pkg.Detail.Ranges {
 				a.Constraints = appendUnique(a.Constraints, r.Version.Constraint)
 				if r.Fix != nil {
