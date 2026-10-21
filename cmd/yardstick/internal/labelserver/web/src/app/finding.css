@@ -88,6 +88,11 @@
 .evidence section, .labels { align-content: start; }
 .evidence section { display: grid; gap: 8px; }
 .links { margin: 0; padding-left: 16px; display: grid; gap: 4px; font-size: 13.5px; }
+/* links read as links: underlined, with a mark that they open another site */
+.links a { text-decoration: underline; text-underline-offset: 3px; text-decoration-color: var(--muted-foreground); }
+.links a:hover { text-decoration-color: currentColor; }
+.links a::after { content: " ↗"; color: var(--muted-foreground); }
+.links .note { color: var(--muted-foreground); }
 .explanation { border-left: 2px solid var(--hint); padding-left: 16px; }
 
 .rawtab { gap: 16px; }

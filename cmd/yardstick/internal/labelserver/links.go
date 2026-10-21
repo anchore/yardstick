@@ -14,7 +14,10 @@ import (
 // Link is somewhere a person can go to judge a match.
 type Link struct {
 	Group string `json:"group"`
+	// Label says where the link goes ("NVD · CVE-1"), and Note, secondary, what it is ("nvd:cpe, cited
+	// by reference").
 	Label string `json:"label"`
+	Note  string `json:"note,omitempty"`
 	URL   string `json:"url"`
 }
 
@@ -26,12 +29,17 @@ func Links(m *report.Match) []Link {
 	out := []Link{}
 	// each group is complete on its own: a lookup stays though a cited record has the same URL
 	seen := map[string]bool{}
-	add := func(group, label, u string) {
-		if u == "" || seen[group+" "+u] || (!strings.HasPrefix(u, "https://") && !strings.HasPrefix(u, "http://")) {
+	put := func(l Link) {
+		if l.URL == "" || seen[l.Group+" "+l.URL] || (!strings.HasPrefix(l.URL, "https://") && !strings.HasPrefix(l.URL, "http://")) {
 			return
 		}
-		seen[group+" "+u] = true
-		out = append(out, Link{Group: group, Label: label, URL: u})
+		seen[l.Group+" "+l.URL] = true
+		out = append(out, l)
+	}
+	add := func(group, label, u string) { put(Link{Group: group, Label: label, URL: u}) }
+	// record links a DB record's page: the site and the id, then what the record is
+	record := func(group, id, note, u string) {
+		put(Link{Group: group, Label: siteName(u) + " · " + id, Note: note, URL: u})
 	}
 
 	type cited struct {
@@ -65,15 +73,15 @@ func Links(m *report.Match) []Link {
 		// distroLinks has no pattern for, or one keyed by its advisory (ALAS, ELSA)
 		for _, r := range append(slices.Clone(m.CandidateRecords), m.ReferenceRecords...) {
 			if dist.Has(r.Namespace) {
-				add("Distro", r.Vulnerability+" · "+r.Namespace, r.DataSource)
+				record("Distro", r.Vulnerability, r.Namespace, r.DataSource)
 			}
 		}
 	}
 
 	for _, side := range sides {
-		add("Records the DBs cited", side.d.Namespace+" ("+side.name+")", side.d.DataSource)
+		record("Records the DBs cited", m.Vulnerability, side.d.Namespace+", cited by "+side.name, side.d.DataSource)
 		for _, r := range side.d.Related {
-			add("Records the DBs cited", r.ID+" · "+r.Namespace, r.DataSource)
+			record("Records the DBs cited", r.ID, r.Namespace+", related, cited by "+side.name, r.DataSource)
 		}
 	}
 
@@ -186,6 +194,40 @@ func distroOf(details []*pairing.Detail) string {
 		}
 	}
 	return ""
+}
+
+// sites names the sites records link to, by host (and path, where a host serves several)
+var sites = []struct{ prefix, name string }{
+	{"nvd.nist.gov", "NVD"},
+	{"github.com/advisories", "GitHub"},
+	{"security-tracker.debian.org", "Debian"},
+	{"ubuntu.com", "Ubuntu"},
+	{"security.alpinelinux.org", "Alpine"},
+	{"access.redhat.com", "Red Hat"},
+	{"images.chainguard.dev", "Chainguard"},
+	{"security.secureos.io", "SecureOS"},
+	{"www.suse.com", "SUSE"},
+	{"alas.aws.amazon.com", "Amazon Linux"},
+	{"linux.oracle.com", "Oracle Linux"},
+	{"security.archlinux.org", "Arch Linux"},
+	{"bodhi.fedoraproject.org", "Fedora"},
+	{"www.cve.org", "cve.org"},
+	{"osv.dev", "OSV"},
+}
+
+// siteName is the site a URL goes to, by name where known, else its host.
+func siteName(u string) string {
+	p, err := url.Parse(u)
+	if err != nil {
+		return u
+	}
+	at := p.Host + p.Path
+	for _, s := range sites {
+		if strings.HasPrefix(at, s.prefix) {
+			return s.name
+		}
+	}
+	return p.Host
 }
 
 func firstCVE(ids []string) string {

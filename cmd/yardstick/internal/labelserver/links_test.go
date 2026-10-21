@@ -2,6 +2,7 @@ package labelserver
 
 import (
 	"slices"
+	"strings"
 	"testing"
 
 	"github.com/anchore/yardstick/cmd/yardstick/internal/lookup"
@@ -139,5 +140,26 @@ func TestLinkGroupOrder(t *testing.T) {
 		Candidate: &pairing.Detail{Namespace: "github:language:java", Distro: "debian 12", DataSource: "https://github.com/advisories/GHSA-y"}})
 	if want := []string{"Records the DBs cited", "Lookups", "Package"}; !slices.Equal(eco, want) {
 		t.Errorf("ecosystem package: want groups %v, got %v", want, eco)
+	}
+}
+
+// a record's link says where it goes, the site and the id, and what the record is beside it
+func TestRecordLinkLabels(t *testing.T) {
+	var got []string
+	for _, l := range Links(&report.Match{Vulnerability: "CVE-2026-19499", SourcePackage: "glibc-2.42", Package: "pkg:apk/secureos/glibc-2.42@2.42-r4?distro=secureos-2025.09.09",
+		Reference: &pairing.Detail{Namespace: "nvd:cpe", DataSource: "https://nvd.nist.gov/vuln/detail/CVE-2026-19499",
+			Related: []pairing.Related{{ID: "GHSA-x", Namespace: "github:language:go", DataSource: "https://github.com/advisories/GHSA-x"}}},
+		CandidateRecords: []lookup.Affected{{Vulnerability: "ALAS-1", Namespace: "secureos:distro:secureos:rolling", DataSource: "https://example.org/ALAS-1"}}}) {
+		if l.Note != "" {
+			got = append(got, l.Group+": "+l.Label+" — "+l.Note)
+		}
+	}
+	want := []string{
+		"Distro: example.org · ALAS-1 — secureos:distro:secureos:rolling",
+		"Records the DBs cited: NVD · CVE-2026-19499 — nvd:cpe, cited by reference",
+		"Records the DBs cited: GitHub · GHSA-x — github:language:go, related, cited by reference",
+	}
+	if !slices.Equal(got, want) {
+		t.Errorf("want\n%s\ngot\n%s", strings.Join(want, "\n"), strings.Join(got, "\n"))
 	}
 }
