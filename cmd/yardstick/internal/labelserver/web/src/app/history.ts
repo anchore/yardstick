@@ -5,7 +5,8 @@
 import type { History, HistoryLabel, LabelKey } from "../gen/wire";
 import { el, fill } from "../shared/dom";
 import { columnHelp, justWords, plural } from "../shared/words";
-import { getJSON, revert } from "./data";
+import { revert } from "./data";
+import * as api from "../shared/api";
 import { pageInfo, pageSize, shortSource } from "./listing";
 import { failed, loading, shown } from "./lists";
 import { dayKey, dayWords } from "./queuewords";
@@ -25,12 +26,9 @@ const keyOf = (l: HistoryLabel): LabelKey => ({ source: l.source, file: l.file, 
 const local = (iso: string) => { const d = new Date(iso); return new Date(d.getTime() - d.getTimezoneOffset() * 60_000).toISOString().slice(0, 16); };
 
 // query is the API's filters for the route's: no since is the server's start, all is no since
-function query(r: HistoryRoute) {
-  const f = r.filters, p = new URLSearchParams();
-  if (f.since !== "all") p.set("since", f.since ?? "start");
-  if (f.verdict && f.verdict !== "unlabeled") p.set("verdict", f.verdict);
-  if (f.q) p.set("q", f.q);
-  return p;
+function query(r: HistoryRoute): api.HistoryQuery {
+  const f = r.filters;
+  return { since: f.since === "all" ? undefined : f.since ?? "start", verdict: f.verdict === "unlabeled" ? undefined : f.verdict, q: f.q };
 }
 
 export function historyView(host: HTMLElement, r0: HistoryRoute, nav: Nav): View {
@@ -91,18 +89,14 @@ export function historyView(host: HTMLElement, r0: HistoryRoute, nav: Nav): View
   }
   // everyShown is every label the filters match, on every page
   async function everyShown() {
-    const p = query(r);
-    p.set("limit", String(total));
-    return (await getJSON<History>(`/api/history?${p}`)).labels.map(keyOf);
+    return (await api.history({ ...query(r), limit: total })).labels.map(keyOf);
   }
 
   async function update(next: Route) {
     r = next as HistoryRoute;
-    const mine = ++seq, f = r.filters, p = query(r);
-    p.set("offset", String(((f.page ?? 1) - 1) * pageSize));
-    p.set("limit", String(pageSize));
+    const mine = ++seq, f = r.filters;
     let h: History;
-    try { h = await getJSON<History>(`/api/history?${p}`); } catch (e) { if (alive()) renderShell(host, r, { title: "History", body: failed(e) }); return; }
+    try { h = await api.history({ ...query(r), offset: ((f.page ?? 1) - 1) * pageSize, limit: pageSize }); } catch (e) { if (alive()) renderShell(host, r, { title: "History", body: failed(e) }); return; }
     if (mine !== seq || !alive()) return;
     if (!host.contains(table.el)) draw(h);
     if (document.activeElement !== search && search.value !== (f.q ?? "")) search.value = f.q ?? "";

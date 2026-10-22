@@ -68,7 +68,7 @@ export function findingsList(o: FindingsOptions): FindingsList {
   // start researches rows through the gate, from a table, and shows them queued in place
   async function start(ids: string[]) {
     try {
-      const res = await api.research(o.gate, { rows: ids, from: "table" });
+      const res = await api.research(o.gate, ids, "table");
       started(res.queued, res.skipped);
     } catch (e) {
       toast((e as Error).message, true);

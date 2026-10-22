@@ -199,7 +199,7 @@ export function findingView(host: HTMLElement, r: FindingRoute, nav: Nav, q?: Qu
     if (!d) return;
     const off = d.state.research && !d.state.research.available ? d.state.research : null;
     if (off) return toast(`research disabled: ${off.reason}${off.command ? `; run ${off.command}` : ""}`, true);
-    try { await api.research(r.gate, { rows: [d.row.id], from: "finding" }); } catch (e) { return toast((e as Error).message, true); }
+    try { await api.research(r.gate, [d.row.id], "finding"); } catch (e) { return toast((e as Error).message, true); }
     toast("research started; what it finds arrives as an agent hint");
     void kick();
     await load();

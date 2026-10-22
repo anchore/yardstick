@@ -1,8 +1,8 @@
 // hints.ts is hint review, /ui/hints?gate=&image=&low=: every pending agent hint in the scope,
 // grouped by what accepting it alone does, checked per hintsdata's preselection, beside a sticky
 // panel that previews the selection's joint effect on every gate it touches and accepts it in one go.
-import type { GateList, GateResult, HintEntry, HintsAcceptResponse, HintsResponse, Queue, ResearchJobsSummary, State, Vocabulary } from "../gen/wire";
-import { token } from "../shared/api";
+import type { GateList, GateResult, HintEntry, ResearchJobsSummary, State, Vocabulary } from "../gen/wire";
+import * as api from "../shared/api";
 import { el, fill, toast, type Child } from "../shared/dom";
 import { dots, labels as words, plural, sideWords } from "../shared/words";
 import { changed, gateList, gateState, written } from "./data";
@@ -17,26 +17,6 @@ import { about } from "./researchwords";
 import type { Route } from "./route";
 import { renderShell, type Nav, type View } from "./shell";
 import { imageName, outcome, status, verdict } from "./ui";
-
-async function call<T>(path: string, body?: unknown): Promise<T> {
-  const r = await fetch(path, body === undefined ? undefined : {
-    method: "POST", headers: { "Content-Type": "application/json", "X-Yardstick-Token": token }, body: JSON.stringify(body),
-  });
-  if (!r.ok) throw new Error(`${r.status}: ${(await r.text()).trim() || r.statusText}`);
-  return r.json() as Promise<T>;
-}
-
-// fetchHints is every pending hint, unclear included; the pages filter (hintsdata inScope).
-// Not cached: a hint is gone once accepted anywhere.
-export const fetchHints = () => call<HintsResponse>("/api/hints?low=1");
-
-// preview is a gate's result as if rows were labeled so; nothing is written
-export const preview = (gate: string, labels: Record<string, string>) => call<GateResult>(`/api/gates/${encodeURIComponent(gate)}/preview`, { labels });
-
-// fetchQueue is every open row across gates, one per row id, unclear hints kept
-export const fetchQueue = () => call<Queue>("/api/queue?low=1");
-
-const acceptHints = (hints: string[]) => call<HintsAcceptResponse>("/api/hints/accept", { hints });
 
 // go moves to a review URL route.ts doesn't model (gate and low), through main.ts's render
 function go(href: string) {
@@ -65,7 +45,7 @@ export function hintsView(host: HTMLElement, r0: Route & { level: "hints" }, _na
   const chosen = new Map<string, boolean>();
   let data: Data | null = null;
 
-  const load = () => Promise.all([gateList(), fetchHints()]).then(async ([list, res]) => {
+  const load = () => Promise.all([gateList(), api.hints()]).then(async ([list, res]) => {
     const gates = list.gates.filter((g) => !g.error);
     const states = new Map(await Promise.all(gates.map(async (g) => [g.id, await gateState(g.id)] as const)));
     if (!alive()) return;
@@ -178,7 +158,7 @@ export function hintsView(host: HTMLElement, r0: Route & { level: "hints" }, _na
       const mine = ++seq, labels = previewLabels(sel);
       if (!labels.size) { fill(igs, el("p", { class: "muted" }, "Select hints to see what they do to each gate.")); return; }
       try {
-        const res = await Promise.all([...labels].map(async ([gate, l]) => [gate, await preview(gate, l)] as const));
+        const res = await Promise.all([...labels].map(async ([gate, l]) => [gate, await api.preview(gate, l)] as const));
         if (mine !== seq) return;
         fill(igs, res.map(([gate, after]) => impactGate(gate, d.states.get(gate)?.gate?.result, after)));
       } catch (e) {
@@ -191,7 +171,7 @@ export function hintsView(host: HTMLElement, r0: Route & { level: "hints" }, _na
       if (!ids.length) return;
       accept.disabled = true;
       try {
-        const res = await acceptHints(ids);
+        const res = await api.acceptHints(ids);
         written(`✦ ${plural(res.written.length, "label")} written from ${plural(ids.length, "hint")}${res.skipped.length ? `, ${plural(res.skipped.length, "match", "matches")} skipped` : ""}`, res.labels);
       } catch (e) {
         toast((e as Error).message, true);
@@ -280,7 +260,7 @@ function impactGate(gate: string, before: GateResult | undefined, after: GateRes
 // under each image with hints, how many on how many rows, the ones replacing a label, and "Accept…",
 // which opens review scoped to that image (accepting always goes through review)
 export function railHints(rail: Rail, gate: string) {
-  fetchHints().then((res) => {
+  api.hints().then((res) => {
     // with none, a rail drawn again after a write takes the old ones away
     const { hints } = inScope(res.hints, { gate });
     const per = imageHints(hints, gate);

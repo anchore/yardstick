@@ -41,7 +41,7 @@ export function researchView(host: HTMLElement, r: ResearchRoute, nav: Nav): Vie
   const left = el("a", { class: "btn", "data-variant": "outline", href: formatRoute(queueFor(r)), "data-testid": "label-left" }, "Label what's left ", kbd("n"));
   const toggle = jobsToggle("matches");
   // the plan has both groups selected, so each match sits in one job and the change group claims first
-  const plan = (model?: string) => api.researchQueue({ scope, check, rows, groups: rows ? undefined : ["change", "none"], model, dryRun: true });
+  const plan = (model?: string) => api.planResearch({ scope, check, rows, groups: rows ? undefined : ["change", "none"], model });
   let update: ((next: ResearchRoute) => void) | null = null, at = r;
   // a write elsewhere (a toast's Undo) plans again and draws the page over what's there, its checks
   // starting over as on arrival
@@ -199,7 +199,7 @@ export function researchView(host: HTMLElement, r: ResearchRoute, nav: Nav): Vie
       if (!ids.length) return;
       start.disabled = true;
       try {
-        const res = await api.researchQueue({ scope, rows: ids, limit: cap > 0 ? cap : undefined, model: model.value });
+        const res = await api.startResearch({ scope, rows: ids, limit: cap > 0 ? cap : undefined, model: model.value });
         toast(res.jobs?.length ? `✦ ${plural(res.jobs.length, "research job")} started; the gates page shows their progress` : "nothing left to research");
         void kick();
       } catch (e) {
@@ -254,7 +254,7 @@ export function scopedResearch(o: { all?: boolean; key?: boolean; small?: boolea
       at = key;
       const mine = ++seq;
       if (!again) a.hidden = true;
-      api.researchQueue({ scope: to.scope ?? "all", check: to.check, dryRun: true }).then((p) => {
+      api.planResearch({ scope: to.scope ?? "all", check: to.check }).then((p) => {
         if (mine !== seq) return;
         const change = p.groups.find((g) => g.group === "change"), none = p.groups.find((g) => g.group === "none");
         const which = o.all ? "all" : change?.jobs.length ? "change" : "none";

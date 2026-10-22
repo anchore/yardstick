@@ -12,7 +12,6 @@ import * as api from "../shared/api";
 import { el, fill, toast } from "../shared/dom";
 import { plural } from "../shared/words";
 import { gateState } from "./data";
-import { fetchHints, fetchQueue, preview } from "./hints";
 import { aloneWords, hintedRows, hintsHref, inScope, previewLabels, waitWords, workNumbers, type OpenRow } from "./hintsdata";
 import { openOf } from "./images";
 import { formatRoute } from "./route";
@@ -144,7 +143,7 @@ export function workBanner(list: GateList): Work {
       watching = false;
       if (!banner.isConnected) return;
       try {
-        const [b, res] = await Promise.all([api.researchBatch(), fetchHints()]);
+        const [b, res] = await Promise.all([api.researchBatch(), api.hints()]);
         if (!banner.isConnected) return;
         const pending = inScope(res.hints, {}).hints.length;
         fill(review, `Review ${plural(pending, "hint")} `, kbd("h"));
@@ -156,9 +155,9 @@ export function workBanner(list: GateList): Work {
   }
 
   async function load() {
-    const [res, queue, plan, batch] = await Promise.all([fetchHints(), fetchQueue(),
+    const [res, queue, plan, batch] = await Promise.all([api.hints(), api.queue("all", true),
       // research may be off here (no runner, or the plugin missing): the banner then never offers it
-      api.researchQueue({ scope: "all", dryRun: true }).catch(() => null), api.researchBatch().catch(() => null)]);
+      api.planResearch({ scope: "all" }).catch(() => null), api.researchBatch().catch(() => null)]);
     if (!banner.isConnected) return;
     const n = workNumbers(queue.entries), all = res.hints;
     fill(nums.open, n.open.toLocaleString());
@@ -174,7 +173,7 @@ export function workBanner(list: GateList): Work {
     if (!run && !priced) fill(rcaps, hints.length ? "If you accept every hint" : "Where each gate stands");
     const after = new Map(await Promise.all(gates.map(async (g) => {
       const p = labels.get(g.id);
-      return [g.id, (p ? (await preview(g.id, p)).outcome : g.gateOutcome ?? "undecided")] as const;
+      return [g.id, (p ? (await api.preview(g.id, p)).outcome : g.gateOutcome ?? "undecided")] as const;
     })));
     const change = group(plan, "change");
     for (const g of gates) {

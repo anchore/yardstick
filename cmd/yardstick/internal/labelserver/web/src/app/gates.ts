@@ -128,7 +128,7 @@ function unlabeledTab(sh: () => SharedState, fresh: () => Promise<void>, st: Sta
   };
   async function start(fs: CrossFinding[]) {
     try {
-      const res = await api.researchQueue({ rows: rowsOf(fs) });
+      const res = await api.startResearch({ rows: rowsOf(fs) });
       started(res.jobs?.length ?? 0, res.skipped.active);
     } catch (e) {
       toast((e as Error).message, true);

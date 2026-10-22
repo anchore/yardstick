@@ -4,14 +4,14 @@
 // with Cancel and the way on to the hints it left. It follows the top bar's reads of the jobs
 // (activity.ts) rather than polling on its own. The words are researchwords.ts's.
 import type { Basis } from "../gen/research";
-import type { HintEntry, HintsResponse, ResearchJob, ResearchJobs, State } from "../gen/wire";
+import type { HintEntry, ResearchJob, ResearchJobs, State } from "../gen/wire";
 import * as api from "../shared/api";
 import { inFlight, failedJob } from "../shared/agent";
 import { el, fill, toast, type Child } from "../shared/dom";
 import { pkgOf } from "../shared/rows";
 import { labels as words, plural } from "../shared/words";
 import { busy, kick, latest, onJobs } from "./activity";
-import { gateState, getJSON } from "./data";
+import { gateState } from "./data";
 import { hintsHref } from "./hintsdata";
 import { failed, loading, shown } from "./lists";
 import { started, tick } from "./researchtable";
@@ -46,8 +46,8 @@ export function jobsView(host: HTMLElement, r: Extract<Route, { level: "jobs" }>
 
   // read is the jobs, their price basis and the hints nobody has accepted, read again by a refresh
   async function read() {
-    const [j, plan, hints] = await Promise.all([api.researchJobs(), api.researchQueue({ scope: "all", dryRun: true }).catch(() => null),
-      getJSON<HintsResponse>("/api/hints?low=1").catch(() => null)]);
+    const [j, plan, hints] = await Promise.all([api.researchJobs(), api.planResearch({ scope: "all" }).catch(() => null),
+      api.hints().catch(() => null)]);
     basis = plan?.estimate.basis ?? null;
     pending = hints?.hints ?? [];
     await place(j);
@@ -178,7 +178,7 @@ export function jobsView(host: HTMLElement, r: Extract<Route, { level: "jobs" }>
   // retry starts a failed or cancelled job's rows again, from where it was first started
   async function retry(x: ResearchJob) {
     try {
-      const res = await api.research(x.gate!, { rows: x.rows, from: x.from === "finding" ? "finding" : "table" });
+      const res = await api.research(x.gate!, x.rows, x.from === "finding" ? "finding" : "table");
       started(res.queued, res.skipped);
     } catch (e) {
       toast((e as Error).message, true);

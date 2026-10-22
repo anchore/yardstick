@@ -4,11 +4,10 @@
 // GET /api/research/jobs every couple of seconds while anything is in flight, and once on load and
 // on focus otherwise. The tables, the jobs page and hint review follow research through the same
 // reads (onJobs) rather than polling on their own.
-import type { HintsResponse, ResearchJobs, ResearchJobsSummary } from "../gen/wire";
+import type { ResearchJobs, ResearchJobsSummary } from "../gen/wire";
 import * as api from "../shared/api";
 import { el, fill } from "../shared/dom";
 import { plural } from "../shared/words";
-import { getJSON } from "./data";
 import { activityWords, newHints } from "./researchwords";
 
 // poll is how often the jobs are read while any is in flight
@@ -48,7 +47,7 @@ export async function kick() {
     if (busy(j.summary)) draw("busy", activityWords(j.summary));
     else {
       // the hints research jobs left, pending until someone accepts them
-      const n = newHints(j.jobs, (await getJSON<HintsResponse>("/api/hints?low=1")).hints);
+      const n = newHints(j.jobs, (await api.hints()).hints);
       draw(n ? "hints" : "", n ? `✦ ${plural(n, "new hint")}` : "");
     }
   } catch {

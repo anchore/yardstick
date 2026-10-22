@@ -3,11 +3,12 @@
 // exit), why the row is next, and what each verdict does, and after each write reads the queue
 // fresh to pick the next row, or a card: a gate boundary, the stopping point, or the end. The logic
 // is queuelist.ts's and the words queuewords.ts's.
-import type { CheckFindings, History, LabelKey, Queue, QueueEntry, analysis } from "../gen/wire";
+import type { LabelKey, Queue, QueueEntry, analysis } from "../gen/wire";
 import { el, toast } from "../shared/dom";
 import { plural } from "../shared/words";
 import { boundaryCard, endCard, stopCard } from "./cards";
-import { getJSON, written } from "./data";
+import * as api from "../shared/api";
+import { written } from "./data";
 import { findingView, type QueueMode } from "./finding";
 import { checkRows, isOpen } from "./listing";
 import { failed, loading, shown } from "./lists";
@@ -53,11 +54,11 @@ function keep(s: Session) {
 // fetchQueue is the queue the route names, fresh: a gate scope is that gate's rows (a check's open
 // rows first) and then every other gate's, since the queue continues across gates
 async function fetchQueue(r: QueueRoute): Promise<Queue> {
-  const get = (scope: string) => getJSON<Queue>(`/api/queue?scope=${encodeURIComponent(scope)}${r.low ? "&low=1" : ""}`);
+  const get = (scope: string) => api.queue(scope, !!r.low);
   const gate = scopeGate(r.scope);
   if (!gate) return get(r.scope ?? "all");
   const [mine, all, cf] = await Promise.all([get(r.scope!), get("all"),
-    r.check ? getJSON<CheckFindings>(`/api/gates/${encodeURIComponent(gate)}/checks/${encodeURIComponent(r.check)}/findings`) : null]);
+    r.check ? api.checkFindings(gate, r.check) : null]);
   const first = cf ? checkRows(cf).filter((x) => x.row && isOpen(x)).map((x) => x.row!) : [];
   return { ...all, entries: ordered(first, mine.entries, all.entries) };
 }
@@ -122,7 +123,7 @@ export function queueView(host: HTMLElement, r: QueueRoute, nav: Nav): View {
 
   async function showEnd(q: Queue) {
     let written = 0;
-    try { written = sessionLabels((await getJSON<History>("/api/history?limit=500")).labels.map((l) => l.label.lastUpdated), s.start); } catch { /* the count is left at 0 */ }
+    try { written = sessionLabels((await api.history({ limit: 500 })).labels.map((l) => l.label.lastUpdated), s.start); } catch { /* the count is left at 0 */ }
     if (!alive()) return;
     showCard(q, "Nothing left to label", null,
       endCard({ gates: q.gates, foot: `${sessionWords(written, s.hints, s.hand)} They are in ./claims.`, back: gatesHref, history: "/ui/history" }),

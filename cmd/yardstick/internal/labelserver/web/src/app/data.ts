@@ -1,6 +1,6 @@
-// data.ts is what the /ui/gates/ screens read and write: the API calls, cached until the next write,
-// and the writes the lists' actions make (labels, accepted hints) through the existing routes.
-import type { CheckFindings, CrossFinding, GateLabels, GateList, LabelKey, SharedState, State, Vocabulary, claimsv1 } from "../gen/wire";
+// data.ts is what the /ui/gates/ screens read and write: the API's reads (shared/api.ts), cached
+// until the next write, and the writes the lists' actions make (labels, accepted hints).
+import type { CrossFinding, LabelKey, Vocabulary, claimsv1 } from "../gen/wire";
 import * as api from "../shared/api";
 import { toast } from "../shared/dom";
 import { labels as words, plural } from "../shared/words";
@@ -9,49 +9,35 @@ import { crossByGate, type FRow } from "./listing";
 
 const cache = new Map<string, Promise<unknown>>();
 
-// getJSON is a GET that skips the cache, for what must be fresh (the queue after a write)
-export async function getJSON<T>(path: string): Promise<T> {
-  const r = await fetch(path);
-  if (!r.ok) throw new Error(`${r.status}: ${(await r.text()).trim() || r.statusText}`);
-  return r.json() as Promise<T>;
-}
-
-// once is a GET, shared by every screen until a write clears the cache; a failure is not kept
-function once<T>(path: string): Promise<T> {
-  let p = cache.get(path) as Promise<T> | undefined;
+// once is a read, shared by every screen until a write clears the cache; a failure is not kept
+function once<T>(key: string, read: () => Promise<T>): Promise<T> {
+  let p = cache.get(key) as Promise<T> | undefined;
   if (!p) {
-    p = getJSON<T>(path);
-    cache.set(path, p);
-    p.catch(() => cache.delete(path));
+    p = read();
+    cache.set(key, p);
+    p.catch(() => cache.delete(key));
   }
   return p;
 }
 
-// forget drops every cached GET, for a write made outside this module (the finding page's)
+// forget drops every cached read, for a write that leaves its screen (the finding page's, which
+// goes on to the next match)
 export const forget = () => cache.clear();
 
-// fresh is a cached GET read again, for a list following research in flight
-function fresh<T>(path: string): Promise<T> {
-  cache.delete(path);
-  return once<T>(path);
+// fresh is a cached read made again, for a list following research in flight
+function fresh<T>(key: string, read: () => Promise<T>): Promise<T> {
+  cache.delete(key);
+  return once(key, read);
 }
 
-const g = (gate: string) => `/api/gates/${encodeURIComponent(gate)}`;
-
-export const gateList = () => once<GateList>("/api/gates");
-export const shared = () => once<SharedState>("/api/gates/shared");
-export const gateState = (gate: string) => once<State>(`${g(gate)}/state`);
-export const checkFindings = (gate: string, check: string) => once<CheckFindings>(`${g(gate)}/checks/${encodeURIComponent(check)}/findings`);
-export const freshState = (gate: string) => fresh<State>(`${g(gate)}/state`);
-export const freshFindings = (gate: string, check: string) => fresh<CheckFindings>(`${g(gate)}/checks/${encodeURIComponent(check)}/findings`);
-export const freshShared = () => fresh<SharedState>("/api/gates/shared");
-
-export interface LabelQuery { verdict?: string; image?: string; q?: string; offset?: number; limit?: number }
-export function gateLabels(gate: string, q: LabelQuery = {}) {
-  const p = new URLSearchParams();
-  for (const [k, v] of Object.entries(q)) if (v != null && v !== "") p.set(k, String(v));
-  return once<GateLabels>(`${g(gate)}/labels${p.size ? `?${p}` : ""}`);
-}
+export const gateList = () => once("gates", () => api.gates());
+export const shared = () => once("shared", () => api.shared());
+export const gateState = (gate: string) => once(`state|${gate}`, () => api.state(gate));
+export const checkFindings = (gate: string, check: string) => once(`findings|${gate}|${check}`, () => api.checkFindings(gate, check));
+export const freshState = (gate: string) => fresh(`state|${gate}`, () => api.state(gate));
+export const freshFindings = (gate: string, check: string) => fresh(`findings|${gate}|${check}`, () => api.checkFindings(gate, check));
+export const freshShared = () => fresh("shared", () => api.shared());
+export const gateLabels = (gate: string, q: api.LabelQuery = {}) => once(`labels|${gate}|${JSON.stringify(q)}`, () => api.gateLabels(gate, q));
 
 // everyLabel is every gate's labels, unpaged, for the workspace-wide Labels tab
 export async function everyLabel() {

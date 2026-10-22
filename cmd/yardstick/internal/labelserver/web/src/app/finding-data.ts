@@ -1,7 +1,7 @@
 // finding-data.ts loads what a finding page shows: the gate's state (vocabulary, causes, research,
 // the result), the row with everything the old tile showed of it, grype's raw matches, and the
 // parent list j and k walk (a check's findings, or the gate's changed rows).
-import type { CheckFindings, MatchesResponse, RowResponse, State, StateRow } from "../gen/wire";
+import type { MatchesResponse, RowResponse, State, StateRow } from "../gen/wire";
 import * as api from "../shared/api";
 import { fromCheck, fromState, type Item } from "./neighbors";
 import type { Filters } from "./route";
@@ -16,18 +16,12 @@ export interface FindingData {
   image: { name: string; slug: string; ref: string };
 }
 
-const checkFindings = (gate: string, check: string) =>
-  fetch(`/api/gates/${encodeURIComponent(gate)}/checks/${encodeURIComponent(check)}/findings`).then(async (r) => {
-    if (!r.ok) throw new Error(`${r.status}: ${(await r.text()).trim() || r.statusText}`);
-    return r.json() as Promise<CheckFindings>;
-  });
-
 export async function loadFinding(gate: string, id: string, check: string | null, filters: Filters): Promise<FindingData> {
   const [state, detail, matches, cf] = await Promise.all([
     api.state(gate), api.row(gate, id),
     // the raw matches only draw the lanes and the Raw match tab; the page stands without them
     api.matches(gate, id).catch(() => null),
-    check ? checkFindings(gate, check) : Promise.resolve(null),
+    check ? api.checkFindings(gate, check) : Promise.resolve(null),
   ]);
   const si = state.subjects.findIndex((s) => s.rows.some((r) => r.id === id));
   const sub = state.subjects[si] ?? state.subjects[0];

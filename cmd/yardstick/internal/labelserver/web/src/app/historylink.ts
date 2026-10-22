@@ -26,7 +26,7 @@ export function historyLink() {
 export async function recount() {
   const mine = ++seq;
   try {
-    const h = await api.history("since=start&limit=1");
+    const h = await api.history({ since: "start", limit: 1 });
     // a write's read can land after its Undo's: only the newest read draws
     if (mine !== seq) return;
     const where = h.sources.map(shortSource).join(", ") || "the writable claims source";
