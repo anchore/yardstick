@@ -1,7 +1,6 @@
 package command
 
 import (
-	"encoding/json"
 	"fmt"
 	"io"
 	"strconv"
@@ -13,19 +12,6 @@ import (
 	"github.com/anchore/clio"
 	"github.com/anchore/yardstick/cmd/yardstick/internal/cache"
 )
-
-const (
-	outputJSON = "json"
-	outputText = "text"
-)
-
-type cacheStatusOptions struct {
-	Output string `yaml:"output" json:"output" mapstructure:"output"`
-}
-
-func (o *cacheStatusOptions) AddFlags(flags clio.FlagSet) {
-	flags.StringVarP(&o.Output, "output", "o", "format to display results (available=[text, json])")
-}
 
 // kindStatus is one row of the status: what a kind holds.
 type kindStatus struct {
@@ -42,7 +28,7 @@ type cacheStatus struct {
 }
 
 func CacheStatus(app clio.Application) *cobra.Command {
-	cfg := &cacheStatusOptions{Output: outputText}
+	cfg := newTextOrJSON()
 	return app.SetupCommand(&cobra.Command{
 		Use:   "status",
 		Short: "Show the cache's location, and the size and last use of each kind of entry",
@@ -54,8 +40,8 @@ nothing.`,
   yardstick cache status -o json`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			if cfg.Output != outputText && cfg.Output != outputJSON {
-				return fmt.Errorf("unknown output %q: use one of text, json", cfg.Output)
+			if err := cfg.check(); err != nil {
+				return err
 			}
 			st, err := readCacheStatus()
 			if err != nil {
@@ -63,7 +49,7 @@ nothing.`,
 			}
 			return presentCacheStatus(cmd.OutOrStdout(), cfg.Output, st)
 		},
-	}, cfg)
+	}, &cfg)
 }
 
 func readCacheStatus() (cacheStatus, error) {
@@ -93,10 +79,7 @@ func readCacheStatus() (cacheStatus, error) {
 
 func presentCacheStatus(w io.Writer, format string, st cacheStatus) error {
 	if format == outputJSON {
-		enc := json.NewEncoder(w)
-		enc.SetEscapeHTML(false)
-		enc.SetIndent("", "  ")
-		return enc.Encode(st)
+		return writeJSON(w, st)
 	}
 	out := newPrinter(w)
 	out.row(out.dim("Path:"), st.Root)
