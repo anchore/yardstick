@@ -4,6 +4,7 @@ import (
 	"context"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -130,5 +131,47 @@ func TestConcurrencyIsLimited(t *testing.T) {
 	r.Wait()
 	if elapsed := time.Since(start); elapsed < 850*time.Millisecond {
 		t.Errorf("expected jobs to run one at a time, took %s", elapsed)
+	}
+}
+
+// the agent gets what it needs to run and reach the model, not this process's other credentials
+func TestChildEnvironmentIsAllowlisted(t *testing.T) {
+	env := []string{"PATH=/bin", "HOME=/home/a", "YARDSTICK_CLAIMS_URL=https://x", "ANTHROPIC_API_KEY=k", "CLAUDE_CONFIG_DIR=/c",
+		"GITHUB_TOKEN=secret", "AWS_SECRET_ACCESS_KEY=aws", "R2_SECRET=r2", "HTTPS_PROXY=http://proxy"}
+	got := childEnv(env)
+	want := []string{"PATH=/bin", "HOME=/home/a", "YARDSTICK_CLAIMS_URL=https://x", "ANTHROPIC_API_KEY=k", "CLAUDE_CONFIG_DIR=/c", "HTTPS_PROXY=http://proxy"}
+	if strings.Join(got, " ") != strings.Join(want, " ") {
+		t.Errorf("expected %v, got %v", want, got)
+	}
+	// Bedrock's credentials go through only when Claude Code is set to use Bedrock
+	if got := childEnv(append(env, "CLAUDE_CODE_USE_BEDROCK=1")); !slices.Contains(got, "AWS_SECRET_ACCESS_KEY=aws") || slices.Contains(got, "GITHUB_TOKEN=secret") {
+		t.Errorf("expected the AWS keys with Bedrock on, and still no GITHUB_TOKEN, got %v", got)
+	}
+}
+
+// the command a job runs sees the allowlisted environment, not the whole of this process's
+func TestRunDropsCredentials(t *testing.T) {
+	t.Setenv("GITHUB_TOKEN", "secret")
+	t.Setenv("ANTHROPIC_API_KEY", "k")
+	r, _ := newRunner(t, `echo "gh=$GITHUB_TOKEN key=$ANTHROPIC_API_KEY"`, time.Minute)
+	job, err := r.Start(context.Background(), Request{Rows: []string{"aaa"}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	r.Wait()
+	out, _ := os.ReadFile(r.LogPath(job.ID))
+	if got := strings.TrimSpace(string(out)); got != "gh= key=k" {
+		t.Errorf("expected only the model key, got %q", got)
+	}
+}
+
+// the default command never hands the agent an open shell or a write anywhere
+func TestDefaultCommandIsNarrow(t *testing.T) {
+	_, tools, _ := strings.Cut(DefaultCommand, `--allowedTools "`)
+	tools, _, _ = strings.Cut(tools, `"`)
+	for _, tool := range strings.Split(tools, ",") {
+		if tool == "Bash" || tool == "Write" || tool == "Edit" {
+			t.Errorf("expected no unscoped %s, got %s", tool, tools)
+		}
 	}
 }

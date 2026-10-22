@@ -15,6 +15,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"slices"
 	"sort"
 	"strings"
 	"sync"
@@ -27,7 +28,14 @@ import (
 // ($YARDSTICK_MODEL). Values are passed in the environment (see Job.env), never interpolated into
 // the command, so a crafted path or ID can't inject shell. stream-json prints one event per line as
 // the agent works, so the log is live, and ends in the result line the job's Usage is read from.
-const DefaultCommand = `claude -p "/yardstick:research-vuln row:$YARDSTICK_ROW $YARDSTICK_ROOT" --model "${YARDSTICK_MODEL:-sonnet}" --allowedTools "Bash,Read,Write,Edit,Grep,Glob,WebFetch,WebSearch" --output-format stream-json --verbose`
+//
+// The agent reads pages anyone can write, so it gets the tools the skill uses and no more: the two
+// yardstick commands and jq it runs, writes only under .yardstick/research/, and no Write anywhere
+// else. The skill's own allowed-tools adds its helper script, by the plugin's path. Its environment
+// is childEnv's.
+const DefaultCommand = `claude -p "/yardstick:research-vuln row:$YARDSTICK_ROW $YARDSTICK_ROOT" --model "${YARDSTICK_MODEL:-sonnet}" ` +
+	`--allowedTools "Bash(yardstick claims agent propose *),Bash(yardstick claims policy),Bash(yardstick claims policy *),Bash(jq *),Read,Grep,Glob,Edit(.yardstick/research/**),WebFetch,WebSearch" ` +
+	`--output-format stream-json --verbose`
 
 // DefaultModel is the model research runs on unless configured otherwise: a name or alias the
 // command understands (for claude, "sonnet", "opus", "haiku" or a full model ID).
@@ -283,7 +291,7 @@ func (r *Runner) run(ctx context.Context, job *Job) {
 	// environment (see Job.env), never through the command text
 	cmd := exec.CommandContext(ctx, "sh", "-c", r.cfg.Command) //nolint:gosec // G204: configured by the user, by design
 	cmd.Dir = r.cfg.Dir
-	cmd.Env = append(os.Environ(), job.env(r.cfg)...)
+	cmd.Env = append(childEnv(os.Environ()), job.env(r.cfg)...)
 	cmd.Stdout, cmd.Stderr = logFile, logFile
 	// stop the whole process group, not just sh: the agent and its children would otherwise outlive a
 	// cancel or timeout and keep spending tokens; WaitDelay still forces the kill afterwards
@@ -363,6 +371,36 @@ func (j Job) env(cfg Config) []string {
 		env = append(env, "PATH="+filepath.Dir(cfg.Bin)+string(os.PathListSeparator)+os.Getenv("PATH"))
 	}
 	return env
+}
+
+// childEnv is the part of this process's environment a research command gets: what it needs to run
+// and to reach the model, since the agent reads pages anyone can write and a prompt there could ask
+// it to print its environment. GITHUB_TOKEN, cloud keys and the like stay behind, except a cloud
+// provider's own when Claude Code is set to use that provider.
+func childEnv(environ []string) []string {
+	keep := []string{"YARDSTICK_", "ANTHROPIC_", "CLAUDE_", "LC_", "XDG_"}
+	providers := map[string][]string{
+		"CLAUDE_CODE_USE_BEDROCK": {"AWS_"},
+		"CLAUDE_CODE_USE_VERTEX":  {"GOOGLE_", "GCLOUD_", "CLOUDSDK_", "CLOUD_ML_REGION", "VERTEX_REGION_"},
+		"CLAUDE_CODE_USE_FOUNDRY": {"AZURE_"},
+	}
+	for _, kv := range environ {
+		k, v, _ := strings.Cut(kv, "=")
+		if prefixes, ok := providers[k]; ok && v != "" && v != "0" && v != "false" {
+			keep = append(keep, prefixes...)
+		}
+	}
+	exact := []string{"PATH", "HOME", "USER", "LOGNAME", "SHELL", "TMPDIR", "TERM", "LANG", "TZ", "NO_COLOR",
+		"HTTP_PROXY", "HTTPS_PROXY", "NO_PROXY", "ALL_PROXY", "http_proxy", "https_proxy", "no_proxy", "all_proxy",
+		"SSL_CERT_FILE", "SSL_CERT_DIR", "NODE_EXTRA_CA_CERTS"}
+	var out []string
+	for _, kv := range environ {
+		k, _, _ := strings.Cut(kv, "=")
+		if slices.Contains(exact, k) || slices.ContainsFunc(keep, func(p string) bool { return strings.HasPrefix(k, p) }) {
+			out = append(out, kv)
+		}
+	}
+	return out
 }
 
 // Researched is true once research of the job's rows has finished, in this run or an earlier one,

@@ -3,7 +3,20 @@ name: research-vuln
 description: Deep-dive one vulnerability finding from a yardstick gate — what the bug is, when upstream fixed it, whether the distro shipped or declined the fix, why the two grype DBs disagree — and record a verdict with justification, confidence, reasoning, facts, open questions and a report as a `yardstick claims agent propose` proposal.
 argument-hint: <CVE or GHSA id | row:<row id>> [workspace dir] [package name]
 disable-model-invocation: true
-allowed-tools: Bash, Read, Write, Edit, Grep, Glob, WebFetch, WebSearch, Agent
+# the skill reads pages anyone can write (upstream commits, issues, advisories), so it runs only the
+# commands it names and writes only under .yardstick/research/; a label is never written here
+allowed-tools:
+  - Bash(python3 -I ${CLAUDE_PLUGIN_ROOT}/scripts/yardstick-vuln-sources.py *)
+  - Bash(yardstick claims agent propose *)
+  - Bash(yardstick claims policy)
+  - Bash(yardstick claims policy *)
+  - Bash(jq *)
+  - Read
+  - Grep
+  - Glob
+  - Edit(.yardstick/research/**)
+  - WebFetch
+  - WebSearch
 ---
 
 Research vulnerability: $ARGUMENTS
