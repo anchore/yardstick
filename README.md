@@ -9,7 +9,7 @@ yardstick score ...          # re-score the last scans against the current label
 yardstick claims ...         # write, move and check labels in a claims corpus (`claims serve` is the label UI)
 ```
 
-See [demo/](demo/README.md) for a walkthrough of the whole local workflow: run a gate, label what changed, get the labels into the claims corpus.
+See [demo/](demo/README.md) for a walkthrough of the whole local workflow: run a gate, label what changed, get the labels into the claims corpus. [docs/gate-file.md](docs/gate-file.md) lists every gate file key and check, and what changed from the Python yardstick's gates.
 
 ## Installation
 
