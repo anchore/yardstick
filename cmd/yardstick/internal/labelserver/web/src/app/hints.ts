@@ -274,7 +274,7 @@ function hintRow(h: HintEntry, box: HTMLInputElement, vocab: Vocabulary | undefi
         ? el("span", { class: "could-move" }, `${g.gate} ${g.outcome} → ${g.after}`)
         : el("span", {}, `${g.gate}: closes ${plural(g.rows.length, "open match", "open matches")}`))),
       h.replaces && el("span", { class: "flag", "data-testid": "hint-replaces" },
-        `replaces ${replaced ? `an ${replaced.verdict === "unclear" ? "unclear" : words[replaced.verdict].word} label` : "a label"}${replaced?.note ? `: "${replaced.note}"` : ""}`),
+        `replaces ${replaced ? `${replaced.verdict === "tp" ? "a" : "an"} ${words[replaced.verdict].word} label` : "a label"}${replaced?.note ? `: "${replaced.note}"` : ""}`),
       h.replaces && el("small", {}, "left unchecked: it overrides a person")));
 }
 

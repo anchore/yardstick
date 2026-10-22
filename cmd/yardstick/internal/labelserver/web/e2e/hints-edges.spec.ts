@@ -271,7 +271,7 @@ test.describe("hints that replace a person's label", () => {
     await expect(group(page, "decides").getByTestId("hint-item").filter({ hasText: tar })).toHaveCount(0);
   });
 
-  test("the replaces flag's wording, with a label and without (bug: 'an TP label')", async ({ page }) => {
+  test("the replaces flag's wording, with a label and without", async ({ page }) => {
     // the seed has no tp label under a hint and no replaced row without one, so make both
     let withLabel = true;
     await edit(page, (h) => {
@@ -280,7 +280,7 @@ test.describe("hints that replace a person's label", () => {
       if (withLabel) h.rows[0].label = { verdict: "tp" };
     });
     await openReview(page);
-    await expect(item(page, gzip).getByTestId("hint-replaces")).toHaveText("replaces an TP label");
+    await expect(item(page, gzip).getByTestId("hint-replaces")).toHaveText("replaces a TP label");
     withLabel = false;
     await openReview(page);
     await expect(item(page, gzip).getByTestId("hint-replaces")).toHaveText("replaces a label");
