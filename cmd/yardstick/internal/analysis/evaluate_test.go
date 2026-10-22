@@ -93,7 +93,7 @@ func grype(t *testing.T, image string) *models.Document {
 
 func check(name string, params map[string]float64) gatefile.Check {
 	c := gatefile.Check{Name: name, Params: map[string]float64{}}
-	for _, p := range Registry[name].Params {
+	for _, p := range Lookup(name).Params {
 		if p.Default != nil {
 			c.Params[p.Name] = *p.Default
 		}
@@ -123,12 +123,12 @@ func TestCheckRegistry(t *testing.T) {
 		UnjudgedChangesAtMost: {PerSubject, true}, UnlabeledPercentAtMost: {PerSubject, false},
 		ExpectationsMetAtLeast: {PerGate, false}, NoNewMisses: {PerGate, true}, MatchesAtLeast: {PerSubject, false},
 	}
-	if len(Registry) != len(want) {
+	if len(Names()) != len(want) {
 		t.Fatalf("expected exactly %d checks, got %v", len(want), Names())
 	}
 	for name, w := range want {
-		c, ok := Registry[name]
-		if !ok || c.Scope != w.scope || c.ReadsReference != w.reads || len(c.Params) != 1 || c.Description == "" {
+		c := Lookup(name)
+		if c.Name != name || c.Scope != w.scope || c.ReadsReference != w.reads || len(c.Params) != 1 || c.Description == "" {
 			t.Errorf("%s: expected scope %s, reads reference %v, one param and a description, got %+v", name, w.scope, w.reads, c)
 		}
 	}

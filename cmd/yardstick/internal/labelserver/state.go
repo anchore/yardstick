@@ -276,7 +276,7 @@ func (v *view) result(g *gatefile.Gate, outcome analysis.State, checks []analysi
 	}
 	for _, c := range checks {
 		w := checkWords[c.Name]
-		cr := CheckResult{Name: c.Name, Description: analysis.Registry[c.Name].Description, Summary: w.summary, ValueMeans: w.means, Counts: w.counts,
+		cr := CheckResult{Name: c.Name, Description: analysis.Lookup(c.Name).Description, Summary: w.summary, ValueMeans: w.means, Counts: w.counts,
 			Direction: w.direction, Params: c.Params, Threshold: c.Threshold, Value: c.Value, State: c.State}
 		if c.Message != "" {
 			cr.Description += "; " + c.Message

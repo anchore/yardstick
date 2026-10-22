@@ -157,7 +157,7 @@ type checkWriter struct {
 // subjects prints the subjects behind a check, failing and undecided ones with their rows. The
 // passing ones are a count with --details passing, and listed with --details rows.
 func (cw checkWriter) subjects(g Gate, c analysis.Check, o Options, cols checkColumns) {
-	relative := analysis.Registry[c.Name].ReadsReference
+	relative := analysis.Lookup(c.Name).ReadsReference
 	var passing []analysis.SubjectCheck
 	for _, sc := range c.Subjects {
 		if sc.State == analysis.Pass {

@@ -154,7 +154,7 @@ func (e evaluator) check(c gatefile.Check) Check {
 }
 
 func (e evaluator) evalCheck(c gatefile.Check) Check {
-	def := Registry[c.Name]
+	def := registry[c.Name]
 	res := Check{Name: c.Name, Scope: def.Scope, Params: c.Params, State: Pass}
 	if def.Scope == PerGate {
 		return e.gateCheck(c, res)

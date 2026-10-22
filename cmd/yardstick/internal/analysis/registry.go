@@ -3,6 +3,7 @@
 package analysis
 
 import (
+	"slices"
 	"sort"
 
 	"github.com/anchore/yardstick/cmd/yardstick/internal/gatefile"
@@ -45,8 +46,9 @@ const (
 func zero() *float64         { v := 0.0; return &v }
 func ptr(v float64) *float64 { return &v }
 
-// Registry is every check a gate can list.
-var Registry = map[string]CheckType{
+// registry is every check a gate can list. It is read through Lookup, Names and Definitions, so no
+// caller can change it.
+var registry = map[string]CheckType{
 	F1NotWorse: {
 		CheckDef: gatefile.CheckDef{Name: F1NotWorse, ReadsReference: true, Params: []gatefile.Param{
 			{Name: paramTolerance, Description: "how far below the reference's F1 the candidate's may be", Min: 0, Default: zero()},
@@ -105,19 +107,26 @@ var Registry = map[string]CheckType{
 	},
 }
 
+// Lookup is a registered check by name, the zero CheckType for an unknown one.
+func Lookup(name string) CheckType {
+	t := registry[name]
+	t.Params = slices.Clone(t.Params)
+	return t
+}
+
 // Definitions is the registry as gate loading reads it.
 func Definitions() map[string]gatefile.CheckDef {
-	out := make(map[string]gatefile.CheckDef, len(Registry))
-	for n, t := range Registry {
-		out[n] = t.CheckDef
+	out := make(map[string]gatefile.CheckDef, len(registry))
+	for n := range registry {
+		out[n] = Lookup(n).CheckDef
 	}
 	return out
 }
 
 // Names lists the registry's checks, sorted.
 func Names() []string {
-	names := make([]string, 0, len(Registry))
-	for n := range Registry {
+	names := make([]string, 0, len(registry))
+	for n := range registry {
 		names = append(names, n)
 	}
 	sort.Strings(names)

@@ -17,7 +17,7 @@ import (
 
 // every check a gate can name has the words a check row shows
 func TestCheckWordsCoverRegistry(t *testing.T) {
-	for name := range analysis.Registry {
+	for _, name := range analysis.Names() {
 		if w := checkWords[name]; w.summary == "" || w.direction == "" {
 			t.Errorf("checkWords has no summary or direction for %s", name)
 		}
