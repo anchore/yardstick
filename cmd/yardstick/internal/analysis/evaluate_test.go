@@ -538,7 +538,7 @@ func TestLabelingEffect(t *testing.T) {
 	c := evaluate([]gatefile.Check{check(NoNewFalsePositives, nil)}, labeled).Checks[0]
 	found := false
 	for _, id := range c.FailsOn {
-		found = found || id == MatchID(m)
+		found = found || id == pairing.RowID("rpm", MatchID(m))
 	}
 	if c.State == Pass || !found {
 		t.Errorf("expected the labeled fp to fail the check and be listed in failsOn, got %s %v", c.State, c.FailsOn)
@@ -583,5 +583,20 @@ func TestDecideAtTheThreshold(t *testing.T) {
 	}
 	if got := decide(Value{Worst: 0.31, Best: 0.31}, 0.3); got != Fail {
 		t.Errorf("expected 0.31 at tolerance 0.3 to fail, got %s", got)
+	}
+}
+
+// a check's failsOn names rows across the gate: two subjects of one image share match ids
+func TestCheckFailsOnAreRowIDs(t *testing.T) {
+	lost := func(name string) Subject {
+		return pairOne(t, name, "deb", without(grype(t, "deb"), "CVE-2026-5450", "libc6"), grype(t, "deb"), label(libc, "CVE-2026-5450", claimsv1.TP))
+	}
+	c := evaluate([]gatefile.Check{check(NoNewFalseNegatives, nil)}, lost("a"), lost("b")).Checks[0]
+	a, b := c.Subjects[0].FailsOn, c.Subjects[1].FailsOn
+	if len(a) != 1 || !slices.Equal(a, b) {
+		t.Fatalf("expected one failing match id shared by both subjects, got %v and %v", a, b)
+	}
+	if want := []string{pairing.RowID("a", a[0]), pairing.RowID("b", b[0])}; !slices.Equal(c.FailsOn, want) {
+		t.Errorf("expected the check's failsOn as one row id per subject %v, got %v", want, c.FailsOn)
 	}
 }

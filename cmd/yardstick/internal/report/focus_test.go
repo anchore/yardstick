@@ -30,24 +30,36 @@ func focusGate() Gate {
 	var unmet []analysis.Expectation
 	for _, r := range []struct{ pkgID, vuln, pkg string }{{"aa", "CVE-2024-1234", openssl}, {"bb", "CVE-2024-1234", libssl3}, {"aa", "CVE-2024-5678", openssl}} {
 		ref := LabelRef{Package: basePURL(r.pkg), Vulnerability: r.vuln, Verdict: claimsv1.TP, File: "deb.json"}
-		rows = append(rows, Match{ID: r.pkgID + "/" + r.vuln, Vulnerability: r.vuln, Package: r.pkg, InReference: true, Verdict: claimsv1.TP, Label: &ref, Direction: Introduced})
+		rows = append(rows, Match{ID: r.pkgID + "/" + r.vuln, Row: pairing.RowID("img", r.pkgID+"/"+r.vuln), Vulnerability: r.vuln, Package: r.pkg, InReference: true, Verdict: claimsv1.TP, Label: &ref, Direction: Introduced})
 		misses = append(misses, Miss{Label: ref, InReference: true, Cause: NoCause})
 		unmet = append(unmet, analysis.Expectation{Subject: "img", Package: ref.Package, Vulnerability: r.vuln, Verdict: claimsv1.TP})
 	}
 	ids := []string{"aa/CVE-2024-1234", "bb/CVE-2024-1234", "aa/CVE-2024-5678"}
+	var rowIDs []string
+	for _, id := range ids {
+		rowIDs = append(rowIDs, pairing.RowID("img", id))
+	}
 	three := analysis.Value{Worst: 3, Best: 3}
 	return Gate{Name: "deb", Path: "gates/deb.yaml", Outcome: analysis.Fail, Undecided: "fail", Checks: []analysis.Check{
-		{Name: analysis.NoNewFalseNegatives, Scope: analysis.PerSubject, State: analysis.Fail, Value: three, FailsOn: ids,
+		{Name: analysis.NoNewFalseNegatives, Scope: analysis.PerSubject, State: analysis.Fail, Value: three, FailsOn: rowIDs,
 			Subjects: []analysis.SubjectCheck{{Subject: "img", State: analysis.Fail, Value: three, FailsOn: ids}}},
 		{Name: analysis.NoNewMisses, Scope: analysis.PerGate, State: analysis.Fail, Value: three, Unmet: unmet},
 	}, Subjects: []Subject{{Name: "img", Counts: map[string]Counts{pairing.Candidate: {Labels: 3}, pairing.Reference: {TP: 3, Labels: 3, Satisfied: 3}},
 		Matches: rows, Misses: misses}}}
 }
 
-// what a focus kept of each narrowed field, by match id or by vulnerability and package
+// what a focus kept of each narrowed field, by match id or by vulnerability and package; the
+// check's failsOn are row ids, read back as the match ids of the gate's one subject
 func focusKept(g Gate) (matches, failsOn, subjectFailsOn, misses, unmet []string) {
 	for _, m := range g.Subjects[0].Matches {
 		matches = append(matches, m.ID)
+	}
+	for _, row := range g.Checks[0].FailsOn {
+		for _, m := range focusGate().Subjects[0].Matches {
+			if m.Row == row {
+				failsOn = append(failsOn, m.ID)
+			}
+		}
 	}
 	for _, m := range g.Subjects[0].Misses {
 		misses = append(misses, m.Label.Vulnerability+" "+m.Label.Package)
@@ -55,7 +67,7 @@ func focusKept(g Gate) (matches, failsOn, subjectFailsOn, misses, unmet []string
 	for _, x := range g.Checks[1].Unmet {
 		unmet = append(unmet, x.Vulnerability+" "+x.Package)
 	}
-	return matches, g.Checks[0].FailsOn, g.Checks[0].Subjects[0].FailsOn, misses, unmet
+	return matches, failsOn, g.Checks[0].Subjects[0].FailsOn, misses, unmet
 }
 
 // focus-narrows-rows, package by name or purl prefix: a name equals the purl's name, a pkg: value

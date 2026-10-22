@@ -66,7 +66,7 @@ func (f *Focus) Narrow(g Gate, aliases *pairing.Aliases) Gate {
 			_, group, _ := strings.Cut(m.ID, "/")
 			if (of(group) || of(m.Vulnerability)) && f.on(m.Package) {
 				ms = append(ms, m)
-				ids[m.ID], anywhere[m.ID] = true, true
+				ids[m.ID], anywhere[m.Row] = true, true
 			}
 		}
 		s.Matches = ms
@@ -82,7 +82,7 @@ func (f *Focus) Narrow(g Gate, aliases *pairing.Aliases) Gate {
 
 	checks := make([]analysis.Check, len(g.Checks))
 	for i, c := range g.Checks {
-		// a check's own FailsOn gathers every subject's, so it is narrowed by any subject's ids
+		// a check's own FailsOn gathers every subject's as row ids, so it is narrowed by any subject's rows
 		c.FailsOn = keep(c.FailsOn, func(id string) bool { return anywhere[id] })
 		c.Unmet = keep(c.Unmet, func(x analysis.Expectation) bool { return of(x.Vulnerability) && f.on(x.Package) })
 		c.Subjects = slices.Clone(c.Subjects)

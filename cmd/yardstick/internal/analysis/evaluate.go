@@ -81,9 +81,11 @@ type Check struct {
 	Params    map[string]float64 `json:"params,omitempty"`
 	Threshold float64            `json:"threshold"`
 	// Value is the worst subject's for a per-subject check, the gate's sum for a per-gate one.
-	Value    Value          `json:"value"`
-	State    State          `json:"state"`
-	Message  string         `json:"message,omitempty"`
+	Value   Value  `json:"value"`
+	State   State  `json:"state"`
+	Message string `json:"message,omitempty"`
+	// FailsOn are every subject's FailsOn as row ids (pairing.RowID), which are unique across the
+	// gate where a match id is unique only within its subject.
 	FailsOn  []string       `json:"failsOn,omitempty"`
 	Subjects []SubjectCheck `json:"subjects,omitempty"`
 	// Unmet are the expectations a per-gate check found unmet.
@@ -214,7 +216,9 @@ func (e evaluator) evalCheck(c gatefile.Check) Check {
 		sc := e.subjectCheck(c, s)
 		res.Subjects = append(res.Subjects, sc)
 		res.State = worse(res.State, sc.State)
-		res.FailsOn = append(res.FailsOn, sc.FailsOn...)
+		for _, id := range sc.FailsOn {
+			res.FailsOn = append(res.FailsOn, pairing.RowID(s.Name, id))
+		}
 		if first || beyond(sc.Value.Worst, res.Value.Worst) {
 			res.Value.Worst = sc.Value.Worst
 		}
