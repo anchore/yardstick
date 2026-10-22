@@ -32,8 +32,13 @@ func summaryLine(s Summary, st styles) string {
 	return st.pass(s.Line)
 }
 
-// num shows a value to two decimals; the json renderer keeps it whole.
+// num shows a value to two decimals, or to three significant digits when that would round a
+// non-zero value to 0, so a failing F1 drop of 0.0005 never prints as 0; the json renderer keeps
+// it whole.
 func num(v float64) string {
+	if v != 0 && math.Abs(v) < 0.005 {
+		return strconv.FormatFloat(v, 'g', 3, 64)
+	}
 	return strconv.FormatFloat(math.Round(v*100)/100, 'f', -1, 64)
 }
 

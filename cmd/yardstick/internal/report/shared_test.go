@@ -69,3 +69,12 @@ func TestLayoutHelpers(t *testing.T) {
 		t.Errorf("rowLines: got\n%s", strings.Join(rows, "\n"))
 	}
 }
+
+// a value two decimals would round to 0 keeps its first digits: a failing drop never reads as none
+func TestNumKeepsSmallValues(t *testing.T) {
+	for v, want := range map[float64]string{0: "0", 0.0005: "0.0005", -0.000523456: "-0.000523", 0.004: "0.004", 0.005: "0.01", 0.3333: "0.33", 70: "70"} {
+		if got := num(v); got != want {
+			t.Errorf("num(%v): expected %s, got %s", v, want, got)
+		}
+	}
+}
