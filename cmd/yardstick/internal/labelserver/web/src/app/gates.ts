@@ -11,7 +11,7 @@ import { acceptCross, everyLabel, freshShared, gateList, gateState, labelCross, 
 import { hintWords, labelPicker } from "./findings";
 import { labelsTable, type LRow } from "./labelstable";
 import { openOf } from "./images";
-import { labelText, mergeLabels, pageInfo, shortSource, square, sumTally, type WideLabel } from "./listing";
+import { labelText, mergeLabels, pageInfo, pageSize, shortSource, square, sumTally, type WideLabel } from "./listing";
 import { failed, keptPrimary, listCursor, loading } from "./lists";
 import { queueFor } from "./queuelist";
 import { formatRoute, withFilters, type Route } from "./route";
@@ -185,7 +185,7 @@ function labelsTab(all: () => WideLabel[], r0: Route, nav: Nav): Tab {
     const counts: Record<string, number> = { tp: 0, fp: 0, unclear: 0 };
     for (const l of q) counts[l.verdict] = (counts[l.verdict] ?? 0) + 1;
     const rows = q.filter((l) => !r.filters.verdict || l.verdict === r.filters.verdict), p = pageInfo(rows.length, r.filters.page);
-    t.update(r, rows.slice(p.offset, p.offset + 50), rows.length, counts, false);
+    t.update(r, rows.slice(p.offset, p.offset + pageSize), rows.length, counts, false);
     return true;
   };
   update(r0);

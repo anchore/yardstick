@@ -7,7 +7,7 @@ export interface LabelWords { glyph: string; word: string; long: string }
 export const labels: Record<RowVerdict, LabelWords> = {
   tp: { glyph: "●", word: "TP", long: "real match" },
   fp: { glyph: "○", word: "FP", long: "false match" },
-  unclear: { glyph: "◐", word: "unclear", long: "unclear" },
+  unclear: { glyph: "◖", word: "unclear", long: "unclear" },
   unlabeled: { glyph: "◌", word: "unlabeled", long: "unlabeled" },
 };
 export const dots: Record<string, string> = { high: "•••", medium: "••◦", low: "•◦◦" };
