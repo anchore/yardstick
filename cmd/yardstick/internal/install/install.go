@@ -126,7 +126,7 @@ func (r *Resolver) Install(ctx context.Context, s Spec) (Tool, error) {
 	}
 	if s.Path != "" {
 		log.Infof("using %s binary at %s", s.Name, s.Path)
-		sum, err := fileSHA256(s.Path)
+		sum, err := FileSHA256(s.Path)
 		if err != nil {
 			return Tool{}, fmt.Errorf("unable to read %s binary %s: %w", s.Name, s.Path, err)
 		}
@@ -167,7 +167,8 @@ func (r *Resolver) Install(ctx context.Context, s Spec) (Tool, error) {
 	return Tool{Spec: s, Bin: entry.Path(), SHA256: entry.Digests["sha256"]}, nil
 }
 
-func fileSHA256(path string) (string, error) {
+// FileSHA256 is the hex sha256 of a file's bytes.
+func FileSHA256(path string) (string, error) {
 	f, err := os.Open(path)
 	if err != nil {
 		return "", err

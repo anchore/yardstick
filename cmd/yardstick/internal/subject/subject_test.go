@@ -417,6 +417,28 @@ func TestSourceCatalogIsData(t *testing.T) {
 			t.Errorf("expected a build with the source's SYFT_* env, got %v", err)
 		}
 	})
+	t.Run("a syft binary by path is keyed by its bytes", func(t *testing.T) {
+		t.Setenv("YARDSTICK_CACHE_DIR", t.TempDir())
+		syft := filepath.Join(t.TempDir(), "syft")
+		write(t, syft, []byte("one build of syft"))
+		b := &builder{}
+		resolve := func() {
+			t.Helper()
+			if _, err := (&Resolver{Catalog: &gatefile.Catalog{Syft: syft}, Build: b.build}).Resolve(context.Background(), s); err != nil {
+				t.Fatal(err)
+			}
+		}
+		resolve()
+		resolve()
+		if b.calls != 1 {
+			t.Fatalf("expected the second resolve to reuse the cached SBOM, got %d builds", b.calls)
+		}
+		write(t, syft, []byte("a rebuilt syft"))
+		resolve()
+		if b.calls != 2 {
+			t.Errorf("expected a rebuilt syft at the same path to build again, got %d builds", b.calls)
+		}
+	})
 	t.Run("the gate's own catalog", func(t *testing.T) {
 		t.Setenv("YARDSTICK_CACHE_DIR", t.TempDir())
 		b := &builder{}

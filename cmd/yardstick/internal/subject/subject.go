@@ -24,6 +24,7 @@ import (
 	claimsv1 "github.com/anchore/yardstick/cmd/yardstick/internal/claims/v1"
 	"github.com/anchore/yardstick/cmd/yardstick/internal/event"
 	"github.com/anchore/yardstick/cmd/yardstick/internal/gatefile"
+	"github.com/anchore/yardstick/cmd/yardstick/internal/install"
 	"github.com/anchore/yardstick/cmd/yardstick/internal/log"
 	"github.com/anchore/yardstick/cmd/yardstick/internal/ref"
 )
@@ -91,16 +92,23 @@ type Catalog struct {
 	ConfigData []byte
 	// Origin says where the catalog came from: the gate file, or a claims source's catalog.yaml.
 	Origin string
+	// SyftSHA256 is the hex sha256 of a syft binary given by path, so a rebuilt binary builds
+	// again; empty for a pinned syft, or a binary that could not be read (which fails when run).
+	SyftSHA256 string
 }
 
 // Digest identifies what a catalog builds: syft, its config, platform and env. Two catalogs
 // with one digest build the same SBOM from one image.
 func (c *Catalog) Digest(platform string) string {
 	sum := sha256.Sum256(c.ConfigData)
+	syft := c.Syft
+	if c.SyftSHA256 != "" {
+		syft += "@sha256:" + c.SyftSHA256
+	}
 	data, _ := json.Marshal(struct {
 		Syft, Config, Platform string
 		Env                    map[string]string
-	}{c.Syft, hex.EncodeToString(sum[:]), platform, c.Env})
+	}{syft, hex.EncodeToString(sum[:]), platform, c.Env})
 	sum = sha256.Sum256(data)
 	return "sha256:" + hex.EncodeToString(sum[:])
 }
@@ -129,6 +137,9 @@ type Resolver struct {
 	// subject resolves to without running syft.
 	NoBuild bool
 	Build   Builder
+
+	// syftSHA256 is the gate catalog's syft binary's digest, read once per resolver
+	syftSHA256 string
 }
 
 // ErrWouldBuild is a subject whose SBOM no claims source or cache holds, under NoBuild.
@@ -278,6 +289,12 @@ func (r *Resolver) fromSource(res *Resolved, data []byte, src *claims.Source) (*
 func (r *Resolver) effectiveCatalog() (*Catalog, error) {
 	if r.Catalog != nil {
 		c := &Catalog{Catalog: *r.Catalog, Origin: "the gate's catalog:"}
+		if c.SyftVersion() == "" {
+			if r.syftSHA256 == "" {
+				r.syftSHA256, _ = install.FileSHA256(c.Syft)
+			}
+			c.SyftSHA256 = r.syftSHA256
+		}
 		if c.Config != "" {
 			var err error
 			if c.ConfigData, err = os.ReadFile(c.Config); err != nil {
