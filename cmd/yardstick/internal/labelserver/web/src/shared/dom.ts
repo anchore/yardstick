@@ -36,6 +36,15 @@ export function fill(n: Element, ...children: Child[]) {
   n.replaceChildren(...nodes(...children));
 }
 
+// place sets a node's children to kids, nodes it holds already among them: nothing is touched when
+// they are the same, and a focused node that moved keeps the focus
+export function place(n: Element, kids: Node[]) {
+  if (kids.length === n.childNodes.length && kids.every((k, i) => n.childNodes[i] === k)) return;
+  const f = document.activeElement;
+  n.replaceChildren(...kids);
+  if (f instanceof HTMLElement && f !== document.activeElement && n.contains(f)) f.focus();
+}
+
 const svgNS = "http://www.w3.org/2000/svg";
 export function svg(tag: string, attrs: Attrs = {}, ...children: Child[]): SVGElement {
   const n = document.createElementNS(svgNS, tag) as SVGElement;

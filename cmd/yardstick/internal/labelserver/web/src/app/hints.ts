@@ -3,7 +3,7 @@
 // panel that previews the selection's joint effect on every gate it touches and accepts it in one go.
 import type { GateList, GateResult, HintEntry, ResearchJobsSummary, State, Vocabulary } from "../gen/wire";
 import * as api from "../shared/api";
-import { el, fill, toast, type Child } from "../shared/dom";
+import { el, fill, place, toast, type Child } from "../shared/dom";
 import { dots, labels as words, plural, sideWords } from "../shared/words";
 import { changed, gateList, gateState, writeFailed, written } from "./data";
 import { hintsHref, hintsRoute, imageHints, inScope, preselected, scopeOf, previewLabels, rowCount, stillOpen, type OpenRow } from "./hintsdata";
@@ -35,28 +35,64 @@ interface Data { list: GateList; all: HintEntry[]; states: Map<string, State> }
 type HintsRoute = Route & { level: "hints" };
 
 export function hintsView(host: HTMLElement, r0: HintsRoute, nav: Nav, signal: AbortSignal): View {
-  // a write here or anywhere reads the hints again and draws the screen over what's there
   let r = r0;
   const out: View = { update: () => false, refresh: async () => { await load(); } };
-  // the strip saying more hints are coming, built once since it follows the jobs
-  const strip = onTheWay(signal);
   // the reader's own checks, over preselection; kept across filter changes, cleared by an accept
   const chosen = new Map<string, boolean>();
   let data: Data | null = null;
+
+  // the screen's parts are built once and drawn again in place with each load and each change of
+  // scope, so a refresh after a write keeps the reader's scroll, focus and checks (UI-RULES 14)
+  const strip = onTheWay(signal);
+  const chips = el("div", { class: "chips" });
+  const lowBox: HTMLInputElement = el("input", { type: "checkbox", "data-testid": "hint-low-toggle",
+    onchange: () => nav(hintsRoute({ ...scopeOf(r), low: lowBox.checked })) });
+  const lowCount = el("span", { class: "muted", "data-testid": "hint-low-count" });
+  const filters = el("div", { class: "filters" }, el("label", { class: "label lowtoggle" }, lowBox, "Show unclear"), lowCount);
+  const igs = el("div", { class: "igs" });
+  const left = el("div", { class: "left", "data-testid": "impact-left" });
+  // the open matches in scope no agent has looked at, offered for research
+  const research = scopedResearch({ all: true, small: true });
+  const accept: HTMLButtonElement = el("button", { type: "button", class: "btn", "data-testid": "accept-hints", onclick: () => void doAccept() });
+  const impact = el("aside", { class: "impact", "data-testid": "impact", "aria-live": "polite" },
+    el("h2", {}, "If you accept the selected"), igs,
+    el("div", { class: "ig" }, el("span", { class: "caps" }, "Still open after this"), left, research.el),
+    accept,
+    el("p", { class: "foot" }, "Nothing is written until you accept. Accepted hints become labels with the agent's note, attributed to you."));
+  const hgroups = el("div", { class: "hgroups" });
+  const review = el("div", { class: "review" }, hgroups, impact);
+  const empty = el("div", { class: "placeholder", "data-testid": "hints-empty" }, "No pending agent hints here.");
+  const main = el("div", {});
+  const body = el("div", { class: "screen" }, strip, filters, main);
+  let rail: Rail | null = null, railFor = "";
+
+  // each group's box and list, and each hint's row, kept while it shows the same
+  const groupEls = new Map(groups.map((g) => {
+    const box: HTMLInputElement = el("input", { type: "checkbox", "aria-label": `Select every hint in ${g.title}`, "data-testid": "hint-group-toggle",
+      onchange: () => { for (const h of hints.filter((x) => x.group === g.id)) { chosen.set(h.id, box.checked); rowEls.get(h.id)!.box.checked = box.checked; } refresh(); } });
+    const list = el("div", { class: "hgrp", "data-testid": "hint-group", "data-group": g.id },
+      el("header", {}, box, el("span", { class: "t" }, g.title), el("span", { class: "s" }, g.sub)));
+    return [g.id, { box, list }] as const;
+  }));
+  const rowEls = new Map<string, { key: string; el: HTMLElement; box: HTMLInputElement }>();
+
+  // what the last draw showed: the hints in scope, and the open rows that stay open after them
+  let hints: HintEntry[] = [], open: OpenRow[] = [];
 
   const load = () => Promise.all([gateList(), api.hints()]).then(async ([list, res]) => {
     const gates = list.gates.filter((g) => !g.error);
     const states = new Map(await Promise.all(gates.map(async (g) => [g.id, await gateState(g.id)] as const)));
     if (signal.aborted) return;
     data = { list, all: res.hints, states };
-    draw();
+    draw(true);
     out.update = (next) => { r = next as HintsRoute; draw(); return true; };
   }).catch((e) => !signal.aborted && renderShell(host, r, { title: "Agent hints", body: failed(e) }));
 
-  function draw() {
-    const d = data!, scope = scopeOf(r);
-    const { hints, low } = inScope(d.all, scope);
-    const isOn = (h: HintEntry) => chosen.get(h.id) ?? preselected(h);
+  // draw shows the data as last read under the route; again is a load after a write, which prices
+  // research again
+  function draw(again = false) {
+    const d = data!, scope = scopeOf(r), shown = inScope(d.all, scope);
+    hints = shown.hints;
     const gates = d.list.gates.filter((g) => !g.error && (!scope.gate || g.id === scope.gate));
     const vocab = [...d.states.values()].find((s) => s.vocabulary)?.vocabulary;
 
@@ -68,119 +104,121 @@ export function hintsView(host: HTMLElement, r0: HintsRoute, nav: Nav, signal: A
     const images = new Map<string, RailImage>();
     for (const g of gates) g.subjects.forEach((s) => images.has(s.slug) || images.set(s.slug, { name: s.name, slug: s.slug, ref: s.ref ?? s.name, counts: { ...noCounts, total: byImage.get(s.slug)?.size ?? 0 } }));
     const img = scope.image ? images.get(scope.image) ?? null : null;
-    const rail = imageRail({ images: [...images.values()], selected: img?.slug ?? null, scope: "hints", onSelect: (slug) => nav(hintsRoute({ ...scope, image: slug ?? undefined })) });
+    // the rail is made again only when the gate scope changes its images
+    const slugs = [...images.keys()].join(" ");
+    if (!rail || railFor !== slugs) {
+      rail = imageRail({ images: [...images.values()], selected: img?.slug ?? null, scope: "hints", onSelect: (slug) => nav(hintsRoute({ ...scopeOf(r), image: slug ?? undefined })) });
+      railFor = slugs;
+    } else {
+      rail.images([...images.values()]);
+      rail.select(img?.slug ?? null);
+    }
 
     const chip = (gate: string | undefined, text: string, n: number) => el("a", { class: "chip", href: hintsHref({ ...scope, gate }), "aria-pressed": String(scope.gate === gate),
       "data-testid": "hint-gate-chip", "data-gate": gate ?? "" }, text, el("b", {}, String(n)));
     const scopedAll = inScope(d.all, { ...scope, gate: undefined }).hints;
-    const chips = el("div", { class: "chips" }, chip(undefined, "All gates", scopedAll.length),
+    fill(chips, chip(undefined, "All gates", scopedAll.length),
       d.list.gates.filter((g) => !g.error).map((g) => chip(g.id, g.id, scopedAll.filter((h) => h.gates.some((x) => x.gate === g.id)).length)));
 
-    const lowBox: HTMLInputElement = el("input", { type: "checkbox", checked: !!scope.low, "data-testid": "hint-low-toggle",
-      onchange: () => nav(hintsRoute({ ...scope, low: lowBox.checked })) });
-    const filters = el("div", { class: "filters" },
-      el("label", { class: "label lowtoggle" }, lowBox, "Show unclear"),
-      el("span", { class: "muted", "data-testid": "hint-low-count" }, low ? `${plural(low, "unclear hint")} hidden` : scope.low ? "" : "no unclear hints"));
+    lowBox.checked = !!scope.low;
+    fill(lowCount, shown.low ? `${plural(shown.low, "unclear hint")} hidden` : scope.low ? "" : "no unclear hints");
 
-    // the hint rows, each with its checkbox, and each group's select-all
-    const boxes = new Map<string, HTMLInputElement>();
-    const toggles: { box: HTMLInputElement; ids: string[] }[] = [];
-    const groupEls = groups.map((g) => {
-      const hs = hints.filter((h) => h.group === g.id);
-      if (!hs.length) return null;
-      const box: HTMLInputElement = el("input", { type: "checkbox", "aria-label": `Select every hint in ${g.title}`, "data-testid": "hint-group-toggle",
-        onchange: () => { for (const h of hs) { chosen.set(h.id, box.checked); boxes.get(h.id)!.checked = box.checked; } refresh(); } });
-      toggles.push({ box, ids: hs.map((h) => h.id) });
-      return el("div", { class: "hgrp", "data-testid": "hint-group", "data-group": g.id },
-        el("header", {}, box, el("span", { class: "t" }, g.title), el("span", { class: "s" }, g.sub)),
-        hs.map((h) => hintRow(h, boxes, isOn(h), vocab, (on) => { chosen.set(h.id, on); refresh(); })));
-    });
+    // the hint rows, each kept while its hint reads the same, checked as the reader left it
+    const shownGroups: HTMLElement[] = [];
+    for (const g of groups) {
+      const hs = hints.filter((h) => h.group === g.id), ge = groupEls.get(g.id)!;
+      if (!hs.length) continue;
+      place(ge.list, [ge.list.firstElementChild!, ...hs.map((h) => hintEl(h, vocab))]);
+      shownGroups.push(ge.list);
+    }
+    for (const h of hints) rowEls.get(h.id)!.box.checked = chosen.get(h.id) ?? preselected(h);
+    place(hgroups, shownGroups);
+    place(main, [hints.length ? review : empty]);
 
-    const igs = el("div", { class: "igs" });
-    const left = el("div", { class: "left", "data-testid": "impact-left" });
-    // the open matches in scope no agent has looked at, offered for research
-    const research = scopedResearch({ all: true, small: true });
     research.set({ level: "research", ...(scope.image ? { scope: `image:${scope.image}` } : scope.gate ? { scope: `gate:${scope.gate}` } : {}), filters: {} },
-      (n) => `the ${n} with no job`);
-    const accept: HTMLButtonElement = el("button", { type: "button", class: "btn", "data-testid": "accept-hints", onclick: () => void doAccept() });
-    const impact = el("aside", { class: "impact", "data-testid": "impact", "aria-live": "polite" },
-      el("h2", {}, "If you accept the selected"), igs,
-      el("div", { class: "ig" }, el("span", { class: "caps" }, "Still open after this"), left, research.el),
-      accept,
-      el("p", { class: "foot" }, "Nothing is written until you accept. Accepted hints become labels with the agent's note, attributed to you."));
+      (n) => `the ${n} with no job`, again);
 
     renderShell(host, r, {
       title: "Agent hints",
       sub: hints.length ? `${plural(hints.length, "hint")} on ${plural(rowCount(hints), "match", "matches")} · ${uniq(hints.map((h) => h.skill || h.author.skill || "agent")).join(", ")}` : undefined,
       actions: chips,
       rail,
-      scope: img && { label: imageName(img.name, img.ref), clear: () => nav(hintsRoute({ ...scope, image: undefined })) },
-      body: el("div", { class: "screen" }, strip, filters,
-        hints.length
-          ? el("div", { class: "review" }, el("div", { class: "hgroups" }, groupEls), impact)
-          : el("div", { class: "placeholder", "data-testid": "hints-empty" }, "No pending agent hints here.")),
+      scope: img && { label: imageName(img.name, img.ref), clear: () => nav(hintsRoute({ ...scopeOf(r), image: undefined })) },
+      body,
     });
-    out.key = (e) => rail.key(e);
+    out.key = (e) => rail!.key(e);
 
     // the open rows in scope, for what stays open
-    const open: OpenRow[] = gates.flatMap((g) => gateRows(d.states.get(g.id)!)
+    open = gates.flatMap((g) => gateRows(d.states.get(g.id)!)
       .filter((x) => x.row && isOpen(x) && (!scope.image || x.image.slug === scope.image))
       .map((x) => ({ gate: g.id, row: x.row!, vuln: x.vuln, pkg: x.pkg, research: x.research })));
-
-    let seq = 0, timer: ReturnType<typeof setTimeout> | undefined;
-    const selected = () => hints.filter((h) => boxes.get(h.id)?.checked);
-
-    function refresh() {
-      const sel = selected(), ids = new Set(sel.map((h) => h.id));
-      for (const t of toggles) {
-        const n = t.ids.filter((id) => ids.has(id)).length;
-        t.box.checked = n === t.ids.length;
-        t.box.indeterminate = n > 0 && n < t.ids.length;
-      }
-      const rows = rowCount(sel);
-      fill(accept, sel.length ? `Accept ${plural(sel.length, "hint")} on ${plural(rows, "match", "matches")}` : "Select hints to accept");
-      accept.disabled = !sel.length;
-      accept.dataset.hints = String(sel.length);
-      accept.dataset.rows = String(rows);
-      const items = stillOpen(open, hints, ids);
-      fill(left, items.length ? [items.slice(0, 8).map((x) => el("div", { class: "it", "data-testid": "impact-left-item" }, el("span", {}, x.text),
-        el("small", {}, `${x.gates.join(", ")} · `, x.job
-          ? el("span", { class: `rs ${x.job.kind === "running" ? "run" : "q"}`, "data-testid": "impact-left-job", "data-state": x.job.kind }, [x.job.word, x.job.small].filter(Boolean).join(" "))
-          : x.why))),
-        items.length > 8 && el("small", {}, `and ${items.length - 8} more`)] : el("span", { class: "muted" }, "Nothing in scope."));
-      clearTimeout(timer);
-      timer = setTimeout(() => void previewAll(sel), 150);
-    }
-
-    // previewAll runs each touched gate's preview with the selection's labels there
-    async function previewAll(sel: HintEntry[]) {
-      const mine = ++seq, labels = previewLabels(sel);
-      if (!labels.size) { fill(igs, el("p", { class: "muted" }, "Select hints to see what they do to each gate.")); return; }
-      try {
-        const res = await Promise.all([...labels].map(async ([gate, l]) => [gate, await api.preview(gate, l)] as const));
-        if (mine !== seq) return;
-        fill(igs, res.map(([gate, after]) => impactGate(gate, d.states.get(gate)?.gate?.result, after)));
-      } catch (e) {
-        if (mine === seq) fill(igs, el("p", { class: "muted" }, `Couldn't preview: ${(e as Error).message}`));
-      }
-    }
-
-    async function doAccept() {
-      const ids = selected().map((h) => h.id);
-      if (!ids.length) return;
-      accept.disabled = true;
-      try {
-        const res = await api.acceptHints(ids);
-        written(`✦ ${plural(res.written.length, "label")} written from ${plural(ids.length, "hint")}${res.skipped.length ? `, ${plural(res.skipped.length, "match", "matches")} skipped` : ""}`, res.labels);
-        // the reader's checks go with an accept that worked; a failed one keeps them for another try
-        chosen.clear();
-      } catch (e) {
-        writeFailed(e);
-      }
-      changed();
-    }
-
     refresh();
+  }
+
+  // hintEl is a hint's row, made again only when the hint reads differently
+  function hintEl(h: HintEntry, vocab: Vocabulary | undefined) {
+    const key = JSON.stringify(h), have = rowEls.get(h.id);
+    if (have?.key === key) return have.el;
+    const box: HTMLInputElement = el("input", { type: "checkbox", "aria-label": `Accept ${h.rows[0]?.vulnerability ?? h.id}`, "data-testid": "hint-check",
+      onchange: () => { chosen.set(h.id, box.checked); refresh(); } });
+    const row = hintRow(h, box, vocab);
+    rowEls.set(h.id, { key, el: row, box });
+    return row;
+  }
+
+  let seq = 0, timer: ReturnType<typeof setTimeout> | undefined;
+  const selected = () => hints.filter((h) => rowEls.get(h.id)?.box.checked);
+
+  // refresh shows what the selection does: the group boxes, Accept, what stays open, and (a little
+  // later, as the checks settle) each touched gate's preview
+  function refresh() {
+    const sel = selected(), ids = new Set(sel.map((h) => h.id));
+    for (const g of groups) {
+      const all = hints.filter((h) => h.group === g.id), n = all.filter((h) => ids.has(h.id)).length, box = groupEls.get(g.id)!.box;
+      box.checked = all.length > 0 && n === all.length;
+      box.indeterminate = n > 0 && n < all.length;
+    }
+    const rows = rowCount(sel);
+    fill(accept, sel.length ? `Accept ${plural(sel.length, "hint")} on ${plural(rows, "match", "matches")}` : "Select hints to accept");
+    accept.disabled = !sel.length;
+    accept.dataset.hints = String(sel.length);
+    accept.dataset.rows = String(rows);
+    const items = stillOpen(open, hints, ids);
+    fill(left, items.length ? [items.slice(0, 8).map((x) => el("div", { class: "it", "data-testid": "impact-left-item" }, el("span", {}, x.text),
+      el("small", {}, `${x.gates.join(", ")} · `, x.job
+        ? el("span", { class: `rs ${x.job.kind === "running" ? "run" : "q"}`, "data-testid": "impact-left-job", "data-state": x.job.kind }, [x.job.word, x.job.small].filter(Boolean).join(" "))
+        : x.why))),
+      items.length > 8 && el("small", {}, `and ${items.length - 8} more`)] : el("span", { class: "muted" }, "Nothing in scope."));
+    clearTimeout(timer);
+    timer = setTimeout(() => void previewAll(sel), 150);
+  }
+
+  // previewAll runs each touched gate's preview with the selection's labels there
+  async function previewAll(sel: HintEntry[]) {
+    const mine = ++seq, labels = previewLabels(sel);
+    if (!labels.size) { fill(igs, el("p", { class: "muted" }, "Select hints to see what they do to each gate.")); return; }
+    try {
+      const res = await Promise.all([...labels].map(async ([gate, l]) => [gate, await api.preview(gate, l)] as const));
+      if (mine !== seq || signal.aborted) return;
+      fill(igs, res.map(([gate, after]) => impactGate(gate, data!.states.get(gate)?.gate?.result, after)));
+    } catch (e) {
+      if (mine === seq && !signal.aborted) fill(igs, el("p", { class: "muted" }, `Couldn't preview: ${(e as Error).message}`));
+    }
+  }
+
+  async function doAccept() {
+    const ids = selected().map((h) => h.id);
+    if (!ids.length) return;
+    accept.disabled = true;
+    try {
+      const res = await api.acceptHints(ids);
+      written(`✦ ${plural(res.written.length, "label")} written from ${plural(ids.length, "hint")}${res.skipped.length ? `, ${plural(res.skipped.length, "match", "matches")} skipped` : ""}`, res.labels);
+      // the reader's checks go with an accept that worked; a failed one keeps them for another try
+      chosen.clear();
+    } catch (e) {
+      writeFailed(e);
+    }
+    changed();
   }
 
   renderShell(host, r, { title: "Agent hints", body: loading() });
@@ -216,9 +254,7 @@ function byLine(dir: string, v: string, gates: string[]): Child[] {
 }
 
 // hintRow is one hint: what it is about, what it says and why, and what it does per gate
-function hintRow(h: HintEntry, boxes: Map<string, HTMLInputElement>, on: boolean, vocab: Vocabulary | undefined, change: (on: boolean) => void) {
-  const box: HTMLInputElement = el("input", { type: "checkbox", checked: on, "aria-label": `Accept ${h.rows[0]?.vulnerability ?? h.id}`, "data-testid": "hint-check", onchange: () => change(box.checked) });
-  boxes.set(h.id, box);
+function hintRow(h: HintEntry, box: HTMLInputElement, vocab: Vocabulary | undefined) {
   const first = h.rows[0], gates = h.gates.map((g) => g.gate);
   const pkgs = uniq(h.rows.map((x) => x.package.name)), imgs = uniq(h.rows.map((x) => x.image.name));
   const rows = h.rows.length > 1 ? plural(h.rows.length, "match", "matches") : "";
