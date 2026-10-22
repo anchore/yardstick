@@ -2,7 +2,6 @@ package collect
 
 import (
 	"context"
-	"errors"
 	"fmt"
 
 	"github.com/anchore/yardstick/cmd/yardstick/internal/bus"
@@ -25,9 +24,6 @@ type SBOMs struct {
 func (c *SBOMs) Build(ctx context.Context, image ref.Ref, platform string, cat *subject.Catalog) ([]byte, error) {
 	if image.Kind != ref.Image {
 		return nil, fmt.Errorf("%s is not an image; only an oci: subject is built", image)
-	}
-	if cat.SyftVersion() == "" && cat.Syft == "" {
-		return nil, errors.New("the catalog must pin a syft version (syft@<version>)")
 	}
 	spec, err := install.ParseSpec("syft", cat.Syft)
 	if err != nil {

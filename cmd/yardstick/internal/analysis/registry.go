@@ -37,8 +37,9 @@ type CheckType struct {
 }
 
 const (
-	paramMax = "max"
-	paramMin = "min"
+	paramMax       = "max"
+	paramMin       = "min"
+	paramTolerance = "tolerance"
 )
 
 func zero() *float64         { v := 0.0; return &v }
@@ -48,7 +49,7 @@ func ptr(v float64) *float64 { return &v }
 var Registry = map[string]CheckType{
 	F1NotWorse: {
 		CheckDef: gatefile.CheckDef{Name: F1NotWorse, ReadsReference: true, Params: []gatefile.Param{
-			{Name: "tolerance", Description: "how far below the reference's F1 the candidate's may be", Min: 0, Default: zero()},
+			{Name: paramTolerance, Description: "how far below the reference's F1 the candidate's may be", Min: 0, Default: zero()},
 		}},
 		Description: "fails when the candidate's F1 is lower than the reference's by more than tolerance",
 		Scope:       PerSubject,

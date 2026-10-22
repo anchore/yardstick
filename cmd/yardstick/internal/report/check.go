@@ -45,7 +45,11 @@ func checkSorted[T any](xs []T, state func(T) analysis.State) []T {
 func checkGate(w io.Writer, g Gate, f *Focus, o Options, st styles) {
 	line := st.state(g.Outcome, stateWord[g.Outcome]) + " gate " + st.id(g.Name)
 	if g.Outcome == analysis.Undecided {
-		line += fmt.Sprintf(" (undecided: %s, so it %s)", g.Undecided, checkGateVerb[map[bool]analysis.State{true: analysis.Pass, false: analysis.Fail}[g.Passed]])
+		verb := checkGateVerb[analysis.Fail]
+		if g.Passed {
+			verb = checkGateVerb[analysis.Pass]
+		}
+		line += fmt.Sprintf(" (undecided: %s, so it %s)", g.Undecided, verb)
 	}
 	if t := tally(g); t != "" {
 		line += "  " + t

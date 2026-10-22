@@ -183,7 +183,7 @@ func (e evaluator) evalCheck(c gatefile.Check) Check {
 }
 
 func threshold(c gatefile.Check) float64 {
-	for _, k := range []string{"tolerance", paramMax, paramMin} {
+	for _, k := range []string{paramTolerance, paramMax, paramMin} {
 		if v, ok := c.Params[k]; ok {
 			return v
 		}
