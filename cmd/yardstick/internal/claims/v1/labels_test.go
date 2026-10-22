@@ -801,7 +801,7 @@ func TestWriteSchema(t *testing.T) {
 // every key of the published schema says what it is, so the schema is the format's documentation
 func TestSchemaDescribesEveryKey(t *testing.T) {
 	var doc map[string]any
-	if err := json.Unmarshal(Schema, &doc); err != nil {
+	if err := json.Unmarshal(schema, &doc); err != nil {
 		t.Fatal(err)
 	}
 	var walk func(path string, node map[string]any)

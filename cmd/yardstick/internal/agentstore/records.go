@@ -281,7 +281,7 @@ func (o Override) Validate() error {
 		return errors.New("override is missing the proposal it overrides")
 	case o.Vulnerability == "":
 		return errors.New("override is missing a vulnerability")
-	case !slices.Contains(claimsv1.Verdicts, o.Verdict):
+	case !slices.Contains(claimsv1.Verdicts(), o.Verdict):
 		return fmt.Errorf("verdict must be tp, fp or unclear, got %q", o.Verdict)
 	case o.Author == "":
 		return errors.New("override is missing its author")

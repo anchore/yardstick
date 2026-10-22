@@ -156,7 +156,7 @@ func (v *Vocabulary) CheckRules() []string {
 	for _, name := range slices.Sorted(maps.Keys(v.Rules)) {
 		r := v.Rules[name]
 		switch {
-		case r.Verdict != AnyVerdict && !slices.Contains(Verdicts, Verdict(r.Verdict)):
+		case r.Verdict != AnyVerdict && !slices.Contains(Verdicts(), Verdict(r.Verdict)):
 			problems = append(problems, fmt.Sprintf("rule %s: verdict %q is not tp, fp, unclear or any", name, r.Verdict))
 		case confidenceRank[r.Ceiling] == 0:
 			problems = append(problems, fmt.Sprintf("rule %s: ceiling %q is not low, medium or high", name, r.Ceiling))

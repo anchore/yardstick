@@ -370,7 +370,7 @@ justifications allowed under each verdict, the fact sources, and the vulnerabili
 			}
 			fmt.Fprintln(tw)
 			fmt.Fprintln(tw, "VERDICT\tJUSTIFICATION\tDESCRIPTION")
-			for _, verdict := range claimsv1.Verdicts {
+			for _, verdict := range claimsv1.Verdicts() {
 				for _, j := range v.Allowed(verdict) {
 					fmt.Fprintf(tw, "%s\t%s\t%s\n", verdict, j, v.Justifications[verdict][j])
 				}

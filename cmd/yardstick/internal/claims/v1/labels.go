@@ -40,7 +40,7 @@ const (
 )
 
 // Verdicts are the three calls, in the order they are listed.
-var Verdicts = []Verdict{TP, FP, Unclear}
+func Verdicts() []Verdict { return []Verdict{TP, FP, Unclear} }
 
 // File is one label file.
 type File struct {

@@ -124,7 +124,7 @@ func (s *Server) handleLabels(w http.ResponseWriter, req *http.Request) {
 	case err != nil:
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
-	case !slices.Contains(claimsv1.Verdicts, verdict):
+	case !slices.Contains(claimsv1.Verdicts(), verdict):
 		http.Error(w, fmt.Sprintf("verdict must be tp, fp or unclear, got %q", body.Verdict), http.StatusBadRequest)
 		return
 	case len(body.Rows) == 0:
