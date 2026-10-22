@@ -25,7 +25,8 @@ var registry = map[string]CheckDef{
 		{Name: "max", Max: ptr(100)},
 	}},
 	"expectationsMetAtLeast": {Name: "expectationsMetAtLeast", Params: []Param{
-		{Name: "min"},
+		{Name: "min", Integer: true, Excludes: "minFraction"},
+		{Name: "minFraction", Max: ptr(1), Excludes: "min"},
 	}},
 }
 
@@ -214,6 +215,33 @@ func TestReferenceReadingChecksNeedAReference(t *testing.T) {
 	}
 	if g.HasReference() {
 		t.Error("expected a gate with no reference")
+	}
+}
+
+// min is a count and minFraction a fraction, and a gate sets exactly one: min 1 reads as "at least
+// one", never as 100%
+func TestAlternativeParams(t *testing.T) {
+	gate := func(params string) string {
+		return strings.Split(validGate, "checks:")[0] + "checks:\n  - name: expectationsMetAtLeast\n    params: " + params + "\n"
+	}
+	for params, want := range map[string]map[string]float64{"{min: 1}": {"min": 1}, "{minFraction: 1}": {"minFraction": 1}, "{minFraction: 0.95}": {"minFraction": 0.95}} {
+		g, err := load(t, gate(params))
+		if err != nil {
+			t.Fatalf("%s: %v", params, err)
+		}
+		if got := g.Checks[0].Params; len(got) != len(want) || got["min"] != want["min"] || got["minFraction"] != want["minFraction"] {
+			t.Errorf("%s: expected params %v, got %v", params, want, got)
+		}
+	}
+	for params, want := range map[string]string{
+		"{min: 1, minFraction: 0.5}": "takes min or minFraction, not both",
+		"{}":                         "needs min or minFraction",
+		"{min: 0.5}":                 "min must be a whole number",
+		"{minFraction: 1.5}":         "minFraction must be at most 1",
+	} {
+		if _, err := load(t, gate(params)); err == nil || !strings.Contains(err.Error(), want) {
+			t.Errorf("%s: expected %q, got %v", params, want, err)
+		}
 	}
 }
 

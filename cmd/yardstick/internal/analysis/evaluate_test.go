@@ -128,20 +128,21 @@ func TestCheckRegistry(t *testing.T) {
 	}
 	for name, w := range want {
 		c := Lookup(name)
-		if c.Name != name || c.Scope != w.scope || c.ReadsReference != w.reads || len(c.Params) != 1 || c.Description == "" {
-			t.Errorf("%s: expected scope %s, reads reference %v, one param and a description, got %+v", name, w.scope, w.reads, c)
+		if c.Name != name || c.Scope != w.scope || c.ReadsReference != w.reads || len(c.Params) == 0 || c.Description == "" {
+			t.Errorf("%s: expected scope %s, reads reference %v, params and a description, got %+v", name, w.scope, w.reads, c)
 		}
 	}
 
-	// min is a count from 1 and a fraction of all expectations below it: 80 expectations, 75 met
+	// min is a count and minFraction a fraction of all expectations: 80 expectations, 75 met
 	sub := expectationSubject(t, 75, 80)
 	for _, tc := range []struct {
-		min  float64
-		want State
-	}{{0.95, Fail}, {0.9, Pass}, {76, Fail}, {75, Pass}} {
-		g := evaluate([]gatefile.Check{check(ExpectationsMetAtLeast, map[string]float64{"min": tc.min})}, sub)
-		if g.Checks[0].State != tc.want || g.Checks[0].Message != "met 75 of 80" {
-			t.Errorf("min %v over 75 of 80: expected %s, got %s (%s)", tc.min, tc.want, g.Checks[0].State, g.Checks[0].Message)
+		param string
+		v     float64
+		want  State
+	}{{"minFraction", 0.95, Fail}, {"minFraction", 0.9, Pass}, {"minFraction", 1, Fail}, {"min", 76, Fail}, {"min", 75, Pass}, {"min", 1, Pass}} {
+		g := evaluate([]gatefile.Check{check(ExpectationsMetAtLeast, map[string]float64{tc.param: tc.v})}, sub)
+		if c := g.Checks[0]; c.State != tc.want || c.Message != "met 75 of 80" {
+			t.Errorf("%s %v over 75 of 80: expected %s, got %s (%s)", tc.param, tc.v, tc.want, c.State, c.Message)
 		}
 	}
 }

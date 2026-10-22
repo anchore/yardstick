@@ -41,6 +41,8 @@ const (
 	paramMax       = "max"
 	paramMin       = "min"
 	paramTolerance = "tolerance"
+	// paramMinFraction is expectationsMetAtLeast's alternative to min
+	paramMinFraction = "minFraction"
 )
 
 func zero() *float64         { v := 0.0; return &v }
@@ -86,9 +88,10 @@ var registry = map[string]CheckType{
 	},
 	ExpectationsMetAtLeast: {
 		CheckDef: gatefile.CheckDef{Name: ExpectationsMetAtLeast, Params: []gatefile.Param{
-			{Name: paramMin, Description: "how many expectations must be met: a count when at least 1, a fraction of all of them when below 1"},
+			{Name: paramMin, Description: "how many expectations the candidate must meet", Integer: true, Excludes: paramMinFraction},
+			{Name: paramMinFraction, Description: "the fraction of all expectations the candidate must meet, from 0 to 1", Max: ptr(1), Excludes: paramMin},
 		}},
-		Description: "fails when fewer expectations are met than min",
+		Description: "fails when the candidate meets fewer expectations than min, or than minFraction of all of them",
 		Scope:       PerGate,
 	},
 	MatchesAtLeast: {

@@ -123,6 +123,9 @@ type Param struct {
 	Min         float64
 	Max         *float64 // nil: unbounded
 	Default     *float64 // nil: required
+	// Excludes names the param this one is an alternative to: exactly one of the two is set, and
+	// neither has a default.
+	Excludes string
 }
 
 // CheckDef is what loading needs to know about a check: its params, and whether it reads the
@@ -697,7 +700,20 @@ func resolveCheck(rc rawCheck, def CheckDef, errs *problems) (Check, bool) {
 		ok = false
 	}
 	for _, p := range def.Params {
-		if _, set := c.Params[p.Name]; set || rc.Params[p.Name] != nil {
+		_, given := rc.Params[p.Name]
+		_, other := rc.Params[p.Excludes]
+		// a pair of alternatives is checked once, from its first name
+		if p.Excludes != "" && p.Name < p.Excludes {
+			switch {
+			case given && other:
+				errs.addf("check %s takes %s or %s, not both", rc.Name, p.Name, p.Excludes)
+				ok = false
+			case !given && !other:
+				errs.addf("check %s needs %s or %s (%s)", rc.Name, p.Name, p.Excludes, p.Description)
+				ok = false
+			}
+		}
+		if _, set := c.Params[p.Name]; set || given || p.Excludes != "" {
 			continue
 		}
 		if p.Default == nil {

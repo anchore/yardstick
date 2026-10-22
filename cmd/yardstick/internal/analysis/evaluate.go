@@ -553,11 +553,10 @@ func (e evaluator) gateCheck(c gatefile.Check, res Check) Check {
 	}
 	switch c.Name {
 	case ExpectationsMetAtLeast:
-		atLeast := c.Params[paramMin]
-		required := atLeast
-		if atLeast < 1 {
-			// a fraction of all of them; the small epsilon keeps 0.95 of 80 at 76
-			required = math.Ceil(atLeast*float64(len(exps)) - 1e-9)
+		required := c.Params[paramMin]
+		if f, ok := c.Params[paramMinFraction]; ok {
+			// the small epsilon keeps 0.95 of 80 at 76
+			required = math.Ceil(f*float64(len(exps)) - 1e-9)
 		}
 		res.Threshold = required
 		res.Value = Value{Worst: float64(met), Best: float64(met)}
