@@ -52,7 +52,9 @@ export function labelPanel(d0: FindingData, draft: Draft, advance: boolean, on: 
     type: "button", class: v, "data-testid": "verdict-button", "data-verdict": v, title: labels[v].long,
     onclick: () => pick(v),
   }, cap(labels[v].word), kbd("tfu"[i])));
-  const reason = el("select", { class: "select", id: "reason", "data-testid": "reason-picker", onchange: () => { draft.reason = reason.value || undefined; } });
+  // f and u leave the focus here, so Enter saves from it as it does from the note
+  const reason = el("select", { class: "select", id: "reason", "data-testid": "reason-picker", onchange: () => { draft.reason = reason.value || undefined; },
+    onkeydown: (e) => { if (e.key === "Enter") { e.preventDefault(); draft.reason = reason.value || undefined; on.save(); } } });
   const note = el("input", { class: "input", id: "note", type: "text", "data-testid": "note-input", value: draft.note,
     oninput: () => { draft.note = note.value; },
     onkeydown: (e) => { if (e.key === "Enter") { e.preventDefault(); note.blur(); on.save(); } } });
