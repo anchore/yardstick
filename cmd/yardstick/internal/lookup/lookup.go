@@ -39,6 +39,19 @@ type File struct {
 	// Queries are the record searches that were made, with the rows each was made for.
 	Queries []Query    `json:"queries"`
 	Records []Affected `json:"records"`
+
+	// looked are the rows the queries were made for, indexed when the file is made or loaded
+	looked map[string]bool
+}
+
+// index builds the set of rows Looked reads, so a report asks about each row in constant time.
+func (f *File) index() {
+	f.looked = map[string]bool{}
+	for _, q := range f.Queries {
+		for _, r := range q.Rows {
+			f.looked[r] = true
+		}
+	}
 }
 
 // Outdated says whether the file was written by a Search that looked up less than this one.
@@ -48,15 +61,14 @@ func (f *File) Outdated() bool {
 
 // Looked says whether this DB's records were searched for a row.
 func (f *File) Looked(row string) bool {
-	if f == nil {
+	switch {
+	case f == nil:
 		return false
+	case f.looked != nil:
+		return f.looked[row]
 	}
-	for _, q := range f.Queries {
-		if slices.Contains(q.Rows, row) {
-			return true
-		}
-	}
-	return false
+	// a File built in memory rather than by Search or Load
+	return slices.ContainsFunc(f.Queries, func(q Query) bool { return slices.Contains(q.Rows, row) })
 }
 
 // Affected is one record a DB has for a vulnerability and a package: what the DB would match
@@ -152,6 +164,7 @@ func Search(ctx context.Context, grype Grype, setup string, rows []Row) (*File, 
 	if f.Records, err = records(ctx, grype, f.Queries); err != nil {
 		return nil, err
 	}
+	f.index()
 	return f, nil
 }
 
@@ -319,6 +332,7 @@ func Load(path string) (*File, error) {
 	if err := json.Unmarshal(data, &f); err != nil {
 		return nil, fmt.Errorf("%s: %w", path, err)
 	}
+	f.index()
 	return &f, nil
 }
 

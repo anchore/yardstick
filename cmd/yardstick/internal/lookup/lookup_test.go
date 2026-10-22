@@ -2,6 +2,9 @@ package lookup
 
 import (
 	"context"
+	"encoding/json"
+	"os"
+	"path/filepath"
 	"reflect"
 	"slices"
 	"strings"
@@ -162,5 +165,21 @@ func TestNotAffected(t *testing.T) {
 	notFixed := Affected{FixStates: []string{"not-fixed"}}
 	if !nak.NotAffected() || fixed.NotAffected() || notFixed.NotAffected() {
 		t.Errorf("expected only fixed in 0 to say not affected")
+	}
+}
+
+// a loaded file answers Looked from an index of its queries' rows
+func TestLoadIndexesLookedRows(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "lookups.json")
+	data, _ := json.Marshal(File{Version: Version, Queries: []Query{{Rows: []string{"a", "b"}}, {Rows: []string{"c"}}}})
+	if err := os.WriteFile(path, data, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	f, err := Load(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(f.looked) != 3 || !f.Looked("c") || f.Looked("d") {
+		t.Errorf("expected the three rows indexed, got %v", f.looked)
 	}
 }
