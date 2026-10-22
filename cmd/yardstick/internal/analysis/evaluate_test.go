@@ -434,8 +434,13 @@ func TestNoLabels(t *testing.T) {
 			t.Errorf("%s: expected the unlabeled rows and the worst case, got %+v", c.Name, sc)
 		}
 	}
-	if c := g.Checks[3]; c.State != Fail || !strings.Contains(c.Message, "no expectations") {
-		t.Errorf("expected the expectation check to fail with no expectations, got %+v", c)
+	// the dropped match is an expectation either way it is labeled: met as an fp, unmet as a tp
+	if c := g.Checks[3]; c.State != Undecided || c.Message != "met 0..1 of 1" {
+		t.Errorf("expected the expectation check undecided on the one unlabeled change, got %+v", c)
+	}
+	same := pairOne(t, "same", "deb", grype(t, "deb"), grype(t, "deb"))
+	if c := evaluate([]gatefile.Check{check(ExpectationsMetAtLeast, map[string]float64{"min": 1})}, same).Checks[0]; c.State != Fail || !strings.Contains(c.Message, "no expectations") {
+		t.Errorf("expected the expectation check to fail with no labels and no changes, got %+v", c)
 	}
 }
 
@@ -598,5 +603,38 @@ func TestCheckFailsOnAreRowIDs(t *testing.T) {
 	}
 	if want := []string{pairing.RowID("a", a[0]), pairing.RowID("b", b[0])}; !slices.Equal(c.FailsOn, want) {
 		t.Errorf("expected the check's failsOn as one row id per subject %v, got %v", want, c.FailsOn)
+	}
+}
+
+// per-gate checks read hypotheses and bound unlabeled deltas, as per-subject checks do: a tp on a
+// match only the reference reports is an expectation the candidate newly misses
+func TestPerGateChecksUnderAHypothesis(t *testing.T) {
+	cand, ref := without(grype(t, "deb"), "CVE-2026-5450", "libc6"), grype(t, "deb")
+	s := pairOne(t, "deb", "deb", cand, ref)
+	var ls []claims.Label
+	for _, m := range s.Result.Matches {
+		if m.In(pairing.Candidate) {
+			ls = append(ls, label(m.Package.PURL, m.Vulnerability, claimsv1.TP))
+		}
+	}
+	s = pairOne(t, "deb", "deb", cand, ref, ls...)
+	checks := []gatefile.Check{check(NoNewMisses, nil), check(ExpectationsMetAtLeast, map[string]float64{"minFraction": 1})}
+	g := evaluate(checks, s)
+	for _, c := range g.Checks[:2] {
+		if c.State != Undecided {
+			t.Errorf("%s: expected undecided on the one unlabeled change, got %+v", c.Name, c)
+		}
+	}
+	m := anyDelta(t, s)
+	for v, want := range map[claimsv1.Verdict]State{claimsv1.TP: Fail, claimsv1.FP: Pass} {
+		as := EvaluateAs(checks, []Subject{s}, map[*pairing.Match]claimsv1.Verdict{m: v})
+		for _, c := range as.Checks[:2] {
+			if c.State != want {
+				t.Errorf("%s as %s: expected %s, got %+v", c.Name, v, want, c)
+			}
+		}
+		if len(g.Effects) != 1 || g.Effects[0].States[v][NoNewMisses] != want {
+			t.Errorf("expected labeling it %s to %s noNewMisses, got %+v", v, want, g.Effects)
+		}
 	}
 }

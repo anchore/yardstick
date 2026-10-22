@@ -310,16 +310,17 @@ func (e evaluator) units(r *pairing.Result, x extreme) []unit {
 		}
 	}
 	for _, m := range r.Matches {
-		if (m.Unlabeled() || e.hyp[m] != "") && e.verdict(m, x) == claimsv1.TP && !pairedByTP(m) {
+		if (m.Unlabeled() || e.hyp[m] != "") && e.verdict(m, x) == claimsv1.TP && !pairedBy(m, claimsv1.TP) {
 			out = append(out, unit{cand: m.In(pairing.Candidate), ref: m.In(pairing.Reference), matches: []*pairing.Match{m}})
 		}
 	}
 	return out
 }
 
-func pairedByTP(m *pairing.Match) bool {
+// pairedBy says whether a label of the verdict pairs the match.
+func pairedBy(m *pairing.Match, v claimsv1.Verdict) bool {
 	for _, b := range m.Paired {
-		if b.Verdict == claimsv1.TP {
+		if b.Verdict == v {
 			return true
 		}
 	}
@@ -432,10 +433,7 @@ func (e evaluator) subjectCheck(c gatefile.Check, s Subject) SubjectCheck {
 	sc.Value = Value{Worst: values[worstCase], Best: values[bestCase]}
 	sc.State = decide(sc.Value, threshold(c))
 	if c.Name == MatchesAtLeast {
-		sc.State = Pass
-		if sc.Value.Worst < c.Params[paramMin] {
-			sc.State = Fail
-		}
+		sc.State = decideAtLeast(sc.Value, c.Params[paramMin])
 	}
 	// a subject the setups disagree on that no label judges fails the checks reading labels, still
 	// with its bounds and the rows a label would move, so there is something to act on
@@ -570,68 +568,96 @@ func unique(s []string) []string {
 	return out
 }
 
-// expectations are the tp and fp labels that apply to the gate's subjects, each met or not per
-// setup: a tp when some match of the setup pairs it, an fp when none does.
-func (e evaluator) expectations() []Expectation {
+// expectations are the tp and fp labels that apply to the gate's subjects in a case, each met or
+// not per setup: a tp when some match of the setup pairs it, an fp when none does. As units do for
+// tp labels, a match the case or a hypothesis gives a verdict that no label of that verdict pairs
+// is one more, so labeling a delta moves the per-gate checks as writing the label would.
+func (e evaluator) expectations(x extreme) []Expectation {
 	var out []Expectation
 	for _, s := range e.subjects {
 		for _, b := range s.Result.Labels {
-			if b.Verdict != claimsv1.TP && b.Verdict != claimsv1.FP {
-				continue
+			if b.Verdict == claimsv1.TP || b.Verdict == claimsv1.FP {
+				out = append(out, expectation(s.Name, b.Package, b.Vulnerability, b.Verdict, b.PairedIn(pairing.Candidate), b.PairedIn(pairing.Reference)))
 			}
-			x := Expectation{Subject: s.Name, Package: b.Package, Vulnerability: b.Vulnerability, Verdict: b.Verdict, Met: map[string]bool{}}
-			for _, setup := range []string{pairing.Candidate, pairing.Reference} {
-				x.Met[setup] = b.PairedIn(setup) == (b.Verdict == claimsv1.TP)
+		}
+		for _, m := range s.Result.Matches {
+			v := e.verdict(m, x)
+			if (m.Unlabeled() || e.hyp[m] != "") && (v == claimsv1.TP || v == claimsv1.FP) && !pairedBy(m, v) {
+				out = append(out, expectation(s.Name, m.Package.PURL, m.Vulnerability, v, m.In(pairing.Candidate), m.In(pairing.Reference)))
 			}
-			out = append(out, x)
 		}
 	}
 	return out
 }
 
+func expectation(subject, pkg, vuln string, v claimsv1.Verdict, inCandidate, inReference bool) Expectation {
+	return Expectation{Subject: subject, Package: pkg, Vulnerability: vuln, Verdict: v,
+		Met: map[string]bool{pairing.Candidate: inCandidate == (v == claimsv1.TP), pairing.Reference: inReference == (v == claimsv1.TP)}}
+}
+
+// gateCheck evaluates a per-gate check over the expectations in the worst and the best case, so it
+// is undecided while an unlabeled delta could still move it. Unmet lists only the expectations
+// labels (and hypotheses) give, never the cases' stand-ins.
 func (e evaluator) gateCheck(c gatefile.Check, res Check) Check {
-	exps := e.expectations()
-	if len(exps) == 0 {
+	worst, best, labeled := e.expectations(worstCase), e.expectations(bestCase), e.expectations(asLabeled)
+	if len(worst) == 0 {
 		res.State, res.Message = Fail, "no expectations apply to the gate's subjects: no tp or fp label applies to any of them"
 		return res
 	}
-	met, lost := 0, 0
-	for _, x := range exps {
-		if x.Met[pairing.Candidate] {
-			met++
-		} else {
-			res.Unmet = append(res.Unmet, x)
+	met := func(xs []Expectation) (n int) {
+		for _, x := range xs {
+			if x.Met[pairing.Candidate] {
+				n++
+			}
 		}
-		if x.Met[pairing.Reference] && !x.Met[pairing.Candidate] {
-			lost++
-		}
+		return n
 	}
+	lost := func(x Expectation) bool { return x.Met[pairing.Reference] && !x.Met[pairing.Candidate] }
 	switch c.Name {
 	case ExpectationsMetAtLeast:
+		// every unlabeled delta is one expectation in either case, so both cases count the same total
 		required := c.Params[paramMin]
 		if f, ok := c.Params[paramMinFraction]; ok {
 			// epsilon keeps 0.95 of 80 at 76
-			required = math.Ceil(f*float64(len(exps)) - epsilon)
+			required = math.Ceil(f*float64(len(worst)) - epsilon)
 		}
 		res.Threshold = required
-		res.Value = Value{Worst: float64(met), Best: float64(met)}
-		res.Message = fmt.Sprintf("met %d of %d", met, len(exps))
-		if float64(met) < required {
-			res.State = Fail
-		}
-	case NoNewMisses:
-		res.Threshold = c.Params[paramMax]
-		res.Value = Value{Worst: float64(lost), Best: float64(lost)}
-		res.Message = fmt.Sprintf("%d expectation(s) the reference met and the candidate did not", lost)
-		res.State = decide(res.Value, res.Threshold)
-		res.Unmet = nil
-		for _, x := range exps {
-			if x.Met[pairing.Reference] && !x.Met[pairing.Candidate] {
+		res.Value = Value{Worst: float64(met(worst)), Best: float64(met(best))}
+		res.Message = fmt.Sprintf("met %s of %d", count(res.Value), len(worst))
+		res.State = decideAtLeast(res.Value, required)
+		for _, x := range labeled {
+			if !x.Met[pairing.Candidate] {
 				res.Unmet = append(res.Unmet, x)
 			}
 		}
+	case NoNewMisses:
+		res.Threshold = c.Params[paramMax]
+		res.Value = Value{Worst: float64(len(slices.DeleteFunc(worst, func(x Expectation) bool { return !lost(x) }))),
+			Best: float64(len(slices.DeleteFunc(best, func(x Expectation) bool { return !lost(x) })))}
+		res.Message = fmt.Sprintf("%s expectation(s) the reference met and the candidate did not", count(res.Value))
+		res.State = decide(res.Value, res.Threshold)
+		res.Unmet = slices.DeleteFunc(labeled, func(x Expectation) bool { return !lost(x) })
 	}
 	return res
+}
+
+// decideAtLeast is decide for a check that fails below its threshold.
+func decideAtLeast(v Value, threshold float64) State {
+	switch {
+	case v.Worst >= threshold-epsilon:
+		return Pass
+	case v.Best < threshold-epsilon:
+		return Fail
+	}
+	return Undecided
+}
+
+// count is a count known exactly, or the range the two cases put it in.
+func count(v Value) string {
+	if v.Worst == v.Best {
+		return fmt.Sprint(v.Worst)
+	}
+	return fmt.Sprintf("%v..%v", min(v.Worst, v.Best), max(v.Worst, v.Best))
 }
 
 // effects works out, for each unlabeled match only one setup reports, what labeling it tp or fp
