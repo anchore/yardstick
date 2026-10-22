@@ -35,12 +35,10 @@ func byCheck(w io.Writer, s Set, o Options) error {
 	return err
 }
 
-var checkRank = map[analysis.State]int{analysis.Fail: 0, analysis.Undecided: 1, analysis.Pass: 2}
-
 // checkSorted orders failing first, then undecided, then passing, keeping the order within each.
 func checkSorted[T any](xs []T, state func(T) analysis.State) []T {
 	out := slices.Clone(xs)
-	sort.SliceStable(out, func(i, j int) bool { return checkRank[state(out[i])] < checkRank[state(out[j])] })
+	sort.SliceStable(out, func(i, j int) bool { return state(out[i]).Rank() > state(out[j]).Rank() })
 	return out
 }
 

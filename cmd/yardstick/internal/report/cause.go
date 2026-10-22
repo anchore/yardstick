@@ -25,7 +25,7 @@ func byCause(w io.Writer, s Set, o Options) error {
 	}
 	// failing and undecided gates first, each one's outcome before any detail about it
 	gates := append([]Gate(nil), s.Gates...)
-	sort.SliceStable(gates, func(i, j int) bool { return causeRank[gates[i].Outcome] < causeRank[gates[j].Outcome] })
+	sort.SliceStable(gates, func(i, j int) bool { return gates[i].Outcome.Rank() > gates[j].Outcome.Rank() })
 	for _, g := range gates {
 		if o.Quiet && g.Outcome == analysis.Pass {
 			continue
@@ -35,8 +35,6 @@ func byCause(w io.Writer, s Set, o Options) error {
 	_, err := fmt.Fprintln(w, summaryLine(s.Summary, st))
 	return err
 }
-
-var causeRank = map[analysis.State]int{analysis.Fail: 0, analysis.Undecided: 1, analysis.Pass: 2}
 
 // causeWidth is the column the layout wraps its prose at.
 const causeWidth = 80
@@ -51,7 +49,8 @@ type causeChange struct {
 	subjects           []string
 	// groups are each subject's rows by direction
 	groups map[string]groups
-	rank   int
+	// rank is the worst state of a check behind its rows, by State.Rank; -1 for none
+	rank int
 }
 
 func (c *causeChange) matches() []Match {
@@ -79,7 +78,7 @@ func causeChanges(g Gate) []*causeChange {
 				}
 			}
 			if c == nil {
-				c = &causeChange{dropped: m.InReference, matcher: m.Matcher, matchType: m.MatchType, groups: map[string]groups{}, rank: len(causeRank)}
+				c = &causeChange{dropped: m.InReference, matcher: m.Matcher, matchType: m.MatchType, groups: map[string]groups{}, rank: -1}
 				out = append(out, c)
 			}
 			if _, ok := c.groups[sub.Name]; !ok {
@@ -99,10 +98,10 @@ func causeChanges(g Gate) []*causeChange {
 	}
 	for _, chk := range g.Checks {
 		for _, c := range causeBehind(chk, out) {
-			c.rank = min(c.rank, causeRank[chk.State])
+			c.rank = max(c.rank, chk.State.Rank())
 		}
 	}
-	sort.SliceStable(out, func(i, j int) bool { return out[i].rank < out[j].rank })
+	sort.SliceStable(out, func(i, j int) bool { return out[i].rank > out[j].rank })
 	return out
 }
 
@@ -190,7 +189,7 @@ func causeWriteChecks(w io.Writer, g Gate, changes []*causeChange, o Options, st
 		order[i] = i
 	}
 	sort.SliceStable(order, func(a, b int) bool {
-		return causeRank[g.Checks[order[a]].State] < causeRank[g.Checks[order[b]].State]
+		return g.Checks[order[a]].State.Rank() > g.Checks[order[b]].State.Rank()
 	})
 	for _, i := range order {
 		c := g.Checks[i]

@@ -25,7 +25,7 @@ func bySubject(w io.Writer, s Set, o Options) error {
 		writeFocus(w, s.Focus, st)
 	}
 	gates := append([]Gate(nil), s.Gates...)
-	sort.SliceStable(gates, func(i, j int) bool { return subjectRank[gates[i].Outcome] < subjectRank[gates[j].Outcome] })
+	sort.SliceStable(gates, func(i, j int) bool { return gates[i].Outcome.Rank() > gates[j].Outcome.Rank() })
 	for _, g := range gates {
 		if o.Quiet && g.Outcome == analysis.Pass {
 			continue
@@ -41,9 +41,6 @@ const (
 	subjectPasses = "passes"
 	subjectFails  = "fails"
 )
-
-// subjectRank puts failing first and passing last.
-var subjectRank = map[analysis.State]int{analysis.Fail: 0, analysis.Undecided: 1, analysis.Pass: 2}
 
 // subjectGate is one gate: its outcome, its checks, then its subjects. A passing gate is its
 // outcome line alone until --details passing.
@@ -122,7 +119,7 @@ type subjectLine struct {
 // subjectColumns prints check lines failing first, each column but the last padded to its widest
 // before it is styled.
 func subjectColumns(w io.Writer, lines []subjectLine, st styles) {
-	sort.SliceStable(lines, func(i, j int) bool { return subjectRank[lines[i].state] < subjectRank[lines[j].state] })
+	sort.SliceStable(lines, func(i, j int) bool { return lines[i].state.Rank() > lines[j].state.Rank() })
 	var widths []int
 	for _, l := range lines {
 		for i, c := range l.cells {
@@ -152,7 +149,7 @@ func subjectOrder(g Gate) []*Subject {
 		out[i] = &g.Subjects[i]
 	}
 	sort.SliceStable(out, func(i, j int) bool {
-		return subjectRank[subjectState(g, out[i].Name)] < subjectRank[subjectState(g, out[j].Name)]
+		return subjectState(g, out[i].Name).Rank() > subjectState(g, out[j].Name).Rank()
 	})
 	return out
 }
@@ -163,12 +160,12 @@ func subjectState(g Gate, name string) analysis.State {
 	worst := analysis.Pass
 	for _, c := range g.Checks {
 		for _, sc := range c.Subjects {
-			if sc.Subject == name && subjectRank[sc.State] < subjectRank[worst] {
+			if sc.Subject == name && sc.State.Rank() > worst.Rank() {
 				worst = sc.State
 			}
 		}
 		for _, x := range c.Unmet {
-			if x.Subject == name && subjectRank[c.State] < subjectRank[worst] {
+			if x.Subject == name && c.State.Rank() > worst.Rank() {
 				worst = c.State
 			}
 		}

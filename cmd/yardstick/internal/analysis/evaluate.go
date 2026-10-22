@@ -21,10 +21,20 @@ const (
 	Undecided State = "undecided"
 )
 
-// worse orders states: fail over undecided over pass.
+// Rank orders states from best to worst: pass, undecided, fail.
+func (s State) Rank() int {
+	switch s {
+	case Undecided:
+		return 1
+	case Fail:
+		return 2
+	}
+	return 0
+}
+
+// worse is the worse of two states.
 func worse(a, b State) State {
-	rank := map[State]int{Pass: 0, Undecided: 1, Fail: 2}
-	if rank[b] > rank[a] {
+	if b.Rank() > a.Rank() {
 		return b
 	}
 	return a
