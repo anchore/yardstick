@@ -17,6 +17,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -537,5 +538,83 @@ func TestReopenReusesRemoteSources(t *testing.T) {
 	}
 	if _, err := fs.ReadFile(again.Sources[0].FS, claimsv1.VocabularyFile); err == nil {
 		t.Error("expected a closed snapshot unreadable")
+	}
+}
+
+// set swaps a package variable for the length of a test
+func set[T any](t *testing.T, v *T, to T) {
+	t.Helper()
+	orig := *v
+	*v = to
+	t.Cleanup(func() { *v = orig })
+}
+
+// the host the digest comes from is https, or this machine
+func TestClaimsURLMustBeHTTPS(t *testing.T) {
+	t.Setenv("YARDSTICK_CACHE_DIR", t.TempDir())
+	for _, base := range []string{"http://yardstick.example.com", "ftp://yardstick.example.com"} {
+		t.Setenv(URLVar, base)
+		if _, err := openRemoteAt(t, "main"); err == nil || !strings.Contains(err.Error(), "must be an https:// URL") {
+			t.Errorf("%s: expected refused, got %v", base, err)
+		}
+	}
+	for _, base := range []string{"https://yardstick.example.com", "http://127.0.0.1:1", "http://localhost:1", "http://[::1]:1"} {
+		if err := checkBase(base); err != nil {
+			t.Errorf("%s: expected allowed, got %v", base, err)
+		}
+	}
+}
+
+// a snapshot over the size cap is refused while it downloads, and a file over the file cap
+// before a byte of it is read
+func TestSnapshotSizeLimits(t *testing.T) {
+	t.Setenv("YARDSTICK_CACHE_DIR", t.TempDir())
+	h := newHost(t)
+	digest := h.publish(t, bigCorpus(t))
+	size := int64(len(h.objects["/claims/snapshots/"+strings.TrimPrefix(digest, "sha256:")+".zip"]))
+
+	set(t, &maxDownload, size-1)
+	if _, err := openRemoteAt(t, digest); err == nil || !strings.Contains(err.Error(), "more than a claims snapshot may be") {
+		t.Fatalf("expected a snapshot over the cap refused, got %v", err)
+	}
+	set(t, &maxDownload, size)
+	s, err := openRemoteAt(t, digest)
+	if err != nil {
+		t.Fatal(err)
+	}
+	set(t, &maxFile, 10)
+	if _, err := s.ReadFile(claimsv1.VocabularyFile); err == nil || !strings.Contains(err.Error(), "uncompressed") {
+		t.Errorf("expected a file over the cap refused, got %v", err)
+	}
+}
+
+// a download is bounded by the gaps between bytes, not its whole length: a slow one that keeps
+// moving finishes, and one that stalls is given up
+func TestDownloadIdleTimeout(t *testing.T) {
+	t.Setenv("YARDSTICK_CACHE_DIR", t.TempDir())
+	data := bytes.Repeat([]byte("x"), 10)
+	var stall atomic.Bool
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Length", strconv.Itoa(len(data)))
+		for i, b := range data {
+			if stall.Load() && i == 5 {
+				<-r.Context().Done()
+				return
+			}
+			_, _ = w.Write([]byte{b})
+			w.(http.Flusher).Flush()
+			time.Sleep(20 * time.Millisecond)
+		}
+	}))
+	t.Cleanup(srv.Close)
+	set(t, &downloadIdle, 100*time.Millisecond)
+
+	dir := t.TempDir()
+	if err := download(srv.URL, "", dir, filepath.Join(dir, "moving.zip")); err != nil {
+		t.Errorf("expected a slow download that keeps moving to finish, got %v", err)
+	}
+	stall.Store(true)
+	if err := download(srv.URL, "", dir, filepath.Join(dir, "stalled.zip")); err == nil || !strings.Contains(err.Error(), "no data for") {
+		t.Errorf("expected a stalled download given up, got %v", err)
 	}
 }
