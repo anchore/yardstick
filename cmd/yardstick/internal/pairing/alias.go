@@ -68,7 +68,8 @@ func (a *Aliases) add(ids ...string) {
 	}
 }
 
-// Group is the id naming an id's group, the lexically smallest in it; empty for an advisory.
+// Group is the id naming an id's group, the lexically smallest in it; empty for an advisory. It
+// never changes the set, so groups can be read from any number of goroutines once built.
 func (a *Aliases) Group(id string) string {
 	if a.advisory(id) {
 		return ""
@@ -76,14 +77,16 @@ func (a *Aliases) Group(id string) string {
 	return a.find(id)
 }
 
+// find walks to an id's root without compressing the path, so Group only reads: alias groups are
+// a CVE and a few advisories, and the chains stay short.
 func (a *Aliases) find(id string) string {
-	p, ok := a.parent[id]
-	if !ok || p == id {
-		return id
+	for {
+		p, ok := a.parent[id]
+		if !ok || p == id {
+			return id
+		}
+		id = p
 	}
-	root := a.find(p)
-	a.parent[id] = root
-	return root
 }
 
 // union keeps the lexically smallest id as the root, so group names are stable across runs.

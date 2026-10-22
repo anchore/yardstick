@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"io"
+	"maps"
 	"os"
 	"path/filepath"
 	"slices"
@@ -162,6 +163,16 @@ func TestAliasGroups(t *testing.T) {
 		}
 		if g := r.aliases.Group("GHSA-jfh8-c2jp-5v3q"); g != r.aliases.Group("CVE-2021-44228") {
 			t.Errorf("expected one group, got %s", g)
+		}
+	})
+	t.Run("reading a group changes nothing", func(t *testing.T) {
+		// two relations that leave GHSA-3 two steps from its root
+		a := NewAliases(nil)
+		a.add("GHSA-2", "GHSA-3")
+		a.add("CVE-1", "GHSA-2")
+		before := maps.Clone(a.parent)
+		if a.Group("GHSA-3") != "CVE-1" || !maps.Equal(before, a.parent) {
+			t.Errorf("expected GHSA-3 in CVE-1's group and the alias set left as it was, got %v", a.parent)
 		}
 	})
 	t.Run("an id neither setup reported", func(t *testing.T) {
