@@ -1,11 +1,12 @@
 // scandata.ts reads the gate's /state into what the scan map draws: the changed rows in scope, their
 // label tallies, and each reason's title. Pure: every function takes the state it reads.
 import type { State } from "../gen/wire";
-import { type Dir, direction, hinted, type Row } from "../shared/rows";
+import type { Direction } from "../gen/wire";
+import { direction, hinted, type Row } from "../shared/rows";
 import { whyTitle } from "../shared/words";
 
 // Item is a row in scope, with its subject index and direction
-export interface Item { r: Row; si: number; dir: Dir }
+export interface Item { r: Row; si: number; dir: Direction }
 
 export function groupBy<T>(list: T[], keyOf: (it: T) => string): Map<string, T[]> {
   const m = new Map<string, T[]>();

@@ -36,6 +36,3 @@ export async function loadFinding(gate: string, id: string, check: string | null
     image: { name: sub?.name ?? "", slug: sub?.slug ?? "", ref: detail.subject.replace(/^(oci|docker|registry):/, "") },
   };
 }
-
-// researching is a row's research still queued or running
-export const researching = (r: StateRow) => ["queued", "running"].includes(r.research?.status ?? "");

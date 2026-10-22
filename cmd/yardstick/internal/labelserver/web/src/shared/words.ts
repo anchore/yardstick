@@ -15,6 +15,13 @@ export const dirWords: Record<string, string> = { added: "the candidate added th
 export const sideWords: Record<string, string> = { added: "only in candidate", dropped: "only in reference", both: "in both scans", neither: "in neither scan" };
 
 export const plural = (n: number, w: string, many = `${w}s`) => `${n} ${n === 1 ? w : many}`;
+// cap is s with its first letter capitalized
+export const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
+// day is an ISO time as a short date, "Oct 20", or as it came when it isn't one
+export const day = (iso: string) => {
+  const d = new Date(iso);
+  return Number.isNaN(d.getTime()) ? iso : d.toLocaleDateString(undefined, { month: "short", day: "numeric" });
+};
 export const fmt = (x: number) => (Number.isInteger(x) ? String(x) : Math.abs(x) < 10 ? x.toFixed(3) : x.toFixed(1));
 export const clip = (s: string, n: number) => (s.length > n ? `${s.slice(0, Math.max(1, Math.floor(n) - 1))}…` : s);
 

@@ -5,7 +5,7 @@
 import type { Basis } from "../gen/research";
 import type { ResearchBatch, ResearchEstimate, ResearchGroup, ResearchJob, ResearchProgress, ResearchQueueResponse } from "../gen/wire";
 import { clock, failedJob, ordinal, since, type Doing } from "../shared/agent";
-import { plural } from "../shared/words";
+import { cap, plural } from "../shared/words";
 import type { Effect } from "./listing";
 
 export const money = (x: number) => `$${x.toFixed(2)}`;
@@ -26,7 +26,7 @@ export function about(seconds: number): string {
   return m < 90 ? `about ${m} min` : `about ${(m / 60).toFixed(1)} h`;
 }
 
-export const modelWords = (m: string) => (m ? m[0].toUpperCase() + m.slice(1) : "the configured model");
+export const modelWords = (m: string) => (m ? cap(m) : "the configured model");
 
 // estimate is what jobs on basis cost, as the server prices a selection (researchqueue.go): every
 // figure times the jobs, and the time at concurrency jobs at once

@@ -5,7 +5,7 @@ import * as api from "../shared/api";
 import { doing, inFlight } from "../shared/agent";
 import { el, fill, toast } from "../shared/dom";
 import { outcome as outcomeOf, pkgOf } from "../shared/rows";
-import { columnHelp, plural, sideWords } from "../shared/words";
+import { columnHelp, day, plural, sideWords } from "../shared/words";
 import { workBanner, type Work } from "./banner";
 import { acceptCross, everyLabel, freshShared, gateList, gateState, labelCross, shared } from "./data";
 import { hintWords, labelPicker } from "./findings";
@@ -20,11 +20,6 @@ import { renderShell, type Nav, type View } from "./shell";
 import { filterRows } from "./table";
 import { dataTable } from "./tableview";
 import { couldMove, hint, imageName, outcome, status } from "./ui";
-
-const day = (iso: string) => {
-  const d = new Date(iso);
-  return Number.isNaN(d.getTime()) ? iso : d.toLocaleDateString(undefined, { month: "short", day: "numeric" });
-};
 
 export function gatesView(host: HTMLElement, r0: Route & { level: "gates" }, nav: Nav, signal: AbortSignal): View {
   let r = r0;

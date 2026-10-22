@@ -8,7 +8,7 @@ import { doing, inFlight, jobHref, provenance, researchLine } from "../shared/ag
 import { html, nothing, render } from "lit-html";
 import { el, fill, nodes, type Child } from "../shared/dom";
 import { direction, isResearched, outcome, pkgOf } from "../shared/rows";
-import { dots, justWords, labels, ruleWords } from "../shared/words";
+import { cap, dots, justWords, labels, ruleWords } from "../shared/words";
 import type { FindingData } from "./finding-data";
 import { mutedReason, panel, reasons, seenWith, shortSource } from "./finding-words";
 import { about, liveLog, money } from "./researchwords";
@@ -36,7 +36,6 @@ export interface LabelPanel {
   update: (d: FindingData, outcomes?: GateLines) => void;
 }
 
-const words: Record<string, string> = { tp: "TP", fp: "FP", unclear: "Unclear" };
 const date = (s: string | undefined) => (s ? new Date(s).toLocaleDateString() : "");
 const reasonText = (d: FindingData, v: claimsv1.Verdict, j: string | undefined) =>
   el("span", { class: `reason${mutedReason(j) ? " muted" : ""}`, "data-testid": "reason" }, j ? justWords(d.state, v, j) : "no reason");
@@ -52,7 +51,7 @@ export function labelPanel(d0: FindingData, draft: Draft, advance: boolean, on: 
   const segs = (["tp", "fp", "unclear"] as const).map((v, i) => el("button", {
     type: "button", class: v, "data-testid": "verdict-button", "data-verdict": v, title: labels[v].long,
     onclick: () => pick(v),
-  }, words[v], kbd("tfu"[i])));
+  }, cap(labels[v].word), kbd("tfu"[i])));
   const reason = el("select", { class: "select", id: "reason", "data-testid": "reason-picker", onchange: () => { draft.reason = reason.value || undefined; } });
   const note = el("input", { class: "input", id: "note", type: "text", "data-testid": "note-input", value: draft.note,
     oninput: () => { draft.note = note.value; },
@@ -101,7 +100,7 @@ export function labelPanel(d0: FindingData, draft: Draft, advance: boolean, on: 
       el("div", { class: "top" }, el("span", { class: "hint" }, "Agent hint"), verdict(h.verdict), el("span", { class: "help", "data-testid": "hint-confidence" }, `${h.confidence ?? ""} ${dots[h.confidence ?? ""] ?? ""}`)),
       el("p", { "data-testid": "hint-reason" }, h.title || justWords(state, h.verdict, h.justification) || ruleWords(h.rule) || full?.proposal.note || ""),
       (!!full?.proposal.note || facts.length > 0 || !!full?.policy.rule) && el("details", { class: "facts", "data-testid": "hint-facts" },
-        el("summary", {}, [full?.proposal.note && "the note", facts.length > 0 && `${facts.length} ${facts.length === 1 ? "fact" : "facts"}`, full?.policy.rule && "the rule"].filter(Boolean).join(", ").replace(/^./, (c) => c.toUpperCase())),
+        el("summary", {}, cap([full?.proposal.note && "the note", facts.length > 0 && `${facts.length} ${facts.length === 1 ? "fact" : "facts"}`, full?.policy.rule && "the rule"].filter(Boolean).join(", "))),
         full?.proposal.note && el("p", { "data-testid": "hint-note" }, full.proposal.note),
         facts.length > 0 && el("ul", {}, facts.map((f) => el("li", {}, el("span", { class: "src" }, factLink(f)), " ", el("code", {}, f.field), " ", f.value))),
         full?.policy.rule && el("p", { class: "help" }, `rule: ${full.policy.rule.basis || ruleWords(full.policy.rule.rule)}${full.policy.rule.decision ? ` · policy ${full.policy.rule.decision}` : ""}${full.policy.problems?.length ? ` · ⚠ ${full.policy.problems.join("; ")}` : ""}`)),
@@ -153,7 +152,7 @@ function researchStatus(row: FindingData["row"], line: string, cancel: () => voi
   if (running) tick();
   return el("span", { class: "rline" },
     el("span", { class: `rs ${running ? "run" : "q"}`, "data-testid": "research-status", "data-state": j.status }, `${d.word} `,
-      el("small", running ? { "data-since": j.started } : {}, d.small), running && j.model && el("small", {}, ` · ${j.model[0].toUpperCase()}${j.model.slice(1)}`)),
+      el("small", running ? { "data-since": j.started } : {}, d.small), running && j.model && el("small", {}, ` · ${cap(j.model)}`)),
     el("a", { class: "lk", href: jobHref(j.job), "data-testid": "research-job-link" }, "view job"),
     running && el("a", { class: "lk", href: `/api/research/${encodeURIComponent(j.job)}/log`, target: "_blank", rel: "noopener", title: liveLog }, "log"),
     j.cancellable && el("button", { type: "button", class: "lk", "data-testid": "research-cancel-row", onclick: cancel }, "cancel"));

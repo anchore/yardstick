@@ -1,11 +1,9 @@
 // rows.ts reads one /state row: which side reported it, its package, whether it is still open, and
 // how far an agent has looked at it. Pure: no DOM, no page state.
-import type { HintSummary, StateRow } from "../gen/wire";
+import type { Direction, HintSummary, RowVerdict, StateRow } from "../gen/wire";
 
 export type Row = StateRow;
-export type Dir = "added" | "dropped" | "both" | "neither";
-
-export function direction(r: Row): Dir {
+export function direction(r: Row): Direction {
   if (r.inCandidate && !r.inReference) return "added";
   if (!r.inCandidate && r.inReference) return "dropped";
   return r.inCandidate ? "both" : "neither";
@@ -35,7 +33,9 @@ export function outcome(dir: string, verdict: string | undefined): Outcome | nul
 }
 // outcomeRank sorts regressions first, then fixes, then open rows, then rows with no outcome
 export const outcomeRank = (o: Outcome | null) => (o ? ["bad", "good", "open"].indexOf(o.kind) : 3);
-export const isOpen = (r: Row) => r.verdict === "unlabeled" || r.verdict === "unclear";
+// open is a verdict that leaves a match open: unlabeled, or unclear (UI-RULES: open means both)
+export const open = (v: RowVerdict) => v === "unlabeled" || v === "unclear";
+export const isOpen = (r: Row) => open(r.verdict);
 export const hinted = (r: Row): r is Row & { hint: HintSummary } => r.hint?.status === "pending" && isOpen(r);
 export const srcPkg = (r: Row) => r.sourcePackage || pkgOf(r.package.ref).name;
 

@@ -3,11 +3,11 @@
 // with chips, search, "Group by" and the bulk bar.
 import type { CheckFindings, State } from "../gen/wire";
 import { el } from "../shared/dom";
+import { cap } from "../shared/words";
 import { checkFindings, freshFindings, freshState, gateState } from "./data";
 import { findingsList, grouping, type FindingsList, type Grouping } from "./findings";
 import { checkCounts, checkMeter, countWords, railImages } from "./gate";
 
-const sentenceCase = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
 import { noCounts, type RailImage } from "./images";
 import { checkRows, nextOpen, type FRow } from "./listing";
 import { failed, keptPrimary, loading } from "./lists";
@@ -47,7 +47,7 @@ export function checkView(host: HTMLElement, r0: CheckRoute, nav: Nav, signal: A
     research.set(researchFor(r), (k, _, g) => (g === "change" ? `${k} that could move it` : `${k} that ${k === 1 ? "changes" : "change"} no outcome`), again);
     renderShell(host, r, {
       title: check, status: status(c.state, true),
-      sub: f.note || `${c.description.charAt(0).toUpperCase()}${c.description.slice(1)}. ${sentenceCase(countWords(n))}.`,
+      sub: f.note || `${cap(c.description)}. ${cap(countWords(n))}.`,
       actions: [checkMeter(c), research.el, labelNext(href)],
       meta: st.scans.gate.split("/").pop(),
       rail,

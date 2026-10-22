@@ -22,7 +22,6 @@ export function effect(o: { check: string | null; checkEffect?: string; row: Sta
   return null;
 }
 
-export type Dir = "added" | "dropped" | "both" | "neither";
 
 
 // shortSource is a claims source as people say it: the corpus's last path segment and its ref,

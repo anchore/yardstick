@@ -3,7 +3,7 @@
 // DOM; the screens draw it.
 import type { CheckFindings, CrossFinding, Effect as WireEffect, GateLabel, HintKind, ImageRef, ResearchSummary, RowVerdict, State, StateRow, Tally, agentstore, claimsv1 } from "../gen/wire";
 import { inFlight } from "../shared/agent";
-import { pkgOf, srcPkg } from "../shared/rows";
+import { open, pkgOf, srcPkg } from "../shared/rows";
 import { openOf } from "./images";
 import type { Filters, VerdictFilter } from "./route";
 import { filterRows, sortRows } from "./table";
@@ -37,7 +37,7 @@ export interface FRow {
 // decides, could-move, counted, then none
 export const effectRank = (e: Effect) => ["decides", "could-move", "counted", ""].indexOf(e);
 
-export const isOpen = (r: FRow) => r.label === "unlabeled" || r.label === "unclear";
+export const isOpen = (r: FRow) => open(r.label);
 
 // gateRows are a gate's changed matches (one setup reports them) from its /state, by effect like a
 // check's table, then in report order, so "next" (the first open row) is the first row j walks to
@@ -48,10 +48,9 @@ export function gateRows(st: State): FRow[] {
     const image: ImageRef = { name: s.name, slug: s.slug, ref: info?.ref ?? s.name };
     for (const r of s.rows) {
       if (r.inCandidate === r.inReference) continue;
-      const p = pkgOf(r.package.ref), label = r.verdict;
-      const open = label === "unlabeled" || label === "unclear";
-      const cause = open ? st.causes.find((c) => c.pending.includes(r.id)) : undefined;
-      const hint: FHint | null = open && r.hint?.status === "pending" ? { verdict: r.hint.verdict, confidence: r.hint.confidence, kind: "proposal" }
+      const p = pkgOf(r.package.ref), label = r.verdict, openRow = open(label);
+      const cause = openRow ? st.causes.find((c) => c.pending.includes(r.id)) : undefined;
+      const hint: FHint | null = openRow && r.hint?.status === "pending" ? { verdict: r.hint.verdict, confidence: r.hint.confidence, kind: "proposal" }
         : cause ? { verdict: cause.verdict, confidence: cause.confidence, kind: "cause", cause: cause.id } : null;
       out.push({
         id: r.id, row: r.id, label, vuln: r.vulnerability, pkg: p.name, version: p.version, purl: r.package.ref, src: srcPkg(r), image,

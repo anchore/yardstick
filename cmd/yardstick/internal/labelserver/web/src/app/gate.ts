@@ -3,7 +3,8 @@
 // the gate counts, paged) and Scan map (today's treemap).
 import type { CheckResult, GateLabels, State } from "../gen/wire";
 import { el, fill, toast } from "../shared/dom";
-import { fmt, plural } from "../shared/words";
+import { isOpen } from "../shared/rows";
+import { cap, day, fmt, plural } from "../shared/words";
 import { freshState, gateLabels, gateState } from "./data";
 import { findingsList } from "./findings";
 import { noCounts, type RailImage } from "./images";
@@ -21,11 +22,6 @@ import { renderShell, type Nav, type View } from "./shell";
 import { imageName, meter, status, verdictBar } from "./ui";
 
 type GateRoute = Route & { level: "gate" };
-
-const day = (iso: string) => {
-  const d = new Date(iso);
-  return Number.isNaN(d.getTime()) ? iso : d.toLocaleDateString(undefined, { month: "short", day: "numeric" });
-};
 
 // railImages are a gate's images with their changed rows' counts, in gate order
 export const railImages = (st: State): RailImage[] =>
@@ -112,8 +108,6 @@ interface Tab { el: Node | Node[]; key: (e: KeyboardEvent) => boolean; update: (
 
 const units: Record<string, string> = { f1: "worse", fn: "new", fp: "new", unlabeled: "unlabeled" };
 
-const sentence = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
-
 // checkMeter is a check's value (the worst case for the candidate) against its limit, one caption:
 // "0.500 worse · limit 0"
 export function checkMeter(c: CheckResult) {
@@ -135,8 +129,7 @@ export function checkCounts(st: State, c: CheckResult, image: string | null) {
     if (image && s.slug !== image) continue;
     for (const x of s.rows) {
       if (fails.has(x.id)) decides++;
-      const open = x.verdict === "unlabeled" || x.verdict === "unclear";
-      if (!open || !x.gate) continue;
+      if (!isOpen(x) || !x.gate) continue;
       if (x.gate.couldFlip?.includes(c.name)) { could++; bearing++; } else if (x.gate.bears?.includes(c.name)) bearing++;
     }
   }
@@ -156,7 +149,7 @@ function checksTab(st: () => State): Tab {
         return el("a", { class: "lrow check", href: formatRoute({ level: "check", gate: s.scans.id, check: c.name, filters: r.filters.image ? { image: r.filters.image } : {} }),
           "data-testid": "check-row", "data-check": c.name, "data-state": c.state },
         status(c.state),
-        el("div", { class: "lname" }, el("div", { class: "name" }, c.name), el("div", { class: "desc", title: sentence(c.description) }, c.summary || sentence(c.description))),
+        el("div", { class: "lname" }, el("div", { class: "name" }, c.name), el("div", { class: "desc", title: cap(c.description) }, c.summary || cap(c.description))),
         checkMeter(c),
         el("div", { class: "lnum", "data-testid": "check-count" }, `${n.bearing.toLocaleString()} open`,
           el("small", {}, countWords(n))),

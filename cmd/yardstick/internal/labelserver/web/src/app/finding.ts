@@ -2,17 +2,18 @@
 // tabs (why the scans differ, evidence, grype's raw match, the labels on file), the label panel
 // sticky on the right, and j / k through the list the URL's filters name. The content is the old
 // map page's tile, reorganized.
-import type { claimsv1, LabelKey } from "../gen/wire";
+import type { Direction, LabelKey, claimsv1 } from "../gen/wire";
+import { inFlight } from "../shared/agent";
 import * as api from "../shared/api";
 import { el, fill, toast, type Child } from "../shared/dom";
 import { records, matchPath } from "../shared/matchpath";
 import { imageRelease, releaseName } from "../shared/names";
 import { decoded, direction, pkgOf } from "../shared/rows";
-import { dirWords, justWords, labels, plural, ruleWords, whyText } from "../shared/words";
+import { cap, dirWords, justWords, labels, plural, ruleWords, whyText } from "../shared/words";
 import { kick } from "./activity";
 import { changed, forget, writeFailed, written } from "./data";
-import { loadFinding, researching, type FindingData } from "./finding-data";
-import { effect, mutedReason, pendingCause, seenWith, shortSource, type Dir } from "./finding-words";
+import { loadFinding, type FindingData } from "./finding-data";
+import { effect, mutedReason, pendingCause, seenWith, shortSource } from "./finding-words";
 import { labelPanel, type Draft, type LabelPanel } from "./labelpanel";
 import type { GateLines } from "./queuewords";
 import { nextOpen, position, type Item } from "./neighbors";
@@ -80,7 +81,7 @@ export function findingView(host: HTMLElement, r: FindingRoute, nav: Nav, signal
       lastList = { key: listKey, items: next.list };
       paint();
       // from the first load on, the page follows the top bar's reads of the jobs, as the tables do
-      if (!following) { following = true; follow(signal, () => !!d && researching(d.row), () => load(true)); }
+      if (!following) { following = true; follow(signal, () => !!d && inFlight(d.row.research), () => load(true)); }
     } catch (e) {
       if (mine !== loads || signal.aborted) return;
       renderShell(host, r, { title: "Not found", body: el("div", { class: "placeholder", "data-testid": "placeholder" }, (e as Error).message) });
@@ -93,7 +94,7 @@ export function findingView(host: HTMLElement, r: FindingRoute, nav: Nav, signal
   function paint() {
     if (!d) return;
     const { row, state } = d;
-    const dir = direction(row) as Dir, pk = pkgOf(row.package.ref);
+    const dir = direction(row), pk = pkgOf(row.package.ref);
     // the release is called out only for a distro package: a language package in the same image
     // isn't matched against it
     const rel = /[?&]distro=/.test(row.package.ref) ? imageRelease(row) : null;
@@ -141,7 +142,7 @@ export function findingView(host: HTMLElement, r: FindingRoute, nav: Nav, signal
 
   // sides reads left to right, reference then candidate: a solid box reports the match, a dashed
   // one doesn't, and the words say what that makes it
-  function sides(dir: Dir) {
+  function sides(dir: Direction) {
     const side = (name: string, on: boolean) => el("span", { class: `side${on ? " on" : ""}` }, el("i", {}, on ? "●" : "○"), name);
     return el("span", { class: "sides" },
       side("reference", dir === "dropped" || dir === "both"), "→", side("candidate", dir === "added" || dir === "both"),
@@ -298,7 +299,6 @@ function tabs(d: FindingData) {
 
 // verdicts are what the server appends to a source it lists, ": tp"
 const verdicts = ["tp", "fp", "unclear"] as const;
-const cap = (s: string) => s[0].toUpperCase() + s.slice(1);
 const kv = (pairs: [string, unknown][]) =>
   el("dl", { class: "kv" }, pairs.filter(([, v]) => v != null && v !== "").map(([k, v]) => [el("dt", {}, k), el("dd", {}, v as string | Node)]));
 

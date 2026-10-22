@@ -2,6 +2,7 @@
 // glyphs the tables' Agent hint cell, the finding page and hint review share.
 import type { HintSummary, ResearchSummary, research } from "../gen/wire";
 import type { Row } from "./rows";
+import { cap } from "./words";
 
 // provenance says where a hint came from: the skill, and who started the research that left it
 const originWords: Record<string, string> = { "label-ui": "requested in the label UI", cli: "requested with yardstick", "research-job": "requester not recorded" };
@@ -34,7 +35,7 @@ export const since = (iso: string | undefined, now = Date.now()) => (iso ? clock
 // queuePlace is a queued job's place in line, "1st of 13", or nothing when this server isn't holding it
 export const queuePlace = (j: ResearchSummary) => (j.position ? `${ordinal(j.position)} of ${j.queueLength ?? j.position}` : "");
 
-const modelName = (m: string | undefined) => (m ? m[0].toUpperCase() + m.slice(1) : "");
+const modelName = (m: string | undefined) => cap(m ?? "");
 
 // Doing is what research is doing on a row with no hint showing, as one cell: researching (counting
 // up from start), queued (its place in line), failed (the error on hover), researched with no hint,
