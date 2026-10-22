@@ -8,6 +8,8 @@ grype v0.115.0 flipped `match.golang.always-use-cpe-for-stdlib` to false, so gry
 - records: NVD for CVE-2020-29509, CVE-2020-29511, CVE-2021-29923 (the corpus labels them tp on stdlib 1.16.9), CVE-2021-44716 (labeled fp), CVE-2022-1705 and CVE-2022-1962 (unlabeled), plus their EPSS records. None of them affects stdlib 1.18.4
 - labels: `github.com/anchore/match-claims@32064318e375ca3a87ee642bfececd00d701c4de`, then the workspace's `claims/`
 
+Every gate here also runs the implicit `matchesAtLeast` (min 1), which counts both setups' matches on each subject. It passes in every run below, so the tables leave it out.
+
 ## Gate `go-upgrade`: grype v0.100.0 (reference) vs v0.120.1 (candidate)
 
 `header.varied` is grype alone. 6 of 6 matches are dropped by the candidate, all on `pkg:golang/stdlib@1.16.9` by `go-module-matcher`, `nvd:cpe cpe-match`.

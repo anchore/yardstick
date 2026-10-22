@@ -11,9 +11,11 @@ Both grype versions report the same matches on a deb and an apk image, so the ga
   - NVD and `secureos:rolling`: CVE-2025-15281 and CVE-2026-95818 on glibc-2.42, which the corpus doesn't label
 - labels: `github.com/anchore/match-claims@32064318e375ca3a87ee642bfececd00d701c4de`, then the workspace's `claims/`. The corpus labels all 8 ubuntu and alpine matches tp
 
+Every gate here also runs the implicit `matchesAtLeast` (min 1), which counts both setups' matches on each subject. It passes in every run below, so the tables leave it out.
+
 ## Gate `stable`: grype v0.100.0 (reference) vs v0.120.1 (candidate), ubuntu and alpine
 
-8 matches, all reported by both setups and labeled tp, no changed rows. Every check passes at 0..0. Outcome **pass**, exit 0.
+8 matches, all reported by both setups and labeled tp, no changed rows. Every other check passes at 0..0. Outcome **pass**, exit 0.
 
 ## Gate `shared`: the same two images plus the secureos image
 

@@ -11,10 +11,10 @@ import (
 // each scenario is described, with the numbers its run produces, in testdata/<scenario>/SCENARIO.md
 
 var (
-	allPass = map[string]string{"f1NotWorse": "pass", "noNewFalseNegatives": "pass", "noNewFalsePositives": "pass", "unlabeledChangesAtMost": "pass"}
+	allPass = map[string]string{"f1NotWorse": "pass", "matchesAtLeast": "pass", "noNewFalseNegatives": "pass", "noNewFalsePositives": "pass", "unlabeledChangesAtMost": "pass"}
 	// the dropped glibc rows nobody has labeled: a tp would be a new false negative, and their count
 	// is over the max of 0
-	glibcOpen = map[string]string{"f1NotWorse": "undecided", "noNewFalseNegatives": "undecided", "noNewFalsePositives": "pass", "unlabeledChangesAtMost": "fail"}
+	glibcOpen = map[string]string{"f1NotWorse": "undecided", "matchesAtLeast": "pass", "noNewFalseNegatives": "undecided", "noNewFalsePositives": "pass", "unlabeledChangesAtMost": "fail"}
 )
 
 // a regression labels can't fix: the newer grype stops matching the Go stdlib by CPE
@@ -29,7 +29,7 @@ func TestGoStdlib(t *testing.T) {
 	step(t, "run", func(t *testing.T) {
 		r := w.run(t, "go-upgrade", assertReturnCode(1), assertInOutput("6 dropped by the candidate, 0 added"))
 		assertOutcome(t, r, "fail")
-		assertStates(t, r, map[string]string{"f1NotWorse": "fail", "noNewFalseNegatives": "fail", "noNewFalsePositives": "pass", "unlabeledChangesAtMost": "fail"})
+		assertStates(t, r, map[string]string{"f1NotWorse": "fail", "matchesAtLeast": "pass", "noNewFalseNegatives": "fail", "noNewFalsePositives": "pass", "unlabeledChangesAtMost": "fail"})
 		assertHeader(t, r, "grype")
 		assertChanged(t, r, map[string][]string{
 			"introduced": {"CVE-2020-29509", "CVE-2020-29511", "CVE-2021-29923"},
@@ -48,7 +48,7 @@ func TestGoStdlib(t *testing.T) {
 		// the same rows come back as added when the candidate matches the stdlib by CPE again
 		r = w.run(t, "stdlib-cpe", assertReturnCode(1), assertInOutput("0 dropped by the candidate, 6 added"))
 		assertOutcome(t, r, "fail")
-		assertStates(t, r, map[string]string{"f1NotWorse": "pass", "noNewFalseNegatives": "pass", "noNewFalsePositives": "fail", "unlabeledChangesAtMost": "fail"})
+		assertStates(t, r, map[string]string{"f1NotWorse": "pass", "matchesAtLeast": "pass", "noNewFalseNegatives": "pass", "noNewFalsePositives": "fail", "unlabeledChangesAtMost": "fail"})
 		assertHeader(t, r, "config")
 		assertChanged(t, r, map[string][]string{
 			"introduced": {"CVE-2021-44716"},
@@ -64,12 +64,12 @@ func TestGoStdlib(t *testing.T) {
 	step(t, "label through", func(t *testing.T) {
 		r := w.labelThrough(t, "go-upgrade", "tp", "")
 		assertOutcome(t, r, "fail")
-		assertStates(t, r, map[string]string{"f1NotWorse": "fail", "noNewFalseNegatives": "fail", "noNewFalsePositives": "pass", "unlabeledChangesAtMost": "pass"})
+		assertStates(t, r, map[string]string{"f1NotWorse": "fail", "matchesAtLeast": "pass", "noNewFalseNegatives": "fail", "noNewFalsePositives": "pass", "unlabeledChangesAtMost": "pass"})
 
 		// stdlib-cpe shares the rows: its labels arrived with no label written for it
 		r = w.score(t, "stdlib-cpe")
 		assertOutcome(t, r, "fail")
-		assertStates(t, r, map[string]string{"f1NotWorse": "pass", "noNewFalseNegatives": "pass", "noNewFalsePositives": "fail", "unlabeledChangesAtMost": "pass"})
+		assertStates(t, r, map[string]string{"f1NotWorse": "pass", "matchesAtLeast": "pass", "noNewFalseNegatives": "pass", "noNewFalsePositives": "fail", "unlabeledChangesAtMost": "pass"})
 	})
 
 	step(t, "valid corpus", func(t *testing.T) {

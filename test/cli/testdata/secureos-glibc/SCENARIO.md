@@ -14,6 +14,8 @@ grype v0.120.1 stopped reporting NVD CPE matches on the secureos image's glibc-2
 
 The demo saw 26 glibc rows dropped. The 9 here are the ones with exactly one NVD record each: grype's extractor selects by SQL `LIKE '%<id>%'`, which pulls in any longer id the selection is a prefix of, so CVEs like CVE-2026-4046 (which also selects CVE-2026-40460 to 40469) were left out.
 
+Every gate here also runs the implicit `matchesAtLeast` (min 1), which counts both setups' matches on each subject. It passes in every run below, so the tables leave it out.
+
 ## Gate `glibc`: grype v0.100.0 (reference) vs v0.120.1 (candidate)
 
 `header.varied` is grype alone. 9 of 9 matches are dropped by the candidate, by `apk-matcher`, `nvd:cpe cpe-match`, each with the reason `record/distro-not-affected` (the candidate DB's `secureos:rolling` record says fixed in 0), secondary `record/same-but-unmatched` and `match-type/cpe-only`.
