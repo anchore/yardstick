@@ -1,20 +1,19 @@
 // goto.ts is where moving between gates goes: the gates with their open counts, the gate ⇧J and
 // ⇧K go to, and the ⌘K palette's entries. Pure: shell.ts, palette.ts and main.ts draw and act.
-import type { GateList, State } from "../gen/wire";
+import type { GateList, RowVerdict, State, analysis } from "../gen/wire";
 import { plural } from "../shared/words";
 import { openOf } from "./images";
 import { gateRows, sumTally } from "./listing";
 import { filterRows } from "./table";
 import { formatRoute, gateOf, type Route } from "./route";
-import type { State as Status, Verdict } from "./ui";
 
-export interface GateItem { id: string; state: Status; open: number; total: number }
+export interface GateItem { id: string; state: analysis.State; open: number; total: number }
 
 
 // gateItems are the gates in the list's order, each with its outcome and open rows
 export const gateItems = (l: GateList): GateItem[] => l.gates.map((g) => {
   const t = sumTally(g.changes ?? []);
-  return { id: g.id, state: (g.error ? "undecided" : g.gateOutcome ?? "undecided") as Status, open: openOf(t), total: t.total };
+  return { id: g.id, state: g.error ? "undecided" : g.gateOutcome ?? "undecided", open: openOf(t), total: t.total };
 });
 
 // nextGate is the gate with open rows after current (step 1) or before it (-1), wrapping round;
@@ -36,8 +35,8 @@ export interface Entry {
   detail: string;
   href: string;
   search: string;       // what a query is matched against, every word of it
-  state?: Status;       // a gate's or check's
-  verdict?: Verdict;    // a finding's
+  state?: analysis.State;       // a gate's or check's
+  verdict?: RowVerdict;    // a finding's
   key?: string;         // an action's key
 }
 
@@ -70,7 +69,7 @@ export function imageEntries(l: GateList): Entry[] {
 
 export function checkEntries(states: GateStates[]): Entry[] {
   return states.flatMap(({ gate, state }) => (state.gate?.result?.checks ?? []).map((c): Entry => ({
-    group: "Checks", id: `${gate}/${c.name}`, text: c.name, detail: gate, state: c.state as Status,
+    group: "Checks", id: `${gate}/${c.name}`, text: c.name, detail: gate, state: c.state,
     href: formatRoute({ level: "check", gate, check: c.name, filters: {} }), search: `${c.name} ${gate}`,
   })));
 }

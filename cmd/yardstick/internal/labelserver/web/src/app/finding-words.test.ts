@@ -46,7 +46,7 @@ test("reasons are the verdict's, sorted, keeping one on file the vocabulary lack
 
 describe("panel", () => {
   const causes = [{ id: "c", pending: ["r1"] }] as StateCause[];
-  const pending = { id: "h", verdict: "tp", status: "pending" };
+  const pending = { id: "h", verdict: "tp", status: "pending" } as const;
   test("an unlabeled row with a hint shows the hint, then the form", () => {
     expect(panel(row({ hint: pending }), [])).toEqual({ onFile: false, hint: true, cause: null, heading: "Or label it yourself" });
   });

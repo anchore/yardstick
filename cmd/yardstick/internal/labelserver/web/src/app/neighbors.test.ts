@@ -1,11 +1,11 @@
 import { describe, expect, test } from "bun:test";
-import type { CheckFindings, Finding, State, StateRow } from "../gen/wire";
+import type { CheckFindings, Finding, State, StateRow, claimsv1 } from "../gen/wire";
 import { checkRows, gateRows, nextOpen as nextOpenRow, shownRows } from "./listing";
 import { fromCheck, fromState, nextOpen, position } from "./neighbors";
 import type { Filters } from "./route";
 
 const img = (slug: string) => ({ name: slug.replace(/-(\w+)$/, ":$1"), slug, ref: `ghcr.io/x/${slug}` });
-const f = (row: string | undefined, image: string, vuln: string, pkg: string, label: string | null, hint = false): Finding => ({
+const f = (row: string | undefined, image: string, vuln: string, pkg: string, label: claimsv1.Verdict | null, hint = false): Finding => ({
   row, image: img(image), vulnerability: vuln, package: { name: pkg, version: "1.0" }, direction: "added",
   label: label ? { verdict: label, source: "/ws/claims" } : null, hint: hint ? { verdict: "tp", kind: "proposal" } : null, effect: "counted",
 });

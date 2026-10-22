@@ -1,6 +1,6 @@
 // data.ts is what the /ui/gates/ screens read and write: the API calls, cached until the next write,
 // and the writes the lists' actions make (labels, accepted hints) through the existing routes.
-import type { CheckFindings, CrossFinding, GateLabels, GateList, LabelKey, SharedState, State, Vocabulary } from "../gen/wire";
+import type { CheckFindings, CrossFinding, GateLabels, GateList, LabelKey, SharedState, State, Vocabulary, claimsv1 } from "../gen/wire";
 import * as api from "../shared/api";
 import { toast } from "../shared/dom";
 import { labels as words, plural } from "../shared/words";
@@ -127,7 +127,7 @@ export function acceptHints(gate: string, rows: FRow[]) {
 }
 
 // labelRows writes one verdict on rows of a gate; fp and unclear carry a reason from the vocabulary
-export function labelRows(gate: string, rows: string[], verdict: string, justification = "") {
+export function labelRows(gate: string, rows: string[], verdict: claimsv1.Verdict, justification = "") {
   return write(async (keys) => {
     const res = await api.labels(gate, { rows, verdict, justification, note: "", scope: "subject" });
     keys.push(...res.labels);
@@ -153,7 +153,7 @@ export function acceptCross(fs: CrossFinding[]) {
 
 // labelCross labels cross-gate findings, each through a gate that reports it; the label counts in
 // every gate that reports the match
-export function labelCross(fs: CrossFinding[], verdict: string, justification = "") {
+export function labelCross(fs: CrossFinding[], verdict: claimsv1.Verdict, justification = "") {
   return write(async (keys) => {
     let n = 0;
     for (const [gate, rows] of crossByGate(fs)) {
@@ -164,11 +164,14 @@ export function labelCross(fs: CrossFinding[], verdict: string, justification = 
   });
 }
 
-// labelOptions are "Label as…" choices, verdict:justification; TP needs no reason, the rest do
-export function labelOptions(vocab: Vocabulary | undefined): { value: string; text: string; title?: string }[] {
-  const out: { value: string; text: string; title?: string }[] = [{ value: "tp:", text: "TP" }];
-  for (const v of ["tp", "fp", "unclear"]) {
-    for (const [j, desc] of Object.entries(vocab?.justifications?.[v] ?? {}).sort()) out.push({ value: `${v}:${j}`, text: `${words[v].word} · ${j}`, title: desc });
+// LabelOption is a "Label as…" choice: a verdict and reason, its value verdict:justification
+export interface LabelOption { verdict: claimsv1.Verdict; justification: string; value: string; text: string; title?: string }
+
+// labelOptions are the "Label as…" choices; TP needs no reason, the rest do
+export function labelOptions(vocab: Vocabulary | undefined): LabelOption[] {
+  const out: LabelOption[] = [{ verdict: "tp", justification: "", value: "tp:", text: "TP" }];
+  for (const v of ["tp", "fp", "unclear"] as const) {
+    for (const [j, desc] of Object.entries(vocab?.justifications?.[v] ?? {}).sort()) out.push({ verdict: v, justification: j, value: `${v}:${j}`, text: `${words[v].word} · ${j}`, title: desc });
   }
   return out;
 }

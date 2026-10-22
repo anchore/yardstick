@@ -1,21 +1,19 @@
 // ui.ts is the app's small components: status and verdict badges, the hint mark, image names, the
 // meter and the verdict bar. Each is the word and the shape as well as the color (UI-RULES 8).
+import type { RowVerdict, analysis } from "../gen/wire";
 import { el, type Child } from "../shared/dom";
 import { outcome as outcomeOf } from "../shared/rows";
 import { sideWords } from "../shared/words";
 import { splitName, type Counts } from "./images";
 
-export type State = "pass" | "fail" | "undecided";
-export type Verdict = "tp" | "fp" | "unclear" | "unlabeled";
-
-export const verdictWords: Record<Verdict, string> = { tp: "TP", fp: "FP", unclear: "unclear", unlabeled: "unlabeled" };
+export const verdictWords: Record<RowVerdict, string> = { tp: "TP", fp: "FP", unclear: "unclear", unlabeled: "unlabeled" };
 
 // status is a gate's or check's state: an outline badge with a colored dot
-export const status = (s: State, large = false) =>
+export const status = (s: analysis.State, large = false) =>
   el("span", { class: `badge status ${s}${large ? " lg" : ""}`, "data-variant": "outline", "data-testid": "status" }, s);
 
 // verdict is a label's verdict: ● TP, ○ FP, ◖ unclear, or a dashed "unlabeled"
-export const verdict = (v: Verdict) =>
+export const verdict = (v: RowVerdict) =>
   el("span", { class: `badge verdict ${v}`, "data-variant": "outline", "data-testid": "verdict" }, verdictWords[v]);
 
 // hint is an agent's suggestion, ✦ in hint purple, e.g. "TP · medium"
@@ -61,7 +59,7 @@ export function meterSpan(value: number, limit: number): { fill: number; limit: 
 const pct = (f: number) => `${(f * 100).toFixed(1)}%`;
 
 // meter is one bar, one tick for the limit and one caption, e.g. "0.500 worse · limit 0"
-export function meter(o: { value: number; limit: number; state: State; caption: Child }) {
+export function meter(o: { value: number; limit: number; state: analysis.State; caption: Child }) {
   const s = meterSpan(o.value, o.limit);
   return el("div", { class: `meter ${o.state}`, "data-testid": "meter" },
     el("div", { class: "track" },

@@ -9,17 +9,17 @@ import { getJSON, revert } from "./data";
 import { pageInfo, pageSize, shortSource } from "./listing";
 import { failed, loading, shown } from "./lists";
 import { dayKey, dayWords } from "./queuewords";
-import { formatRoute, withFilters, type Route } from "./route";
+import { formatRoute, withFilters, type Route, type VerdictFilter } from "./route";
 import { renderShell, type Nav, type View } from "./shell";
 import { dataTable } from "./tableview";
-import { imageName, verdict, type Verdict } from "./ui";
+import { imageName, verdict } from "./ui";
 
 type HistoryRoute = Extract<Route, { level: "history" }>;
 
 const findingHref = (gate: string, row: string) => formatRoute({ level: "finding", gate, check: null, row, filters: {} });
 const time = (iso: string) => new Date(iso).toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" });
 const id = (l: HistoryLabel) => `${l.source}|${l.file}|${l.label.package ?? ""}|${l.label.vulnerability}`;
-const chips: [string, string][] = [["all", "All"], ["tp", "TP"], ["fp", "FP"], ["unclear", "Unclear"]];
+const chips: [VerdictFilter | "all", string][] = [["all", "All"], ["tp", "TP"], ["fp", "FP"], ["unclear", "Unclear"]];
 const keyOf = (l: HistoryLabel): LabelKey => ({ source: l.source, file: l.file, package: l.label.package ?? "", vulnerability: l.label.vulnerability });
 // local is an RFC 3339 time as a datetime-local input's value, in the browser's time zone
 const local = (iso: string) => { const d = new Date(iso); return new Date(d.getTime() - d.getTimezoneOffset() * 60_000).toISOString().slice(0, 16); };
@@ -53,7 +53,7 @@ export function historyView(host: HTMLElement, r0: HistoryRoute, nav: Nav): View
     open: (l) => l.rows[0] && nav({ level: "finding", gate: l.rows[0].gate, check: null, row: l.rows[0].row, filters: {} }),
     group: { key: (l) => dayKey(l.label.lastUpdated), header: (k, rows) => el("span", { "data-testid": "history-day", "data-day": k }, el("b", {}, dayWords(k)), el("small", {}, ` · ${plural(rows.length, "label")}`)) },
     columns: [
-      { key: "label", label: "Label", cell: (l) => verdict(l.label.verdict as Verdict), help: columnHelp.label },
+      { key: "label", label: "Label", cell: (l) => verdict(l.label.verdict), help: columnHelp.label },
       { key: "vuln", label: "Vulnerability", cell: (l) => el("span", { class: "strong" }, l.label.vulnerability), title: (l) => l.label.vulnerability, truncate: true },
       { key: "package", label: "Package", cell: (l) => el("span", { class: "mono" }, l.package.name, " ", el("small", {}, l.package.version ?? "")), title: (l) => l.package.purl ?? l.package.name, truncate: true },
       { key: "image", label: "Image", cell: (l) => (l.imageName ? imageName(l.imageName, l.image) : el("span", { class: "muted" }, "global")), title: (l) => l.image ?? "every image", truncate: true, help: columnHelp.image },
@@ -115,8 +115,8 @@ export function historyView(host: HTMLElement, r0: HistoryRoute, nav: Nav): View
     removeAll.disabled = !total;
     fill(removeAll, total > 1 ? `Remove all ${total.toLocaleString()} shown` : "Remove all shown");
     fill(empty, f.since ? "No labels match." : "No labels written since the server started. Pick an earlier time, or All time.");
-    const chip = ([v, w]: [string, string]) => el("button", { type: "button", class: "chip", "aria-pressed": String((f.verdict ?? "all") === v), "data-chip": v,
-      onclick: () => nav(withFilters(r, { verdict: v === "all" ? undefined : v as Verdict })) }, w);
+    const chip = ([v, w]: [VerdictFilter | "all", string]) => el("button", { type: "button", class: "chip", "aria-pressed": String((f.verdict ?? "all") === v), "data-chip": v,
+      onclick: () => nav(withFilters(r, { verdict: v === "all" ? undefined : v })) }, w);
     // "All" stands alone and the verdicts share a group, as on the match tables
     fill(chipRow, el("div", { class: "chip-group" }, chip(chips[0])), el("div", { class: "chip-group" }, chips.slice(1).map(chip)));
     const pi = pageInfo(h.total, f.page);

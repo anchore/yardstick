@@ -99,7 +99,7 @@ export interface RRow { id: string; vuln: string; pkg: string; version: string; 
 export function rowsOf(p: ResearchQueueResponse): RRow[] {
   return p.groups.flatMap((g) => g.jobs.flatMap((j) => j.matches.map((m) => ({
     id: m.row, vuln: m.vulnerability, pkg: m.package.name, version: m.package.version ?? "", image: j.image, slug: j.imageSlug, gate: j.gate,
-    effect: (m.effect === "none" ? "" : m.effect) as Effect, group: g.group, job: j.rows[0], siblings: j.matches.length - 1,
+    effect: (m.effect === "none" ? "" : m.effect), group: g.group, job: j.rows[0], siblings: j.matches.length - 1,
   }))));
 }
 

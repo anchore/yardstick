@@ -42,7 +42,7 @@ export const seenWith = (l: claimsv1.Label | undefined) =>
 
 // reasons is the reason picker's options for a verdict, from the vocabulary, sorted; a reason on
 // file that the vocabulary lacks (not-recorded, from a port) is kept so a relabel can keep it
-export function reasons(v: Vocabulary | undefined, verdict: string, current?: string): [string, string][] {
+export function reasons(v: Vocabulary | undefined, verdict: claimsv1.Verdict, current?: string): [string, string][] {
   const out = Object.entries(v?.justifications?.[verdict] ?? {}).sort(([a], [b]) => a.localeCompare(b));
   if (current && !out.some(([j]) => j === current)) out.unshift([current, current]);
   return out;

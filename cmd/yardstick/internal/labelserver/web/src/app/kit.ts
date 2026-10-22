@@ -1,6 +1,7 @@
 // kit.ts is /ui/gates/_kit: every shell component on sample data from the grype-upgrade mockup (real
 // image names, packages and IDs; made-up counts), wired together the way the gate and check
 // screens will be. Nothing links here; it's for building and reviewing the components.
+import type { RowVerdict } from "../gen/wire";
 import { el, fill, type Child } from "../shared/dom";
 import { columnHelp } from "../shared/words";
 import { noCounts, sumCounts, type RailImage } from "./images";
@@ -10,7 +11,7 @@ import { renderShell, type Nav, type ShellView, type View } from "./shell";
 import { countBy, filterRows } from "./table";
 import { dataTable, type Column } from "./tableview";
 import { outcome as outcomeOf, outcomeRank } from "../shared/rows";
-import { couldMove, hint, imageName, kbd, meter, outcome, status, verdict, verdictBar, type Verdict } from "./ui";
+import { couldMove, hint, imageName, kbd, meter, outcome, status, verdict, verdictBar } from "./ui";
 
 // name, reference, then tp, fp, unclear, hinted, unlabeled without a hint
 const sample: [string, string, number, number, number, number, number][] = [
@@ -35,8 +36,8 @@ const images: RailImage[] = sample.map(([name, ref, tp, fp, unclear, hinted, pla
 }));
 const byName = new Map(images.map((i) => [i.name, i]));
 
-interface Finding { id: string; label: Verdict; vuln: string; pkg: string; version: string; purl: string; image: string; change: "added" | "dropped"; hint?: string; effect: "decides" | "could move" | "counted" }
-const f = (id: string, label: Verdict, vuln: string, pkg: string, version: string, purl: string, image: string, change: Finding["change"], effect: Finding["effect"], h?: string): Finding =>
+interface Finding { id: string; label: RowVerdict; vuln: string; pkg: string; version: string; purl: string; image: string; change: "added" | "dropped"; hint?: string; effect: "decides" | "could move" | "counted" }
+const f = (id: string, label: RowVerdict, vuln: string, pkg: string, version: string, purl: string, image: string, change: Finding["change"], effect: Finding["effect"], h?: string): Finding =>
   ({ id, label, vuln, pkg, version, purl, image, change, effect, hint: h });
 const findings: Finding[] = [
   f("3e91c0a7d2b4f816", "fp", "CVE-2019-13139", "docker", "v17.12.0-ce-rc1.0.20200309214505-aa6a9891b09c+incompatible", "github.com/docker/docker", "grype-quality-golang:d89207b", "added", "decides"),

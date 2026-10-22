@@ -18,7 +18,7 @@ import { scopedResearch } from "./research";
 import { researchOf } from "./researchtable";
 import { formatRoute, withFilters, type Route } from "./route";
 import { renderShell, type Nav, type View } from "./shell";
-import { imageName, status, type State as Status } from "./ui";
+import { imageName, status } from "./ui";
 
 type CheckRoute = Route & { level: "check" };
 
@@ -46,7 +46,7 @@ export function checkView(host: HTMLElement, r0: CheckRoute, nav: Nav): View {
     const href = next() ? formatRoute(queueFor(r)) : null;
     research.set(researchFor(r), (k, _, g) => (g === "change" ? `${k} that could move it` : `${k} that ${k === 1 ? "changes" : "change"} no outcome`), again);
     renderShell(host, r, {
-      title: check, status: status(c.state as Status, true),
+      title: check, status: status(c.state, true),
       sub: f.note || `${c.description.charAt(0).toUpperCase()}${c.description.slice(1)}. ${sentenceCase(countWords(n))}.`,
       actions: [checkMeter(c), research.el, labelNext(href)],
       meta: st.scans.gate.split("/").pop(),

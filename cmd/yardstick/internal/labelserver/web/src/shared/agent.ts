@@ -1,6 +1,6 @@
 // agent.ts says where an agent hint came from and where the row's research is: the words and
 // glyphs the tables' Agent hint cell, the finding page and hint review share.
-import type { HintSummary, ResearchSummary } from "../gen/wire";
+import type { HintSummary, ResearchSummary, research } from "../gen/wire";
 import type { Row } from "./rows";
 
 // provenance says where a hint came from: the skill, and who started the research that left it
@@ -11,10 +11,10 @@ export function provenance(h: HintSummary) {
 }
 
 // inFlight is a research job still queued or running
-export const inFlight = (j: { status: string } | undefined | null) => j?.status === "queued" || j?.status === "running";
+export const inFlight = (j: { status: research.Status } | undefined | null) => j?.status === "queued" || j?.status === "running";
 
 // failedJob is a job that stopped without finishing: failed, timed out or interrupted
-export const failedJob = (j: { status: string } | undefined | null) => j?.status === "failed" || j?.status === "timed-out" || j?.status === "interrupted";
+export const failedJob = (j: { status: research.Status } | undefined | null) => j?.status === "failed" || j?.status === "timed-out" || j?.status === "interrupted";
 
 // ordinal is 1st, 2nd, 3rd, 4th, 11th, 22nd
 export function ordinal(n: number) {

@@ -16,6 +16,8 @@
 // Filters ride in the query string on every level: image (slug), verdict, hint, pkg, q, page,
 // history's since and research's chip.
 
+import type { RowVerdict } from "../gen/wire";
+
 export const base = "/ui/gates/";
 
 export const gatesTabs = ["gates", "unlabeled", "labels"] as const;
@@ -23,8 +25,8 @@ export const gateTabs = ["checks", "findings", "labels", "map"] as const;
 export type GatesTab = (typeof gatesTabs)[number];
 export type GateTab = (typeof gateTabs)[number];
 
-export const verdicts = ["tp", "fp", "unclear", "unlabeled"] as const;
-export type VerdictFilter = (typeof verdicts)[number];
+export const verdicts = ["tp", "fp", "unclear", "unlabeled"] as const satisfies RowVerdict[];
+export type VerdictFilter = RowVerdict;
 
 export interface Filters {
   image?: string;          // an image's slug

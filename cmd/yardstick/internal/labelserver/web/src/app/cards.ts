@@ -1,16 +1,16 @@
 // cards.ts is the queue's cards, drawn in place of the finding: the gate boundary (a gate's last
 // open row in the queue is labeled), the stopping point (every gate is decided, rows remain) and
 // the end (nothing open in scope). The words are queuewords.ts's.
-import type { QueueEntry, QueueGate } from "../gen/wire";
+import type { QueueEntry, QueueGate, analysis } from "../gen/wire";
 import { el, type Child } from "../shared/dom";
 import { pkgOf } from "../shared/rows";
-import { kbd, status, type State } from "./ui";
+import { kbd, status } from "./ui";
 
 // outcomeRow is one gate's outcome, and where it came from when that changed
-const outcomeRow = (gate: string, after: string, before?: string, extra?: Child) =>
+const outcomeRow = (gate: string, after: analysis.State, before?: analysis.State, extra?: Child) =>
   el("div", { class: "r", "data-testid": "card-gate", "data-gate": gate, "data-state": after },
-    before && before !== after && [status(before as State), el("span", { class: "arrow", "aria-hidden": "true" }, "→")],
-    status(after as State), el("span", {}, gate), extra && el("small", {}, extra));
+    before && before !== after && [status(before), el("span", { class: "arrow", "aria-hidden": "true" }, "→")],
+    status(after), el("span", {}, gate), extra && el("small", {}, extra));
 
 const button = (text: Child, testid: string, primary: boolean, act: string | (() => void)) => typeof act === "string"
   ? el("a", { class: "btn", "data-variant": primary ? null : "outline", href: act, "data-testid": testid }, text)
@@ -22,7 +22,7 @@ const card = (kind: string, label: string, ...body: Child[]) =>
 export interface CardActions { go?: () => void; back: string; history?: string }
 
 // boundaryCard follows a gate's last open row in the queue: its outcome then and now, and the next gate
-export function boundaryCard(o: { label: string; gate: string; before?: string; after: string; next: string; foot: string } & CardActions) {
+export function boundaryCard(o: { label: string; gate: string; before?: analysis.State; after: analysis.State; next: string; foot: string } & CardActions) {
   return card("boundary", o.label,
     el("div", { class: "outc" }, outcomeRow(o.gate, o.after, o.before)),
     el("p", { class: "foot" }, o.foot),

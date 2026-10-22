@@ -3,7 +3,7 @@
 // exit), why the row is next, and what each verdict does, and after each write reads the queue
 // fresh to pick the next row, or a card: a gate boundary, the stopping point, or the end. The logic
 // is queuelist.ts's and the words queuewords.ts's.
-import type { CheckFindings, History, LabelKey, Queue, QueueEntry } from "../gen/wire";
+import type { CheckFindings, History, LabelKey, Queue, QueueEntry, analysis } from "../gen/wire";
 import { el, toast } from "../shared/dom";
 import { plural } from "../shared/words";
 import { boundaryCard, endCard, stopCard } from "./cards";
@@ -18,7 +18,7 @@ import { formatRoute } from "./route";
 import { skipping } from "./settings";
 import { scopedResearch } from "./research";
 import { renderShell, type Nav, type View } from "./shell";
-import { kbd, status, step, type State } from "./ui";
+import { kbd, status, step } from "./ui";
 
 // ---------- the session: what this queue has done since it started, kept in this tab ----------
 
@@ -111,8 +111,8 @@ export function queueView(host: HTMLElement, r: QueueRoute, nav: Nav): View {
   // ---------- cards ----------
 
   // showCard draws a card in the finding's place; Enter takes its primary button unless a control has the focus
-  function showCard(q: Queue, title: string, state: string | null, body: HTMLElement, go: () => void) {
-    renderShell(host, r, { title, status: state && status(state as State, true), bar: bar(q, null), body });
+  function showCard(q: Queue, title: string, state: analysis.State | null, body: HTMLElement, go: () => void) {
+    renderShell(host, r, { title, status: state && status(state, true), bar: bar(q, null), body });
     out.key = (e) => {
       if (e.key === "Enter" && e.target === document.body) { go(); return true; }
       if (e.key === "Escape") { exit(); return true; }

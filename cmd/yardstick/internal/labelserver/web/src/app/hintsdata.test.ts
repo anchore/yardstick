@@ -32,7 +32,7 @@ describe("the review page's scope", () => {
   });
 
   test("filters by gate and image, and counts the unclear hints it leaves out", () => {
-    const low = hint("low", "unclear", [["l1", java, "x"]], ["deb-java"], { confidence: "" });
+    const low = hint("low", "unclear", [["l1", java, "x"]], ["deb-java"], { confidence: undefined });
     expect(inScope([...all, low], {}).hints).toHaveLength(5);
     expect(inScope([...all, low], {}).low).toBe(1);
     expect(inScope([...all, low], { low: true }).hints).toHaveLength(6);
@@ -45,7 +45,7 @@ test("preselection is medium confidence and up, never a hint replacing a person'
   expect(all.filter(preselected).map((h) => h.id)).toEqual(["tar", "gzip", "util", "jfh8"]);
   expect(preselected({ ...tar, confidence: "high" })).toBe(true);
   expect(preselected({ ...tar, confidence: "low" })).toBe(false);
-  expect(preselected({ ...tar, confidence: "" })).toBe(false);
+  expect(preselected({ ...tar, confidence: undefined })).toBe(false);
 });
 
 test("a row in two gates counts once", () => {

@@ -19,7 +19,7 @@ import { bulkResearch, cellFor, follow, researchOf, started, type Research } fro
 import { renderShell, type Nav, type View } from "./shell";
 import { filterRows } from "./table";
 import { dataTable } from "./tableview";
-import { couldMove, hint, imageName, outcome, status, type State as Status } from "./ui";
+import { couldMove, hint, imageName, outcome, status } from "./ui";
 
 const day = (iso: string) => {
   const d = new Date(iso);
@@ -79,7 +79,7 @@ interface Tab { el: HTMLElement | HTMLElement[]; key: (e: KeyboardEvent) => bool
 function gatesTab(gates: () => GateListItem[], work: Work | null): Tab {
   const list = el("div", { class: "lrows gatelist", "data-testid": "gate-rows" });
   const draw = () => fill(list, gates().map((g) => {
-    const changes = g.changes ?? [], sum = sumTally(changes), state = (g.error ? "undecided" : g.gateOutcome ?? "undecided") as Status;
+    const changes = g.changes ?? [], sum = sumTally(changes), state = g.error ? "undecided" : g.gateOutcome ?? "undecided";
     const withOpen = changes.filter((t) => openOf(t)).length;
     return el("a", { class: "lrow", href: formatRoute({ level: "gate", gate: g.id, tab: "checks", filters: {} }), "data-testid": "gate-row", "data-gate": g.id, "data-state": state },
       status(state),

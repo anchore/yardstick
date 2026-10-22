@@ -18,7 +18,7 @@ import { openOf } from "./images";
 import { formatRoute } from "./route";
 import { gateRows, isOpen, sumTally } from "./listing";
 import { active, batchWords, estimate, finishedWords, leadWords, money, summary } from "./researchwords";
-import { kbd, status, verdict, type State as Status } from "./ui";
+import { kbd, status, verdict } from "./ui";
 
 const needWords = (n: number) => `${n} ${n === 1 ? "needs" : "need"} you`;
 
@@ -174,11 +174,11 @@ export function workBanner(list: GateList): Work {
     if (!run && !priced) fill(rcaps, hints.length ? "If you accept every hint" : "Where each gate stands");
     const after = new Map(await Promise.all(gates.map(async (g) => {
       const p = labels.get(g.id);
-      return [g.id, (p ? (await preview(g.id, p)).outcome : g.gateOutcome ?? "undecided") as Status] as const;
+      return [g.id, (p ? (await preview(g.id, p)).outcome : g.gateOutcome ?? "undecided")] as const;
     })));
     const change = group(plan, "change");
     for (const g of gates) {
-      const before = (g.gateOutcome ?? "undecided") as Status, open = openOf(sumTally(g.changes ?? [])), h = hinted.get(g.id)?.size ?? 0;
+      const before = g.gateOutcome ?? "undecided", open = openOf(sumTally(g.changes ?? [])), h = hinted.get(g.id)?.size ?? 0;
       const count = hints.filter((x) => x.gates.some((y) => y.gate === g.id)).length;
       // research priced per gate: the jobs that can change a gate, researched under this one
       const jobs = run || !plan ? 0 : change?.jobs.filter((j) => j.gate === g.id).length ?? 0, e = plan && estimate(jobs, plan.estimate.basis, plan.concurrency);
@@ -190,7 +190,7 @@ export function workBanner(list: GateList): Work {
     }
     if (run) return;
     if (!priced) fill(outcomes, gates.map((g) => {
-      const before = (g.gateOutcome ?? "undecided") as Status, a = after.get(g.id)!;
+      const before = g.gateOutcome ?? "undecided", a = after.get(g.id)!;
       return hints.length
         ? el("div", { class: "r", "data-testid": "work-outcome", "data-gate": g.id, "data-before": before, "data-after": a },
           status(before), el("span", { class: "arrow" }, "→"), status(a), el("b", {}, g.id))

@@ -1,24 +1,24 @@
 // listing.ts is the list screens' logic: one finding row shape for every findings table, the filter
 // chips and their counts, paging, the gate list's image strip, and labels across gates. Pure: no
 // DOM; the screens draw it.
-import type { CheckFindings, CrossFinding, GateLabel, ImageRef, ResearchSummary, State, StateRow, Tally } from "../gen/wire";
+import type { CheckFindings, CrossFinding, Effect as WireEffect, GateLabel, HintKind, ImageRef, ResearchSummary, RowVerdict, State, StateRow, Tally, agentstore, claimsv1 } from "../gen/wire";
 import { inFlight } from "../shared/agent";
 import { pkgOf, srcPkg } from "../shared/rows";
 import { openOf } from "./images";
 import type { Filters, VerdictFilter } from "./route";
 import { filterRows, sortRows } from "./table";
-import type { Verdict } from "./ui";
 
 // FHint is a row's pending agent suggestion: its own proposal, or a cause (package hint) listing it
-export interface FHint { verdict: string; confidence?: string; kind: "proposal" | "cause"; cause?: string }
+export interface FHint { verdict: claimsv1.Verdict; confidence?: agentstore.Confidence; kind: HintKind; cause?: string }
 
-export type Effect = "decides" | "could-move" | "counted" | "";
+// Effect is the server's, or "" where no check counts the row
+export type Effect = WireEffect | "";
 
 // FRow is one finding as every findings table shows it
 export interface FRow {
   id: string;             // the row id, or a made-up key for an unmet expectation no match pairs
   row?: string;           // absent for that expectation, which has no finding page
-  label: Verdict;
+  label: RowVerdict;
   vuln: string;
   pkg: string;
   version: string;
@@ -37,8 +37,6 @@ export interface FRow {
 // decides, could-move, counted, then none
 export const effectRank = (e: Effect) => ["decides", "could-move", "counted", ""].indexOf(e);
 
-const effectOf = (e: string | undefined): Effect => (e === "decides" || e === "could-move" || e === "counted" ? e : "");
-const verdictOf = (v: string | undefined): Verdict => (v === "tp" || v === "fp" || v === "unclear" ? v : "unlabeled");
 export const isOpen = (r: FRow) => r.label === "unlabeled" || r.label === "unclear";
 
 // gateRows are a gate's changed matches (one setup reports them) from its /state, by effect like a
@@ -50,7 +48,7 @@ export function gateRows(st: State): FRow[] {
     const image: ImageRef = { name: s.name, slug: s.slug, ref: info?.ref ?? s.name };
     for (const r of s.rows) {
       if (r.inCandidate === r.inReference) continue;
-      const p = pkgOf(r.package.ref), label = verdictOf(r.verdict);
+      const p = pkgOf(r.package.ref), label = r.verdict;
       const open = label === "unlabeled" || label === "unclear";
       const cause = open ? st.causes.find((c) => c.pending.includes(r.id)) : undefined;
       const hint: FHint | null = open && r.hint?.status === "pending" ? { verdict: r.hint.verdict, confidence: r.hint.confidence, kind: "proposal" }
@@ -58,7 +56,7 @@ export function gateRows(st: State): FRow[] {
       out.push({
         id: r.id, row: r.id, label, vuln: r.vulnerability, pkg: p.name, version: p.version, purl: r.package.ref, src: srcPkg(r), image,
         change: r.inCandidate ? "added" : "dropped", hint,
-        effect: effectOf(r.effect), // the server's, as the check findings say it
+        effect: r.effect ?? "", // the server's, as the check findings say it
         research: r.research, researched: !!r.researched, shares: r.researchShares ?? [],
       });
     }
@@ -73,11 +71,11 @@ export function checkRows(f: CheckFindings, st?: State): FRow[] {
   return f.findings.map((x) => {
     const s = x.row ? byId.get(x.row) : undefined;
     return {
-      id: x.row || `${x.image.slug}|${x.package.purl}|${x.vulnerability}`, row: x.row, label: verdictOf(x.label?.verdict),
+      id: x.row || `${x.image.slug}|${x.package.purl}|${x.vulnerability}`, row: x.row, label: x.label?.verdict ?? "unlabeled",
       vuln: x.vulnerability, pkg: x.package.name || pkgOf(x.package.purl).name, version: x.package.version || pkgOf(x.package.purl).version,
       purl: x.package.purl ?? "", src: x.package.name, image: x.image, change: x.direction,
-      hint: x.hint ? { verdict: x.hint.verdict, confidence: x.hint.confidence, kind: x.hint.kind === "cause" ? "cause" : "proposal" } : null,
-      effect: effectOf(x.effect),
+      hint: x.hint ? { verdict: x.hint.verdict, confidence: x.hint.confidence, kind: x.hint.kind } : null,
+      effect: x.effect,
       research: s?.research, researched: !!s?.researched, shares: s?.researchShares ?? [],
     };
   });

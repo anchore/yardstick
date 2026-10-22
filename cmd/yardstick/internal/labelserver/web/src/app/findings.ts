@@ -3,7 +3,7 @@
 // search box, the table, and the bulk bar that accepts hints, researches or labels the rows
 // selected. The Agent hint cell says what research is doing on a row and offers it
 // (researchtable.ts), and the table follows its rows' jobs while any is in flight.
-import type { Vocabulary } from "../gen/wire";
+import type { Vocabulary, claimsv1 } from "../gen/wire";
 import * as api from "../shared/api";
 import { doing, inFlight } from "../shared/agent";
 import { el, fill, toast } from "../shared/dom";
@@ -20,7 +20,7 @@ import { couldMove, hint, imageName, outcome, verdict } from "./ui";
 export const effectCell = (r: Pick<FRow, "effect">) =>
   r.effect === "could-move" ? couldMove() : r.effect ? el("span", { class: r.effect === "counted" ? "muted" : "" }, r.effect) : el("span", { class: "muted" }, "–");
 
-export const hintWords = (h: FRow["hint"]) => (h ? `${words[h.verdict]?.word ?? h.verdict}${h.confidence ? ` · ${h.confidence}` : ""}` : "");
+export const hintWords = (h: FRow["hint"]) => (h ? `${words[h.verdict].word}${h.confidence ? ` · ${h.confidence}` : ""}` : "");
 
 export const findingColumns: Column<FRow>[] = [
   { key: "label", label: "Label", cell: (r) => verdict(r.label), sort: (r) => r.label, help: help.label },
@@ -33,11 +33,12 @@ export const findingColumns: Column<FRow>[] = [
 ];
 
 // labelPicker is the "Label as…" control: picking a verdict (and reason) calls on with it
-export function labelPicker(vocab: Vocabulary | undefined, on: (verdict: string, justification: string) => void) {
+export function labelPicker(vocab: Vocabulary | undefined, on: (verdict: claimsv1.Verdict, justification: string) => void) {
+  const opts = labelOptions(vocab);
   const s = el("select", { class: "select label-as", "aria-label": "Label as", "data-testid": "label-as",
-    onchange: () => { const [v, j] = s.value.split(":"); s.value = ""; if (v) on(v, j); } },
+    onchange: () => { const o = opts.find((x) => x.value === s.value); s.value = ""; if (o) on(o.verdict, o.justification); } },
   el("option", { value: "" }, "Label as…"),
-  labelOptions(vocab).map((o) => el("option", { value: o.value, title: o.title }, o.text)));
+  opts.map((o) => el("option", { value: o.value, title: o.title }, o.text)));
   return s;
 }
 

@@ -1,12 +1,12 @@
 import { describe, expect, test } from "bun:test";
-import type { CrossAppearance, QueueEntry, QueueGate } from "../gen/wire";
+import type { CrossAppearance, QueueEntry, QueueGate, analysis } from "../gen/wire";
 import { boundaryWords, dayKey, dayWords, outcomeLines, progress, sessionLabels, sessionWords, whyNext } from "./queuewords";
 
 // entries and gates as the seed's GET /api/queue gives them (SCENARIO.md)
-const gate = (name: string, outcome: string, rows: number, settled = false) => ({ name, outcome, rows, settled, open: rows, compared: "", images: 2 }) as QueueGate;
+const gate = (name: string, outcome: analysis.State, rows: number, settled = false) => ({ name, outcome, rows, settled, open: rows, compared: "", images: 2 }) as QueueGate;
 const entry = (row: string, effect: string, ...ins: CrossAppearance[]) =>
   ({ row, effect, key: row, vulnerability: "CVE", package: { ref: "pkg:deb/debian/tar" }, sourcePackage: "tar", image: "deb", in: ins, bears: 0, flips: 0 }) as QueueEntry;
-const at = (g: string, outcome: string, tp?: string, fp?: string, extra: Partial<CrossAppearance["effect"]> = {}): CrossAppearance =>
+const at = (g: string, outcome: analysis.State, tp?: analysis.State, fp?: analysis.State, extra: Partial<CrossAppearance["effect"]> = {}): CrossAppearance =>
   ({ gate: g, row: "r", dir: "dropped", outcome, ...(tp && { effect: { ifTP: { outcome: tp }, ifFP: { outcome: fp! }, bears: ["unlabeledChangesAtMost"], ...extra } }) });
 
 // tar CVE-2026-18508 once every hint is accepted: deb-java's last open row

@@ -1,10 +1,10 @@
 // words.ts is how the pages say things: label glyphs, directions, counts and numbers, and a
 // row's computed reason in words. Pure: no DOM, no page state.
-import type { Vocabulary, report } from "../gen/wire";
+import type { RowVerdict, Vocabulary, claimsv1, report } from "../gen/wire";
 import { distroName, nsHuman } from "./names";
 
 export interface LabelWords { glyph: string; word: string; long: string }
-export const labels: Record<string, LabelWords> = {
+export const labels: Record<RowVerdict, LabelWords> = {
   tp: { glyph: "●", word: "TP", long: "real match" },
   fp: { glyph: "○", word: "FP", long: "false match" },
   unclear: { glyph: "◐", word: "unclear", long: "unclear" },
@@ -67,8 +67,8 @@ export function whyText(w: report.Reason | undefined, dir: string, primary?: str
 }
 
 // justWords is a justification's description from the claims vocabulary, else the value itself
-export const justWords = (state: { vocabulary?: Vocabulary } | undefined, verdict: string | undefined, j: string | undefined) =>
-  (j ? state?.vocabulary?.justifications?.[verdict ?? ""]?.[j] || j : "");
+export const justWords = (state: { vocabulary?: Vocabulary } | undefined, verdict: claimsv1.Verdict | undefined, j: string | undefined) =>
+  (j ? (verdict && state?.vocabulary?.justifications?.[verdict]?.[j]) || j : "");
 // ruleWords turns a rule id into words: "sbom/code-not-in-binary" → "sbom: code not in binary"
 export const ruleWords = (rule: string | undefined) => (rule ? rule.replace("/", ": ").replace(/-/g, " ") : "");
 

@@ -1,6 +1,6 @@
 // queuewords.ts is what the queue says: why a row is next, what each verdict does to its gates, the
 // progress line, the cards between gates and at the end, and the history page's days. Pure: no DOM.
-import type { CrossAppearance, OutcomeEffect, QueueEntry, QueueGate } from "../gen/wire";
+import type { CrossAppearance, OutcomeEffect, QueueEntry, QueueGate, analysis } from "../gen/wire";
 import { plural } from "../shared/words";
 
 const is: Record<string, string> = { pass: "passes", fail: "fails", undecided: "is undecided" };
@@ -62,7 +62,7 @@ export function progress(done: number, left: number) {
 
 // ---------- cards ----------
 
-export interface Boundary { gate: string; before?: string; after: string; left: number; settled: boolean; next: string; nextRows: number; nextSettled: boolean }
+export interface Boundary { gate: string; before?: analysis.State; after: analysis.State; left: number; settled: boolean; next: string; nextRows: number; nextSettled: boolean }
 
 // boundaryWords are the card after a gate's last open row in the queue: its new outcome, and the
 // next gate

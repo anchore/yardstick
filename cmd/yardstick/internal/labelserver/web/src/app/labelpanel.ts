@@ -14,10 +14,10 @@ import { mutedReason, panel, reasons, seenWith, shortSource } from "./finding-wo
 import { about, liveLog, money } from "./researchwords";
 import { tick } from "./researchtable";
 import type { GateLines } from "./queuewords";
-import { kbd, verdict, type Verdict } from "./ui";
+import { kbd, verdict } from "./ui";
 
 // Draft is the form as typed, kept across a repaint (research polling redraws the page)
-export interface Draft { verdict?: string; reason?: string; note: string }
+export interface Draft { verdict?: claimsv1.Verdict; reason?: string; note: string }
 
 export interface PanelActions {
   save: () => void;
@@ -30,7 +30,7 @@ export interface PanelActions {
 
 export interface LabelPanel {
   el: HTMLElement;
-  pick: (v: string) => void;        // t, f and u
+  pick: (v: claimsv1.Verdict) => void; // t, f and u
   focusReason: () => void;
   advance: (on: boolean) => void;   // the cog's "go to the next match" changed: Save's words follow
   update: (d: FindingData, outcomes?: GateLines) => void;
@@ -38,7 +38,7 @@ export interface LabelPanel {
 
 const words: Record<string, string> = { tp: "TP", fp: "FP", unclear: "Unclear" };
 const date = (s: string | undefined) => (s ? new Date(s).toLocaleDateString() : "");
-const reasonText = (d: FindingData, v: string, j: string | undefined) =>
+const reasonText = (d: FindingData, v: claimsv1.Verdict, j: string | undefined) =>
   el("span", { class: `reason${mutedReason(j) ? " muted" : ""}`, "data-testid": "reason" }, j ? justWords(d.state, v, j) : "no reason");
 
 // labelPanel builds the panel once for a row; update shows the row read again (after a write that
@@ -72,7 +72,7 @@ export function labelPanel(d0: FindingData, draft: Draft, advance: boolean, on: 
       ...opts.map(([j, desc]) => el("option", { value: j, selected: j === draft.reason, title: j, "data-testid": "reason-option" }, desc)));
     reason.disabled = !v || opts.length === 0;
   }
-  function pick(v: string) {
+  function pick(v: claimsv1.Verdict) {
     draft.verdict = v;
     for (const b of segs) b.setAttribute("aria-pressed", String(b.dataset.verdict === v));
     fillReasons();
@@ -89,7 +89,7 @@ export function labelPanel(d0: FindingData, draft: Draft, advance: boolean, on: 
 
     const onFile = p.onFile && l && el("section", { class: "onfile", "data-testid": "label-on-file", "data-verdict": l.verdict },
       el("h2", {}, "Label on file"),
-      el("div", { class: "line" }, verdict(l.verdict as Verdict), reasonText(d, l.verdict, l.justification)),
+      el("div", { class: "line" }, verdict(l.verdict), reasonText(d, l.verdict, l.justification)),
       el("div", { class: "help" }, `${l.author || "?"} · ${date(l.lastUpdated)}`),
       lv.sources?.length ? el("div", { class: "help", title: lv.sources.join("\n"), "data-testid": "label-source" }, lv.sources.map(shortSource).join(", "), lv.global ? " · global" : "") : null,
       seenWith(l) ? el("div", { class: "help" }, `seen with ${seenWith(l)}`) : null);
@@ -98,7 +98,7 @@ export function labelPanel(d0: FindingData, draft: Draft, advance: boolean, on: 
     const facts = (full?.proposal.evidence ?? []).flatMap((e) => e.facts ?? []);
     const factLink = (f: claimsv1.Fact) => (/^https?:\/\//.test(f.url ?? "") ? el("a", { href: f.url, target: "_blank", rel: "noopener noreferrer" }, f.source) : f.source);
     const hintCard = h && el("section", { class: "hintcard", "data-testid": "hint-card", "data-status": h.status, "data-verdict": h.verdict, "data-confidence": h.confidence ?? "" },
-      el("div", { class: "top" }, el("span", { class: "hint" }, "Agent hint"), verdict(h.verdict as Verdict), el("span", { class: "help", "data-testid": "hint-confidence" }, `${h.confidence ?? ""} ${dots[h.confidence ?? ""] ?? ""}`)),
+      el("div", { class: "top" }, el("span", { class: "hint" }, "Agent hint"), verdict(h.verdict), el("span", { class: "help", "data-testid": "hint-confidence" }, `${h.confidence ?? ""} ${dots[h.confidence ?? ""] ?? ""}`)),
       el("p", { "data-testid": "hint-reason" }, h.title || justWords(state, h.verdict, h.justification) || ruleWords(h.rule) || full?.proposal.note || ""),
       (!!full?.proposal.note || facts.length > 0 || !!full?.policy.rule) && el("details", { class: "facts", "data-testid": "hint-facts" },
         el("summary", {}, [full?.proposal.note && "the note", facts.length > 0 && `${facts.length} ${facts.length === 1 ? "fact" : "facts"}`, full?.policy.rule && "the rule"].filter(Boolean).join(", ").replace(/^./, (c) => c.toUpperCase())),
@@ -111,7 +111,7 @@ export function labelPanel(d0: FindingData, draft: Draft, advance: boolean, on: 
 
     const c = p.cause;
     const causeCard = c && el("section", { class: "hintcard", "data-testid": "cause-card", "data-count": c.pending.length, "data-verdict": c.verdict },
-      el("div", { class: "top" }, el("span", { class: "hint" }, "Package hint"), verdict(c.verdict as Verdict), c.confidence && el("span", { class: "help" }, `${c.confidence} ${dots[c.confidence] ?? ""}`)),
+      el("div", { class: "top" }, el("span", { class: "hint" }, "Package hint"), verdict(c.verdict), c.confidence && el("span", { class: "help" }, `${c.confidence} ${dots[c.confidence] ?? ""}`)),
       el("p", {}, c.title),
       el("div", { class: "by" }, `${c.author.skill || c.author.name || "an agent"} · on ${c.sourcePackage} · ${c.pending.length} unlabeled ${c.pending.length === 1 ? "match" : "matches"}`),
       el("div", { class: "acts" },

@@ -16,7 +16,7 @@ import { scopedResearch } from "./research";
 import { about } from "./researchwords";
 import type { Route } from "./route";
 import { renderShell, type Nav, type View } from "./shell";
-import { imageName, outcome, status, verdict, type State as Status } from "./ui";
+import { imageName, outcome, status, verdict } from "./ui";
 
 async function call<T>(path: string, body?: unknown): Promise<T> {
   const r = await fetch(path, body === undefined ? undefined : {
@@ -250,21 +250,21 @@ function hintRow(h: HintEntry, boxes: Map<string, HTMLInputElement>, on: boolean
       el("div", { class: "pk", title: `${pkgs.join(", ")} · ${imgs.join(", ")}` }, `${pkgs.join(", ")} ${first?.package.version ?? ""} · ${imgs.join(", ")}`),
       el("div", { class: "by" }, byLine(first?.direction ?? "", h.verdict, gates))),
     el("div", { class: "says" },
-      el("div", {}, verdict(h.verdict as "tp" | "fp" | "unclear"), " ", el("span", { class: "conf", title: `${h.confidence || "no"} confidence` }, dots[h.confidence ?? ""] ?? "")),
-      el("div", { class: "why" }, h.title || h.cause || vocab?.justifications?.[h.verdict]?.[h.justification ?? ""] || h.justification || words[h.verdict]?.long),
+      el("div", {}, verdict(h.verdict), " ", el("span", { class: "conf", title: `${h.confidence || "no"} confidence` }, dots[h.confidence ?? ""] ?? "")),
+      el("div", { class: "why" }, h.title || h.cause || vocab?.justifications?.[h.verdict]?.[h.justification ?? ""] || h.justification || words[h.verdict].long),
       el("small", {}, [h.justification, h.skill || h.author.skill].filter(Boolean).join(" · "))),
     el("div", { class: "fx" },
       h.gates.map((g): Child => (g.after !== g.outcome
         ? el("span", { class: "could-move" }, `${g.gate} ${g.outcome} → ${g.after}`)
         : el("span", {}, `${g.gate}: closes ${plural(g.rows.length, "open match", "open matches")}`))),
       h.replaces && el("span", { class: "flag", "data-testid": "hint-replaces" },
-        `replaces ${replaced ? `an ${replaced.verdict === "unclear" ? "unclear" : words[replaced.verdict]?.word ?? replaced.verdict} label` : "a label"}${replaced?.note ? `: "${replaced.note}"` : ""}`),
+        `replaces ${replaced ? `an ${replaced.verdict === "unclear" ? "unclear" : words[replaced.verdict].word} label` : "a label"}${replaced?.note ? `: "${replaced.note}"` : ""}`),
       h.replaces && el("small", {}, "left unchecked: it overrides a person")));
 }
 
 // impactGate is a gate before and after the selection, and each of its checks
 function impactGate(gate: string, before: GateResult | undefined, after: GateResult) {
-  const was = (before?.outcome ?? "undecided") as Status, now = after.outcome as Status;
+  const was = before?.outcome ?? "undecided", now = after.outcome;
   const prior = new Map((before?.checks ?? []).map((c) => [c.name, c.state]));
   return el("div", { class: "ig", "data-testid": "impact-gate", "data-gate": gate, "data-before": was, "data-after": now },
     el("div", { class: "gname" }, status(was), el("span", { class: "arrow" }, "→"), status(now), el("span", {}, gate)),

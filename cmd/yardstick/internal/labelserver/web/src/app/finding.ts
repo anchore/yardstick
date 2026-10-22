@@ -19,7 +19,7 @@ import { nextOpen, position, type Item } from "./neighbors";
 import { formatRoute, type Route } from "./route";
 import { advancing } from "./settings";
 import { renderShell, type Nav, type View } from "./shell";
-import { step, verdict, type Verdict } from "./ui";
+import { step, verdict } from "./ui";
 
 type FindingRoute = Extract<Route, { level: "finding" }>;
 
@@ -114,7 +114,7 @@ export function findingView(host: HTMLElement, r: FindingRoute, nav: Nav, q?: Qu
       title: row.vulnerability,
       row: row.vulnerability,
       after: [
-        verdict(row.verdict as Verdict),
+        verdict(row.verdict),
         eff && el("span", { class: eff.kind === "could-move" ? "could-move" : "decides", "data-testid": "finding-effect", "data-effect": eff.kind }, eff.text),
       ],
       // what was matched (package, its ecosystem, the distro release, which decides most of the
@@ -167,7 +167,7 @@ export function findingView(host: HTMLElement, r: FindingRoute, nav: Nav, q?: Qu
     try { keys = (await call()).labels; } catch (e) { toast((e as Error).message, true); return; }
     await after(rows, text, how, keys);
   }
-  const said = (v: string) => `${labels[v]?.glyph ?? ""} ${labels[v]?.word ?? v}`;
+  const said = (v: claimsv1.Verdict) => `${labels[v].glyph} ${labels[v].word}`;
 
   function save() {
     if (!d) return;
@@ -285,6 +285,8 @@ function tabs(d: FindingData) {
   return el("div", { class: "tabs ftabs", "data-testid": "finding-tabs" }, el("nav", { role: "tablist", "data-variant": "line", "aria-orientation": "horizontal", "aria-label": "About this match" }, buttons), panels);
 }
 
+// verdicts are what the server appends to a source it lists, ": tp"
+const verdicts = ["tp", "fp", "unclear"] as const;
 const cap = (s: string) => s[0].toUpperCase() + s.slice(1);
 const kv = (pairs: [string, unknown][]) =>
   el("dl", { class: "kv" }, pairs.filter(([, v]) => v != null && v !== "").map(([k, v]) => [el("dt", {}, k), el("dd", {}, v as string | Node)]));
@@ -354,7 +356,7 @@ function labelsTab(d: FindingData) {
   const l = lv.label, notes = l.notes ?? [];
   return el("div", { class: "labels" },
     el("section", { class: "labelcard", "data-testid": "label-record", "data-verdict": l.verdict, "data-author": l.author },
-      el("div", { class: "line" }, verdict(l.verdict as Verdict),
+      el("div", { class: "line" }, verdict(l.verdict),
         el("span", { class: `reason${mutedReason(l.justification) ? " muted" : ""}` }, l.justification ? justWords(d.state, l.verdict, l.justification) : "no reason")),
       kv([
         ["Author", l.author || "?"],
@@ -367,7 +369,7 @@ function labelsTab(d: FindingData) {
       notes.length > 0 && el("ul", { class: "notes" }, notes.map((n) => el("li", { "data-testid": "label-note" }, el("span", { class: "help" }, `${n.author} · ${new Date(n.at).toLocaleDateString()}`), el("p", {}, n.text))))),
     el("h3", {}, "Every claims source holding it"),
     el("ul", { class: "sources", "data-testid": "label-sources" }, (lv.sources ?? []).map((s) => {
-      const v = s.match(/: (tp|fp|unclear)$/)?.[1];
-      return el("li", { title: s }, v && verdict(v as Verdict), el("span", { class: "mono" }, shortSource(s)));
+      const v = verdicts.find((x) => s.endsWith(`: ${x}`));
+      return el("li", { title: s }, v && verdict(v), el("span", { class: "mono" }, shortSource(s)));
     })));
 }

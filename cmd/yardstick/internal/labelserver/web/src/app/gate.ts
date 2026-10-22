@@ -18,7 +18,7 @@ import { researchOf } from "./researchtable";
 import { formatRoute, withFilters, type Route } from "./route";
 import { scanMap } from "./scanmap";
 import { renderShell, type Nav, type View } from "./shell";
-import { imageName, meter, status, verdictBar, type State as Status } from "./ui";
+import { imageName, meter, status, verdictBar } from "./ui";
 
 type GateRoute = Route & { level: "gate" };
 
@@ -33,7 +33,7 @@ export const railImages = (st: State): RailImage[] =>
 
 // gateHead is the title row and verdict bar the gate's tabs share
 export function gateHead(st: State) {
-  const res = st.gate?.result, outcome = (res?.outcome ?? "undecided") as Status;
+  const res = st.gate?.result, outcome = res?.outcome ?? "undecided";
   return {
     status: status(outcome, true),
     sub: st.gate?.note || [st.scans.compared, plural(st.subjects.length, "image"), st.scans.created && `scanned ${day(st.scans.created)}`].filter(Boolean).join(" · "),
@@ -118,7 +118,7 @@ const sentence = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
 // "0.500 worse · limit 0"
 export function checkMeter(c: CheckResult) {
   const unit = units[c.counts ?? ""];
-  return meter({ value: c.value.worst, limit: c.threshold, state: c.state as Status,
+  return meter({ value: c.value.worst, limit: c.threshold, state: c.state,
     caption: [el("b", {}, fmt(c.value.worst)), unit && ` ${unit}`, ` · limit ${fmt(c.threshold)}`] });
 }
 
@@ -155,7 +155,7 @@ function checksTab(st: () => State): Tab {
         const n = checkCounts(s, c, image);
         return el("a", { class: "lrow check", href: formatRoute({ level: "check", gate: s.scans.id, check: c.name, filters: r.filters.image ? { image: r.filters.image } : {} }),
           "data-testid": "check-row", "data-check": c.name, "data-state": c.state },
-        status(c.state as Status),
+        status(c.state),
         el("div", { class: "lname" }, el("div", { class: "name" }, c.name), el("div", { class: "desc", title: sentence(c.description) }, c.summary || sentence(c.description))),
         checkMeter(c),
         el("div", { class: "lnum", "data-testid": "check-count" }, `${n.bearing.toLocaleString()} open`,

@@ -1,10 +1,9 @@
 // hintsdata.ts is hint review's logic: the review page's scope in its URL, which hints start
 // checked, what a selection labels in each gate's preview, what stays open after it, and the work
 // numbers the gates page leads with. Pure: hints.ts and banner.ts draw it.
-import type { CrossFinding, HintEntry, ResearchSummary } from "../gen/wire";
+import type { CrossFinding, HintEntry, ResearchSummary, analysis } from "../gen/wire";
 import { doing, inFlight, type Doing } from "../shared/agent";
 import { plural } from "../shared/words";
-import type { State as Status } from "./ui";
 
 // HintScope is the review page's query: a gate, an image (slug), and whether unclear hints show
 export interface HintScope { gate?: string; image?: string; low?: boolean }
@@ -133,7 +132,7 @@ export function stillOpen(rows: OpenRow[], shown: HintEntry[], selected: Set<str
 }
 
 // aloneWords is what accepting every hint does to a gate, from its outcome now and after
-export function aloneWords(before: Status, after: Status): string {
+export function aloneWords(before: analysis.State, after: analysis.State): string {
   if (after === "pass") return before === "pass" ? "passes already" : "passes on hints alone";
   return after === before ? "hints alone don't change it" : `${after} on hints alone`;
 }
