@@ -30,9 +30,9 @@ func Publish(t partybus.EventType, v any) {
 
 // GateStarted announces a gate before any of it is prepared: its setups as written and its subjects.
 func GateStarted(g *gatefile.Gate) {
-	e := event.Gate{Name: g.Name, Setups: []event.Setup{setup("candidate", g.Candidate)}}
+	e := event.Gate{Name: g.Name, Setups: []event.Setup{setup(gatefile.Candidate, g.Candidate)}}
 	if g.Reference != nil {
-		e.Setups = append(e.Setups, setup("reference", g.Reference))
+		e.Setups = append(e.Setups, setup(gatefile.Reference, g.Reference))
 	}
 	for _, s := range g.Subjects {
 		e.Subjects = append(e.Subjects, s.Name)

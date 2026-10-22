@@ -4,6 +4,7 @@ import (
 	"slices"
 	"strings"
 
+	"github.com/anchore/yardstick/cmd/yardstick/internal/gatefile"
 	"github.com/anchore/yardstick/cmd/yardstick/internal/lookup"
 	"github.com/anchore/yardstick/cmd/yardstick/internal/pairing"
 )
@@ -59,15 +60,15 @@ const (
 // explain sets what the DB lookups say about a row only one setup reported, and its reason.
 // lookups are by the setup whose DB was searched; a run made before lookups has none.
 func explain(row *Match, m *pairing.Match, lookups map[string]*lookup.File) {
-	foundIn, otherDB := pairing.Candidate, pairing.Reference
+	foundIn, otherDB := gatefile.Candidate, gatefile.Reference
 	if row.InReference {
-		foundIn, otherDB = pairing.Reference, pairing.Candidate
+		foundIn, otherDB = gatefile.Reference, gatefile.Candidate
 	}
 	ids := lookup.IDs(m)
-	if f := lookups[pairing.Candidate]; f != nil {
+	if f := lookups[gatefile.Candidate]; f != nil {
 		row.CandidateStatus = f.Statuses[m.Vulnerability]
 	}
-	if f := lookups[pairing.Reference]; f != nil {
+	if f := lookups[gatefile.Reference]; f != nil {
 		row.ReferenceStatus = f.Statuses[m.Vulnerability]
 	}
 	absent := notInDB(lookups[otherDB], ids)
@@ -78,7 +79,7 @@ func explain(row *Match, m *pairing.Match, lookups map[string]*lookup.File) {
 	var records []lookup.Affected
 	if looked {
 		records = related(lookups[otherDB].Records, found, ids, lookup.Names(m), dist)
-		if otherDB == pairing.Candidate {
+		if otherDB == gatefile.Candidate {
 			row.CandidateRecords = records
 		} else {
 			row.ReferenceRecords = records
@@ -147,7 +148,7 @@ func related(recs []lookup.Affected, found *pairing.Detail, ids, names []string,
 	var products []string
 	if found != nil {
 		for _, c := range found.CPEs {
-			products = appendUnique(products, cpeProduct(c))
+			products = pairing.AppendUnique(products, cpeProduct(c))
 		}
 	}
 	var out []lookup.Affected
@@ -182,15 +183,15 @@ func compareRecords(found *pairing.Detail, other []lookup.Affected, packageAbsen
 		}
 		var ns []string
 		for _, a := range scope {
-			ns = appendUnique(ns, a.Namespace)
+			ns = pairing.AppendUnique(ns, a.Namespace)
 		}
 		return []Reason{change(WhyNamespaceChanged, found.Namespace, strings.Join(ns, ", "))}
 	}
 
 	var states, constraints []string
 	for _, a := range same {
-		states = appendUnique(states, a.FixStates...)
-		constraints = appendUnique(constraints, a.Constraints...)
+		states = pairing.AppendUnique(states, a.FixStates...)
+		constraints = pairing.AppendUnique(constraints, a.Constraints...)
 	}
 	var out []Reason
 	// no fix state on either side (most CPE records) is no change
@@ -275,13 +276,4 @@ func joinSorted(vs []string) string {
 
 func sameSet(a, b []string) bool {
 	return slices.Equal(slices.Compact(slices.Sorted(slices.Values(a))), slices.Compact(slices.Sorted(slices.Values(b))))
-}
-
-func appendUnique(list []string, vs ...string) []string {
-	for _, v := range vs {
-		if v != "" && !slices.Contains(list, v) {
-			list = append(list, v)
-		}
-	}
-	return list
 }

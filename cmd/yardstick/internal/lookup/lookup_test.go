@@ -10,6 +10,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/anchore/yardstick/cmd/yardstick/internal/gatefile"
 	"github.com/anchore/yardstick/cmd/yardstick/internal/pairing"
 )
 
@@ -85,10 +86,10 @@ func TestSearch(t *testing.T) {
 			Rows: map[string][]int{setup: {0}}, Details: map[string]*pairing.Detail{setup: d}}}
 	}
 	rows := []Row{
-		row("a", pairing.Reference, "CVE-2018-20796", "libc6", "pkg:deb/ubuntu/libc6@2.31?distro=ubuntu-20.04", &pairing.Detail{Upstreams: []string{"glibc"}, MatchTypes: []string{"exact-indirect-match"}}),
-		row("b", pairing.Reference, "CVE-2023-28434", "minio", "pkg:golang/github.com/minio/minio@7.0.30", &pairing.Detail{MatchTypes: []string{"cpe-match"}, CPEs: []string{"cpe:2.3:a:minio:minio:7.0.30:*:*:*:*:*:*:*"}}),
-		row("c", pairing.Candidate, "CVE-3", "zlib", "", &pairing.Detail{MatchTypes: []string{"exact-direct-match"}}),
-		row("d", pairing.Reference, "CVE-2026-4438", "glibc-2.42", "pkg:apk/secureos/glibc-2.42@2.42-r4?arch=x86_64&distro=secureos-2025.09.09",
+		row("a", gatefile.Reference, "CVE-2018-20796", "libc6", "pkg:deb/ubuntu/libc6@2.31?distro=ubuntu-20.04", &pairing.Detail{Upstreams: []string{"glibc"}, MatchTypes: []string{"exact-indirect-match"}}),
+		row("b", gatefile.Reference, "CVE-2023-28434", "minio", "pkg:golang/github.com/minio/minio@7.0.30", &pairing.Detail{MatchTypes: []string{"cpe-match"}, CPEs: []string{"cpe:2.3:a:minio:minio:7.0.30:*:*:*:*:*:*:*"}}),
+		row("c", gatefile.Candidate, "CVE-3", "zlib", "", &pairing.Detail{MatchTypes: []string{"exact-direct-match"}}),
+		row("d", gatefile.Reference, "CVE-2026-4438", "glibc-2.42", "pkg:apk/secureos/glibc-2.42@2.42-r4?arch=x86_64&distro=secureos-2025.09.09",
 			&pairing.Detail{MatchTypes: []string{"cpe-match"}, CPEs: []string{"cpe:2.3:a:gnu:glibc:2.42:*:*:*:*:*:*:*"}}),
 	}
 	var calls []string
@@ -99,7 +100,7 @@ func TestSearch(t *testing.T) {
 		}
 		return []byte(affectedOutput), nil
 	}
-	f, err := Search(context.Background(), grype, pairing.Candidate, rows)
+	f, err := Search(context.Background(), grype, gatefile.Candidate, rows)
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/anchore/yardstick/cmd/yardstick/internal/install"
 	"github.com/anchore/yardstick/cmd/yardstick/internal/log"
 )
 
@@ -37,7 +38,7 @@ func dirIdentity(dir string) string {
 		}
 		log.Debugf("dir: DB %s has an import.json with no digest, hashing the DB file instead", dir)
 	}
-	sum, err := fileSHA256(filepath.Join(schema, "vulnerability.db"))
+	sum, err := install.FileSHA256(filepath.Join(schema, "vulnerability.db"))
 	switch {
 	case err == nil:
 		log.Debugf("dir: DB %s is identified by a sha256 of its DB file", dir)

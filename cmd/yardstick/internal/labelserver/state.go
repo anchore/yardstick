@@ -14,7 +14,6 @@ import (
 	"github.com/anchore/yardstick/cmd/yardstick/internal/analysis"
 	claimsv1 "github.com/anchore/yardstick/cmd/yardstick/internal/claims/v1"
 	"github.com/anchore/yardstick/cmd/yardstick/internal/gatefile"
-	"github.com/anchore/yardstick/cmd/yardstick/internal/pairing"
 	"github.com/anchore/yardstick/cmd/yardstick/internal/report"
 	"github.com/anchore/yardstick/cmd/yardstick/internal/research"
 	"github.com/anchore/yardstick/cmd/yardstick/internal/setup"
@@ -308,10 +307,10 @@ func (s *Server) handleState(w http.ResponseWriter, req *http.Request) {
 			st.ResearchEstimate = &b
 		}
 	}
-	if c, ok := e.rec.Setups[pairing.Candidate]; ok {
+	if c, ok := e.rec.Setups[gatefile.Candidate]; ok {
 		st.Candidate = &c
 	}
-	if r, ok := e.rec.Setups[pairing.Reference]; ok {
+	if r, ok := e.rec.Setups[gatefile.Reference]; ok {
 		st.Reference = &r
 	}
 	changes, effects, siblings := v.changes(), v.rowEffects(), research.Siblings(v.verdict)

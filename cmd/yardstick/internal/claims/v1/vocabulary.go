@@ -91,8 +91,11 @@ func Namespace(id string) string {
 	return ns
 }
 
-// IsAdvisory says whether an id is in an advisory-only namespace.
+// IsAdvisory says whether an id is in an advisory-only namespace; with no vocabulary, none is.
 func (v *Vocabulary) IsAdvisory(id string) bool {
+	if v == nil {
+		return false
+	}
 	ns := Namespace(id)
 	for _, p := range v.AdvisoryIDs {
 		if ok, _ := path.Match(p, ns); ok {

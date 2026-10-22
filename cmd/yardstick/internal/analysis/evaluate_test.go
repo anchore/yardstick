@@ -80,9 +80,9 @@ func pairOne(t *testing.T, name, image string, candidate, reference *models.Docu
 	a.AddScan(candidate)
 	a.AddScan(reference)
 	a.AddLabels(ls)
-	scans := map[string]*models.Document{pairing.Candidate: candidate}
+	scans := map[string]*models.Document{gatefile.Candidate: candidate}
 	if reference != nil {
-		scans[pairing.Reference] = reference
+		scans[gatefile.Reference] = reference
 	}
 	return Subject{Name: name, Result: pairing.Pair(a, pairing.Subject{Name: name, Packages: packagesOf(t, image), Labels: ls, Scans: scans})}
 }
@@ -154,7 +154,7 @@ func expectationSubject(t *testing.T, met, total int) Subject {
 	t.Helper()
 	cand := grype(t, "deb")
 	res := &pairing.Result{}
-	m := &pairing.Match{Rows: map[string][]int{pairing.Candidate: {0}}}
+	m := &pairing.Match{Rows: map[string][]int{gatefile.Candidate: {0}}}
 	for i := range total {
 		b := &pairing.Bound{Label: label("", cand.Matches[i%len(cand.Matches)].Vulnerability.ID, claimsv1.TP), Present: true}
 		if i < met {
@@ -196,7 +196,7 @@ func TestF1PerSubject(t *testing.T) {
 func TestPrecisionCountsMatchesRecallCountsLabels(t *testing.T) {
 	java := pairOne(t, "java", "java", grype(t, "java"), grype(t, "java"), label(log4j, "CVE-2021-44228", claimsv1.TP))
 	e := evaluator{}
-	st := e.stats(java.Result, pairing.Candidate, worstCase)
+	st := e.stats(java.Result, gatefile.Candidate, worstCase)
 	if st.TP != 2 || st.FP != 0 || st.Labels != 1 || st.Satisfied != 1 || st.Precision() != 1 || st.Recall() != 1 {
 		t.Errorf("expected precision 2/2 and recall 1/1, got %+v", st)
 	}
@@ -204,7 +204,7 @@ func TestPrecisionCountsMatchesRecallCountsLabels(t *testing.T) {
 	// one tp label pairs two matches, one fp label pairs one, another tp label pairs nothing
 	java = pairOne(t, "java", "java", grype(t, "java"), grype(t, "java"),
 		label(log4j, "CVE-2021-44228", claimsv1.TP), label(log4j, "CVE-2021-45046", claimsv1.FP), label(log4j, "CVE-2020-9999", claimsv1.TP))
-	st = e.stats(java.Result, pairing.Candidate, worstCase)
+	st = e.stats(java.Result, gatefile.Candidate, worstCase)
 	// CVE-2021-45046's fp pairs it in both jars, so precision is 2 of 4
 	if st.TP != 2 || st.FP != 2 || st.Labels != 2 || st.Satisfied != 1 {
 		t.Errorf("expected 2 tp and 2 fp matches, 1 of 2 tp labels, got %+v", st)
@@ -219,7 +219,7 @@ func TestUnlabeledMeans(t *testing.T) {
 	deb := pairOne(t, "deb", "deb", grype(t, "deb"), grype(t, "deb"),
 		label(ncurses, "CVE-2023-50495", claimsv1.Unclear),
 		label(ncurses, "CVE-2020-9999", claimsv1.Unclear), label(libc, "CVE-2026-5450", claimsv1.TP))
-	st := evaluator{}.stats(deb.Result, pairing.Candidate, worstCase)
+	st := evaluator{}.stats(deb.Result, gatefile.Candidate, worstCase)
 	// the unclear-only match counts toward no tp or fp; an unclear label pairing nothing is no
 	// false negative
 	if st.TP != 1 || st.FP != 0 || st.Labels != 1 || st.Satisfied != 1 {
@@ -252,7 +252,7 @@ func cpes(t *testing.T, ls ...claims.Label) Subject {
 func cpeOnly(t *testing.T, s Subject) *pairing.Match {
 	t.Helper()
 	for _, m := range s.Result.Matches {
-		if m.In(pairing.Candidate) && !m.In(pairing.Reference) {
+		if m.In(gatefile.Candidate) && !m.In(gatefile.Reference) {
 			return m
 		}
 	}
@@ -265,7 +265,7 @@ func TestUnlabeledDeltasAreBounded(t *testing.T) {
 	s := cpes(t, tpLabel)
 	added := 0
 	for _, m := range s.Result.Matches {
-		if m.In(pairing.Candidate) && !m.In(pairing.Reference) {
+		if m.In(gatefile.Candidate) && !m.In(gatefile.Reference) {
 			added++
 		}
 	}
@@ -508,7 +508,7 @@ func TestAHypotheticalLabelCountsAsALabelOnTheSubject(t *testing.T) {
 func anyDelta(t *testing.T, s Subject) *pairing.Match {
 	t.Helper()
 	for _, m := range s.Result.Matches {
-		if m.In(pairing.Candidate) != m.In(pairing.Reference) {
+		if m.In(gatefile.Candidate) != m.In(gatefile.Reference) {
 			return m
 		}
 	}
@@ -522,7 +522,7 @@ func TestLabelingEffect(t *testing.T) {
 	// label every other match so the one reference-only match is the only unlabeled one
 	var ls []claims.Label
 	for _, m := range s.Result.Matches {
-		if m.In(pairing.Candidate) {
+		if m.In(gatefile.Candidate) {
 			ls = append(ls, label(m.Package.PURL, m.Vulnerability, claimsv1.TP))
 		}
 	}
@@ -556,9 +556,9 @@ func TestF1FailsOnIsAdverse(t *testing.T) {
 	var added, both []*pairing.Match
 	for _, m := range cpes(t).Result.Matches {
 		switch {
-		case m.In(pairing.Candidate) && !m.In(pairing.Reference):
+		case m.In(gatefile.Candidate) && !m.In(gatefile.Reference):
 			added = append(added, m)
-		case m.In(pairing.Candidate):
+		case m.In(gatefile.Candidate):
 			both = append(both, m)
 		}
 	}
@@ -613,7 +613,7 @@ func TestPerGateChecksUnderAHypothesis(t *testing.T) {
 	s := pairOne(t, "deb", "deb", cand, ref)
 	var ls []claims.Label
 	for _, m := range s.Result.Matches {
-		if m.In(pairing.Candidate) {
+		if m.In(gatefile.Candidate) {
 			ls = append(ls, label(m.Package.PURL, m.Vulnerability, claimsv1.TP))
 		}
 	}

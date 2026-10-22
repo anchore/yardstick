@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/anchore/grype/grype/presenter/models"
+	"github.com/anchore/yardstick/cmd/yardstick/internal/gatefile"
 )
 
 // Detail is the record one setup's grype matched, as delta's report names it, so the skills and
@@ -53,8 +54,8 @@ func detail(gm models.Match, doc *models.Document) *Detail {
 		d.Related = append(d.Related, Related{ID: r.ID, Namespace: r.Namespace, DataSource: r.DataSource})
 	}
 	for _, md := range gm.MatchDetails {
-		d.MatchTypes = appendUnique(d.MatchTypes, md.Type)
-		d.Matchers = appendUnique(d.Matchers, md.Matcher)
+		d.MatchTypes = AppendUnique(d.MatchTypes, md.Type)
+		d.Matchers = AppendUnique(d.Matchers, md.Matcher)
 		// searchedBy and found are free-form in grype's models, so they are read through JSON
 		var searched struct {
 			CPEs []string `json:"cpes"`
@@ -64,11 +65,11 @@ func detail(gm models.Match, doc *models.Document) *Detail {
 		}
 		remarshal(md.SearchedBy, &searched)
 		remarshal(md.Found, &found)
-		d.CPEs = appendUnique(d.CPEs, searched.CPEs...)
-		d.Constraints = appendUnique(d.Constraints, found.VersionConstraint)
+		d.CPEs = AppendUnique(d.CPEs, searched.CPEs...)
+		d.Constraints = AppendUnique(d.Constraints, found.VersionConstraint)
 	}
 	for _, u := range gm.Artifact.Upstreams {
-		d.Upstreams = appendUnique(d.Upstreams, u.Name)
+		d.Upstreams = AppendUnique(d.Upstreams, u.Name)
 	}
 	return d
 }
@@ -80,7 +81,8 @@ func remarshal(from, into any) {
 	}
 }
 
-func appendUnique(list []string, vs ...string) []string {
+// AppendUnique appends each non-empty value not already in list.
+func AppendUnique(list []string, vs ...string) []string {
 	for _, v := range vs {
 		if v != "" && !slices.Contains(list, v) {
 			list = append(list, v)
@@ -93,7 +95,7 @@ func appendUnique(list []string, vs ...string) []string {
 // the groupId (jetty-server and jetty-http are released together as org.eclipse.jetty), else the
 // package name. The map UI groups rows by it.
 func (m *Match) SourcePackage() string {
-	for _, setup := range []string{Candidate, Reference} {
+	for _, setup := range []string{gatefile.Candidate, gatefile.Reference} {
 		if d := m.Details[setup]; d != nil && len(d.Upstreams) > 0 {
 			return d.Upstreams[0]
 		}

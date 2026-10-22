@@ -36,6 +36,12 @@ const (
 	UndecidedPass = "pass"
 )
 
+// Setup names: a gate's two setups, as runs, matches and labels refer to them.
+const (
+	Candidate = "candidate"
+	Reference = "reference"
+)
+
 // Gate is one gate file, loaded, validated, and with every relative path resolved against the
 // file's directory.
 type Gate struct {
@@ -362,7 +368,7 @@ func setup(name string, top *yaml.Node, s *Setup, dir string, errs *problems) *S
 	switch {
 	case s.DB == "":
 		errs.addf("%s.db is required (latest, an archive path or URL, or dir:<path>); it has no default", name)
-	case strings.HasPrefix(s.DB, "https://"), strings.HasPrefix(s.DB, "http://"):
+	case IsURL(s.DB):
 		if _, sum, ok := strings.Cut(s.DB, "@sha256:"); ok && !hex64.MatchString(sum) {
 			errs.addf("%s.db names a checksum that is not @sha256:<64 hex>, got %q", name, s.DB)
 		}
@@ -896,4 +902,9 @@ func (g *Gate) portable(p string) string {
 		return filepath.ToSlash(rel)
 	}
 	return p
+}
+
+// IsURL says whether a setup's db is an http(s) URL rather than a path.
+func IsURL(s string) bool {
+	return strings.HasPrefix(s, "https://") || strings.HasPrefix(s, "http://")
 }

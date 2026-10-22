@@ -16,6 +16,7 @@ import (
 	claimsv1 "github.com/anchore/yardstick/cmd/yardstick/internal/claims/v1"
 	"github.com/anchore/yardstick/cmd/yardstick/internal/collect"
 	"github.com/anchore/yardstick/cmd/yardstick/internal/corpus"
+	"github.com/anchore/yardstick/cmd/yardstick/internal/gatefile"
 	"github.com/anchore/yardstick/cmd/yardstick/internal/pairing"
 	"github.com/anchore/yardstick/cmd/yardstick/internal/ref"
 	"github.com/anchore/yardstick/cmd/yardstick/internal/runrecord"
@@ -75,11 +76,7 @@ func Write(set *claims.Set, sub *runrecord.Subject, l claimsv1.Label, global boo
 // every subject's scans, as scoring builds them, so a link only another subject carries still
 // pairs the label here.
 func reportedBy(rec *runrecord.Record, dir string, sub *runrecord.Subject, l claimsv1.Label, vocab *claimsv1.Vocabulary) (string, error) {
-	isAdvisory := func(string) bool { return false }
-	if vocab != nil {
-		isAdvisory = vocab.IsAdvisory
-	}
-	aliases := pairing.NewAliases(isAdvisory)
+	aliases := pairing.NewAliases(vocab.IsAdvisory)
 	var scans map[string]*models.Document
 	for i := range rec.Subjects {
 		s := &rec.Subjects[i]
@@ -103,10 +100,10 @@ func reportedBy(rec *runrecord.Record, dir string, sub *runrecord.Subject, l cla
 	ls := []claims.Label{{Label: l}}
 	aliases.AddLabels(ls)
 	r := pairing.Pair(aliases, pairing.Subject{Name: sub.Name, Packages: sub.Packages, Filtered: len(sub.KeepTypes) > 0, Labels: ls, Scans: scans})
-	if len(r.Labels) == 1 && !r.Labels[0].PairedIn(pairing.Candidate) && r.Labels[0].PairedIn(pairing.Reference) {
-		return pairing.Reference, nil
+	if len(r.Labels) == 1 && !r.Labels[0].PairedIn(gatefile.Candidate) && r.Labels[0].PairedIn(gatefile.Reference) {
+		return gatefile.Reference, nil
 	}
-	return pairing.Candidate, nil
+	return gatefile.Candidate, nil
 }
 
 // Place puts a label in its subject's file for the package's type, its image.json when it names
@@ -126,23 +123,33 @@ func Place(sub *runrecord.Subject, l claimsv1.Label, global bool) (corpus.Placed
 		l.SeenIn = nil
 		return corpus.Placed{File: corpus.GlobalFile(t), Label: l}, nil
 	}
-	// the record keeps the subject's reference as written
-	r, err := ref.Parse(sub.Written)
+	s, err := SubjectOf(sub)
 	if err != nil {
 		return corpus.Placed{}, err
 	}
-	s := &claimsv1.Subject{Platform: sub.Platform}
+	file := sub.Dir + "/" + corpus.NoPackageFile
+	if t != "" {
+		file = corpus.TypeFile(sub.Dir, t)
+	}
+	return corpus.Placed{File: file, Subject: &s, Label: l}, nil
+}
+
+// SubjectOf is the label subject a run's subject is addressed by in the corpus: its image, else
+// its SBOM document's digest.
+func SubjectOf(sub *runrecord.Subject) (claimsv1.Subject, error) {
+	// the record keeps the subject's reference as written
+	r, err := ref.Parse(sub.Written)
+	if err != nil {
+		return claimsv1.Subject{}, err
+	}
+	s := claimsv1.Subject{Platform: sub.Platform}
 	if r.Kind == ref.Image {
 		s.Image = r.Image()
 	} else {
 		// a document is addressed by its own bytes, before any filter
 		s.SBOM = sub.UnfilteredDigest
 	}
-	file := sub.Dir + "/" + corpus.NoPackageFile
-	if t != "" {
-		file = corpus.TypeFile(sub.Dir, t)
-	}
-	return corpus.Placed{File: file, Subject: s, Label: l}, nil
+	return s, nil
 }
 
 // Accept writes the label accepting a proposal says, by the person accepting it: its verdict,

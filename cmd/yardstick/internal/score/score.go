@@ -91,11 +91,7 @@ func Pair(run string, g *gatefile.Gate, rec *runrecord.Record, set *claims.Set) 
 	if err := rec.Complete(); err != nil {
 		return nil, fmt.Errorf("%w; run %s", err, runrecord.Rerun(run, g.Path))
 	}
-	isAdvisory := func(string) bool { return false }
-	if v := set.Vocabulary(); v != nil {
-		isAdvisory = v.IsAdvisory
-	}
-	aliases := pairing.NewAliases(isAdvisory)
+	aliases := pairing.NewAliases(set.Vocabulary().IsAdvisory)
 	warnings := append([]string(nil), rec.Warnings...)
 
 	type read struct {
@@ -131,7 +127,7 @@ func Pair(run string, g *gatefile.Gate, rec *runrecord.Record, set *claims.Set) 
 		lookups[setup] = f
 	}
 	p := &Paired{Gate: g, Header: report.NewHeader(rec, set.Sources), Aliases: aliases}
-	for _, setup := range []string{pairing.Candidate, pairing.Reference} {
+	for _, setup := range []string{gatefile.Candidate, gatefile.Reference} {
 		if lookups[setup].Outdated() {
 			p.OutdatedLookups = fmt.Sprintf("the DB lookups were made by an older yardstick, so the computed reasons may miss what it now looks up; "+
 				"run %s to redo them (it reuses the stored scans)", runrecord.Rerun(run, g.Path))

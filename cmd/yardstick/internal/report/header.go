@@ -6,6 +6,7 @@ import (
 
 	"github.com/anchore/yardstick/cmd/yardstick/internal/claims"
 	"github.com/anchore/yardstick/cmd/yardstick/internal/execute"
+	"github.com/anchore/yardstick/cmd/yardstick/internal/gatefile"
 	"github.com/anchore/yardstick/cmd/yardstick/internal/runrecord"
 	"github.com/anchore/yardstick/cmd/yardstick/internal/setup"
 	"github.com/anchore/yardstick/cmd/yardstick/internal/subject"
@@ -74,8 +75,8 @@ func NewHeader(rec *runrecord.Record, sources []*claims.Source) Header {
 	for name, p := range rec.Setups {
 		h.Setups[name] = inputs(p)
 	}
-	cand, okC := h.Setups["candidate"]
-	ref, okR := h.Setups["reference"]
+	cand, okC := h.Setups[gatefile.Candidate]
+	ref, okR := h.Setups[gatefile.Reference]
 	switch {
 	case okC && !okR:
 		h.OneSetup = true

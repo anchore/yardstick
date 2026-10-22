@@ -292,7 +292,7 @@ func (e evaluator) verdict(m *pairing.Match, x extreme) claimsv1.Verdict {
 	if x == asLabeled {
 		return ""
 	}
-	cand, ref := m.In(pairing.Candidate), m.In(pairing.Reference)
+	cand, ref := m.In(gatefile.Candidate), m.In(gatefile.Reference)
 	switch {
 	case cand && !ref && x == worstCase, ref && !cand && x == bestCase:
 		return claimsv1.FP
@@ -315,12 +315,12 @@ func (e evaluator) units(r *pairing.Result, x extreme) []unit {
 	var out []unit
 	for _, b := range r.Labels {
 		if b.Verdict == claimsv1.TP {
-			out = append(out, unit{cand: b.PairedIn(pairing.Candidate), ref: b.PairedIn(pairing.Reference), matches: b.Matches})
+			out = append(out, unit{cand: b.PairedIn(gatefile.Candidate), ref: b.PairedIn(gatefile.Reference), matches: b.Matches})
 		}
 	}
 	for _, m := range r.Matches {
 		if (m.Unlabeled() || e.hyp[m] != "") && e.verdict(m, x) == claimsv1.TP && !pairedBy(m, claimsv1.TP) {
-			out = append(out, unit{cand: m.In(pairing.Candidate), ref: m.In(pairing.Reference), matches: []*pairing.Match{m}})
+			out = append(out, unit{cand: m.In(gatefile.Candidate), ref: m.In(gatefile.Reference), matches: []*pairing.Match{m}})
 		}
 	}
 	return out
@@ -383,7 +383,7 @@ func (e evaluator) stats(r *pairing.Result, setup string, x extreme) Stats {
 	}
 	for _, u := range e.units(r, x) {
 		s.Labels++
-		if (setup == pairing.Candidate && u.cand) || (setup == pairing.Reference && u.ref) {
+		if (setup == gatefile.Candidate && u.cand) || (setup == gatefile.Reference && u.ref) {
 			s.Satisfied++
 		}
 	}
@@ -406,7 +406,7 @@ func (e evaluator) hasLabels(r *pairing.Result) bool {
 }
 
 func delta(m *pairing.Match) bool {
-	return m.In(pairing.Candidate) != m.In(pairing.Reference)
+	return m.In(gatefile.Candidate) != m.In(gatefile.Reference)
 }
 
 func (e evaluator) subjectCheck(c gatefile.Check, s Subject) SubjectCheck {
@@ -420,7 +420,7 @@ func (e evaluator) subjectCheck(c gatefile.Check, s Subject) SubjectCheck {
 	for _, x := range []extreme{worstCase, bestCase} {
 		switch c.Name {
 		case F1NotWorse:
-			values[x] = e.stats(r, pairing.Reference, x).F1() - e.stats(r, pairing.Candidate, x).F1()
+			values[x] = e.stats(r, gatefile.Reference, x).F1() - e.stats(r, gatefile.Candidate, x).F1()
 		case NoNewFalseNegatives:
 			values[x] = float64(len(e.newFalseNegatives(r, x)))
 		case NoNewFalsePositives:
@@ -430,13 +430,13 @@ func (e evaluator) subjectCheck(c gatefile.Check, s Subject) SubjectCheck {
 		case UnlabeledChangesAtMost:
 			values[x] = float64(len(e.unlabeledDeltas(r)))
 		case UnlabeledPercentAtMost:
-			if n := e.matchesIn(r, pairing.Candidate); n > 0 {
-				values[x] = 100 * float64(e.unlabeledIn(r, pairing.Candidate)) / float64(n)
+			if n := e.matchesIn(r, gatefile.Candidate); n > 0 {
+				values[x] = 100 * float64(e.unlabeledIn(r, gatefile.Candidate)) / float64(n)
 			}
 		case MatchesAtLeast:
 			// both setups' matches, as python yardstick's fail_on_empty_match_set summed them: only a
 			// subject where both are empty fails min 1. Labels do not move a count, so both cases agree
-			values[x] = float64(e.matchesIn(r, pairing.Candidate) + e.matchesIn(r, pairing.Reference))
+			values[x] = float64(e.matchesIn(r, gatefile.Candidate) + e.matchesIn(r, gatefile.Reference))
 		}
 	}
 	sc.Value = Value{Worst: values[worstCase], Best: values[bestCase]}
@@ -471,7 +471,7 @@ func (e evaluator) newFalseNegatives(r *pairing.Result, x extreme) []unit {
 func (e evaluator) newFalsePositives(r *pairing.Result, x extreme) []*pairing.Match {
 	var out []*pairing.Match
 	for _, m := range r.Matches {
-		if m.In(pairing.Candidate) && !m.In(pairing.Reference) && e.verdict(m, x) == claimsv1.FP {
+		if m.In(gatefile.Candidate) && !m.In(gatefile.Reference) && e.verdict(m, x) == claimsv1.FP {
 			out = append(out, m)
 		}
 	}
@@ -533,14 +533,14 @@ func (e evaluator) rows(c gatefile.Check, r *pairing.Result) (failsOn, rows []st
 		// only the labeled changes that lower the candidate's F1: an fp it added, a tp it dropped
 		for _, m := range r.Matches {
 			v := e.verdict(m, bestCase)
-			if !e.unlabeled(m) && (m.In(pairing.Candidate) && !m.In(pairing.Reference) && v == claimsv1.FP ||
-				m.In(pairing.Reference) && !m.In(pairing.Candidate) && v == claimsv1.TP) {
+			if !e.unlabeled(m) && (m.In(gatefile.Candidate) && !m.In(gatefile.Reference) && v == claimsv1.FP ||
+				m.In(gatefile.Reference) && !m.In(gatefile.Candidate) && v == claimsv1.TP) {
 				behind = append(behind, m)
 			}
 		}
 	}
 	for _, m := range behind {
-		if c.Name != NoNewFalseNegatives || m.In(pairing.Reference) {
+		if c.Name != NoNewFalseNegatives || m.In(gatefile.Reference) {
 			failsOn = append(failsOn, MatchID(m))
 		}
 	}
@@ -549,7 +549,7 @@ func (e evaluator) rows(c gatefile.Check, r *pairing.Result) (failsOn, rows []st
 
 // counts says whether a check counts an unlabeled match: its label can move the check's value.
 func counts(check string, m *pairing.Match) bool {
-	cand, ref := m.In(pairing.Candidate), m.In(pairing.Reference)
+	cand, ref := m.In(gatefile.Candidate), m.In(gatefile.Reference)
 	switch check {
 	case F1NotWorse, UnlabeledChangesAtMost:
 		return cand != ref
@@ -586,13 +586,13 @@ func (e evaluator) expectations(x extreme) []Expectation {
 	for _, s := range e.subjects {
 		for _, b := range s.Result.Labels {
 			if b.Verdict == claimsv1.TP || b.Verdict == claimsv1.FP {
-				out = append(out, expectation(s.Name, b.Package, b.Vulnerability, b.Verdict, b.PairedIn(pairing.Candidate), b.PairedIn(pairing.Reference)))
+				out = append(out, expectation(s.Name, b.Package, b.Vulnerability, b.Verdict, b.PairedIn(gatefile.Candidate), b.PairedIn(gatefile.Reference)))
 			}
 		}
 		for _, m := range s.Result.Matches {
 			v := e.verdict(m, x)
 			if (m.Unlabeled() || e.hyp[m] != "") && (v == claimsv1.TP || v == claimsv1.FP) && !pairedBy(m, v) {
-				out = append(out, expectation(s.Name, m.Package.PURL, m.Vulnerability, v, m.In(pairing.Candidate), m.In(pairing.Reference)))
+				out = append(out, expectation(s.Name, m.Package.PURL, m.Vulnerability, v, m.In(gatefile.Candidate), m.In(gatefile.Reference)))
 			}
 		}
 	}
@@ -601,7 +601,7 @@ func (e evaluator) expectations(x extreme) []Expectation {
 
 func expectation(subject, pkg, vuln string, v claimsv1.Verdict, inCandidate, inReference bool) Expectation {
 	return Expectation{Subject: subject, Package: pkg, Vulnerability: vuln, Verdict: v,
-		Met: map[string]bool{pairing.Candidate: inCandidate == (v == claimsv1.TP), pairing.Reference: inReference == (v == claimsv1.TP)}}
+		Met: map[string]bool{gatefile.Candidate: inCandidate == (v == claimsv1.TP), gatefile.Reference: inReference == (v == claimsv1.TP)}}
 }
 
 // gateCheck evaluates a per-gate check over the expectations in the worst and the best case, so it
@@ -615,13 +615,13 @@ func (e evaluator) gateCheck(c gatefile.Check, res Check) Check {
 	}
 	met := func(xs []Expectation) (n int) {
 		for _, x := range xs {
-			if x.Met[pairing.Candidate] {
+			if x.Met[gatefile.Candidate] {
 				n++
 			}
 		}
 		return n
 	}
-	lost := func(x Expectation) bool { return x.Met[pairing.Reference] && !x.Met[pairing.Candidate] }
+	lost := func(x Expectation) bool { return x.Met[gatefile.Reference] && !x.Met[gatefile.Candidate] }
 	switch c.Name {
 	case ExpectationsMetAtLeast:
 		// every unlabeled delta is one expectation in either case, so both cases count the same total
@@ -635,7 +635,7 @@ func (e evaluator) gateCheck(c gatefile.Check, res Check) Check {
 		res.Message = fmt.Sprintf("met %s of %d", count(res.Value), len(worst))
 		res.State = decideAtLeast(res.Value, required)
 		for _, x := range labeled {
-			if !x.Met[pairing.Candidate] {
+			if !x.Met[gatefile.Candidate] {
 				res.Unmet = append(res.Unmet, x)
 			}
 		}

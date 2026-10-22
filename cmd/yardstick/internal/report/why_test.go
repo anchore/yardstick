@@ -53,50 +53,50 @@ func TestWhy(t *testing.T) {
 		{
 			name:    "rejected comes first",
 			detail:  found("not-fixed"),
-			lookups: map[string]*lookup.File{pairing.Candidate: status("rejected"), pairing.Reference: status(lookup.NotInDB)},
+			lookups: map[string]*lookup.File{gatefile.Candidate: status("rejected"), gatefile.Reference: status(lookup.NotInDB)},
 			want:    &Why{Key: WhyRejectedInCandidate, Secondary: []Reason{{Key: WhyAbsentInReference, To: ns}}},
 		},
 		{
 			name:    "a new record",
 			detail:  found("not-fixed"),
-			lookups: map[string]*lookup.File{pairing.Reference: status(lookup.NotInDB)},
+			lookups: map[string]*lookup.File{gatefile.Reference: status(lookup.NotInDB)},
 			want:    &Why{Key: WhyAbsentInReference, To: ns},
 		},
 		{
 			name:      "gone from the candidate DB",
 			reference: true,
 			detail:    found("not-fixed"),
-			lookups:   map[string]*lookup.File{pairing.Candidate: status(lookup.NotInDB)},
+			lookups:   map[string]*lookup.File{gatefile.Candidate: status(lookup.NotInDB)},
 			want:      &Why{Key: WhyAbsentInCandidate, From: ns},
 		},
 		{
 			name:    "no record for this release",
 			detail:  found("wont-fix"),
-			lookups: map[string]*lookup.File{pairing.Reference: searched(rec("ubuntu:distro:ubuntu:19.04", "not-fixed"))},
+			lookups: map[string]*lookup.File{gatefile.Reference: searched(rec("ubuntu:distro:ubuntu:19.04", "not-fixed"))},
 			want:    &Why{Key: WhyPackageAbsentInRef, To: ns},
 		},
 		{
 			name:    "moved between providers",
 			detail:  found("not-fixed"),
-			lookups: map[string]*lookup.File{pairing.Reference: searched(rec("echo:distro:ubuntu:20.04", "not-fixed"))},
+			lookups: map[string]*lookup.File{gatefile.Reference: searched(rec("echo:distro:ubuntu:20.04", "not-fixed"))},
 			want:    &Why{Key: WhyNamespaceChanged, From: "echo:distro:ubuntu:20.04", To: ns},
 		},
 		{
 			name:    "fix state changed, and the constraint with it",
 			detail:  found("wont-fix", "none (unknown)"),
-			lookups: map[string]*lookup.File{pairing.Reference: searched(rec(ns, "fixed", "< 2.31-0ubuntu9.9"))},
+			lookups: map[string]*lookup.File{gatefile.Reference: searched(rec(ns, "fixed", "< 2.31-0ubuntu9.9"))},
 			want:    &Why{Key: WhyFixStateChanged, From: "fixed", To: "wont-fix", Secondary: []Reason{{Key: WhyConstraintChanged, From: "< 2.31-0ubuntu9.9"}}},
 		},
 		{
 			name:    "constraint changed",
 			detail:  found("fixed", "< 2.31-0ubuntu9.9 (deb)"),
-			lookups: map[string]*lookup.File{pairing.Reference: searched(rec(ns, "fixed", "< 2.31-0ubuntu9.7"))},
+			lookups: map[string]*lookup.File{gatefile.Reference: searched(rec(ns, "fixed", "< 2.31-0ubuntu9.7"))},
 			want:    &Why{Key: WhyConstraintChanged, From: "< 2.31-0ubuntu9.7", To: "< 2.31-0ubuntu9.9"},
 		},
 		{
 			name:    "same record, but the other grype didn't match",
 			detail:  found("not-fixed", "none (unknown)"),
-			lookups: map[string]*lookup.File{pairing.Reference: searched(rec(ns, "not-fixed"))},
+			lookups: map[string]*lookup.File{gatefile.Reference: searched(rec(ns, "not-fixed"))},
 			want:    &Why{Key: WhySameButUnmatched},
 		},
 		{
@@ -108,7 +108,7 @@ func TestWhy(t *testing.T) {
 			name: "grype's joined ranges are the record's ranges, and no fix state is none",
 			detail: &pairing.Detail{Namespace: "nvd:cpe", Constraints: []string{"< 7.6.5||>= 8.0.0, < 8.6.6 (unknown)"}, MatchTypes: []string{"cpe-match"},
 				CPEs: []string{"cpe:2.3:a:x:y:1:*:*:*:*:*:*:*"}},
-			lookups: map[string]*lookup.File{pairing.Reference: searched(lookup.Affected{Vulnerability: "CVE-1", Namespace: "nvd:cpe", CPE: "cpe:2.3:a:x:y:*:*:*:*:*:*:*:*",
+			lookups: map[string]*lookup.File{gatefile.Reference: searched(lookup.Affected{Vulnerability: "CVE-1", Namespace: "nvd:cpe", CPE: "cpe:2.3:a:x:y:*:*:*:*:*:*:*:*",
 				Constraints: []string{">= 8.0.0, < 8.6.6", "< 7.6.5"}})},
 			want: &Why{Key: WhySameButUnmatched, Secondary: []Reason{{Key: WhyCPEOnly}}},
 		},
@@ -120,14 +120,14 @@ func TestWhy(t *testing.T) {
 		{
 			name:    "the same CPE record, not matched by the other side",
 			detail:  cpeMatch("< 2023-03-20t20-16-18z (unknown)"),
-			lookups: map[string]*lookup.File{pairing.Reference: searched(cpeRec("< 2023-03-20t20-16-18z"))},
+			lookups: map[string]*lookup.File{gatefile.Reference: searched(cpeRec("< 2023-03-20t20-16-18z"))},
 			want:    &Why{Key: WhySameButUnmatched, Secondary: []Reason{{Key: WhyCPEOnly}}},
 		},
 		{
 			name:      "the other DB's distro says the package is not affected: fixed in 0",
 			reference: true,
 			detail:    glibcCPE,
-			lookups:   map[string]*lookup.File{pairing.Candidate: searched(glibcCPERec, nak)},
+			lookups:   map[string]*lookup.File{gatefile.Candidate: searched(glibcCPERec, nak)},
 			purl:      secureosPURL,
 			want: &Why{Key: WhyDistroNotAffected, To: "secureos:distro:secureos:rolling",
 				Secondary: []Reason{{Key: WhySameButUnmatched}, {Key: WhyCPEOnly}}},
@@ -136,7 +136,7 @@ func TestWhy(t *testing.T) {
 			name:      "a distro record that is not a NAK explains nothing",
 			reference: true,
 			detail:    glibcCPE,
-			lookups: map[string]*lookup.File{pairing.Candidate: searched(glibcCPERec, lookup.Affected{Vulnerability: "CVE-1", Namespace: "secureos:distro:secureos:rolling", Package: "glibc",
+			lookups: map[string]*lookup.File{gatefile.Candidate: searched(glibcCPERec, lookup.Affected{Vulnerability: "CVE-1", Namespace: "secureos:distro:secureos:rolling", Package: "glibc",
 				Constraints: []string{"< 2.42-r5"}, FixStates: []string{"fixed"}, FixVersions: []string{"2.42-r5"}})},
 			purl: secureosPURL,
 			want: &Why{Key: WhySameButUnmatched, Secondary: []Reason{{Key: WhyCPEOnly}}},
@@ -145,22 +145,22 @@ func TestWhy(t *testing.T) {
 			name:      "a NAK in another distro explains nothing",
 			reference: true,
 			detail:    glibcCPE,
-			lookups:   map[string]*lookup.File{pairing.Candidate: searched(glibcCPERec, nak)},
+			lookups:   map[string]*lookup.File{gatefile.Candidate: searched(glibcCPERec, nak)},
 			purl:      "pkg:apk/wolfi/glibc@2.42-r4?distro=wolfi-20230201",
 			want:      &Why{Key: WhySameButUnmatched, Secondary: []Reason{{Key: WhyCPEOnly}}},
 		},
 		{
 			name:    "the CPE record's range changed",
 			detail:  cpeMatch("< 2023-03-20t20-16-18z (unknown)"),
-			lookups: map[string]*lookup.File{pairing.Reference: searched(cpeRec("< 2022-01-01"))},
+			lookups: map[string]*lookup.File{gatefile.Reference: searched(cpeRec("< 2022-01-01"))},
 			want:    &Why{Key: WhyConstraintChanged, From: "< 2022-01-01", To: "< 2023-03-20t20-16-18z", Secondary: []Reason{{Key: WhyCPEOnly}}},
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			setup := pairing.Candidate
+			setup := gatefile.Candidate
 			if tt.reference {
-				setup = pairing.Reference
+				setup = gatefile.Reference
 			}
 			m := &pairing.Match{Identity: pairing.Identity{PackageID: "p", Group: "CVE-1"}, Vulnerability: "CVE-1", Package: pairing.Package{Name: "glibc", PURL: tt.purl},
 				Rows: map[string][]int{setup: {0}}, Details: map[string]*pairing.Detail{setup: tt.detail}}
@@ -219,7 +219,7 @@ func TestRowsCarryDetailAndWhy(t *testing.T) {
 	a.AddScan(cand)
 	a.AddScan(ref)
 	r := pairing.Pair(a, pairing.Subject{Name: "rpm", Packages: packagesOf(t, "rpm"),
-		Scans: map[string]*models.Document{pairing.Candidate: cand, pairing.Reference: ref}})
+		Scans: map[string]*models.Document{gatefile.Candidate: cand, gatefile.Reference: ref}})
 	g := &gatefile.Gate{Name: "rpm", Path: "gates/rpm.yaml", Undecided: gatefile.UndecidedFail, Reference: &gatefile.Setup{}}
 	v := Build(g, header(), analysis.Evaluate(nil, nil), []SubjectInput{{Name: "rpm", Result: r}}, nil)
 	rows, oneSided, cpeOnly := map[string]bool{}, 0, 0

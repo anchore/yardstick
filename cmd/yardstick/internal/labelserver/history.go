@@ -1,7 +1,6 @@
 package labelserver
 
 import (
-	"io/fs"
 	"net/http"
 	"path"
 	"slices"
@@ -107,21 +106,7 @@ func (s *Server) historyRows() ([]*claims.Source, map[string][]GateRow, error) {
 // historyLabels are every label in a source's label files.
 func historyLabels(src *claims.Source, rows map[string][]GateRow) ([]HistoryLabel, error) {
 	var out []HistoryLabel
-	err := fs.WalkDir(src.FS, ".", func(p string, d fs.DirEntry, err error) error {
-		if err != nil || d.IsDir() {
-			return err
-		}
-		if loc, ok := corpus.Locate(p); !ok || !loc.IsLabelFile() {
-			return nil
-		}
-		data, err := fs.ReadFile(src.FS, p)
-		if err != nil {
-			return err
-		}
-		f, err := claimsv1.Parse(p, data)
-		if err != nil {
-			return err
-		}
+	err := corpus.WalkLabelFiles(src.FS, func(p string, _ corpus.Location, f *claimsv1.File) error {
 		for _, l := range f.Labels {
 			hl := HistoryLabel{Label: l, Source: src.Locator, File: p, Rows: rows[src.Locator+"|"+p+"|"+l.Key().String()]}
 			fields, _ := purl.Label(l.Package)

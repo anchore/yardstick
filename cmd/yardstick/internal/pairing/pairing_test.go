@@ -121,7 +121,7 @@ func pairScans(t *testing.T, sbom string, candidate, reference *models.Document,
 	a.AddScan(reference)
 	a.AddLabels(ls)
 	return Pair(a, Subject{Name: "s", Packages: packagesOf(t, sbom), Labels: ls,
-		Scans: map[string]*models.Document{Candidate: candidate, Reference: reference}})
+		Scans: map[string]*models.Document{gatefile.Candidate: candidate, gatefile.Reference: reference}})
 }
 
 func find(t *testing.T, r *Result, vuln, pkg string) *Match {
@@ -158,7 +158,7 @@ func TestAliasGroups(t *testing.T) {
 		}
 		r := pair(t, "java", candidate, label(log4j, "CVE-2021-44228", claimsv1.TP))
 		b := bound(t, r, "CVE-2021-44228")
-		if !b.PairedIn(Candidate) || !b.PairedIn(Reference) || len(b.Matches) != 2 {
+		if !b.PairedIn(gatefile.Candidate) || !b.PairedIn(gatefile.Reference) || len(b.Matches) != 2 {
 			t.Errorf("expected the label to pair GHSA-jfh8-c2jp-5v3q in both setups, paired %d matches", len(b.Matches))
 		}
 		if g := r.aliases.Group("GHSA-jfh8-c2jp-5v3q"); g != r.aliases.Group("CVE-2021-44228") {
@@ -299,7 +299,7 @@ func TestAdvisoryLabels(t *testing.T) {
 	t.Run("pairs only its own advisory", func(t *testing.T) {
 		r := pairScans(t, sbom, ol(), ol(), label(expat, "ELSA-2022-9359", claimsv1.FP))
 		b := bound(t, r, "ELSA-2022-9359")
-		if len(b.Matches) != 1 || b.Matches[0].Vulnerability != "ELSA-2022-9359" || !b.PairedIn(Candidate) || !b.PairedIn(Reference) {
+		if len(b.Matches) != 1 || b.Matches[0].Vulnerability != "ELSA-2022-9359" || !b.PairedIn(gatefile.Candidate) || !b.PairedIn(gatefile.Reference) {
 			t.Fatalf("expected the label to pair ELSA-2022-9359 on expat in both setups, paired %d", len(b.Matches))
 		}
 		if m := find(t, r, "ELSA-2022-9359", "expat"); m.Verdict != claimsv1.FP {
@@ -326,7 +326,7 @@ func TestAdvisoryLabels(t *testing.T) {
 		if len(cve.Paired) != 1 || cve.Label.Vulnerability != "CVE-2022-25235" || cve.Verdict != claimsv1.TP {
 			t.Errorf("expected only the CVE label on the CVE-keyed match, paired %d", len(cve.Paired))
 		}
-		if b := bound(t, r, "ELSA-2022-9359"); b.PairedIn(Candidate) || !b.PairedIn(Reference) {
+		if b := bound(t, r, "ELSA-2022-9359"); b.PairedIn(gatefile.Candidate) || !b.PairedIn(gatefile.Reference) {
 			t.Errorf("expected the advisory label to pair only the reference's advisory-keyed match")
 		}
 	})
@@ -363,7 +363,7 @@ func TestMatchIdentity(t *testing.T) {
 		}
 		r := pair(t, "java", candidate)
 		for _, m := range r.Matches {
-			if !m.In(Candidate) || !m.In(Reference) {
+			if !m.In(gatefile.Candidate) || !m.In(gatefile.Reference) {
 				t.Errorf("%s on %s is in one setup only", m.Vulnerability, m.PackageID)
 			}
 		}
@@ -376,7 +376,7 @@ func TestMatchIdentity(t *testing.T) {
 		}
 		r := pair(t, "deb", candidate)
 		for _, m := range r.Matches {
-			if !m.In(Candidate) || !m.In(Reference) {
+			if !m.In(gatefile.Candidate) || !m.In(gatefile.Reference) {
 				t.Errorf("%s on %s is in one setup only", m.Vulnerability, m.PackageID)
 			}
 		}
@@ -395,7 +395,7 @@ func TestFilteredSubjectBindsItsPackages(t *testing.T) {
 	a.AddScan(ol)
 	a.AddLabels(ls)
 	r := Pair(a, Subject{Name: "python-only", Packages: packagesOf(t, sbom, "python"), Filtered: true, Labels: ls,
-		Scans: map[string]*models.Document{Candidate: ol}})
+		Scans: map[string]*models.Document{gatefile.Candidate: ol}})
 	if len(r.Labels) != 1 || r.Labels[0].Vulnerability != "CVE-2018-1000807" {
 		t.Errorf("expected only the python label bound, got %d", len(r.Labels))
 	}
@@ -444,7 +444,7 @@ func TestVulnerabilitiesFilter(t *testing.T) {
 		a.AddScan(reference)
 		a.AddLabels(ls)
 		return Pair(a, Subject{Name: "s", Packages: packagesOf(t, sbomPath(t, "java")), Labels: ls,
-			Scans: map[string]*models.Document{Candidate: candidate, Reference: reference}, Vulnerabilities: f})
+			Scans: map[string]*models.Document{gatefile.Candidate: candidate, gatefile.Reference: reference}, Vulnerabilities: f})
 	}
 	vulns := func(r *Result) []string {
 		var out []string
@@ -476,11 +476,11 @@ func TestVulnerabilitiesFilter(t *testing.T) {
 		candidate.Matches[0].Vulnerability.Namespace = "nvd:cpe"
 		candidate.Matches[1].Vulnerability.Namespace = "nvd:cpe"
 		r := filtered(&gatefile.Vulnerabilities{Namespaces: []string{"github:language:java"}}, candidate, label(log4j, "GHSA-jfh8-c2jp-5v3q", claimsv1.TP))
-		if b := bound(t, r, "GHSA-jfh8-c2jp-5v3q"); b.PairedIn(Candidate) || !b.PairedIn(Reference) {
+		if b := bound(t, r, "GHSA-jfh8-c2jp-5v3q"); b.PairedIn(gatefile.Candidate) || !b.PairedIn(gatefile.Reference) {
 			t.Errorf("expected the label to pair only the reference's matches")
 		}
-		if m := find(t, r, "GHSA-7rjr-3q55-vv33", "log4j-core"); m.Rows[Candidate][0] < 2 {
-			t.Errorf("expected the candidate's row index into its scan, got %v", m.Rows[Candidate])
+		if m := find(t, r, "GHSA-7rjr-3q55-vv33", "log4j-core"); m.Rows[gatefile.Candidate][0] < 2 {
+			t.Errorf("expected the candidate's row index into its scan, got %v", m.Rows[gatefile.Candidate])
 		}
 		if r := filtered(&gatefile.Vulnerabilities{Namespaces: []string{"nvd:cpe"}}, java()); len(r.Matches) != 0 {
 			t.Errorf("expected no matches outside the namespace, got %d", len(r.Matches))

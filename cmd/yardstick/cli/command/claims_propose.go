@@ -19,7 +19,6 @@ import (
 	claimsv1 "github.com/anchore/yardstick/cmd/yardstick/internal/claims/v1"
 	"github.com/anchore/yardstick/cmd/yardstick/internal/gatefile"
 	"github.com/anchore/yardstick/cmd/yardstick/internal/labelwrite"
-	"github.com/anchore/yardstick/cmd/yardstick/internal/pairing"
 	"github.com/anchore/yardstick/cmd/yardstick/internal/runrecord"
 	"github.com/anchore/yardstick/cmd/yardstick/internal/score"
 )
@@ -147,15 +146,6 @@ func policy(problems []string) error {
 		return errors.New(strings.Join(problems, "; "))
 	}
 	return nil
-}
-
-// subjectOf is the label subject a run's subject is addressed by in the corpus.
-func subjectOf(sub *runrecord.Subject) (claimsv1.Subject, error) {
-	placed, err := labelwrite.Place(sub, claimsv1.Label{}, false)
-	if err != nil {
-		return claimsv1.Subject{}, err
-	}
-	return *placed.Subject, nil
 }
 
 func describeSubject(s claimsv1.Subject) string {
@@ -316,7 +306,7 @@ func (s *scanned) proposal(in proposalInput, now time.Time) (agentstore.Proposal
 		}
 		p.Package, p.Vulnerability = m.Package, m.Vulnerability
 		if p.Subject == (claimsv1.Subject{}) {
-			if p.Subject, err = subjectOf(r.Subject); err != nil {
+			if p.Subject, err = labelwrite.SubjectOf(r.Subject); err != nil {
 				return p, err
 			}
 		}
@@ -415,7 +405,7 @@ func (s *scanned) cause(in causeInput, now time.Time) (agentstore.Cause, error) 
 		if src != c.SourcePackage {
 			return c, fmt.Errorf("row %s is in %s, not %s", m.Row, src, c.SourcePackage)
 		}
-		if inCand := r.Match.In(pairing.Candidate); c.Direction == "" && inCand != r.Match.In(pairing.Reference) {
+		if inCand := r.Match.In(gatefile.Candidate); c.Direction == "" && inCand != r.Match.In(gatefile.Reference) {
 			c.Direction = map[bool]string{true: "added", false: "dropped"}[inCand]
 		}
 		if !slices.Contains(subjects, r.Subject) {
@@ -425,7 +415,7 @@ func (s *scanned) cause(in causeInput, now time.Time) (agentstore.Cause, error) 
 	}
 	// a cause names its subject only when every row is in one
 	if c.Subject == nil && len(subjects) == 1 {
-		sub, err := subjectOf(subjects[0])
+		sub, err := labelwrite.SubjectOf(subjects[0])
 		if err != nil {
 			return c, err
 		}

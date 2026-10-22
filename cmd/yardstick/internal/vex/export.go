@@ -34,22 +34,7 @@ func Export(fsys fs.FS, author string) ([]byte, error) {
 	defer log.Timed("exporting the corpus to OpenVEX")()
 	var statements []vex.Statement
 	newest := time.Time{}
-	err := fs.WalkDir(fsys, ".", func(p string, d fs.DirEntry, err error) error {
-		if err != nil || d.IsDir() {
-			return err
-		}
-		loc, ok := corpus.Locate(p)
-		if !ok || !loc.IsLabelFile() {
-			return nil
-		}
-		data, err := fs.ReadFile(fsys, p)
-		if err != nil {
-			return err
-		}
-		f, err := claimsv1.Parse(p, data)
-		if err != nil {
-			return err
-		}
+	err := corpus.WalkLabelFiles(fsys, func(p string, loc corpus.Location, f *claimsv1.File) error {
 		for _, l := range f.Labels {
 			st, err := statement(loc, f.Subject, l)
 			if err != nil {

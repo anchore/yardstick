@@ -28,12 +28,6 @@ import (
 	"github.com/anchore/yardstick/cmd/yardstick/internal/subject"
 )
 
-// Setup names, in the order a gate scans them.
-const (
-	Candidate = "candidate"
-	Reference = "reference"
-)
-
 // Scan runs a prepared setup's grype over one SBOM and checks that its output decodes, returning
 // the output, its log with credentials redacted, and how many matches it holds. grype logs at
 // trace unless the setup declares GRYPE_LOG_LEVEL: trace says why grype dropped each record it
@@ -154,14 +148,14 @@ func (m Scans) Gate(ctx context.Context, g *gatefile.Gate, set *claims.Set) (*ru
 		}
 		sort.Strings(rec.InheritedEnv)
 	}
-	setups := []string{Candidate}
+	setups := []string{gatefile.Candidate}
 	if g.Reference != nil {
-		setups = append(setups, Reference)
+		setups = append(setups, gatefile.Reference)
 	}
 	bus.GateStarted(g)
 	for _, name := range setups {
 		s := g.Candidate
-		if name == Reference {
+		if name == gatefile.Reference {
 			s = g.Reference
 		}
 		p, err := m.Preparer.Prepare(ctx, name, s)
@@ -195,11 +189,7 @@ func (m Scans) Gate(ctx context.Context, g *gatefile.Gate, set *claims.Set) (*ru
 		return nil, err
 	}
 	if g.Reference != nil {
-		isAdvisory := func(string) bool { return false }
-		if v := set.Vocabulary(); v != nil {
-			isAdvisory = v.IsAdvisory
-		}
-		if err := m.lookups(ctx, partial, rec, isAdvisory); err != nil {
+		if err := m.lookups(ctx, partial, rec, set.Vocabulary().IsAdvisory); err != nil {
 			partial.Discard()
 			return nil, err
 		}

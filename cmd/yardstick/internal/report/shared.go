@@ -15,6 +15,7 @@ import (
 	"unicode/utf8"
 
 	"github.com/anchore/yardstick/cmd/yardstick/internal/analysis"
+	"github.com/anchore/yardstick/cmd/yardstick/internal/gatefile"
 	"github.com/anchore/yardstick/cmd/yardstick/internal/ref"
 )
 
@@ -47,7 +48,7 @@ func num(v float64) string {
 func writeHeader(w io.Writer, g Gate, st styles) {
 	fmt.Fprintln(w, "gate "+st.id(g.Name)+st.dim(fmt.Sprintf(" (%s), scanned %s", g.Path, g.Header.Scanned)))
 	h := g.Header
-	for _, name := range []string{"candidate", "reference"} {
+	for _, name := range []string{gatefile.Candidate, gatefile.Reference} {
 		if in, ok := h.Setups[name]; ok {
 			fmt.Fprintln(w, st.dim(fmt.Sprintf("  %s: %s, DB %s, config %s, env %s", name, in.Grype, in.DB, in.Config, in.Env)))
 		}
@@ -279,7 +280,7 @@ func writeRunHeader(w io.Writer, g Gate, st styles) {
 		}
 	}
 	plain := func(s string) string { return s }
-	cand := h.Setups["candidate"]
+	cand := h.Setups[gatefile.Candidate]
 	switch {
 	case h.OneSetup:
 		lines("setup", plain, "one setup scanned, so nothing is compared: "+fmt.Sprintf("grype %s, DB %s, config %s, env %s",

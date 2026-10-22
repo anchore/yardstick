@@ -10,6 +10,7 @@ import (
 
 	"github.com/anchore/yardstick/cmd/yardstick/internal/analysis"
 	claimsv1 "github.com/anchore/yardstick/cmd/yardstick/internal/claims/v1"
+	"github.com/anchore/yardstick/cmd/yardstick/internal/gatefile"
 )
 
 // bySubject is the subject-first layout: each gate's outcome and a line per check, then each
@@ -214,7 +215,7 @@ func subjectBlock(w io.Writer, g Gate, sub *Subject, o Options, st styles) {
 // subjectCounts is a subject's F1 and counts, reference -> candidate, e.g. "F1 0.79 -> 0.72   tp
 // 17 -> 14   fp 9 -> 9   unlabeled 785 -> 715". What changed is bold.
 func subjectCounts(g Gate, sub *Subject, st styles) string {
-	c, r := sub.Counts["candidate"], sub.Counts["reference"]
+	c, r := sub.Counts[gatefile.Candidate], sub.Counts[gatefile.Reference]
 	pair := func(name, ref, cand string) string {
 		if g.Header.OneSetup {
 			return name + " " + cand
@@ -253,7 +254,7 @@ func subjectQuiet(w io.Writer, g Gate, quiet []*Subject, o Options, st styles) {
 		return
 	}
 	for _, sub := range quiet {
-		c, r := sub.Counts["candidate"], sub.Counts["reference"]
+		c, r := sub.Counts[gatefile.Candidate], sub.Counts[gatefile.Reference]
 		f1 := fmt.Sprintf("F1 %.2f -> %.2f", r.F1, c.F1)
 		if g.Header.OneSetup {
 			f1 = fmt.Sprintf("F1 %.2f", c.F1)

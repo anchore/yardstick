@@ -12,6 +12,7 @@ import (
 	"github.com/anchore/yardstick/cmd/yardstick/internal/analysis"
 	claimsv1 "github.com/anchore/yardstick/cmd/yardstick/internal/claims/v1"
 	"github.com/anchore/yardstick/cmd/yardstick/internal/corpus"
+	"github.com/anchore/yardstick/cmd/yardstick/internal/gatefile"
 	"github.com/anchore/yardstick/cmd/yardstick/internal/labelwrite"
 	"github.com/anchore/yardstick/cmd/yardstick/internal/log"
 	"github.com/anchore/yardstick/cmd/yardstick/internal/pairing"
@@ -43,9 +44,9 @@ type pending struct {
 // add places a label about a row, with seenIn from the setup that reported it.
 func (p *pending) add(e *entry, r *rowRef, l claimsv1.Label, glob bool) error {
 	sub := &e.rec.Subjects[r.si]
-	setup := pairing.Candidate
+	setup := gatefile.Candidate
 	if !r.match.InCandidate && r.match.InReference {
-		setup = pairing.Reference
+		setup = gatefile.Reference
 	}
 	l.SeenIn = labelwrite.SeenInFor(e.rec, sub, setup)
 	placed, err := labelwrite.Place(sub, l, glob)
@@ -187,13 +188,13 @@ func (s *Server) overrides(e *entry, v *view, r *rowRef, l claimsv1.Label, reaso
 			against = append(against, cv.ID)
 		}
 	}
-	subj, err := labelwrite.Place(&e.rec.Subjects[r.si], claimsv1.Label{}, false)
-	if err != nil || subj.Subject == nil {
+	subj, err := labelwrite.SubjectOf(&e.rec.Subjects[r.si])
+	if err != nil {
 		return nil // the label's own placement refuses the row before this matters
 	}
 	var out []agentstore.Override
 	for _, p := range against {
-		out = append(out, agentstore.Override{Schema: agentstore.Schema, Proposal: p, Gate: e.name, Subject: *subj.Subject, Package: l.Package,
+		out = append(out, agentstore.Override{Schema: agentstore.Schema, Proposal: p, Gate: e.name, Subject: subj, Package: l.Package,
 			Vulnerability: l.Vulnerability, Verdict: l.Verdict, Justification: l.Justification, Reason: reason, Note: strings.Join(l.NoteTexts(), "\n"), Author: s.opts.Author, Timestamp: now})
 	}
 	return out

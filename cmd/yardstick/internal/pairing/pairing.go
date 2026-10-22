@@ -22,12 +22,6 @@ import (
 	"github.com/anchore/yardstick/cmd/yardstick/internal/subject"
 )
 
-// Setups, as matches and labels are paired in them.
-const (
-	Candidate = "candidate"
-	Reference = "reference"
-)
-
 // Package is a package of the subject's scanned SBOM.
 type Package = subject.Package
 
@@ -227,7 +221,7 @@ func (r *Result) present(f purl.Fields) bool {
 // matches merges both setups' grype matches into matches by identity.
 func (r *Result) matches(s Subject) {
 	byID := map[Identity]*Match{}
-	for _, setup := range []string{Candidate, Reference} {
+	for _, setup := range []string{gatefile.Candidate, gatefile.Reference} {
 		doc := s.Scans[setup]
 		if doc == nil {
 			continue

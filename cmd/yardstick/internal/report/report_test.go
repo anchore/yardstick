@@ -87,7 +87,7 @@ func rpmGateOf(t *testing.T, vulns []string, checks ...gatefile.Check) (Gate, *p
 	a.AddScan(refScan)
 	a.AddLabels(ls)
 	r := pairing.Pair(a, pairing.Subject{Name: "rpm", Packages: packagesOf(t, "rpm"), Labels: ls,
-		Scans: map[string]*models.Document{pairing.Candidate: cand, pairing.Reference: refScan}})
+		Scans: map[string]*models.Document{gatefile.Candidate: cand, gatefile.Reference: refScan}})
 	if len(checks) == 0 {
 		checks = []gatefile.Check{
 			{Name: analysis.NoNewFalsePositives, Params: map[string]float64{"max": 0}},
@@ -346,7 +346,7 @@ func TestDirection(t *testing.T) {
 		}
 	}
 	// a candidate-dropped tp is introduced
-	m := &pairing.Match{Rows: map[string][]int{pairing.Reference: {0}}, Verdict: claimsv1.TP}
+	m := &pairing.Match{Rows: map[string][]int{gatefile.Reference: {0}}, Verdict: claimsv1.TP}
 	if d := direction(m); d != Introduced {
 		t.Errorf("expected a dropped tp introduced, got %q", d)
 	}
@@ -398,7 +398,7 @@ func TestRowsCarryLocation(t *testing.T) {
 	a := pairing.NewAliases(nil)
 	a.AddScan(doc)
 	r := pairing.Pair(a, pairing.Subject{Name: "java", Packages: packagesOf(t, "java"),
-		Scans: map[string]*models.Document{pairing.Candidate: doc, pairing.Reference: doc}})
+		Scans: map[string]*models.Document{gatefile.Candidate: doc, gatefile.Reference: doc}})
 	g := &gatefile.Gate{Name: "java", Path: "gates/java.yaml", Undecided: gatefile.UndecidedFail}
 	v := Build(g, header(), analysis.Evaluate(nil, nil), []SubjectInput{{Name: "java", Result: r}}, nil)
 	where := map[string][]string{}

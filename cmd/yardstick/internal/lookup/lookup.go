@@ -15,6 +15,7 @@ import (
 	"strings"
 
 	"github.com/anchore/grype/grype/distro"
+	"github.com/anchore/yardstick/cmd/yardstick/internal/gatefile"
 	"github.com/anchore/yardstick/cmd/yardstick/internal/log"
 	"github.com/anchore/yardstick/cmd/yardstick/internal/pairing"
 	"github.com/anchore/yardstick/cmd/yardstick/internal/purl"
@@ -133,7 +134,7 @@ func Search(ctx context.Context, grype Grype, setup string, rows []Row) (*File, 
 	var byName, byCPE []Row
 	byDistro := map[string][]Row{}
 	for _, r := range rows {
-		ids = appendUnique(ids, IDs(r.Match)...)
+		ids = pairing.AppendUnique(ids, IDs(r.Match)...)
 		found := r.Match.Details[other(setup)]
 		switch {
 		case found == nil:
@@ -236,10 +237,10 @@ func records(ctx context.Context, grype Grype, qs []Query) ([]Affected, error) {
 }
 
 func other(setup string) string {
-	if setup == pairing.Candidate {
-		return pairing.Reference
+	if setup == gatefile.Candidate {
+		return gatefile.Reference
 	}
-	return pairing.Candidate
+	return gatefile.Candidate
 }
 
 // queries groups rows into batches searching their ids and packages together.
@@ -249,8 +250,8 @@ func queries(rows []Row, packages func(*pairing.Match) []string, cpes bool) []Qu
 		q := Query{BroadCPEMatching: cpes}
 		for _, r := range rows[start:min(start+affectedBatch, len(rows))] {
 			q.Rows = append(q.Rows, r.ID)
-			q.Vulnerabilities = appendUnique(q.Vulnerabilities, IDs(r.Match)...)
-			q.Packages = appendUnique(q.Packages, packages(r.Match)...)
+			q.Vulnerabilities = pairing.AppendUnique(q.Vulnerabilities, IDs(r.Match)...)
+			q.Packages = pairing.AppendUnique(q.Packages, packages(r.Match)...)
 		}
 		sort.Strings(q.Vulnerabilities)
 		sort.Strings(q.Packages)
@@ -261,16 +262,16 @@ func queries(rows []Row, packages func(*pairing.Match) []string, cpes bool) []Qu
 
 // IDs is every vulnerability id a match is known by.
 func IDs(m *pairing.Match) []string {
-	return appendUnique([]string{m.Vulnerability, m.Group}, m.Aliases...)
+	return pairing.AppendUnique([]string{m.Vulnerability, m.Group}, m.Aliases...)
 }
 
 // Names is a match's package name, its source packages, and the package its fix ships in.
 func Names(m *pairing.Match) []string {
 	names := []string{m.Package.Name}
 	for _, d := range m.Details {
-		names = appendUnique(names, d.Upstreams...)
+		names = pairing.AppendUnique(names, d.Upstreams...)
 	}
-	return appendUnique(names, m.SourcePackage())
+	return pairing.AppendUnique(names, m.SourcePackage())
 }
 
 // OS is the distro a package came from, by its purl's distro qualifier; zero for a package no
@@ -402,23 +403,14 @@ func parseAffected(data []byte) ([]Affected, error) {
 		for _, pkg := range res.Packages {
 			a := Affected{Vulnerability: res.Vulnerability.ID, Namespace: pkg.Namespace, Package: pkg.Package.Name, Ecosystem: pkg.Package.Ecosystem, CPE: pkg.CPE, DataSource: source}
 			for _, r := range pkg.Detail.Ranges {
-				a.Constraints = appendUnique(a.Constraints, r.Version.Constraint)
+				a.Constraints = pairing.AppendUnique(a.Constraints, r.Version.Constraint)
 				if r.Fix != nil {
-					a.FixStates = appendUnique(a.FixStates, r.Fix.State)
-					a.FixVersions = appendUnique(a.FixVersions, r.Fix.Version)
+					a.FixStates = pairing.AppendUnique(a.FixStates, r.Fix.State)
+					a.FixVersions = pairing.AppendUnique(a.FixVersions, r.Fix.Version)
 				}
 			}
 			out = append(out, a)
 		}
 	}
 	return out, nil
-}
-
-func appendUnique(list []string, vs ...string) []string {
-	for _, v := range vs {
-		if v != "" && !slices.Contains(list, v) {
-			list = append(list, v)
-		}
-	}
-	return list
 }

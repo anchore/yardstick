@@ -7,7 +7,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/anchore/yardstick/cmd/yardstick/internal/pairing"
+	"github.com/anchore/yardstick/cmd/yardstick/internal/gatefile"
 	"github.com/anchore/yardstick/cmd/yardstick/internal/runrecord"
 )
 
@@ -33,7 +33,7 @@ func (s *Server) handleMatches(w http.ResponseWriter, req *http.Request) {
 	}
 	sub := e.rec.Subjects[r.si]
 	resp := MatchesResponse{Candidate: []json.RawMessage{}, Reference: []json.RawMessage{}}
-	for setup, out := range map[string]*[]json.RawMessage{pairing.Candidate: &resp.Candidate, pairing.Reference: &resp.Reference} {
+	for setup, out := range map[string]*[]json.RawMessage{gatefile.Candidate: &resp.Candidate, gatefile.Reference: &resp.Reference} {
 		if len(r.pm.Rows[setup]) == 0 {
 			continue
 		}

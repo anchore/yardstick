@@ -5,10 +5,12 @@
 package corpus
 
 import (
+	"io/fs"
 	"path"
 	"regexp"
 	"strings"
 
+	claimsv1 "github.com/anchore/yardstick/cmd/yardstick/internal/claims/v1"
 	"github.com/anchore/yardstick/cmd/yardstick/internal/ref"
 )
 
@@ -129,4 +131,27 @@ func Locate(p string) (Location, bool) {
 		return loc, loc.Digest != "" && (loc.IsLabelFile() || base == ImageSBOMFile)
 	}
 	return loc, false
+}
+
+// WalkLabelFiles parses every label file in a corpus, in path order, and hands each to fn with
+// where it sits. Anything else in the tree is skipped.
+func WalkLabelFiles(fsys fs.FS, fn func(p string, loc Location, f *claimsv1.File) error) error {
+	return fs.WalkDir(fsys, ".", func(p string, d fs.DirEntry, err error) error {
+		if err != nil || d.IsDir() {
+			return err
+		}
+		loc, ok := Locate(p)
+		if !ok || !loc.IsLabelFile() {
+			return nil
+		}
+		data, err := fs.ReadFile(fsys, p)
+		if err != nil {
+			return err
+		}
+		f, err := claimsv1.Parse(p, data)
+		if err != nil {
+			return err
+		}
+		return fn(p, loc, f)
+	})
 }

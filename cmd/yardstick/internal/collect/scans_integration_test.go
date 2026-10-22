@@ -47,10 +47,10 @@ func TestScanGateWithGrype(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if rec.Setups[Candidate].DB.Dir != rec.Setups[Reference].DB.Dir {
+	if rec.Setups[gatefile.Candidate].DB.Dir != rec.Setups[gatefile.Reference].DB.Dir {
 		t.Errorf("expected one DB imported once for both setups")
 	}
-	for setupName, version := range map[string]string{Candidate: "v0.120.1", Reference: "v0.119.0"} {
+	for setupName, version := range map[string]string{gatefile.Candidate: "v0.120.1", gatefile.Reference: "v0.119.0"} {
 		got, _ := os.ReadFile(filepath.Join(runrecord.Dir(runrecord.DefaultName, "deb"), rec.Subjects[0].Scans[setupName]))
 		want, _ := os.ReadFile(fixture.Grype(version, "deb"))
 		if a, b := matchKeys(t, got), matchKeys(t, want); len(a) == 0 || len(a) != len(b) {

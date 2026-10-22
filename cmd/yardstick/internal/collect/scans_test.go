@@ -194,7 +194,7 @@ func TestScanGate(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if loaded.Gate.Fingerprint != g.Fingerprint() || loaded.Setups[Candidate].Grype.SHA256 == "" || loaded.Setups[Reference].Grype.Spec.Path != s.reference {
+	if loaded.Gate.Fingerprint != g.Fingerprint() || loaded.Setups[gatefile.Candidate].Grype.SHA256 == "" || loaded.Setups[gatefile.Reference].Grype.Spec.Path != s.reference {
 		t.Errorf("expected the gate and both setups recorded, got %+v", loaded)
 	}
 	deb, npm := loaded.Subjects[0], loaded.Subjects[1]
@@ -205,8 +205,8 @@ func TestScanGate(t *testing.T) {
 		t.Errorf("expected the claims source's snapshot recorded, got %+v", loaded.Claims)
 	}
 	want, _ := os.ReadFile(fixture.Grype("v0.119.0", "deb"))
-	got, _ := os.ReadFile(filepath.Join(runrecord.Dir(runrecord.DefaultName, g.Name), deb.Scans[Reference]))
-	if string(got) != string(want) || rec.Subjects[1].Scans[Candidate] == "" {
+	got, _ := os.ReadFile(filepath.Join(runrecord.Dir(runrecord.DefaultName, g.Name), deb.Scans[gatefile.Reference]))
+	if string(got) != string(want) || rec.Subjects[1].Scans[gatefile.Candidate] == "" {
 		t.Errorf("expected each setup's grype output kept as written")
 	}
 
@@ -410,7 +410,7 @@ func TestScanKeepsLogsAndLookups(t *testing.T) {
 		rec := run(t, g)
 		dir := runrecord.Dir(runrecord.DefaultName, g.Name)
 		for _, sub := range rec.Subjects {
-			for _, setup := range []string{Candidate, Reference} {
+			for _, setup := range []string{gatefile.Candidate, gatefile.Reference} {
 				l := sub.Logs[setup]
 				data, err := os.ReadFile(filepath.Join(dir, l.Path))
 				if err != nil {
@@ -427,7 +427,7 @@ func TestScanKeepsLogsAndLookups(t *testing.T) {
 				}
 			}
 		}
-		if rec.Lookups[Candidate] != "candidate/lookups.json" || rec.Lookups[Reference] != "reference/lookups.json" {
+		if rec.Lookups[gatefile.Candidate] != "candidate/lookups.json" || rec.Lookups[gatefile.Reference] != "reference/lookups.json" {
 			t.Errorf("expected both DBs' lookups recorded, got %v", rec.Lookups)
 		}
 		for _, rel := range rec.Lookups {

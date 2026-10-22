@@ -44,7 +44,7 @@ func focusGate() Gate {
 		{Name: analysis.NoNewFalseNegatives, Scope: analysis.PerSubject, State: analysis.Fail, Value: three, FailsOn: rowIDs,
 			Subjects: []analysis.SubjectCheck{{Subject: "img", State: analysis.Fail, Value: three, FailsOn: ids}}},
 		{Name: analysis.NoNewMisses, Scope: analysis.PerGate, State: analysis.Fail, Value: three, Unmet: unmet},
-	}, Subjects: []Subject{{Name: "img", Counts: map[string]Counts{pairing.Candidate: {Labels: 3}, pairing.Reference: {TP: 3, Labels: 3, Satisfied: 3}},
+	}, Subjects: []Subject{{Name: "img", Counts: map[string]Counts{gatefile.Candidate: {Labels: 3}, gatefile.Reference: {TP: 3, Labels: 3, Satisfied: 3}},
 		Matches: rows, Misses: misses}}}
 }
 
@@ -131,7 +131,7 @@ func TestFocusAlias(t *testing.T) {
 	a := pairing.NewAliases(nil)
 	a.AddScan(doc)
 	r := pairing.Pair(a, pairing.Subject{Name: "java", Packages: packagesOf(t, "java"),
-		Scans: map[string]*models.Document{pairing.Candidate: doc, pairing.Reference: doc}})
+		Scans: map[string]*models.Document{gatefile.Candidate: doc, gatefile.Reference: doc}})
 	g := Build(&gatefile.Gate{Name: "java", Path: "gates/java.yaml", Undecided: gatefile.UndecidedFail}, header(), analysis.Evaluate(nil, nil), []SubjectInput{{Name: "java", Result: r}}, nil)
 	for _, id := range []string{"CVE-2021-44228", "GHSA-jfh8-c2jp-5v3q"} {
 		var got []string

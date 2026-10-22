@@ -10,6 +10,7 @@ import (
 	"github.com/anchore/grype/grype/presenter/models"
 	"github.com/anchore/yardstick/cmd/yardstick/internal/analysis"
 	"github.com/anchore/yardstick/cmd/yardstick/internal/execute"
+	"github.com/anchore/yardstick/cmd/yardstick/internal/gatefile"
 	"github.com/anchore/yardstick/cmd/yardstick/internal/log"
 	"github.com/anchore/yardstick/cmd/yardstick/internal/lookup"
 	"github.com/anchore/yardstick/cmd/yardstick/internal/pairing"
@@ -39,7 +40,7 @@ func (m Scans) lookups(ctx context.Context, partial *runrecord.Partial, rec *run
 	var rows []lookup.Row
 	for i, r := range pairing.Scanned(subjects, isAdvisory) {
 		for _, match := range r.Matches {
-			if match.In(Candidate) != match.In(Reference) {
+			if match.In(gatefile.Candidate) != match.In(gatefile.Reference) {
 				rows = append(rows, lookup.Row{ID: pairing.RowID(subjects[i].Name, analysis.MatchID(match)), Match: match})
 			}
 		}
@@ -47,7 +48,7 @@ func (m Scans) lookups(ctx context.Context, partial *runrecord.Partial, rec *run
 	if len(rows) == 0 {
 		return nil
 	}
-	for _, name := range []string{Candidate, Reference} {
+	for _, name := range []string{gatefile.Candidate, gatefile.Reference} {
 		f, err := lookup.Search(ctx, dbSearch(m.Run, rec.Setups[name]), name, rows)
 		if err != nil {
 			w := fmt.Sprintf("the %s DB could not be searched for the rows only one setup reported, so they score as unexplained: %v", name, err)

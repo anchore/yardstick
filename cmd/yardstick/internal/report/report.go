@@ -5,6 +5,7 @@ package report
 
 import (
 	"fmt"
+	"slices"
 	"sort"
 
 	"github.com/anchore/yardstick/cmd/yardstick/internal/analysis"
@@ -241,7 +242,7 @@ func Summarize(gates []Gate) Set {
 func subjectRows(s SubjectInput, compared bool) Subject {
 	r := s.Result
 	out := Subject{Name: s.Name, Frozen: s.Frozen, Counts: map[string]Counts{}}
-	for _, setup := range []string{pairing.Candidate, pairing.Reference} {
+	for _, setup := range []string{gatefile.Candidate, gatefile.Reference} {
 		st := analysis.Counts(r, setup)
 		out.Counts[setup] = Counts{TP: st.TP, FP: st.FP, Unlabeled: st.Unlabeled, Labels: st.Labels, Satisfied: st.Satisfied,
 			Precision: st.Precision(), Recall: st.Recall(), F1: st.F1()}
@@ -249,9 +250,9 @@ func subjectRows(s SubjectInput, compared bool) Subject {
 	for _, m := range r.Matches {
 		id := analysis.MatchID(m)
 		row := Match{ID: id, Row: pairing.RowID(s.Name, id), Vulnerability: m.Vulnerability, Group: m.Group, Aliases: m.Aliases, Package: pkgName(m.Package),
-			SourcePackage: m.SourcePackage(), MatchType: m.MatchType, Matcher: m.Matcher, Location: m.Location, InCandidate: m.In(pairing.Candidate),
-			InReference: m.In(pairing.Reference), Verdict: m.Verdict, Direction: direction(m),
-			Candidate: m.Details[pairing.Candidate], Reference: m.Details[pairing.Reference]}
+			SourcePackage: m.SourcePackage(), MatchType: m.MatchType, Matcher: m.Matcher, Location: m.Location, InCandidate: m.In(gatefile.Candidate),
+			InReference: m.In(gatefile.Reference), Verdict: m.Verdict, Direction: direction(m),
+			Candidate: m.Details[gatefile.Candidate], Reference: m.Details[gatefile.Reference]}
 		if m.Label != nil {
 			ref := labelRef(m.Label)
 			row.Label = &ref
@@ -276,7 +277,7 @@ func pkgName(p pairing.Package) string {
 // direction is fixed for a candidate-added tp or a candidate-dropped fp, introduced for a
 // candidate-added fp or a candidate-dropped tp, and review for an unlabeled delta.
 func direction(m *pairing.Match) string {
-	cand, ref := m.In(pairing.Candidate), m.In(pairing.Reference)
+	cand, ref := m.In(gatefile.Candidate), m.In(gatefile.Reference)
 	if cand == ref {
 		return ""
 	}
@@ -302,15 +303,15 @@ func labelRef(b *pairing.Bound) LabelRef {
 func misses(r *pairing.Result) []Miss {
 	var out []Miss
 	for _, b := range r.Labels {
-		if b.Verdict != claimsv1.TP || b.PairedIn(pairing.Candidate) {
+		if b.Verdict != claimsv1.TP || b.PairedIn(gatefile.Candidate) {
 			continue
 		}
-		miss := Miss{Label: labelRef(b), InReference: b.PairedIn(pairing.Reference)}
+		miss := Miss{Label: labelRef(b), InReference: b.PairedIn(gatefile.Reference)}
 		for _, field := range b.Fields.Stated() {
-			if !probe(field) {
+			if !slices.Contains(probed, field) {
 				continue
 			}
-			if m := r.Relaxed(b, field, pairing.Candidate); m != nil {
+			if m := r.Relaxed(b, field, gatefile.Candidate); m != nil {
 				miss.NearMiss = append(miss.NearMiss, Relaxation{Field: field, Match: analysis.MatchID(m), Package: pkgName(m.Package)})
 			}
 		}
@@ -330,19 +331,10 @@ func misses(r *pairing.Result) []Miss {
 	return out
 }
 
-func probe(field string) bool {
-	for _, p := range probed {
-		if p == field {
-			return true
-		}
-	}
-	return false
-}
-
 // matchedOn says whether the candidate reported any match on a package the label states.
 func matchedOn(r *pairing.Result, b *pairing.Bound) bool {
 	for _, m := range r.Matches {
-		if m.In(pairing.Candidate) && b.Fields.Matches(purl.Package(m.Package.PURL, m.Package.Version)) {
+		if m.In(gatefile.Candidate) && b.Fields.Matches(purl.Package(m.Package.PURL, m.Package.Version)) {
 			return true
 		}
 	}
@@ -358,7 +350,7 @@ func loose(r *pairing.Result) []Loose {
 			continue
 		}
 		for _, field := range []string{fieldVersion, fieldDistro} {
-			if contains(b.Fields.Stated(), field) {
+			if slices.Contains(b.Fields.Stated(), field) {
 				continue
 			}
 			values := map[string]bool{}
@@ -379,13 +371,4 @@ func loose(r *pairing.Result) []Loose {
 		}
 	}
 	return out
-}
-
-func contains(s []string, v string) bool {
-	for _, x := range s {
-		if x == v {
-			return true
-		}
-	}
-	return false
 }

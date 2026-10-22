@@ -149,7 +149,7 @@ func TestScanSharedBetweenGates(t *testing.T) {
 		t.Errorf("expected gate B to reuse gate A's scans, got %v", got)
 	}
 	want, _ := os.ReadFile(fixture.Grype("v0.119.0", "deb"))
-	if got, _ := os.ReadFile(filepath.Join(runrecord.Dir(runrecord.DefaultName, b.Name), rec.Subjects[0].Scans[Candidate])); string(got) != string(want) {
+	if got, _ := os.ReadFile(filepath.Join(runrecord.Dir(runrecord.DefaultName, b.Name), rec.Subjects[0].Scans[gatefile.Candidate])); string(got) != string(want) {
 		t.Errorf("expected gate A's reference scan of the deb image in gate B's set")
 	}
 }

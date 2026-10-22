@@ -264,11 +264,11 @@ func (s *Server) compute(e *entry) (*view, error) {
 
 // subjectKey is how a label file names a run's subject: its image, else its SBOM's digest.
 func subjectKey(sub *runrecord.Subject) string {
-	p, err := labelwrite.Place(sub, claimsv1.Label{}, false)
-	if err != nil || p.Subject == nil {
+	s, err := labelwrite.SubjectOf(sub)
+	if err != nil {
 		return sub.Name
 	}
-	return p.Subject.Image + p.Subject.SBOM
+	return s.Image + s.SBOM
 }
 
 // orderedRows are the gate's rows in report order, for anything listing members.

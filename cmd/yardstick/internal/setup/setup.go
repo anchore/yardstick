@@ -11,7 +11,6 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
-	"io"
 	"net/url"
 	"os"
 	"path/filepath"
@@ -89,7 +88,7 @@ func (p *Preparer) Prepare(ctx context.Context, name string, s *gatefile.Setup) 
 	}
 	out := Prepared{Grype: grype, Env: s.Env}
 	if s.Config != "" {
-		sum, err := fileSHA256(s.Config)
+		sum, err := install.FileSHA256(s.Config)
 		if err != nil {
 			return Prepared{}, fmt.Errorf("%s: unable to read grype config: %w", name, err)
 		}
@@ -127,7 +126,7 @@ func (p *Preparer) prepareDB(ctx context.Context, grype install.Tool, s *gatefil
 	}
 	log.Debugf("DB cache miss: %s", db.Dir)
 	src := db.Source
-	if db.Checksum != "" && isURL(src) {
+	if db.Checksum != "" && gatefile.IsURL(src) {
 		src += "?checksum=" + url.QueryEscape(db.Checksum)
 	}
 	log.Infof("importing DB %s", identity)
@@ -207,7 +206,7 @@ func (p *Preparer) resolveDB(ctx context.Context, grype install.Tool, s *gatefil
 			p.dirs[dir] = identity
 		}
 		return DB{Source: dir, Dir: dir, Checksum: identity}, nil
-	case isURL(s.DB):
+	case gatefile.IsURL(s.DB):
 		// grype checks an archive's checksum as it imports it, and the DB is then cached by content
 		if u, sum, ok := strings.Cut(s.DB, "@sha256:"); ok {
 			return DB{Source: u, Checksum: "sha256:" + sum}, nil
@@ -220,7 +219,7 @@ func (p *Preparer) resolveDB(ctx context.Context, grype install.Tool, s *gatefil
 	sum, ok := p.archives[s.DB]
 	if !ok {
 		var err error
-		if sum, err = fileSHA256(s.DB); err != nil {
+		if sum, err = install.FileSHA256(s.DB); err != nil {
 			return DB{}, fmt.Errorf("unable to read DB archive: %w", err)
 		}
 		p.archives[s.DB] = sum
@@ -267,23 +266,6 @@ func (p *Preparer) latestDB(ctx context.Context, grype install.Tool, env map[str
 	p.latest[key] = db
 	log.Debugf("latest DB for %s: %s (%s)", grype.Spec, db.Checksum, db.Source)
 	return db, nil
-}
-
-func isURL(s string) bool {
-	return strings.HasPrefix(s, "https://") || strings.HasPrefix(s, "http://")
-}
-
-func fileSHA256(path string) (string, error) {
-	f, err := os.Open(path)
-	if err != nil {
-		return "", err
-	}
-	defer f.Close()
-	h := sha256.New()
-	if _, err := io.Copy(h, f); err != nil {
-		return "", err
-	}
-	return hex.EncodeToString(h.Sum(nil)), nil
 }
 
 // parseFields reads "Key:   value" lines.

@@ -2,7 +2,6 @@ package command
 
 import (
 	"fmt"
-	"io/fs"
 	"strings"
 	"text/tabwriter"
 
@@ -90,27 +89,16 @@ repository's git history.`,
 // sourceLabels is every label in one claims source, in path order.
 func sourceLabels(src *claims.Source) ([]listedLabel, error) {
 	var out []listedLabel
-	err := fs.WalkDir(src.FS, ".", func(p string, d fs.DirEntry, err error) error {
-		if err != nil || d.IsDir() {
-			return err
-		}
-		if loc, ok := corpus.Locate(p); !ok || !loc.IsLabelFile() {
-			return nil
-		}
-		data, err := fs.ReadFile(src.FS, p)
-		if err != nil {
-			return err
-		}
-		f, err := claimsv1.Parse(p, data)
-		if err != nil {
-			return fmt.Errorf("claims source %s: %w", src.Locator, err)
-		}
+	err := corpus.WalkLabelFiles(src.FS, func(p string, _ corpus.Location, f *claimsv1.File) error {
 		for _, l := range f.Labels {
 			out = append(out, listedLabel{Source: src.Locator, File: p, Subject: f.Subject, Label: l})
 		}
 		return nil
 	})
-	return out, err
+	if err != nil {
+		return nil, fmt.Errorf("claims source %s: %w", src.Locator, err)
+	}
+	return out, nil
 }
 
 func (o *claimsListOptions) keeps(l listedLabel) bool {
