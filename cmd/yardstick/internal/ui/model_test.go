@@ -213,7 +213,7 @@ func TestTasksOutsideAGate(t *testing.T) {
 	snaps.MatchSnapshot(t, m.View())
 
 	// a download names what it fetched as a tree under its line, running and done
-	details := []string{"github.com/anchore/match-claims@main", "commit 3206431b5f6c0d1e2a7b8c9d0e1f2a3b4c5d6e7f",
+	details := []string{"github.com/anchore/claims@main", "commit 3206431b5f6c0d1e2a7b8c9d0e1f2a3b4c5d6e7f",
 		"sha256:af82f6a8c1b2d3e4f5a6b7c8d9e0f1a2b3c4d5e6f7a8b9c0d1e2f3a4b5c6d7e8"}
 	send(m, event.TaskStarted, event.Task{ID: 2, Kind: event.DownloadClaims, Details: details})
 	c.advance(time.Second)

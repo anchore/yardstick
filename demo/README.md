@@ -13,7 +13,7 @@ What's in `demo/`:
 None of the gates names its claims. They all read the app config, `.yardstick.yaml` at the repo root:
 
 ```yaml
-claims: [github.com/anchore/match-claims@main, ./claims]
+claims: [github.com/anchore/claims@main, ./claims]
 ```
 
 That is the published corpus first, then `./claims`, a gitignored scratch directory where new labels are written. yardstick creates it when it's missing.
@@ -27,7 +27,7 @@ bin/yardstick config validate demo/gates/*.yaml
 ```
 
 ```
-✔ github.com/anchore/match-claims@main  sha256:af82f6aa7944375d8181213ff812fc0d6b63e31254da662a460fb7fb18da6d01  commit 32064318e375ca3a87ee642bfececd00d701c4de
+✔ github.com/anchore/claims@main  sha256:af82f6aa7944375d8181213ff812fc0d6b63e31254da662a460fb7fb18da6d01  commit 32064318e375ca3a87ee642bfececd00d701c4de
 ✔ demo/gates/go-stdlib-cpe.yaml             gate go-stdlib-cpe
 ✔ demo/gates/grype-upgrade-stdlib-cpe.yaml  gate grype-upgrade-stdlib-cpe
 ✔ demo/gates/grype-upgrade.yaml             gate grype-upgrade
@@ -176,13 +176,13 @@ The labels are worth keeping whatever the gate says, since every gate that scans
 
 ## 6. Keep the labels with the change
 
-Here `./claims` is gitignored scratch, so the labels stop at this checkout. In grype or vunnel the claims directory is committed: new labels are written straight into it and go up with the pull request that needed them. Nothing is copied into [anchore/match-claims](https://github.com/anchore/match-claims) by hand; a separate job folds grype's and vunnel's main branches back into it from time to time.
+Here `./claims` is gitignored scratch, so the labels stop at this checkout. In grype or vunnel the claims directory is committed: new labels are written straight into it and go up with the pull request that needed them. Nothing is copied into [anchore/claims](https://github.com/anchore/claims) by hand; a separate job folds grype's and vunnel's main branches back into it from time to time.
 
 Each of those repos also reads the other's claims from its main branch, through a reference with a path after the repository. grype's `.yardstick.yaml` would read:
 
 ```yaml
 claims:
-  - github.com/anchore/match-claims@main                # the published corpus
+  - github.com/anchore/claims@main                # the published corpus
   - github.com/anchore/vunnel/tests/quality/claims@main  # vunnel's claims directory on main
   - ./claims                                            # grype's own, where new labels are written
 ```

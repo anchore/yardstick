@@ -22,8 +22,8 @@ describe("effect", () => {
 
 describe("shortSource", () => {
   test("is the corpus's last segment and its ref", () => {
-    expect(shortSource("github.com/anchore/match-claims@main")).toBe("match-claims@main");
-    expect(shortSource("https://github.com/anchore/match-claims.git@v1")).toBe("match-claims@v1");
+    expect(shortSource("github.com/anchore/claims@main")).toBe("claims@main");
+    expect(shortSource("https://github.com/anchore/claims.git@v1")).toBe("claims@v1");
     expect(shortSource("/Users/me/ws/claims/")).toBe("claims");
   });
   test("drops the verdict the row's source list appends", () => {

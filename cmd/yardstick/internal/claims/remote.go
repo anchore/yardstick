@@ -39,7 +39,7 @@ const URLVar = "YARDSTICK_CLAIMS_URL"
 // other label kind's
 const publishedRoot = "/claims/" + corpus.MatchesDir
 
-// DefaultURL is where anchore/match-claims publishes its snapshots.
+// DefaultURL is where anchore/claims publishes its snapshots.
 const DefaultURL = "https://yardstick.anchore.io"
 
 var (

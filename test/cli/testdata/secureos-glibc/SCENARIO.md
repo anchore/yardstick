@@ -9,7 +9,7 @@ grype v0.120.1 stopped reporting NVD CPE matches on the secureos image's glibc-2
   - CVE-2010-4756 and CVE-2019-1010022, which the corpus labels fp
   - CVE-2025-15281, CVE-2026-0861, CVE-2026-0915, CVE-2026-18374, CVE-2026-19499 and CVE-2026-89092, which `proposals.jsonl` is about
   - CVE-2026-95818, which nobody researched
-- labels: `github.com/anchore/match-claims@32064318e375ca3a87ee642bfececd00d701c4de`, then the workspace's `claims/`
+- labels: `github.com/anchore/claims@32064318e375ca3a87ee642bfececd00d701c4de`, then the workspace's `claims/`
 - proposals: `proposals.jsonl` holds 6 lines copied unchanged from the demo's research run, real agent output (claude-sonnet-5-5, research-vuln): 4 fp `vendor-not-affected` and 2 unclear `sources-disagree`. They were recorded for gate `grype-upgrade`, so the test drops that field before `claims agent propose --gate glibc`, which refuses a proposal about another gate
 
 The demo saw 26 glibc rows dropped. The 9 here are the ones with exactly one NVD record each: grype's extractor selects by SQL `LIKE '%<id>%'`, which pulls in any longer id the selection is a prefix of, so CVEs like CVE-2026-4046 (which also selects CVE-2026-40460 to 40469) were left out.

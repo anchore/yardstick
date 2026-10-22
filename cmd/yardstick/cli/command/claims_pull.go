@@ -22,8 +22,8 @@ Snapshots are read from YARDSTICK_CLAIMS_URL, or ` + claims.DefaultURL + ` when 
 with a path after the repository is that claims directory at the ref, read from the GitHub
 archive of the commit it resolves to (GITHUB_TOKEN is sent when set).`,
 		Example: `  yardstick claims pull
-  yardstick claims pull github.com/anchore/match-claims@main
-  yardstick claims pull github.com/anchore/match-claims@sha256:<hex>
+  yardstick claims pull github.com/anchore/claims@main
+  yardstick claims pull github.com/anchore/claims@sha256:<hex>
   yardstick claims pull github.com/anchore/vunnel/tests/quality/claims@main`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			// arguments replace the app config's sources rather than adding to them

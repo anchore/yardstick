@@ -5,7 +5,7 @@
 
 Reads the policy through `yardstick claims policy -o json` in the checkout and checks that
 every rule id the evidence script can emit is a listed rule whose verdict matches, that every rule names
-a decision in match-claims' labeling-policy.md and says what it rests on, that every rule's justification is
+a decision in anchore/claims' labeling-policy.md and says what it rests on, that every rule's justification is
 listed under its verdict, that the justifications why_from_text derives are fp ones, and that every fact
 source the scripts write is listed under fact-sources.
 """
@@ -26,9 +26,9 @@ ev = importlib.import_module("yardstick-triage-evidence")
 policy = dc.checkout_policy()
 ev.set_policy(policy)
 rules, reasons = ev.POLICY, ev.REASONS
-# the policy's decisions are in match-claims beside the vocabulary: $LABELING_POLICY names a local copy,
+# the policy's decisions are in anchore/claims beside the vocabulary: $LABELING_POLICY names a local copy,
 # else main's is read
-POLICY_URL = "https://raw.githubusercontent.com/anchore/match-claims/main/labeling-policy.md"
+POLICY_URL = "https://raw.githubusercontent.com/anchore/claims/main/labeling-policy.md"
 doc_path = os.environ.get("LABELING_POLICY")
 if doc_path:
     doc = Path(doc_path).read_text()
@@ -37,7 +37,7 @@ else:
         with urllib.request.urlopen(POLICY_URL, timeout=30) as resp:
             doc = resp.read().decode()
     except OSError as e:
-        sys.exit(f"reading {POLICY_URL}: {e}; set LABELING_POLICY to a match-claims checkout's labeling-policy.md")
+        sys.exit(f"reading {POLICY_URL}: {e}; set LABELING_POLICY to an anchore/claims checkout's labeling-policy.md")
 decisions = set(re.findall(r"^\| (P-\d+) \|", doc, re.M))
 src = Path(ev.__file__).read_text()
 emitted = set(re.findall(r"Verdict\(\s*\"(tp|fp|unclear)\",\s*\"(?:high|medium|low)\",\s*\"([a-z]+/[a-z0-9-]+)\"", src, re.S))

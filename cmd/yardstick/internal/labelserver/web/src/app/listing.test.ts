@@ -59,8 +59,8 @@ describe("shortSource", () => {
   test("a local corpus is its directory's name, a repository keeps its ref", () => {
     expect(shortSource("/private/var/folders/x/T/workspace/claims")).toBe("claims");
     expect(shortSource("/tmp/workspace/claims/")).toBe("claims");
-    expect(shortSource("github.com/anchore/match-claims@main")).toBe("match-claims@main");
-    expect(shortSource("https://github.com/anchore/match-claims@v1.2")).toBe("match-claims@v1.2");
+    expect(shortSource("github.com/anchore/claims@main")).toBe("claims@main");
+    expect(shortSource("https://github.com/anchore/claims@v1.2")).toBe("claims@v1.2");
     expect(shortSource("claims")).toBe("claims");
   });
 });

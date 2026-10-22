@@ -1,6 +1,6 @@
 # yardstick's app config: the claims sources every gate without its own claims: reads, in order.
 # relative paths resolve against the repo root, where this file sits.
-#   - the published anchore/match-claims corpus, read from YARDSTICK_CLAIMS_URL (default https://yardstick.anchore.io)
+#   - the published anchore/claims corpus, read from YARDSTICK_CLAIMS_URL (default https://yardstick.anchore.io)
 #   - ./claims, a gitignored scratch directory (created when missing) where new labels are
 #     written. A repo that keeps its labels commits this directory instead.
-claims: [github.com/anchore/match-claims@main, ./claims]
+claims: [github.com/anchore/claims@main, ./claims]

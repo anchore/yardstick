@@ -25,7 +25,7 @@ export function effect(o: { check: string | null; checkEffect?: string; row: Sta
 
 
 // shortSource is a claims source as people say it: the corpus's last path segment and its ref,
-// e.g. "github.com/anchore/match-claims@main" → "match-claims@main", "/ws/claims" → "claims".
+// e.g. "github.com/anchore/claims@main" → "claims@main", "/ws/claims" → "claims".
 // The server also appends ": <verdict>" to the sources it lists; that goes.
 // ponytail: an ssh locator (git@host:org/repo) reads as "git@…"; nothing serves one yet
 export function shortSource(s: string): string {

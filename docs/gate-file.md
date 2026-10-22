@@ -9,7 +9,7 @@ description: does v0.120.1 match at least as well as v0.100.0?
 candidate: {grype: grype@v0.120.1, db: latest}
 reference: {grype: grype@v0.100.0, db: latest}
 claims:
-  - github.com/anchore/match-claims@main
+  - github.com/anchore/claims@main
   - ./claims
 subjects:
   - oci:docker.io/library/alpine@sha256:ddac200f3ebc9902fb8cfcd599f41feb2151f1118929da21bcef57dc276975f9

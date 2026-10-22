@@ -18,9 +18,9 @@ import (
 	"github.com/anchore/grype/grype/db/v6/testdb"
 )
 
-// claimsPin is the published match-claims snapshot every scenario reads its labels from, ahead of
+// claimsPin is the published anchore/claims snapshot every scenario reads its labels from, ahead of
 // the workspace's own claims/ where the tests write theirs.
-const claimsPin = "github.com/anchore/match-claims@32064318e375ca3a87ee642bfececd00d701c4de"
+const claimsPin = "github.com/anchore/claims@32064318e375ca3a87ee642bfececd00d701c4de"
 
 // bin is the yardstick binary under test: YARDSTICK_BINARY_LOCATION when set (a snapshot build in
 // CI), else built once from this checkout.
@@ -467,7 +467,7 @@ func (w *workspace) assertLabelWritten(t *testing.T, vuln, pkg, verdict string) 
 
 // validateLabels runs `claims validate` on the labels the test wrote. claims/ is a workspace's
 // scratch directory rather than a corpus, so they are laid out as one would be once folded into
-// match-claims: the pinned snapshot's vocabulary.yaml and catalog.yaml at the root, and its SBOM
+// anchore/claims: the pinned snapshot's vocabulary.yaml and catalog.yaml at the root, and its SBOM
 // beside each label file's matches/. Those come from the snapshot yardstick cached by its digest.
 func (w *workspace) validateLabels(t *testing.T, r report) {
 	t.Helper()
