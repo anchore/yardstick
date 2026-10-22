@@ -1,5 +1,5 @@
-import { test as base, type Page } from "@playwright/test";
-import { expect, test } from "./fixtures";
+import type { Page } from "@playwright/test";
+import { expect, served, test } from "./fixtures";
 import { checkPage, claimSet, gatePage, gatesPage, images, label, labelsOf, onFinding, openFinding, rows } from "./helpers";
 
 // the queue's edges: entering with no row, the image and check scopes, a row that isn't open, the
@@ -241,8 +241,8 @@ test.describe("cards", () => {
 });
 
 // a scope the server refuses shows the load error. The shared test fails on any console error and
-// Chrome logs the 400, so this one uses Playwright's own test, resets itself and expects that line.
-base("a bad scope shows the server's error", async ({ page, request }) => {
+// Chrome logs the 400, so this one uses served, resets itself and expects that line.
+served("a bad scope shows the server's error", async ({ page, request }) => {
   expect((await request.post("/__e2e/reset")).status()).toBe(204);
   const errors: string[] = [];
   page.on("console", (m) => { if (m.type() === "error") errors.push(m.text()); });

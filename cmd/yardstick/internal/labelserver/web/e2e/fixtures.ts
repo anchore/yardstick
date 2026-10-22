@@ -12,8 +12,9 @@ export const answersWithError = (page: Page, url: string) => { failed.get(page)?
 // across a worker's restarts, so a restarted worker takes over its predecessor's directory
 export const workspace = `${process.env.YARDSTICK_E2E_WORKSPACE}-${process.env.TEST_PARALLEL_INDEX}`;
 
-// test is Playwright's, failing any test whose page throws or logs a console error
-export const test = base.extend<{ fresh: void }, { seed: string }>({
+// served is Playwright's test pointed at this worker's seed, and nothing else: for the odd test
+// that has to see a console error itself
+export const served = base.extend<object, { seed: string }>({
   // every worker serves its own workspace from its own seed, on a port the kernel picks, so neither
   // workers nor another checkout's e2e run share a server
   seed: [async ({}, use) => {
@@ -35,6 +36,10 @@ export const test = base.extend<{ fresh: void }, { seed: string }>({
     await exited;
   }, { scope: "worker", timeout: 60_000 }],
   baseURL: async ({ seed }, use) => use(seed),
+});
+
+// test is served, failing any test whose page throws or logs a console error
+export const test = served.extend<{ fresh: void }>({
   // every test starts on the seeded workspace: the seed puts the claims and agent records back and
   // starts a new server (a test-only route that `claims serve` does not have)
   fresh: [async ({ request }, use) => {
