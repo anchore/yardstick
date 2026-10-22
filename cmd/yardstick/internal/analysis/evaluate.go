@@ -240,13 +240,16 @@ func threshold(c gatefile.Check) float64 {
 // case is.
 func decide(v Value, threshold float64) State {
 	switch {
-	case v.Worst <= threshold:
+	case v.Worst <= threshold+epsilon:
 		return Pass
-	case v.Best > threshold:
+	case v.Best > threshold+epsilon:
 		return Fail
 	}
 	return Undecided
 }
+
+// epsilon absorbs float error at a threshold: an F1 drop of 0.30000000000000004 is at tolerance 0.3.
+const epsilon = 1e-9
 
 // the two cases a check is computed in
 type extreme int
@@ -603,8 +606,8 @@ func (e evaluator) gateCheck(c gatefile.Check, res Check) Check {
 	case ExpectationsMetAtLeast:
 		required := c.Params[paramMin]
 		if f, ok := c.Params[paramMinFraction]; ok {
-			// the small epsilon keeps 0.95 of 80 at 76
-			required = math.Ceil(f*float64(len(exps)) - 1e-9)
+			// epsilon keeps 0.95 of 80 at 76
+			required = math.Ceil(f*float64(len(exps)) - epsilon)
 		}
 		res.Threshold = required
 		res.Value = Value{Worst: float64(met), Best: float64(met)}

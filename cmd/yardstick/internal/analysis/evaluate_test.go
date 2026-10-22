@@ -575,3 +575,13 @@ func TestF1FailsOnIsAdverse(t *testing.T) {
 	}
 }
 
+// a value one ulp over the threshold from float error is at it
+func TestDecideAtTheThreshold(t *testing.T) {
+	drop := 0.1 + 0.2
+	if got := decide(Value{Worst: drop, Best: drop}, 0.3); got != Pass {
+		t.Errorf("expected %v at tolerance 0.3 to pass, got %s", drop, got)
+	}
+	if got := decide(Value{Worst: 0.31, Best: 0.31}, 0.3); got != Fail {
+		t.Errorf("expected 0.31 at tolerance 0.3 to fail, got %s", got)
+	}
+}
