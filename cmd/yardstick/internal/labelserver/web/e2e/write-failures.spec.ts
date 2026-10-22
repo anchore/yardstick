@@ -1,6 +1,6 @@
 import type { Page, Route } from "@playwright/test";
 import type { LabelKey, WriteError } from "../src/gen/wire";
-import { expect, test } from "./fixtures";
+import { answersWithError, expect, test } from "./fixtures";
 import { claimSet, labelsOf, onFinding, openFinding, rows, setPref, tableRow, verdictButton } from "./helpers";
 
 // a write per path that the server refuses (400, plain text, nothing written) or that fails after
@@ -13,7 +13,11 @@ const undo = (page: Page) => toast(page).getByTestId("toast-action");
 
 // refuses answers a POST as the server does when it rejects a write before anything lands
 async function refuses(page: Page, url: string, message: string) {
-  await page.route(url, (r) => (r.request().method() === "POST" ? r.fulfill({ status: 400, contentType: "text/plain", body: message }) : r.fallback()));
+  await page.route(url, (r) => {
+    if (r.request().method() !== "POST") return r.fallback();
+    answersWithError(page, r.request().url());
+    return r.fulfill({ status: 400, contentType: "text/plain", body: message });
+  });
 }
 
 // landsThenFails lets a POST write its labels, then answers as a write that failed afterwards
@@ -21,6 +25,7 @@ async function landsThenFails(page: Page, url: string) {
   await page.route(url, async (r: Route) => {
     if (r.request().method() !== "POST" || r.request().postDataJSON()?.dryRun) return r.fallback();
     const res = await r.fetch(), body = (await res.json()) as { labels: LabelKey[] };
+    answersWithError(page, r.request().url());
     await r.fulfill({ status: 500, json: { error: "append override: disk full", labels: body.labels } satisfies WriteError });
   });
 }
@@ -159,7 +164,11 @@ test.describe("starting research", () => {
 
   test("refused from the research page, stays there to try again", async ({ page }) => {
     // the dry runs that price the page still go through
-    await page.route("**/api/research", (r) => (r.request().postDataJSON()?.dryRun ? r.fallback() : r.fulfill({ status: 400, contentType: "text/plain", body: "research is off: no runner" })));
+    await page.route("**/api/research", (r) => {
+      if (r.request().postDataJSON()?.dryRun) return r.fallback();
+      answersWithError(page, r.request().url());
+      return r.fulfill({ status: 400, contentType: "text/plain", body: "research is off: no runner" });
+    });
     await page.goto(`/ui/research?scope=gate%3Adeb-java&rows=${rows.tarHand}`);
     const start = page.getByTestId("research-start");
     await expect(start).toHaveText("Start 1 research job");
