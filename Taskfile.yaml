@@ -40,11 +40,21 @@ tasks:
 
   playwright:
     internal: true
+    # the seed and chromium don't need each other, so deps fetches them side by side
+    deps: [seed, chromium]
+    cmds:
+      - cd {{.WEB}} && {{.PLAYWRIGHT}} test {{.PLAYWRIGHT_ARGS}} {{.CLI_ARGS}}
+
+  seed:
+    internal: true
     cmds:
       - go build -o .tmp/e2e/seed ./cmd/yardstick/internal/testkit/seed
+
+  chromium:
+    internal: true
+    cmds:
       # a no-op once chromium is in Playwright's cache; CI also installs its system packages
       - cd {{.WEB}} && {{.PLAYWRIGHT}} install ${CI:+--with-deps} chromium
-      - cd {{.WEB}} && {{.PLAYWRIGHT}} test {{.PLAYWRIGHT_ARGS}} {{.CLI_ARGS}}
 
   fixtures:
     desc: regenerate test fixtures with the real, pinned syft, grype, vexctl and oras (needs docker)
