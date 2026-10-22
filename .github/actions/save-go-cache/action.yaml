@@ -1,0 +1,26 @@
+# go-make's setup action restores the go mod and build caches everywhere but only saves them on the
+# default branch, and main is still the python yardstick, so go-rewrite's runs never have anything to
+# restore. This saves them under the exact keys go-make restores, from go-rewrite's own PR runs: a
+# PR's caches are readable by that PR's later runs. Delete it once go-rewrite is main.
+name: "Save go caches"
+description: "Save the go mod and build caches under go-make's setup keys"
+inputs:
+  cache-key-prefix:
+    description: "The cache-key-prefix the job passed to go-make's setup action"
+    default: "v1"
+
+runs:
+  using: "composite"
+  steps:
+    # keys are immutable, so a key some earlier run saved is skipped with a warning
+    - name: Save go mod cache
+      uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      with:
+        path: ${{ env.GO_MOD_CACHE }}
+        key: ${{ inputs.cache-key-prefix }}-${{ runner.arch }}-${{ runner.os }}-go-mod-${{ hashFiles('go.sum', '.make/go.sum') }}
+
+    - name: Save go build cache
+      uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      with:
+        path: ${{ env.GO_BUILD_CACHE }}
+        key: ${{ inputs.cache-key-prefix }}-${{ runner.arch }}-${{ runner.os }}-go-build-${{ env.GO_CACHE_GOVERSION }}-${{ hashFiles('go.sum', '.make/go.sum') }}

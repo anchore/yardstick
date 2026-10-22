@@ -1,4 +1,10 @@
 name: "Validations"
+
+# a newer push to the same PR or ref makes an in-progress run moot
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 on:
   workflow_dispatch:
   push:
@@ -13,7 +19,12 @@ jobs:
   Static-Analysis:
     # Note: changing this job name requires making the same update in the .github/workflows/release.yaml pipeline
     name: "Static analysis"
-    runs-on: ubuntu-24.04
+    # runs-on.com instances in our AWS, the same shape syft tests on
+    #   spot enabled: ok to interrupt non-production workloads
+    #   tmpfs omitted: it RAM-backs /home/runner and /tmp, starving the -race links of memory
+    #   s3-cache omitted: PR runs are untrusted and must not write to the shared cache backend
+    #   that the trusted release workflow reads from (cache poisoning)
+    runs-on: &test-runner "runs-on=${{ github.run_id }}/cpu=4+8/ram=16+32/family=m6+m7+m8+c6+c7+c8/spot=price-capacity-optimized/volume=100gb"
     permissions:
       contents: read
     steps:
@@ -27,12 +38,38 @@ jobs:
       - name: Run static analysis
         run: make static-analysis
 
+      - name: Save go caches
+        if: github.head_ref == 'go-rewrite' && github.event.pull_request.head.repo.full_name == github.repository
+        uses: ./.github/actions/save-go-cache
+
   Unit-Test:
     # Note: changing this job name requires making the same update in the .github/workflows/release.yaml pipeline
     name: "Unit tests"
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-latest
+    needs: [Unit-Test-Go, Unit-Test-TS]
+    # a skipped job satisfies a required check, so this job must always run and fail explicitly
+    # unless every dependency succeeded
+    if: ${{ always() }}
+    permissions: {}
+    steps:
+      - name: Require all unit test jobs to succeed
+        env:
+          NEEDS: ${{ toJSON(needs) }}
+        run: |
+          echo "$NEEDS" | jq -e 'length > 0 and all(.[]; .result == "success")' > /dev/null || {
+            echo "$NEEDS" | jq -r 'to_entries[] | "\(.key): \(.value.result)"'
+            exit 1
+          }
+          echo All unit tests passed!
+
+  Unit-Test-Go:
+    name: "Unit tests (Go)"
+    runs-on: *test-runner
     permissions:
       contents: read
+    env:
+      # canopy runs go test underneath, enforcing the coverage threshold itself
+      GOMAKE_TEST_RUNNER: canopy
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 #v7.0.1
         with:
@@ -40,6 +77,9 @@ jobs:
 
       - name: Bootstrap environment
         uses: anchore/go-make/.github/actions/setup@abf41688f36f2cbec13105747abbe8e60f5c56ca # v0.9.3
+        with:
+          # race and coverage builds share nothing with the other jobs' builds
+          cache-key-prefix: "unit-go"
 
       # bun's install cache, keyed on the lockfile (hashFiles is empty until bun.lock exists, which still yields a valid key)
       - name: Cache bun installs
@@ -50,17 +90,18 @@ jobs:
           restore-keys: |
             bun-${{ runner.os }}-
 
-      - name: Run unit tests
-        run: make unit
+      - name: Run Go unit tests
+        run: make unit:go
 
-      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 #v7.0.2
+      - name: Save go caches
+        if: github.head_ref == 'go-rewrite' && github.event.pull_request.head.repo.full_name == github.repository
+        uses: ./.github/actions/save-go-cache
         with:
-          name: unit-test-results
-          path: test/results/**/*
+          cache-key-prefix: "unit-go"
 
-  E2E-Test:
-    name: "E2E tests"
-    runs-on: ubuntu-24.04
+  Unit-Test-TS:
+    name: "Unit tests (TS)"
+    runs-on: *test-runner
     permissions:
       contents: read
     steps:
@@ -70,6 +111,36 @@ jobs:
 
       - name: Bootstrap environment
         uses: anchore/go-make/.github/actions/setup@abf41688f36f2cbec13105747abbe8e60f5c56ca # v0.9.3
+        with:
+          # generate is the only go here, which the e2e job builds too; that job saves the cache
+          cache-key-prefix: "e2e"
+
+      # bun's install cache, keyed on the lockfile (hashFiles is empty until bun.lock exists, which still yields a valid key)
+      - name: Cache bun installs
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 #v6.1.0
+        with:
+          path: ~/.bun/install/cache
+          key: bun-${{ runner.os }}-${{ hashFiles('cmd/yardstick/internal/labelserver/web/bun.lock') }}
+          restore-keys: |
+            bun-${{ runner.os }}-
+
+      - name: Run TS unit tests
+        run: make unit:ts
+
+  E2E-Test:
+    name: "E2E tests"
+    runs-on: *test-runner
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 #v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Bootstrap environment
+        uses: anchore/go-make/.github/actions/setup@abf41688f36f2cbec13105747abbe8e60f5c56ca # v0.9.3
+        with:
+          cache-key-prefix: "e2e"
 
       # bun's install cache, keyed on the lockfile (hashFiles is empty until bun.lock exists, which still yields a valid key)
       - name: Cache bun installs
@@ -96,9 +167,15 @@ jobs:
             cmd/yardstick/internal/labelserver/web/playwright-report/
           if-no-files-found: ignore
 
+      - name: Save go caches
+        if: github.head_ref == 'go-rewrite' && github.event.pull_request.head.repo.full_name == github.repository
+        uses: ./.github/actions/save-go-cache
+        with:
+          cache-key-prefix: "e2e"
+
   CLI-Test:
     name: "CLI tests"
-    runs-on: ubuntu-24.04
+    runs-on: *test-runner
     permissions:
       contents: read
     env:
@@ -111,6 +188,8 @@ jobs:
 
       - name: Bootstrap environment
         uses: anchore/go-make/.github/actions/setup@abf41688f36f2cbec13105747abbe8e60f5c56ca # v0.9.3
+        with:
+          cache-key-prefix: "cli"
 
       # the key is test/cli's pins: the two grype releases its gates install and the claims snapshot
       # (claimsPin in test/cli/utils_test.go). The DB is built per run and never cached.
@@ -123,10 +202,22 @@ jobs:
       - name: Run CLI tests
         run: make cli
 
+      - name: Save go caches
+        if: github.head_ref == 'go-rewrite' && github.event.pull_request.head.repo.full_name == github.repository
+        uses: ./.github/actions/save-go-cache
+        with:
+          cache-key-prefix: "cli"
+
   Build-Snapshot-Artifacts:
     # Note: changing this job name requires making the same update in the .github/workflows/release.yaml pipeline
     name: "Build snapshot artifacts"
-    runs-on: ubuntu-24.04
+    # runs-on.com compute instances for goreleaser's parallel builds, as syft builds on
+    #   spot disabled: reliability for build workflows (used for releases too)
+    #   tmpfs omitted: a RAM-backed dist/ competes with the build's memory peak and OOMs
+    #   s3-cache omitted: see Static analysis
+    #   volume: the default 40GB root fills during the multi-arch build; the provisioned
+    #   throughput and iops above gp3's baseline cost about a cent a run
+    runs-on: "runs-on=${{ github.run_id }}/cpu=16+32/ram=32+128/family=c5+c6+c7+c8/spot=false/volume=120gb:gp3:500mbs:4000iops"
     permissions:
       contents: read
     steps:
@@ -156,10 +247,8 @@ jobs:
       - name: Build snapshot artifacts
         run: make snapshot
 
-      # why not use actions/upload-artifact? It is very slow (3 minutes to upload ~600MB of data, vs 10 seconds with this approach).
-      # see https://github.com/actions/upload-artifact/issues/199 for more info
-      - name: Upload snapshot artifacts
-        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 #v6.1.0
+      - name: Save go caches
+        if: github.head_ref == 'go-rewrite' && github.event.pull_request.head.repo.full_name == github.repository
+        uses: ./.github/actions/save-go-cache
         with:
-          path: snapshot
-          key: snapshot-build-${{ github.run_id }}
+          cache-key-prefix: "snapshot"

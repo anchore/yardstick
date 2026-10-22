@@ -32,15 +32,29 @@ func taskfile(name string) func() {
 	return func() { Run("task", run.Args(name), run.Interactive(), run.Stdout(os.Stdout)) }
 }
 
+// withRunsOn replaces a task's labels rather than adding to them, as RunOn does
+func withRunsOn(t Task, labels ...string) Task {
+	t.RunsOn = labels
+	return t
+}
+
 func main() {
 	Makefile(
 		golint.Tasks(),
 		goreleaser.Tasks(),
-		// the label server's tests fetch the built UI; test/cli runs real grype, under make cli
-		gotest.Tasks(gotest.ExcludeGlob("**/test/**")).DependsOn("generate"),
-		// make unit also runs the label UI's unit tests (web/bunfig.toml roots them at src/)
+		// make unit is both halves, which CI runs as separate jobs
 		Task{
-			Name:         "unit:web",
+			Name:        "unit",
+			Description: "run the Go and the label UI's unit tests",
+			RunsOn:      Deps("test"),
+		},
+		// the label server's tests fetch the built UI; test/cli runs real grype, under make cli.
+		// GOMAKE_TEST_RUNNER=canopy runs them under canopy, as CI does
+		withRunsOn(gotest.Tasks(gotest.Name("unit:go"), gotest.ExcludeGlob("**/test/**"), gotest.CoverageThreshold(75)), "unit").DependsOn("generate"),
+		// web/bunfig.toml roots the label UI's unit tests at src/
+		Task{
+			Name:         "unit:ts",
+			Aliases:      Deps("unit:web"),
 			Description:  "run the label UI's unit tests with bun test",
 			Dependencies: Deps("generate"),
 			RunsOn:       Deps("unit"),
