@@ -680,6 +680,24 @@ func TestValidateCorpus(t *testing.T) {
 		}
 	})
 
+	// a subject nested under another subject's directory reads as an unknown kind there, and its
+	// labels are still checked
+	t.Run("nested subject under a subject", func(t *testing.T) {
+		dir := corpus(t)
+		nested := debDir + "/x/" + DigestDir(debDigest)
+		write(t, filepath.Join(dir, filepath.FromSlash(TypeFile(nested, "deb"))), `{"schema": "1.0.0", "labels": [{"vulnerability": "CVE-2024-1"}]}`)
+		problems, err := ValidateCorpus(dir)
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, p := range problems {
+			if p.File == TypeFile(nested, "deb") {
+				return
+			}
+		}
+		t.Errorf("expected the nested subject's label file checked, got %v", problems)
+	})
+
 	// an id in an advisory namespace is valid
 	t.Run("advisory id", func(t *testing.T) {
 		dir := corpus(t)

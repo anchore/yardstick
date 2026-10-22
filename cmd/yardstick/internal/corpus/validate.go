@@ -81,8 +81,7 @@ func ValidateCorpus(dir string) ([]Problem, error) {
 			return nil
 		}
 		if d.IsDir() {
-			// a label kind this yardstick does not read is UnknownKinds' to list, not a problem
-			if strings.HasPrefix(d.Name(), ".") && p != "." || UnknownKind(p) {
+			if strings.HasPrefix(d.Name(), ".") && p != "." {
 				return fs.SkipDir
 			}
 			return nil
@@ -151,6 +150,12 @@ func (c *corpusCheck) file(p string) {
 			c.addf(p, "", "label files live in %s/: move it to %s", MatchesDir, moved)
 			return
 		}
+		// a label kind this yardstick does not read is UnknownKinds' to list, not a problem. Its
+		// directory is still walked: a nested repository's subject can look like a kind directory,
+		// and every file the layout places is checked wherever it sits
+		if underUnknownKind(p) {
+			return
+		}
 		c.addf(p, "", "not a place in the corpus layout: labels live at pkg/oci/<registry>/<repository>/sha256-<hex>/matches/<type>.json or matches/image.json, sbom/sha256-<hex>/matches/, and global/matches/<type>.json")
 		return
 	}
@@ -172,6 +177,15 @@ func (c *corpusCheck) file(p string) {
 	}
 }
 
+func underUnknownKind(p string) bool {
+	for dir := path.Dir(p); dir != "."; dir = path.Dir(dir) {
+		if UnknownKind(dir) {
+			return true
+		}
+	}
+	return false
+}
+
 func isLabelFile(p string) bool {
 	loc, ok := Locate(p)
 	return ok && loc.IsLabelFile()
@@ -191,7 +205,7 @@ func UnknownKinds(dir string) ([]Problem, error) {
 			return err
 		}
 		out = append(out, Problem{File: p, Rule: "a label kind this yardstick does not read; skipped"})
-		return fs.SkipDir
+		return nil
 	})
 	return out, err
 }
