@@ -42,26 +42,27 @@ test.describe("Label next", () => {
 });
 
 test("j and k skip labeled rows, ⌥j and ⌥k walk every row", async ({ page }) => {
-  // the gate's Findings list by effect: log4j's four, then d257 (libblkid1), the labeled
-  // libgnutls fp, then 781d (libmount1)
+  // the gate's Findings list by effect: log4j's four, d257 (libblkid1), 781d (libmount1), the rest
+  // of the open deb rows ending at util-linux, then the two fp labels, which count toward no check
   const findings = "/ui/gates/deb-java/findings";
+  const tarFp = "6d210210168e93db"; // CVE-2026-5704, labeled fp
   await page.goto(`${findings}/${rows.utilLinux[1]}`);
   await expect(pager(page)).toHaveText(/5 of 10 open/);
   await page.keyboard.press("j");
   await onFinding(page, rows.utilLinux[2]);
   await expect(pager(page)).toHaveText(/6 of 10 open/);
 
-  await page.keyboard.press("Alt+k");
+  await page.goto(`${findings}/${rows.utilLinux[0]}`);
+  await expect(pager(page)).toHaveText(/10 of 10 open/);
+  await page.keyboard.press("Alt+j");
   await onFinding(page, libgnutls);
   await expect(pager(page)).toHaveText(/labeled · 10 open/);
   await expect(pager(page)).toHaveAttribute("data-index", "0");
-  // from a labeled row, j and k go to the nearest open rows
-  await page.keyboard.press("k");
-  await onFinding(page, rows.utilLinux[1]);
   await page.keyboard.press("Alt+j");
-  await onFinding(page, libgnutls);
-  await page.keyboard.press("j");
-  await onFinding(page, rows.utilLinux[2]);
+  await onFinding(page, tarFp);
+  // from a labeled row k goes to the nearest open row, past the other labeled one
+  await page.keyboard.press("k");
+  await onFinding(page, rows.utilLinux[0]);
 });
 
 test.describe("between gates", () => {

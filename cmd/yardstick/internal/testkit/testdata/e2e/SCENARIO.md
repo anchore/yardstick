@@ -51,7 +51,7 @@ Subjects `deb` and `java` (image order 1, 2). Checks:
 
 | check | state | value (worst subject) |
 |---|---|---|
-| f1NotWorse (tolerance 0) | fail | 0.5 |
+| f1NotWorse (tolerance 0) | fail | 1 (java: no tp or fp label, so every change could go against the candidate) |
 | noNewFalseNegatives (max 0) | fail | 2 |
 | noNewFalsePositives (max 0) | fail | 4 |
 | unlabeledChangesAtMost (max 0) | fail | 6 |

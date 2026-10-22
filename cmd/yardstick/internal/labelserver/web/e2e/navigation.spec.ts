@@ -135,6 +135,6 @@ test.describe("old links", () => {
     await page.goto(`/ui/map/gates/deb-java/check/${f1}/fails#row=${rows.jfhA}`);
     // the browser keeps a fragment across a redirect; the check screen ignores it
     await expect(page).toHaveURL(new RegExp(`${checkPage(f1)}(#.*)?$`));
-    await expect(tableRows(page, "check-table")).toHaveCount(12);
+    await expect(tableRows(page, "check-table")).toHaveCount(10);
   });
 });

@@ -11,8 +11,9 @@ test.describe("deb-java", () => {
   test("starts failing, with each check's state and its worst value against its limit", async ({ page }) => {
     await expect(outcome(page)).toHaveText("fail");
     await expect(page.getByTestId("title-row")).toContainText("grype candidate-a vs reference-a · 2 images");
-    await checkStates(page, { f1NotWorse: "fail", noNewFalseNegatives: "fail", noNewFalsePositives: "fail", unlabeledChangesAtMost: "fail" });
-    await expect(meter(page, "f1NotWorse")).toContainText("0.500 worse · limit 0");
+    await checkStates(page, { f1NotWorse: "fail", noNewFalseNegatives: "fail", noNewFalsePositives: "fail", unlabeledChangesAtMost: "fail", matchesAtLeast: "pass" });
+    // java has no tp or fp label, so its worst case is every change going against the candidate
+    await expect(meter(page, "f1NotWorse")).toContainText("1 worse · limit 0");
     await expect(meter(page, "noNewFalseNegatives")).toContainText("2 new · limit 0");
     await expect(meter(page, "noNewFalsePositives")).toContainText("4 new · limit 0");
     await expect(meter(page, "unlabeledChangesAtMost")).toContainText("6 unlabeled · limit 0");
@@ -28,12 +29,13 @@ test.describe("deb-java", () => {
     await expect(page.getByTestId("tabs").getByRole("tab", { name: /Matches/ })).toContainText("12");
   });
 
-  test("a check lists the labels that decide it as well as what is open, with the agent's hints", async ({ page }) => {
+  test("a check lists what is open with the agent's hints, and not the labels that only help the candidate", async ({ page }) => {
     await page.goto(checkPage("f1NotWorse"));
     await expect(outcome(page)).toHaveText("fail");
-    // the two fp labels on dropped changes stay reachable on a failed check
-    await expect(tableRow(page, "check-table", "c54934489d4ac861").getByTestId("verdict")).toHaveText("FP");
-    await expect(tableRow(page, "check-table", "6d210210168e93db").getByTestId("verdict")).toHaveText("FP");
+    await expect(tableRow(page, "check-table", rows.jfhA)).toBeVisible();
+    // the two fp labels are on changes the candidate dropped, which raise its F1, so f1NotWorse leaves them out
+    await expect(tableRow(page, "check-table", "c54934489d4ac861")).toHaveCount(0);
+    await expect(tableRow(page, "check-table", "6d210210168e93db")).toHaveCount(0);
     await expect(tableRow(page, "check-table", rows.jfhA).getByTestId("hint")).toHaveText("TP · medium");
     await expect(tableRow(page, "check-table", rows.tarDropped).getByTestId("hint")).toHaveText("FP · medium");
     await expect(tableRow(page, "check-table", rows.utilLinux[0]).getByTestId("hint")).toHaveText("TP · medium");

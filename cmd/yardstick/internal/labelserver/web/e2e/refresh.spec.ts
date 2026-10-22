@@ -25,7 +25,8 @@ test.describe("lists", () => {
     const kept = await keeps(page, page.getByTestId("check-table"));
     await page.getByTestId("bulk-accept").click();
     await expect.poll(() => labelsOf("CVE-2026-3184").length).toBeGreaterThan(0);
-    await expect(tableRow(page, "check-table", rows.utilLinux[0]).getByTestId("verdict")).toHaveText("TP");
+    // a tp on an added row raises the candidate's F1, so f1NotWorse no longer lists it
+    await expect(tableRow(page, "check-table", rows.utilLinux[0])).toHaveCount(0);
     await expectFreshLoad(page);
     await kept();
   });

@@ -46,24 +46,25 @@ test("a gate lists its checks with meters, and a check row opens the check", asy
   const checks = page.getByTestId("check-row");
   await expect(checks).toHaveCount(5);
   await expect(page.locator("[data-testid=check-row][data-check=unlabeledChangesAtMost]")).toHaveAttribute("data-state", "fail");
-  await expect(page.locator("[data-testid=check-row][data-check=f1NotWorse] [data-testid=meter]")).toContainText("0.500 worse · limit 0");
+  await expect(page.locator("[data-testid=check-row][data-check=f1NotWorse] [data-testid=meter]")).toContainText("1 worse · limit 0");
   // a check row says what the check means in a line, and its definition on hover
   const f1desc = page.locator("[data-testid=check-row][data-check=f1NotWorse] .desc");
   await expect(f1desc).toHaveText("Candidate F1 must not fall below the reference's");
   await expect(f1desc).toHaveAttribute("title", /^Fails when the candidate's F1 is lower/);
-  // deb passes f1NotWorse, so its two fp labels count without deciding it, as the check screen says
+  // java has no tp or fp label, so a label on any of its four rows could move f1NotWorse
   await expect(page.locator("[data-testid=check-row][data-check=f1NotWorse] [data-testid=check-count]")).toContainText("4 could move it alone");
   await page.locator("[data-testid=check-row][data-check=f1NotWorse]").click();
   await expect(page).toHaveURL(/\/ui\/gates\/deb-java\/checks\/f1NotWorse$/);
   await expect(page.getByTestId("breadcrumb")).toHaveText(/Gates\s*›\s*deb-java\s*›\s*f1NotWorse/);
-  await expect(tableRows(page, "check-table")).toHaveCount(12);
+  // the open changes; deb's two fp labels raise the candidate's F1, so they are not listed
+  await expect(tableRows(page, "check-table")).toHaveCount(10);
 });
 
 test("on a check the rail scopes the table, the chips follow it, and Images hides it", async ({ page }) => {
   await page.goto("/ui/gates/deb-java/checks/f1NotWorse");
   const table = page.getByTestId("check-table");
-  await expect(tableRows(page, "check-table")).toHaveCount(12);
-  await expect(chip(page, "all")).toHaveText("12");
+  await expect(tableRows(page, "check-table")).toHaveCount(10);
+  await expect(chip(page, "all")).toHaveText("10");
   await expect(chip(page, "unclear")).toHaveText("2");
   await expect(table.locator("th", { hasText: "Image" })).toHaveCount(1);
 
@@ -82,7 +83,7 @@ test("on a check the rail scopes the table, the chips follow it, and Images hide
   await expect(tableRows(page, "check-table")).toHaveCount(2);
   await page.getByTestId("image-rail").locator(`[data-slug="${images.deb.slug}"]`).click();
   await expect(page).toHaveURL(/verdict=unclear/);
-  await expect(chip(page, "all")).toHaveText("8");
+  await expect(chip(page, "all")).toHaveText("6");
   await expect(tableRows(page, "check-table")).toHaveCount(0);
 
   await page.getByTestId("images-toggle").click();
@@ -131,8 +132,10 @@ test("bulk Accept hints on a check writes the agent's labels, a proposal's and a
 
   await expect.poll(() => labelsOf("GHSA-jfh8-c2jp-5v3q").map((l) => `${l.subject} ${l.verdict}`)).toContain(`${images.java.name} tp`);
   await expect.poll(() => labelsOf("CVE-2026-3184").filter((l) => l.verdict === "tp").length).toBeGreaterThan(0);
-  // the table reloads with the labels on it
-  await expect(table.locator(`tr[data-id="${rows.jfhA}"] [data-testid=verdict]`)).toHaveText("TP");
+  // the table reloads without them: a tp on an added row raises the candidate's F1, so f1NotWorse
+  // no longer lists it
+  await expect(table.locator(`tr[data-id="${rows.jfhA}"]`)).toHaveCount(0);
+  await expect(table.locator(`tr[data-id="${rows.utilLinux[0]}"]`)).toHaveCount(0);
 });
 
 test("Label as… on the gate's Findings tab labels the rows selected", async ({ page }) => {

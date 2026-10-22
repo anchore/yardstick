@@ -92,13 +92,13 @@ test.describe("accepting from a table", () => {
   });
 
   test("Accept hints on the cause's rows labels all four", async ({ page }) => {
-    // f1NotWorse counts the rows labeled or not, so they stay in its table
-    await page.goto(`${checkPage("f1NotWorse")}?q=CVE-2026-3184`);
-    await page.getByTestId("check-table").getByRole("checkbox", { name: "Select every row shown" }).check();
+    // the gate's Matches tab lists the rows labeled or not, so they stay in its table
+    await page.goto(`${gatePage()}findings?q=CVE-2026-3184`);
+    await page.getByTestId("findings-table").getByRole("checkbox", { name: "Select every row shown" }).check();
     await expect(page.getByTestId("bulk-accept")).toHaveText("Accept hints (4)");
     await page.getByTestId("bulk-accept").click();
     await expect.poll(() => labelsOf("CVE-2026-3184").length).toBe(4);
-    for (const id of rows.utilLinux) await expect(tableRow(page, "check-table", id).getByTestId("verdict")).toHaveText("TP");
+    for (const id of rows.utilLinux) await expect(tableRow(page, "findings-table", id).getByTestId("verdict")).toHaveText("TP");
   });
 
   test("Label as against a hint says it overrides the hint", async ({ page }) => {
