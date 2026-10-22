@@ -333,7 +333,7 @@ function evidenceTab(d: FindingData) {
   return el("div", { class: "evidence", "data-testid": "evidence-links" },
     groups.size === 0 && el("p", { class: "muted" }, "No links for this match."),
     [...groups].map(([g, ls]) => el("section", {}, el("h3", {}, g),
-      el("ul", { class: "links" }, ls.map((l) => el("li", {}, el("a", { href: l.url, target: "_blank", rel: "noopener noreferrer", title: l.url }, l.label),
+      el("ul", { class: "links" }, ls.map((l) => el("li", {}, /^https?:\/\//.test(l.url) ? el("a", { href: l.url, target: "_blank", rel: "noopener noreferrer", title: l.url }, l.label) : l.label,
         l.note ? el("span", { class: "note" }, ` — ${l.note}`) : null))))),
     x && el("section", { class: "explanation", "data-testid": "explanation" },
       el("h3", {}, "Agent explanation"),
