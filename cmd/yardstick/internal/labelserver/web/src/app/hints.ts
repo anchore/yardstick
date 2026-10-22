@@ -5,7 +5,7 @@ import type { GateList, GateResult, HintEntry, ResearchJobsSummary, State, Vocab
 import * as api from "../shared/api";
 import { el, fill, toast, type Child } from "../shared/dom";
 import { dots, labels as words, plural, sideWords } from "../shared/words";
-import { changed, gateList, gateState, written } from "./data";
+import { changed, gateList, gateState, writeFailed, written } from "./data";
 import { hintsHref, imageHints, inScope, parseScope, preselected, previewLabels, rowCount, stillOpen, type OpenRow } from "./hintsdata";
 import { noCounts, type RailImage } from "./images";
 import { gateRows, isOpen } from "./listing";
@@ -175,10 +175,11 @@ export function hintsView(host: HTMLElement, r0: Route & { level: "hints" }, _na
       try {
         const res = await api.acceptHints(ids);
         written(`✦ ${plural(res.written.length, "label")} written from ${plural(ids.length, "hint")}${res.skipped.length ? `, ${plural(res.skipped.length, "match", "matches")} skipped` : ""}`, res.labels);
+        // the reader's checks go with an accept that worked; a failed one keeps them for another try
+        chosen.clear();
       } catch (e) {
-        toast((e as Error).message, true);
+        writeFailed(e);
       }
-      chosen.clear();
       changed();
     }
 

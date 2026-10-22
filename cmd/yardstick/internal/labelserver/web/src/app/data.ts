@@ -1,6 +1,6 @@
 // data.ts is what the /ui/gates/ screens read and write: the API's reads (shared/api.ts), cached
 // until the next write, and the writes the lists' actions make (labels, accepted hints).
-import type { CrossFinding, LabelKey, Vocabulary, claimsv1 } from "../gen/wire";
+import type { CrossFinding, LabelKey, RevertResponse, Vocabulary, claimsv1 } from "../gen/wire";
 import * as api from "../shared/api";
 import { toast } from "../shared/dom";
 import { labels as words, plural } from "../shared/words";
@@ -54,10 +54,19 @@ export function changed() {
   dispatchEvent(new Event("yardstick:changed"));
 }
 
-// revert removes labels from the writable claims source, then refreshes the screen
+// revertWords says what a revert did: the labels it took out, and the ones a write had replaced
+// that it put back
+export function revertWords(res: RevertResponse) {
+  const removed = res.removed && `${plural(res.removed, "label")} removed`;
+  const back = res.restored && `${plural(res.restored, "earlier label")} put back`;
+  return [removed, back].filter(Boolean).join(", ") || "nothing to undo";
+}
+
+// revert takes labels back out of the writable claims source, then refreshes the screen. A write's
+// keys carry the label each replaced, which revert puts back rather than leaving the match unlabeled
 export async function revert(labels: LabelKey[]) {
   try {
-    toast(`${plural((await api.revert(labels)).removed, "label")} removed`);
+    toast(revertWords(await api.revert(labels)));
     return true;
   } catch (e) {
     toast((e as Error).message, true);
@@ -68,10 +77,19 @@ export async function revert(labels: LabelKey[]) {
   }
 }
 
-// written is a write's toast, with an Undo that removes the labels it wrote
+// written is a write's toast, with an Undo that takes back the labels it wrote
 export function written(text: string, labels: LabelKey[] | undefined) {
   void recount();
   toast(text, false, labels?.length ? { text: "Undo", run: () => void revert(labels) } : undefined);
+}
+
+// writeFailed is a write's error toast. Labels that landed before it failed (landed, from earlier
+// calls of a write across gates, and the server's WriteError) are said, with an Undo for them.
+export function writeFailed(e: unknown, landed: LabelKey[] = []) {
+  const keys = [...landed, ...(e instanceof api.ApiError ? e.labels : [])];
+  void recount();
+  if (!keys.length) return toast((e as Error).message, true);
+  toast(`${(e as Error).message}; ${plural(keys.length, "label")} written before it failed`, true, { text: "Undo", run: () => void revert(keys) });
 }
 
 async function write(what: (keys: LabelKey[]) => Promise<string>) {
@@ -82,8 +100,7 @@ async function write(what: (keys: LabelKey[]) => Promise<string>) {
     return true;
   } catch (e) {
     // a write across gates can fail part way, after writing some
-    void recount();
-    toast((e as Error).message, true);
+    writeFailed(e, keys);
     return false;
   } finally {
     changed();

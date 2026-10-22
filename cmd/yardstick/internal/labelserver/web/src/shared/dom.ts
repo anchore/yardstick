@@ -67,5 +67,5 @@ export function toast(msg: string, error = false, action?: { text: string; run: 
   fill(t, msg, action && el("button", { type: "button", class: "toast-action", "data-testid": "toast-action",
     onclick: () => { t.hidden = true; action.run(); } }, action.text));
   t.className = `toast${error ? " error" : ""}`; t.hidden = false;
-  clearTimeout(toastTimer); toastTimer = setTimeout(() => (t.hidden = true), error ? 6000 : action ? 10000 : 2500);
+  clearTimeout(toastTimer); toastTimer = setTimeout(() => (t.hidden = true), action ? 10000 : error ? 6000 : 2500);
 }

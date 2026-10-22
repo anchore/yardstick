@@ -10,7 +10,7 @@ import { imageRelease, releaseName } from "../shared/names";
 import { decoded, direction, pkgOf } from "../shared/rows";
 import { dirWords, justWords, labels, plural, ruleWords, whyText } from "../shared/words";
 import { kick } from "./activity";
-import { changed, forget, written } from "./data";
+import { changed, forget, writeFailed, written } from "./data";
 import { loadFinding, researching, type FindingData } from "./finding-data";
 import { effect, mutedReason, pendingCause, seenWith, shortSource, type Dir } from "./finding-words";
 import { labelPanel, type Draft, type LabelPanel } from "./labelpanel";
@@ -169,7 +169,12 @@ export function findingView(host: HTMLElement, r: FindingRoute, nav: Nav, signal
     writing = true;
     try {
       let keys: LabelKey[];
-      try { keys = (await call()).labels; } catch (e) { toast((e as Error).message, true); return; }
+      try { keys = (await call()).labels; } catch (e) {
+        writeFailed(e);
+        // some landed before it failed: the page shows them
+        if (e instanceof api.ApiError && e.labels.length) changed();
+        return;
+      }
       // the reader left while it was written: say so with its Undo, and go nowhere
       if (signal.aborted) { written(text, keys); changed(); return; }
       await after(rows, text, how, keys);
