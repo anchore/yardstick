@@ -40,7 +40,7 @@ jobs:
 
       - name: Save go caches
         if: github.head_ref == 'go-rewrite' && github.event.pull_request.head.repo.full_name == github.repository
-        uses: ./.github/actions/save-go-cache
+        uses: $/.github/actions/save-go-cache
 
   Unit-Test:
     # Note: changing this job name requires making the same update in the .github/workflows/release.yaml pipeline
@@ -95,7 +95,7 @@ jobs:
 
       - name: Save go caches
         if: github.head_ref == 'go-rewrite' && github.event.pull_request.head.repo.full_name == github.repository
-        uses: ./.github/actions/save-go-cache
+        uses: $/.github/actions/save-go-cache
         with:
           cache-key-prefix: "unit-go"
 
@@ -169,7 +169,7 @@ jobs:
 
       - name: Save go caches
         if: github.head_ref == 'go-rewrite' && github.event.pull_request.head.repo.full_name == github.repository
-        uses: ./.github/actions/save-go-cache
+        uses: $/.github/actions/save-go-cache
         with:
           cache-key-prefix: "e2e"
 
@@ -204,7 +204,7 @@ jobs:
 
       - name: Save go caches
         if: github.head_ref == 'go-rewrite' && github.event.pull_request.head.repo.full_name == github.repository
-        uses: ./.github/actions/save-go-cache
+        uses: $/.github/actions/save-go-cache
         with:
           cache-key-prefix: "cli"
 
@@ -249,6 +249,6 @@ jobs:
 
       - name: Save go caches
         if: github.head_ref == 'go-rewrite' && github.event.pull_request.head.repo.full_name == github.repository
-        uses: ./.github/actions/save-go-cache
+        uses: $/.github/actions/save-go-cache
         with:
           cache-key-prefix: "snapshot"
