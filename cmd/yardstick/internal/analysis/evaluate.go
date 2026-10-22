@@ -58,7 +58,8 @@ type SubjectCheck struct {
 	Value   Value  `json:"value"`
 	State   State  `json:"state"`
 	Message string `json:"message,omitempty"`
-	// FailsOn are the labeled matches that put the value over the threshold.
+	// FailsOn are the labeled matches that put the value over the threshold; none when the subject
+	// passes.
 	FailsOn []string `json:"failsOn,omitempty"`
 	// Rows are the unlabeled matches whose label can still move the value.
 	Rows []string `json:"rows,omitempty"`
@@ -435,6 +436,9 @@ func (e evaluator) subjectCheck(c gatefile.Check, s Subject) SubjectCheck {
 		sc.State, sc.Message = Fail, "no tp or fp label applies to this subject"
 	}
 	sc.FailsOn, sc.Rows = e.rows(c, r)
+	if sc.State == Pass {
+		sc.FailsOn = nil
+	}
 	return sc
 }
 
@@ -512,8 +516,11 @@ func (e evaluator) rows(c gatefile.Check, r *pairing.Result) (failsOn, rows []st
 	case NoNewFalsePositives:
 		behind = e.newFalsePositives(r, bestCase)
 	case F1NotWorse:
+		// only the labeled changes that lower the candidate's F1: an fp it added, a tp it dropped
 		for _, m := range r.Matches {
-			if !e.unlabeled(m) && delta(m) {
+			v := e.verdict(m, bestCase)
+			if !e.unlabeled(m) && (m.In(pairing.Candidate) && !m.In(pairing.Reference) && v == claimsv1.FP ||
+				m.In(pairing.Reference) && !m.In(pairing.Candidate) && v == claimsv1.TP) {
 				behind = append(behind, m)
 			}
 		}

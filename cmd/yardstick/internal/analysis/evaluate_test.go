@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"os"
+	"slices"
 	"strings"
 	"testing"
 
@@ -543,3 +544,34 @@ func TestLabelingEffect(t *testing.T) {
 		t.Errorf("expected the labeled fp to fail the check and be listed in failsOn, got %s %v", c.State, c.FailsOn)
 	}
 }
+
+// failsOn names only the labeled changes that push f1NotWorse over, and only on a subject that does
+// not pass: a tp the candidate adds raises its F1
+func TestF1FailsOnIsAdverse(t *testing.T) {
+	var added, both []*pairing.Match
+	for _, m := range cpes(t).Result.Matches {
+		switch {
+		case m.In(pairing.Candidate) && !m.In(pairing.Reference):
+			added = append(added, m)
+		case m.In(pairing.Candidate):
+			both = append(both, m)
+		}
+	}
+	// a tp both report gives the reference something to score, so the added fp can lower F1
+	tp, fp := added[0], added[1]
+	s := cpes(t, label(both[0].Package.PURL, both[0].Vulnerability, claimsv1.TP),
+		label(tp.Package.PURL, tp.Vulnerability, claimsv1.TP), label(fp.Package.PURL, fp.Vulnerability, claimsv1.FP))
+	sc := evaluate([]gatefile.Check{check(F1NotWorse, nil)}, s).Checks[0].Subjects[0]
+	if sc.State == Pass || !slices.Contains(sc.FailsOn, MatchID(fp)) || slices.Contains(sc.FailsOn, MatchID(tp)) {
+		t.Errorf("expected the added fp behind the check and not the added tp, got %s %v", sc.State, sc.FailsOn)
+	}
+	var all []claims.Label
+	for _, m := range added {
+		all = append(all, label(m.Package.PURL, m.Vulnerability, claimsv1.TP))
+	}
+	sc = evaluate([]gatefile.Check{check(F1NotWorse, nil)}, cpes(t, all...)).Checks[0].Subjects[0]
+	if sc.State != Pass || sc.FailsOn != nil {
+		t.Errorf("expected every added match labeled tp to pass with nothing behind it, got %s %v", sc.State, sc.FailsOn)
+	}
+}
+

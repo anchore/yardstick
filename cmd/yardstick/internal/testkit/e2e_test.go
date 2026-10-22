@@ -269,14 +269,12 @@ func checkGateTables(t *testing.T, h http.Handler) {
 	var f1 labelserver.CheckFindings
 	get(t, h, "/api/gates/deb-java/checks/f1NotWorse/findings", &f1)
 	// java has no tp or fp label, which fails it outright: any label on a java row changes that.
-	// deb is undecided, so its two fp labels are counted, not deciding
+	// deb's two fp labels are on rows the candidate dropped, which raise its F1, so neither is listed
 	want := []string{
 		"e1af7851f0e60bb4 could-move - proposal",
 		"783bbb63489d81a6 could-move - proposal",
 		"42c45bf99e4f741b could-move unclear proposal",
 		"a88b3bd584c62516 could-move unclear proposal",
-		"c54934489d4ac861 counted fp -",
-		"6d210210168e93db counted fp -",
 		"d2572e8f87a44f74 counted - cause",
 		"781d813b74ed9e10 counted - cause",
 		"12fab8dbf4fcf9e8 counted - cause",
@@ -291,25 +289,26 @@ func checkGateTables(t *testing.T, h http.Handler) {
 		debSlug:  {FP: 2, Hinted: 5, Open: 6, Total: 8},
 		javaSlug: {Unclear: 2, Hinted: 2, Open: 2, Total: 4},
 	}
-	if f1.Check.State != "fail" || f1.Check.Threshold != 0 || !maps.Equal(f1.Images, wantImages) {
+	f1Images := map[string]labelserver.Tally{debSlug: {Hinted: 5, Open: 6, Total: 6}, javaSlug: wantImages[javaSlug]}
+	if f1.Check.State != "fail" || f1.Check.Threshold != 0 || !maps.Equal(f1.Images, f1Images) {
 		t.Errorf("f1NotWorse: %+v %+v", f1.Check, f1.Images)
 	}
 	// /state says the same: no label decides f1NotWorse, since the subject its labels count in passes
 	if got := failsOn(t, h, "deb-java")["f1NotWorse"]; len(got) != 0 {
 		t.Errorf("f1NotWorse failsOn in /state: %v", got)
 	}
-	// and each row's effect in /state is its strongest over the checks: the deb fp labels count, the
-	// java rows could move f1NotWorse
+	// and each row's effect in /state is its strongest over the checks: the deb fp labels count
+	// toward none, the java rows could move f1NotWorse
 	effects := rowEffects(t, h, "deb-java")
-	for id, want := range map[string]string{"c54934489d4ac861": "counted", "6d210210168e93db": "counted", "e1af7851f0e60bb4": "could-move", "d2572e8f87a44f74": "counted"} {
+	for id, want := range map[string]string{"c54934489d4ac861": "", "6d210210168e93db": "", "e1af7851f0e60bb4": "could-move", "d2572e8f87a44f74": "counted"} {
 		if effects[id] != want {
 			t.Errorf("row %s effect in /state: %q, want %q", id, effects[id], want)
 		}
 	}
 	x := f1.Findings[4]
 	if x.Image.Name != "vulnerabilities-debian-12-tar-util-linux:617d48d" || x.Image.Slug != debSlug || !strings.HasPrefix(x.Image.Ref, "oci:ghcr.io/anchore/test-images/vulnerabilities-debian-12-tar-util-linux:617d48d@sha256:") ||
-		x.Vulnerability != "CVE-2011-3389" || x.Package.Name != "libgnutls30" || x.Direction != "dropped" || x.Label.Justification != "fix-installed" {
-		t.Errorf("the libgnutls30 finding: %+v", x)
+		x.Vulnerability != "CVE-2026-3184" || x.Package.Name != "libblkid1" || x.Direction != "added" || x.Label != nil {
+		t.Errorf("the libblkid1 finding: %+v", x)
 	}
 
 	var fn labelserver.CheckFindings

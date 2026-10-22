@@ -127,7 +127,7 @@ No cause or explanation. The tar row is the same row as in deb-java (same id), s
 - every test starts from this workspace: the seed's `POST /__e2e/reset` (called by the shared fixture in `web/e2e/fixtures.ts`) puts the seeded files back and starts a fresh server. Tests run on one worker, since there is one server. Labeling deb-java through is also what settles deb-npm (pass)
 - labels land in the files above, with `subject.image` as the gate wrote the ref (tag included); `smoke.spec.ts` reads the deb image's `deb.json`, not `claims/global/deb.json`
 - `n` on deb-java opens the log4j row first (a GHSA id, the first open row whose label could move a check), so do not assume a `CVE-` id
-- a check lists only what it counts: a labeled row leaves `unlabeledChangesAtMost`, and a tp on an added row leaves `noNewFalsePositives`; `f1NotWorse` lists every changed row, labeled or not
+- a check lists only what it counts: a labeled row leaves `unlabeledChangesAtMost`, and a tp on an added row leaves `noNewFalsePositives`; `f1NotWorse` lists every open changed row and, while it does not pass, the labeled ones that lower the candidate's F1
 - the image names hold `tar` and `util-linux`, and the binary packages' purls name `util-linux` as upstream, so a search for either matches more than the package; search the purl (`debian/tar@`)
 - the gates are listed newest scan first, and two scans across a minute boundary swap, so open a gate by its URL rather than `/`
 - the UI writes the row's own purl (version and qualifiers, e.g. `pkg:deb/debian/tar@1.34...?arch=arm64&distro=debian-12`) where `claims add --package` takes a bare one, and an accepted hint carries the proposal's note onto the label; compare labels by package without version
