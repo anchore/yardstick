@@ -92,24 +92,15 @@ func TestServeResearchRunsThePluginSkill(t *testing.T) {
 		Matches, Queued int
 	}
 	var c counts
-	s.research(`{"select":"could-move-check","dryRun":true}`, &c)
-	if c.Matches != 1 || c.Queued != 1 || len(c.Jobs) != 0 {
-		t.Errorf("expected a dry run to count the open tar row and start nothing, got %+v", c)
-	}
-	for _, bad := range []string{`{}`, `{"select":"all"}`, `{"select":"no-hint","rows":["x"]}`, `{"rows":["nope"]}`} {
+	for _, bad := range []string{`{}`, `{"rows":["nope"]}`, `{"rows":["` + tar.ID + `"],"from":"elsewhere"}`} {
 		if rec := s.post("/research", bad); rec.Code != http.StatusBadRequest {
 			t.Errorf("POST research %s: expected 400, got %d", bad, rec.Code)
 		}
-	}
-	if rec := s.post("/research", `{"select":"no-hint","subject":"nope"}`); rec.Code != http.StatusNotFound {
-		t.Errorf("expected an unknown subject refused, got %d", rec.Code)
 	}
 	if rec := s.do(http.MethodPost, "/api/gates/deb/research", "", `{"rows":["`+tar.ID+`"]}`); rec.Code != http.StatusForbidden {
 		t.Errorf("expected research without the token refused, got %d", rec.Code)
 	}
 
-	s.research(`{"select":"no-hint","dryRun":true}`, &c)
-	noHint := c.Matches
 	s.research(`{"rows":["`+tar.ID+`"]}`, &c)
 	if len(c.Jobs) != 1 || c.Jobs[0] != tar.ID {
 		t.Fatalf("expected one job named by the row, got %+v", c)
@@ -145,10 +136,6 @@ func TestServeResearchRunsThePluginSkill(t *testing.T) {
 	if !r.Researched || r.ResearchLevel != "researched" || r.Research == nil || r.Research.Status != "done" || r.Research.Source != research.FromLabelUI ||
 		r.Hint == nil || r.Hint.Origin != labelserver.OriginLabelUI || r.Hint.ResearchJob != tar.ID {
 		t.Errorf("expected the row researched from the UI, got %+v %+v %+v", r, r.Research, r.Hint)
-	}
-	s.research(`{"select":"no-hint","dryRun":true}`, &c)
-	if c.Matches != noHint-1 {
-		t.Errorf("expected the researched row left out of %d, got %+v", noHint, c)
 	}
 	var cancel struct {
 		Cancelled    []string

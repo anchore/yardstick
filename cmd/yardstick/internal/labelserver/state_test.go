@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"strings"
 	"testing"
+	"unicode/utf8"
 
 	"github.com/anchore/yardstick/cmd/yardstick/internal/analysis"
 )
@@ -25,5 +26,16 @@ func TestCheckFindingsOfNone(t *testing.T) {
 	}
 	if !strings.Contains(string(data), `"findings":[]`) {
 		t.Errorf("expected an empty findings list, got %s", data)
+	}
+}
+
+// a log's tail starts on a whole line, or failing that a whole rune, never inside one
+func TestLogTailKeepsRunesWhole(t *testing.T) {
+	log := []byte("first line\n" + strings.Repeat("é", 10) + "\nlast é line\n")
+	if got := string(tail(log, 18)); got != "last é line\n" {
+		t.Errorf("expected the tail from the last whole line, got %q", got)
+	}
+	if got := tail([]byte(strings.Repeat("é", 10)), 5); !utf8.Valid(got) || len(got) != 4 {
+		t.Errorf("expected two whole runes with no newline to cut at, got %q", got)
 	}
 }

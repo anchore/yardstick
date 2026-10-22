@@ -1,6 +1,7 @@
 package labelserver
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
 	"net/http"
@@ -8,6 +9,7 @@ import (
 	"slices"
 	"strings"
 	"time"
+	"unicode/utf8"
 
 	"github.com/anchore/yardstick/cmd/yardstick/internal/agentstore"
 	"github.com/anchore/yardstick/cmd/yardstick/internal/research"
@@ -180,24 +182,17 @@ func hintOrigin(idx *researchIndex, rowID string, p agentstore.Proposal) (origin
 	return OriginResearchJob, j.ID
 }
 
-// ResearchRequest is the body of POST .../research (and, rows only, of .../research/cancel): rows,
-// or a selection the server resolves, as in delta:
+// ResearchRequest is the body of POST .../research (and of .../research/cancel): the rows, and
+// the screen asking (table or finding), recorded on the jobs.
 //
 //	{"rows": ["<row id>", ...], "from": "table"}
-//	{"select": "no-hint"}            open rows with no agent hint at all
-//	{"select": "could-move-check", "subject": "<slug>", "limit": 10, "dryRun": true}
 //
-// A selection takes only open rows not yet researched with nothing queued or running; there is
-// deliberately no "all". Rows given that a job is already queued or running on are skipped. Sibling
-// packages (same alias group and source package) share a job. From is the screen asking (table or
-// finding), recorded on the jobs.
+// Rows given that a job is already queued or running on are skipped. Sibling packages (same alias
+// group and source package) share a job. Choosing rows by what they are is POST /api/research's
+// job, with scope=gate:<gate>.
 type ResearchRequest struct {
-	Rows    []string `json:"rows"`
-	Select  string   `json:"select,omitempty"`
-	Subject string   `json:"subject,omitempty"`
-	Limit   int      `json:"limit,omitempty"`
-	DryRun  bool     `json:"dryRun,omitempty"`
-	From    string   `json:"from,omitempty"`
+	Rows []string `json:"rows"`
+	From string   `json:"from,omitempty"`
 }
 
 // ResearchResponse is what a start queued: the jobs, the rows they cover (Matches), and the rows
@@ -216,11 +211,6 @@ const (
 	FromResearchPage = "research"
 	FromTable        = "table"
 	FromFinding      = "finding"
-)
-
-const (
-	selectNoHint         = "no-hint"
-	selectCouldMoveCheck = "could-move-check"
 )
 
 // researchReady writes the error response when research cannot start here.
@@ -253,19 +243,8 @@ func (s *Server) handleResearch(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 	rows := body.Rows
-	switch {
-	case body.Select != "" && len(body.Rows) > 0:
-		http.Error(w, "give either rows or select, not both", http.StatusBadRequest)
-		return
-	case body.Select != "":
-		var status int
-		var err error
-		if rows, status, err = s.selectForResearch(e, v, body); err != nil {
-			http.Error(w, err.Error(), status)
-			return
-		}
-	case len(body.Rows) == 0:
-		http.Error(w, "nothing to research: give rows or select", http.StatusBadRequest)
+	if len(rows) == 0 {
+		http.Error(w, "nothing to research: give rows", http.StatusBadRequest)
 		return
 	}
 	if body.From != "" && body.From != FromTable && body.From != FromFinding {
@@ -285,7 +264,7 @@ func (s *Server) handleResearch(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 	out := ResearchResponse{Jobs: []string{}, Matches: len(rows), Queued: len(requests), Skipped: asked - len(rows)}
-	if body.DryRun || len(requests) == 0 {
+	if len(requests) == 0 {
 		writeJSON(w, out)
 		return
 	}
@@ -297,56 +276,6 @@ func (s *Server) handleResearch(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 	writeJSON(w, out)
-}
-
-// selectForResearch resolves a selection to row ids, with the status to answer with when it can't.
-func (s *Server) selectForResearch(e *entry, v *view, body ResearchRequest) ([]string, int, error) {
-	if body.Select != selectNoHint && body.Select != selectCouldMoveCheck {
-		return nil, http.StatusBadRequest, fmt.Errorf("select must be %q or %q, got %q", selectNoHint, selectCouldMoveCheck, body.Select)
-	}
-	if body.Select == selectCouldMoveCheck && (v.stale != "" || len(e.gate.Checks) == 0) {
-		why := v.stale
-		if why == "" {
-			why = "it has no checks"
-		}
-		return nil, http.StatusConflict, fmt.Errorf("no match in gate %s could move a check: %s", e.name, why)
-	}
-	idx, err := s.researchIndex()
-	if err != nil {
-		return nil, http.StatusInternalServerError, err
-	}
-	si := -1 // every subject
-	if body.Subject != "" {
-		if si = slices.IndexFunc(summarize(e, v).Subjects, func(sub SubjectInfo) bool { return sub.Slug == body.Subject }); si < 0 {
-			return nil, http.StatusNotFound, fmt.Errorf("no subject %q in gate %s", body.Subject, e.name)
-		}
-	}
-	var flips, narrows []string
-	for _, r := range v.orderedRows() {
-		id := r.match.Row
-		if (si >= 0 && r.si != si) || !r.open() || idx.active(id) {
-			continue
-		}
-		if lvl := v.rowResearchLevel(idx, id); lvl == LevelResearched || (body.Select == selectNoHint && lvl != LevelNone) {
-			continue
-		}
-		if body.Select == selectNoHint {
-			narrows = append(narrows, id)
-			continue
-		}
-		switch eff := v.effectOf(id); {
-		case eff == nil:
-		case len(eff.CouldFlip) > 0:
-			flips = append(flips, id)
-		default:
-			narrows = append(narrows, id)
-		}
-	}
-	ids := slices.Concat(flips, narrows)
-	if body.Limit > 0 && len(ids) > body.Limit {
-		ids = ids[:body.Limit]
-	}
-	return ids, http.StatusOK, nil
 }
 
 type NotCancelled struct {
@@ -421,15 +350,28 @@ func (s *Server) handleResearchLog(w http.ResponseWriter, req *http.Request) {
 	}
 	// raw is the file as written, whole; otherwise the end of it rendered
 	if req.URL.Query().Get("raw") != "1" {
-		const tail = 64 << 10
-		if data = research.RenderLog(data); len(data) > tail {
-			data = data[len(data)-tail:]
-		}
+		data = tail(research.RenderLog(data), 64<<10)
 	}
 	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
 	w.Header().Set("X-Content-Type-Options", "nosniff")
 	w.Header().Set("Cache-Control", "no-store")
 	_, _ = w.Write(data)
+}
+
+// tail is the last n bytes of a log from the first whole line in them, so a cut never splits a
+// rune; with no newline in them, from the first rune that starts there.
+func tail(data []byte, n int) []byte {
+	if len(data) <= n {
+		return data
+	}
+	data = data[len(data)-n:]
+	if i := bytes.IndexByte(data, '\n'); i >= 0 {
+		return data[i+1:]
+	}
+	for len(data) > 0 && !utf8.RuneStart(data[0]) {
+		data = data[1:]
+	}
+	return data
 }
 
 // CancelResponse is the answer to cancelling research: the jobs cancelled, and why others were not.
