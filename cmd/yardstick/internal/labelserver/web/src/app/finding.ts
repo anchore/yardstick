@@ -269,8 +269,9 @@ export function findingView(host: HTMLElement, r: FindingRoute, nav: Nav, signal
       case "f": lp?.pick("fp"); lp?.focusReason(); return true;
       case "u": lp?.pick("unclear"); lp?.focusReason(); return true;
       case "a": accept(); return true;
-      case "A": acceptAll(); return true;
-      case "R": void research(); return true;
+      // the capitals need shift, so Caps Lock never turns a or r into accept-all or paid research
+      case "A": if (!e.shiftKey) return false; acceptAll(); return true;
+      case "R": if (!e.shiftKey) return false; void research(); return true;
     }
     return false;
   }

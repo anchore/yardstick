@@ -102,7 +102,8 @@ document.addEventListener("keydown", (e) => {
     return;
   }
   if (e.metaKey || e.ctrlKey) return;
-  if (!e.altKey && (e.key === "J" || e.key === "K")) {
+  // ⇧J and ⇧K, not Caps Lock's J and K
+  if (!e.altKey && e.shiftKey && (e.key === "J" || e.key === "K")) {
     e.preventDefault();
     void stepGate(e.key === "J" ? 1 : -1).catch((err) => toast((err as Error).message, true));
     return;
