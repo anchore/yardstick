@@ -66,18 +66,21 @@ export function findingView(host: HTMLElement, r: FindingRoute, nav: Nav, signal
   const at = (row: string): Route => ({ ...r, row });
   const go = (row: string | undefined, none: string) => (row ? nav(at(row)) : toast(none));
 
-  async function load() {
+  // the raw matches only draw the lanes and the Raw match tab; the page stands without them
+  const raw = api.matches(r.gate, r.row, signal).catch(() => null);
+
+  // load reads the page's data and paints it; fresh reads the gate's state past the cache, for
+  // research in flight
+  async function load(fresh = false) {
     const mine = ++loads;
-    // this page writes and researches outside data.ts, so the lists read fresh after it
-    forget();
     try {
-      const next = await loadFinding(r.gate, r.row, r.check, r.filters, signal);
+      const next = await loadFinding(r.gate, r.row, r.check, r.filters, raw, { signal, fresh });
       if (mine !== loads || signal.aborted) return;
       d = next;
       lastList = { key: listKey, items: next.list };
       paint();
       // from the first load on, the page follows the top bar's reads of the jobs, as the tables do
-      if (!following) { following = true; follow(signal, () => !!d && researching(d.row), load); }
+      if (!following) { following = true; follow(signal, () => !!d && researching(d.row), () => load(true)); }
     } catch (e) {
       if (mine !== loads || signal.aborted) return;
       renderShell(host, r, { title: "Not found", body: el("div", { class: "placeholder", "data-testid": "placeholder" }, (e as Error).message) });
@@ -106,8 +109,9 @@ export function findingView(host: HTMLElement, r: FindingRoute, nav: Nav, signal
     body ??= el("div", { class: "finding", "data-testid": "finding" }, content, lp.el);
     body.dataset.row = row.id;
     body.dataset.verdict = row.verdict;
-    // the content tabs are drawn again only when what they show changed, not on each research poll
-    const key = JSON.stringify([row.why, row.gate, d.detail, d.matches]);
+    // the content tabs are drawn again only when what they show changed, not on each research poll;
+    // the raw matches are read once per view, so they never change it
+    const key = JSON.stringify([row.why, row.gate, d.detail]);
     if (key !== shownKey || q?.why !== shownWhy) { shownKey = key; shownWhy = q?.why; fill(content, q?.why, tabs(d)); }
     renderShell(host, r, {
       title: row.vulnerability,
@@ -175,6 +179,8 @@ export function findingView(host: HTMLElement, r: FindingRoute, nav: Nav, signal
         if (e instanceof api.ApiError && e.labels.length) changed();
         return;
       }
+      // the cached reads predate it, whether the page stays or goes on
+      forget();
       // the reader left while it was written: say so with its Undo, and go nowhere
       if (signal.aborted) { written(text, keys); changed(); return; }
       await after(rows, text, how, keys);
@@ -217,6 +223,7 @@ export function findingView(host: HTMLElement, r: FindingRoute, nav: Nav, signal
     try { await api.research(r.gate, [d.row.id], "finding"); } catch (e) { return toast((e as Error).message, true); }
     toast("research started; what it finds arrives as an agent hint");
     void kick();
+    forget();
     await load();
   }
   async function cancelResearch() {
@@ -226,6 +233,7 @@ export function findingView(host: HTMLElement, r: FindingRoute, nav: Nav, signal
       toast(res.cancelled.length ? "research cancelled" : res.notCancelled[0]?.why ?? "nothing to cancel");
     } catch (e) { return toast((e as Error).message, true); }
     void kick();
+    forget();
     await load();
   }
 

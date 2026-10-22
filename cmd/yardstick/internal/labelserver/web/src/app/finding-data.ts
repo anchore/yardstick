@@ -3,6 +3,7 @@
 // parent list j and k walk (a check's findings, or the gate's changed rows).
 import type { MatchesResponse, RowResponse, State, StateRow } from "../gen/wire";
 import * as api from "../shared/api";
+import { checkFindings, freshFindings, freshState, gateState } from "./data";
 import { fromCheck, fromState, type Item } from "./neighbors";
 import type { Filters } from "./route";
 
@@ -16,12 +17,13 @@ export interface FindingData {
   image: { name: string; slug: string; ref: string };
 }
 
-export async function loadFinding(gate: string, id: string, check: string | null, filters: Filters, signal?: AbortSignal): Promise<FindingData> {
+// loadFinding reads the page's data: the gate's state and the check's list from data.ts's cache (a
+// write clears it; fresh reads them again, for research in flight), the row itself every time, and
+// the raw matches as the view read them once, since a run's raw matches never change
+export async function loadFinding(gate: string, id: string, check: string | null, filters: Filters, raw: Promise<MatchesResponse | null>, o: { signal?: AbortSignal; fresh?: boolean } = {}): Promise<FindingData> {
   const [state, detail, matches, cf] = await Promise.all([
-    api.state(gate, signal), api.row(gate, id, signal),
-    // the raw matches only draw the lanes and the Raw match tab; the page stands without them
-    api.matches(gate, id, signal).catch(() => null),
-    check ? api.checkFindings(gate, check, signal) : Promise.resolve(null),
+    o.fresh ? freshState(gate) : gateState(gate), api.row(gate, id, o.signal), raw,
+    check ? (o.fresh ? freshFindings : checkFindings)(gate, check) : Promise.resolve(null),
   ]);
   const si = state.subjects.findIndex((s) => s.rows.some((r) => r.id === id));
   const sub = state.subjects[si] ?? state.subjects[0];
