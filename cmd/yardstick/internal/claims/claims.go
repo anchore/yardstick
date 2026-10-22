@@ -10,11 +10,13 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"io"
 	"io/fs"
 	"os"
 	"sort"
 	"strings"
 	"sync"
+	"testing/fstest"
 
 	claimsv1 "github.com/anchore/yardstick/cmd/yardstick/internal/claims/v1"
 	"github.com/anchore/yardstick/cmd/yardstick/internal/gatefile"
@@ -39,6 +41,8 @@ type Source struct {
 	// Downloaded is true when this process fetched the snapshot rather than finding it cached.
 	Downloaded bool
 
+	closer io.Closer // what backs FS: the local root, or the snapshot's zip file
+
 	mu   sync.Mutex
 	read map[string]string // corpus path read to the sha256 of its bytes
 }
@@ -54,16 +58,27 @@ func Open(s gatefile.Source) (*Source, error) {
 	}
 	log.Infof("opening local claims source %s", s.Locator)
 	info, err := os.Stat(s.Locator)
+	if s.Create && errors.Is(err, os.ErrNotExist) {
+		// empty until the first write creates it
+		return &Source{Locator: s.Locator, Kind: Corpus, FS: fstest.MapFS{}, Dir: s.Locator, read: map[string]string{}}, nil
+	}
 	if err != nil || !info.IsDir() {
 		return nil, fmt.Errorf("claims source %s is not a directory", s.Locator)
 	}
-	// a claims directory can be pull request content; reads stay inside it, symlinks included.
-	// The root stays open for the life of the process.
+	// a claims directory can be pull request content; reads stay inside it, symlinks included
 	root, err := os.OpenRoot(s.Locator)
 	if err != nil {
 		return nil, fmt.Errorf("claims source %s: %w", s.Locator, err)
 	}
-	return &Source{Locator: s.Locator, Kind: Corpus, FS: root.FS(), Dir: s.Locator, read: map[string]string{}}, nil
+	return &Source{Locator: s.Locator, Kind: Corpus, FS: root.FS(), Dir: s.Locator, closer: root, read: map[string]string{}}, nil
+}
+
+// Close releases what the source holds open.
+func (s *Source) Close() error {
+	if s.closer == nil {
+		return nil
+	}
+	return s.closer.Close()
 }
 
 // ReadFile reads one corpus file, recording it toward the source's snapshot identity. A file
@@ -110,53 +125,102 @@ func (s *Source) Snapshot() string {
 // Set is a gate's claims sources, in gate order.
 type Set struct {
 	Sources []*Source
-	// vocab is the first vocabulary any source has, for telling advisory ids apart; nil when no
-	// source has one
+	// vocab is what Vocabulary answers; nil when no source has one
 	vocab *claimsv1.Vocabulary
 }
 
 // OpenSet opens every source of a gate, in order.
 func OpenSet(sources []gatefile.Source) (*Set, error) {
+	return openSet(sources, nil)
+}
+
+// Reopen is the set opened again, for a long-lived reader such as the label server: its remote
+// sources are reused as they are, since a snapshot never changes and resolving @main again costs a
+// request each time, and its local ones are opened afresh. The set it was reopened from keeps
+// working, and closing it would close the remote sources the two share.
+func (s *Set) Reopen(sources []gatefile.Source) (*Set, error) {
+	remote := map[string]*Source{}
+	for _, src := range s.Sources {
+		if src.Kind == Remote {
+			remote[src.Locator] = src
+		}
+	}
+	return openSet(sources, remote)
+}
+
+func openSet(sources []gatefile.Source, remote map[string]*Source) (*Set, error) {
 	set := &Set{}
 	for _, gs := range sources {
+		if s := remote[gs.Locator]; s != nil && gs.Remote != nil {
+			set.Sources = append(set.Sources, s)
+			continue
+		}
 		s, err := Open(gs)
 		if err != nil {
+			_ = set.Close()
 			return nil, err
 		}
 		set.Sources = append(set.Sources, s)
 	}
-	for _, s := range set.Sources {
-		v, err := claimsv1.LoadVocabulary(s.FS)
-		if err != nil {
-			return nil, fmt.Errorf("claims source %s: %w", s.Locator, err)
-		}
-		if v != nil {
-			set.vocab = v
-			break
-		}
+	vocab, err := set.findVocabulary()
+	if err != nil {
+		_ = set.Close()
+		return nil, err
 	}
+	set.vocab = vocab
 	return set, nil
 }
 
+// findVocabulary is the writable source's vocabulary when there is a writable source, else the
+// first source's that has one: the one vocabulary a set reads and writes by.
+func (s *Set) findVocabulary() (*claimsv1.Vocabulary, error) {
+	var order []*Source
+	if w := s.writable(); w != nil {
+		order = append(order, w)
+	}
+	for _, src := range append(order, s.Sources...) {
+		v, err := claimsv1.LoadVocabulary(src.FS)
+		if err != nil {
+			return nil, fmt.Errorf("claims source %s: %w", src.Locator, err)
+		}
+		if v != nil {
+			return v, nil
+		}
+	}
+	return nil, nil
+}
+
+// writable is the last source when it is local, else nil.
+func (s *Set) writable() *Source {
+	if len(s.Sources) == 0 || s.Sources[len(s.Sources)-1].Kind != Corpus {
+		return nil
+	}
+	return s.Sources[len(s.Sources)-1]
+}
+
+// Close closes every source in the set.
+func (s *Set) Close() error {
+	var errs []error
+	for _, src := range s.Sources {
+		errs = append(errs, src.Close())
+	}
+	return errors.Join(errs...)
+}
+
 // Writer is a label writer into the last source, which must be a local directory, checking
-// against the writable source's vocabulary, else the first source's that has one.
+// against Vocabulary. A source not there yet is created by the first write.
 func (s *Set) Writer() (claimsv1.Writer, error) {
 	if len(s.Sources) == 0 {
 		return claimsv1.Writer{}, errors.New("no claims source to write labels to")
 	}
-	last := s.Sources[len(s.Sources)-1]
-	if last.Kind != Corpus {
-		return claimsv1.Writer{}, fmt.Errorf("writes need a local last claims source, and the last is %s; add one with --claims <path>", last.Locator)
+	last := s.writable()
+	if last == nil {
+		return claimsv1.Writer{}, fmt.Errorf("writes need a local last claims source, and the last is %s; add one with --claims <path>", s.Sources[len(s.Sources)-1].Locator)
 	}
-	others := make([]fs.FS, len(s.Sources))
-	for i, src := range s.Sources {
-		others[i] = src.FS
+	if s.vocab == nil {
+		return claimsv1.Writer{}, errors.New("no claims source has a " + claimsv1.VocabularyFile + ", so no justification or fact source can be checked")
 	}
-	vocab, err := claimsv1.FindVocabulary(last.FS, others...)
-	if err != nil {
-		return claimsv1.Writer{}, err
-	}
-	return claimsv1.Writer{Dir: last.Dir, Vocab: vocab}, nil
+	return claimsv1.Writer{Dir: last.Dir, Vocab: s.vocab}, nil
 }
 
 // Subject is what a gate reads labels for: a subject's directory in the corpus layout and the
@@ -304,7 +368,8 @@ func disagreement(subject string, l Label) string {
 	return fmt.Sprintf("claims sources disagree on %s in %s (%s); %s's verdict is used", l.Key(), subject, strings.Join(parts, ", "), l.Source())
 }
 
-// Vocabulary is the first vocabulary any source has, nil when none has one.
+// Vocabulary is the vocabulary labels are read and written by: the writable source's when there is
+// one and it has one, else the first any source has; nil when none has one.
 func (s *Set) Vocabulary() *claimsv1.Vocabulary {
 	return s.vocab
 }

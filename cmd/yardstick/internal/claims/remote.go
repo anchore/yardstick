@@ -76,12 +76,13 @@ func openRemote(s gatefile.Source) (*Source, error) {
 	if err != nil {
 		return nil, fmt.Errorf("claims source %s: snapshot %s: %w", s.Locator, p.Digest, err)
 	}
-	// read in place, never extracted; the file stays open for the life of the process
+	// read in place, never extracted; the file stays open until the source is closed
 	zr, err := zip.NewReader(f, size)
 	if err != nil {
+		f.Close()
 		return nil, fmt.Errorf("claims source %s: snapshot %s: %w", s.Locator, p.Digest, err)
 	}
-	return &Source{Locator: s.Locator, Kind: Remote, FS: zr, Digest: p.Digest, Commit: p.Commit, Downloaded: downloaded, read: map[string]string{}}, nil
+	return &Source{Locator: s.Locator, Kind: Remote, FS: zr, Digest: p.Digest, Commit: p.Commit, Downloaded: downloaded, closer: f, read: map[string]string{}}, nil
 }
 
 // openArchive reads a claims directory in a GitHub repository: the ref is resolved to its commit,
@@ -115,24 +116,30 @@ func openArchive(s gatefile.Source) (*Source, error) {
 	if err != nil {
 		return nil, fail(err)
 	}
+	src, err := archiveDir(f, size, r)
+	if err != nil {
+		f.Close()
+		return nil, fail(err)
+	}
+	return &Source{Locator: s.Locator, Kind: Remote, FS: src, Commit: commit, Downloaded: downloaded, closer: f, read: map[string]string{}}, nil
+}
+
+// archiveDir is the claims directory inside a GitHub repository archive.
+func archiveDir(f *os.File, size int64, r *gatefile.Remote) (fs.FS, error) {
 	zr, err := zip.NewReader(f, size)
 	if err != nil {
-		return nil, fail(err)
+		return nil, err
 	}
 	// GitHub's archive holds the repository under one top-level directory, <owner>-<repo>-<short sha>
 	top, err := fs.ReadDir(zr, ".")
 	if err != nil || len(top) != 1 || !top[0].IsDir() {
-		return nil, fail(errors.New("the archive is not one top-level directory"))
+		return nil, errors.New("the archive is not one top-level directory")
 	}
 	dir := path.Join(top[0].Name(), r.Path)
 	if info, err := fs.Stat(zr, dir); err != nil || !info.IsDir() {
-		return nil, fmt.Errorf("claims source %s: %s at %s has no directory %s", s.Locator, r.Repository, r.Ref, r.Path)
+		return nil, fmt.Errorf("%s at %s has no directory %s", r.Repository, r.Ref, r.Path)
 	}
-	sub, err := fs.Sub(zr, dir)
-	if err != nil {
-		return nil, fail(err)
-	}
-	return &Source{Locator: s.Locator, Kind: Remote, FS: sub, Commit: commit, Downloaded: downloaded, read: map[string]string{}}, nil
+	return fs.Sub(zr, dir)
 }
 
 // resolveCommit asks GitHub which commit a branch, tag or short sha names.

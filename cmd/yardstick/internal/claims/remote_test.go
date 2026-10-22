@@ -506,3 +506,36 @@ func TestRepositoryPathMissing(t *testing.T) {
 		t.Errorf("expected an unknown ref refused, got %v", err)
 	}
 }
+
+// reopening a set reuses its remote sources, with no request to the host, and opens local ones again
+func TestReopenReusesRemoteSources(t *testing.T) {
+	t.Setenv("YARDSTICK_CACHE_DIR", t.TempDir())
+	h := newHost(t)
+	digest := h.publish(t, corpus(t))
+	h.put(t, "/claims/latest-v1.json", pointer{Digest: digest})
+	sources := []gatefile.Source{
+		{Locator: "github.com/anchore/delta-prototype@main", Remote: &gatefile.Remote{Repository: "github.com/anchore/delta-prototype", Ref: "main"}},
+		{Locator: t.TempDir()},
+	}
+	set, err := OpenSet(sources)
+	if err != nil {
+		t.Fatal(err)
+	}
+	h.reset()
+	again, err := set.Reopen(sources)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(h.requests) != 0 {
+		t.Errorf("expected no request on reopen, got %v", h.requests)
+	}
+	if again.Sources[0] != set.Sources[0] || again.Sources[1] == set.Sources[1] {
+		t.Error("expected the remote source reused and the local one opened again")
+	}
+	if err := again.Close(); err != nil {
+		t.Error(err)
+	}
+	if _, err := fs.ReadFile(again.Sources[0].FS, claimsv1.VocabularyFile); err == nil {
+		t.Error("expected a closed snapshot unreadable")
+	}
+}

@@ -476,7 +476,8 @@ func TestLoadAppConfig(t *testing.T) {
 		t.Fatalf("expected no app config and no error, got %v, %v", app, err)
 	}
 
-	// relative sources resolve against the config file's directory, and a missing one is created
+	// relative sources resolve against the config file's directory, and a missing one is left for
+	// the first write to create
 	write(t, dir, "config/yardstick.yaml", "claims: [./claims]\n")
 	app, err := LoadAppConfig(dir)
 	if err != nil {
@@ -486,11 +487,11 @@ func TestLoadAppConfig(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(g.Claims) != 1 || g.Claims[0].Locator != filepath.Join(dir, "config", "claims") {
-		t.Errorf("expected config/claims from the app config, got %+v", g.Claims)
+	if len(g.Claims) != 1 || g.Claims[0].Locator != filepath.Join(dir, "config", "claims") || !g.Claims[0].Create {
+		t.Errorf("expected config/claims from the app config, to be created, got %+v", g.Claims)
 	}
-	if info, err := os.Stat(filepath.Join(dir, "config", "claims")); err != nil || !info.IsDir() {
-		t.Errorf("expected the app config's missing claims directory created, got %v", err)
+	if _, err := os.Stat(filepath.Join(dir, "config", "claims")); !os.IsNotExist(err) {
+		t.Errorf("expected loading a gate to create no directory, got %v", err)
 	}
 	// one outside the config's directory is not created, and fails as any missing directory does
 	write(t, dir, "config/yardstick.yaml", "claims: [../outside]\n")
@@ -521,6 +522,9 @@ func TestLoadAppConfig(t *testing.T) {
 		t.Error("expected no directory created through the symlink")
 	}
 	write(t, dir, "config/yardstick.yaml", "claims: [./claims]\n")
+	if err := os.MkdirAll(filepath.Join(dir, "config", "claims"), 0o755); err != nil {
+		t.Fatal(err)
+	}
 
 	// a gate's own claims: replaces the app config's, and --claims appends after it
 	t.Chdir(dir)

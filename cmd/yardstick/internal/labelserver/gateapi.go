@@ -327,7 +327,7 @@ type GateLabel struct {
 	Package       PackageInfo      `json:"package"`
 	// Image is the subject the label is about; null for a global label.
 	Image       *ImageRef       `json:"image" tstype:"ImageRef | null"`
-	Source      string          `json:"source"` // the first claims source holding it
+	Source      string          `json:"source"` // the last claims source holding it, whose label decides
 	Author      string          `json:"author"`
 	Notes       []claimsv1.Note `json:"notes,omitempty"`
 	FirstIssued string          `json:"firstIssued"`

@@ -85,6 +85,9 @@ type Source struct {
 	Locator string `json:"locator"`
 	// Remote is set for <host>/<owner>/<repo>[/<path>]@<ref>; the locator is then the reference as written.
 	Remote *Remote `json:"remote,omitempty"`
+	// Create is set for a local directory the app config names that is not there yet: it reads as
+	// empty, and the first write creates it, so loading a gate never makes a directory.
+	Create bool `json:"create,omitempty"`
 }
 
 // Remote is a claims reference, <host>/<owner>/<repo>@<ref> for the published snapshot, or
@@ -496,9 +499,12 @@ func claims(listed []string, opts Options, dir string, errs *problems) []Source 
 		}
 		p, err := canonical(resolve(base, s))
 		// a local directory the app config names is where labels are written by default, so a
-		// fresh checkout without one gets it rather than failing every command
+		// fresh checkout without one reads it as empty rather than failing every command
 		if _, statErr := os.Stat(p); err == nil && from != "" && errors.Is(statErr, os.ErrNotExist) {
-			p = createWithin(base, p, from)
+			if missing, ok := missingWithin(base, p); ok {
+				out = append(out, Source{Locator: missing, Create: true})
+				return
+			}
 		}
 		if info, statErr := os.Stat(p); err != nil || statErr != nil || !info.IsDir() {
 			errs.addf("claims source %q%s is neither an existing directory nor a reference: github.com/<owner>/<repo>@main for the published snapshot, or github.com/<owner>/<repo>/<path>@<ref> for a claims directory in that repository", s, from)
@@ -738,20 +744,15 @@ func canonical(p string) (string, error) {
 	return abs, nil
 }
 
-// createWithin creates the one missing directory p when its parent exists and resolves inside
-// dir, and returns where it is. The config comes with whatever repo yardstick runs in, so nothing
-// is created through a symlink or outside dir; Mkdir never follows a symlink at p itself.
-func createWithin(dir, p, from string) string {
+// missingWithin says whether the one missing directory p may be created by a write: its parent
+// exists and resolves inside dir. It returns where p would be. The config comes with whatever repo
+// yardstick runs in, so nothing is created through a symlink or outside dir.
+func missingWithin(dir, p string) (string, bool) {
 	parent, err := filepath.EvalSymlinks(filepath.Dir(p))
 	if err != nil || !within(dir, parent) {
-		return p
+		return p, false
 	}
-	created := filepath.Join(parent, filepath.Base(p))
-	if err := os.Mkdir(created, 0o755); err != nil {
-		return p
-	}
-	log.Infof("created claims directory %s%s", created, from)
-	return created
+	return filepath.Join(parent, filepath.Base(p)), true
 }
 
 // within reports whether p is dir or below it, after resolving dir's symlinks as canonical does.

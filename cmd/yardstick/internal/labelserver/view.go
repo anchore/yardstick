@@ -223,7 +223,14 @@ func (s *Server) stampOf(e *entry) (string, error) {
 }
 
 func (s *Server) compute(e *entry) (*view, error) {
-	set, err := claims.OpenSet(e.gate.Claims)
+	open := claims.OpenSet
+	if e.view != nil {
+		// remote sources are opened once per entry; a re-scored view re-reads only local ones.
+		// ponytail: the old view's local roots are left to their finalizers rather than closed, since
+		// a request may still be reading through them
+		open = e.view.set.Reopen
+	}
+	set, err := open(e.gate.Claims)
 	if err != nil {
 		return nil, err
 	}

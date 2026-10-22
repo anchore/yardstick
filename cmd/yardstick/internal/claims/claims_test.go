@@ -319,3 +319,64 @@ func TestWritesGoToTheLastLocalSource(t *testing.T) {
 		t.Errorf("expected a missing directory named, got %v", err)
 	}
 }
+
+// the vocabulary a set reads by is the one its writer checks against: the writable source's,
+// else the first one's
+func TestVocabularyFollowsTheWritableSource(t *testing.T) {
+	published, local := corpus(t), t.TempDir()
+	more := strings.Replace(vocabYAML, "fp: {fix-installed: Installed version has the fix}", "fp: {fix-installed: Installed version has the fix, not-in-image: The package is not in the image}", 1)
+	if err := os.WriteFile(filepath.Join(local, claimsv1.VocabularyFile), []byte(more), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	set, err := OpenSet([]gatefile.Source{{Locator: published}, {Locator: local}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	w, err := set.Writer()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, ok := set.Vocabulary().Justifications[claimsv1.FP]["not-in-image"]; !ok || set.Vocabulary() != w.Vocab {
+		t.Errorf("expected the writable source's vocabulary for reads and writes, got %+v", set.Vocabulary().Justifications)
+	}
+	// with no vocabulary of its own, the writable source writes by the first one's
+	set, err = OpenSet([]gatefile.Source{{Locator: published}, {Locator: t.TempDir()}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, ok := set.Vocabulary().Justifications[claimsv1.FP]["not-in-image"]; ok || set.Vocabulary() == nil {
+		t.Errorf("expected the published vocabulary, got %+v", set.Vocabulary())
+	}
+}
+
+// a source the app config names that is not there yet reads as empty, and only a write creates it
+func TestMissingSourceCreatedOnWrite(t *testing.T) {
+	published := corpus(t)
+	missing := filepath.Join(t.TempDir(), "claims")
+	set, err := OpenSet([]gatefile.Source{{Locator: published}, {Locator: missing, Create: true}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got, err := set.Read(Subject{Name: "test-image", Dir: dir, Types: []string{"deb"}}); err != nil || got == nil {
+		t.Fatalf("expected the set read, got %v", err)
+	}
+	if _, err := os.Stat(missing); !os.IsNotExist(err) {
+		t.Fatalf("expected reading to create nothing, got %v", err)
+	}
+	w, err := set.Writer()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(missing); !os.IsNotExist(err) {
+		t.Fatalf("expected asking for the writer to create nothing, got %v", err)
+	}
+	if _, err := w.Write([]claimsv1.Placed{at(claimsv1.TypeFile(dir, "deb"), label(libudv, "CVE-2020-13776", claimsv1.TP))}); err != nil {
+		t.Fatal(err)
+	}
+	if info, err := os.Stat(missing); err != nil || !info.IsDir() {
+		t.Errorf("expected the write to create %s, got %v", missing, err)
+	}
+	if err := set.Close(); err != nil {
+		t.Error(err)
+	}
+}
