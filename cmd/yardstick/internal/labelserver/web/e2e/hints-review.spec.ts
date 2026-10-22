@@ -1,4 +1,5 @@
 import type { Page } from "@playwright/test";
+import type { HintsResponse } from "../src/gen/wire";
 import { expect, test } from "./fixtures";
 import { gatePage, gatesPage, images, labelsOf, rows, tableRow } from "./helpers";
 
@@ -108,9 +109,9 @@ test.describe("hint review", () => {
     // the seed has none, so make gzip's unclear
     await page.route("**/api/hints?low=1", async (route) => {
       try {
-        const res = await route.fetch(), body = await res.json();
-        for (const h of body.hints) if (h.rows[0].vulnerability === "CVE-2026-41992") { h.verdict = "unclear"; h.confidence = ""; }
-        await route.fulfill({ response: res, json: body });
+        const res = await route.fetch(), body = (await res.json()) as HintsResponse;
+        for (const h of body.hints) if (h.rows[0].vulnerability === "CVE-2026-41992") { h.verdict = "unclear"; delete h.confidence; }
+        await route.fulfill({ response: res, json: body satisfies HintsResponse });
       } catch {
         // the page went on while the top bar's chip was still reading: nothing waits on it
       }

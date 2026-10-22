@@ -1,8 +1,9 @@
 import { rmSync } from "node:fs";
 import { join } from "node:path";
 import type { Page, Request } from "@playwright/test";
+import type { CancelResponse, ResearchJob, ResearchJobs, ResearchJobsSummary, ResearchResponse, State, StateRow } from "../src/gen/wire";
 import { expect, test, workspace } from "./fixtures";
-import { checkPage, gatePage, gatesPage, images, openFinding, rows, tableRow } from "./helpers";
+import { checkPage, gatePage, gatesPage, images, openFinding, rows, startedBatch, tableRow } from "./helpers";
 
 // research wherever labeling is offered: the Agent hint cell's states, a row's and a selection's
 // Research, the scoped Research buttons and r, the jobs page, the top bar's chip and hint review's
@@ -16,25 +17,24 @@ const noHints = () => {
   for (const f of ["proposals.jsonl", "causes.jsonl"]) rmSync(join(workspace, ".yardstick", f), { force: true });
 };
 
-type Row = { id: string; vulnerability: string; research?: object; researched?: boolean; researchShares?: string[]; hint?: unknown };
-type St = { subjects: { rows: Row[] }[]; causes: { pending: string[] }[] };
-
 // fakeState rewrites a gate's state as it reaches the page: edit gets its rows by id
-async function fakeState(page: Page, edit: (by: Map<string, Row>, st: St) => void, gate = "deb-java") {
+async function fakeState(page: Page, edit: (by: Map<string, StateRow>, st: State) => void, gate = "deb-java") {
   await page.route(`**/api/gates/${gate}/state`, async (r) => {
-    const st = (await (await r.fetch()).json()) as St;
+    const st = (await (await r.fetch()).json()) as State;
     edit(new Map(st.subjects.flatMap((s) => s.rows.map((x) => [x.id, x] as const))), st);
-    await r.fulfill({ json: st });
+    await r.fulfill({ json: st satisfies State });
   });
 }
 // uncaused takes rows out of the package hints listing them, so they read as having no hint
-const uncaused = (st: St, ...ids: string[]) => { for (const c of st.causes) c.pending = c.pending.filter((id) => !ids.includes(id)); };
+const uncaused = (st: State, ...ids: string[]) => { for (const c of st.causes) c.pending = c.pending.filter((id) => !ids.includes(id)); };
 
 const ago = (s: number) => new Date(Date.now() - s * 1000).toISOString();
-const job = (id: string, rows: string[], vulnerability: string, extra: object) =>
+const job = (id: string, rows: string[], vulnerability: string, extra: Partial<ResearchJob>): ResearchJob =>
   ({ id, rows, vulnerability, package: "pkg:deb/debian/tar@1.34", gate: "deb-java", status: "done", command: "", dir: "", queued: ago(600), hints: [], ...extra });
-const summary = (extra: object = {}) => ({ total: 0, done: 0, running: 0, queued: 0, failed: 0, cancelled: 0, spent: 0, estimate: 0, secondsLeft: 0, concurrency: 2, hints: { tp: 0, fp: 0, unclear: 0 }, ...extra });
-const fakeJobs = (page: Page, jobs: object[], s: object) => page.route("**/api/research/jobs", (r) => r.fulfill({ json: { jobs, summary: summary(s) } }));
+const summary = (extra: Partial<ResearchJobsSummary> = {}): ResearchJobsSummary =>
+  ({ total: 0, done: 0, running: 0, queued: 0, failed: 0, cancelled: 0, spent: 0, estimate: 0, secondsLeft: 0, concurrency: 2, hints: { tp: 0, fp: 0, unclear: 0 }, ...extra });
+const fakeJobs = (page: Page, jobs: ResearchJob[], s: Partial<ResearchJobsSummary>) =>
+  page.route("**/api/research/jobs", (r) => r.fulfill({ json: { jobs, summary: summary(s) } satisfies ResearchJobs }));
 
 const cell = (page: Page, id: string, testid = "findings-table") => tableRow(page, testid, id).getByTestId("research-cell");
 const unlabeledFindings = "/ui/gates/deb-java/findings?verdict=unlabeled";
@@ -115,7 +115,7 @@ test.describe("the Agent hint cell", () => {
     let sent: Request | null = null;
     await page.route("**/api/research", (r) => {
       sent = r.request();
-      return r.fulfill({ json: { groups: [], skipped: { researched: 0, hinted: 0, active: 0 }, estimate: {}, concurrency: 2, jobs: ["x"], batch: "b" } });
+      return r.fulfill({ json: startedBatch(["x"], "b") });
     });
     await page.goto("/ui/gates/?tab=unlabeled&q=CVE-2026-18508");
     const c = page.getByTestId("unlabeled-table").locator("tbody tr[data-id]").getByTestId("research-cell");
@@ -129,7 +129,7 @@ test.describe("the Agent hint cell", () => {
 test.describe("the bulk bar's Research", () => {
   test("counts what it would research, says what it skips, and starts from the table", async ({ page }) => {
     let sent: Request | null = null;
-    await page.route("**/api/gates/deb-java/research", (r) => { sent = r.request(); return r.fulfill({ json: { jobs: ["x"], matches: 1, queued: 1, skipped: 0 } }); });
+    await page.route("**/api/gates/deb-java/research", (r) => { sent = r.request(); return r.fulfill({ json: { jobs: ["x"], matches: 1, queued: 1, skipped: 0 } satisfies ResearchResponse }); });
     await page.goto(unlabeledFindings);
     await tableRow(page, "findings-table", rows.tarHand).getByRole("checkbox").check();
     await tableRow(page, "findings-table", rows.jfhA).getByRole("checkbox").check();
@@ -229,7 +229,7 @@ test.describe("scoped Research buttons", () => {
 
 test.describe("the jobs page", () => {
   const jobs = [
-    job("j-done", [rows.utilLinux[0]], "CVE-2026-3184", { from: "finding", started: ago(400), finished: ago(342), usage: { costUSD: 0.24 }, hints: [{ id: "h1", verdict: "fp", confidence: "medium" }] }),
+    job("j-done", [rows.utilLinux[0]], "CVE-2026-3184", { from: "finding", started: ago(400), finished: ago(342), usage: { costUSD: 0.24, inputTokens: 0, cacheReadTokens: 0, cacheCreationTokens: 0, outputTokens: 0, turns: 0, durationMs: 58_000 }, hints: [{ id: "h1", verdict: "fp", confidence: "medium" }] }),
     job("j-q2", [rows.jfhA, rows.jfhB], "GHSA-jfh8-c2jp-5v3q", { status: "queued", position: 2, from: "table", cancellable: true }),
     job("j-run", [rows.tarHand], "CVE-2026-18508", { status: "running", started: ago(41), from: "research", batch: "3f9a21c0aaaa", cancellable: true }),
     job("j-q1", [rows.vc5pA], "GHSA-vc5p-v9hr-52mj", { status: "queued", position: 1, from: "research", batch: "3f9a21c0aaaa", cancellable: true }),
@@ -241,7 +241,7 @@ test.describe("the jobs page", () => {
   test("groups running, queued in run order and finished, says where each started, and cancels", async ({ page }) => {
     await fakeJobs(page, jobs, busy);
     const cancels: unknown[] = [];
-    await page.route("**/api/gates/deb-java/research/cancel", (r) => { cancels.push(r.request().postDataJSON()); return r.fulfill({ json: { cancelled: ["x"], notCancelled: [] } }); });
+    await page.route("**/api/gates/deb-java/research/cancel", (r) => { cancels.push(r.request().postDataJSON()); return r.fulfill({ json: { cancelled: ["x"], notCancelled: [] } satisfies CancelResponse }); });
     await page.goto("/ui/research/jobs");
     await expect(page.getByTestId("jobs-group")).toHaveCount(3);
     expect(await page.getByTestId("jobs-group").evaluateAll((gs) => gs.map((g) => (g as HTMLElement).dataset.group))).toEqual(["running", "queued", "finished"]);

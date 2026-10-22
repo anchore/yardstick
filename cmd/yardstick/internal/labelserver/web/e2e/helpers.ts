@@ -1,6 +1,7 @@
 import { readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import { expect, type Locator, type Page } from "@playwright/test";
+import type { ResearchQueueResponse } from "../src/gen/wire";
 import { workspace } from "./fixtures";
 
 // package is the purl without version and qualifiers: the UI writes the row's own, the seed the bare name
@@ -38,6 +39,14 @@ export const labelsOf = (vuln: string) => diskLabels().filter((l) => l.vulnerabi
 // claimSet is the comparable form of the labels: no timestamps, authors or files
 export const claimSet = () =>
   diskLabels().map((l) => `${l.subject} ${l.package} ${l.vulnerability} ${l.verdict} ${l.justification ?? ""}`).sort();
+
+// startedBatch is POST /api/research's answer to a start, for a test that fakes one: the jobs it
+// queued under one batch, and no plan
+export const startedBatch = (jobs: string[], batch: string): ResearchQueueResponse => ({
+  groups: [], skipped: { researched: 0, hinted: 0, active: 0 }, concurrency: 2, jobs, batch,
+  estimate: { jobs: 0, rows: 0, low: 0, mean: 0, high: 0, tokensIn: 0, tokensOut: 0, seconds: 0,
+    basis: { model: "sonnet", measured: false, n: 0, min: 0, mean: 0, max: 0, tokensIn: 0, tokensOut: 0, seconds: 0 } },
+});
 
 // row ids from SCENARIO.md
 export const rows = {

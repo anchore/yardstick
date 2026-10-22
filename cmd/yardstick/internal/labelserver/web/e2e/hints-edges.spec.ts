@@ -1,4 +1,5 @@
 import type { Page } from "@playwright/test";
+import type { HintEntry, HintsResponse } from "../src/gen/wire";
 import { expect, test } from "./fixtures";
 import { checkPage, gatePage, gatesPage, images, labelsOf, openFinding, label, rows } from "./helpers";
 
@@ -21,18 +22,18 @@ async function openReview(page: Page, query = "") {
 
 // edit changes the hints the page gets, which the review, the banner and the rail all read from
 // this one request. The seed has no unclear hints, so the tests make them
-async function edit(page: Page, change: (hint: any) => void) {
+async function edit(page: Page, change: (hint: HintEntry) => void) {
   await page.route("**/api/hints?low=1", async (route) => {
     try {
-      const res = await route.fetch(), body = await res.json();
+      const res = await route.fetch(), body = (await res.json()) as HintsResponse;
       for (const h of body.hints) change(h);
-      await route.fulfill({ response: res, json: body });
+      await route.fulfill({ response: res, json: body satisfies HintsResponse });
     } catch {
       // the page went on (a goto) while the top bar's chip was still reading: nothing waits on it
     }
   });
 }
-const vulnOf = (h: any) => h.rows[0].vulnerability;
+const vulnOf = (h: HintEntry) => h.rows[0].vulnerability;
 const gzip = "CVE-2026-41992", tar = "CVE-2005-2541";
 
 test.describe("selection", () => {
@@ -115,7 +116,7 @@ test.describe("unclear hints", () => {
     await openReview(page);
     await expect(page.getByTestId("hint-low-count")).toHaveText("no unclear hints");
 
-    await edit(page, (h) => { if ([gzip, tar].includes(vulnOf(h))) { h.verdict = "unclear"; h.confidence = ""; } });
+    await edit(page, (h) => { if ([gzip, tar].includes(vulnOf(h))) { h.verdict = "unclear"; delete h.confidence; } });
     await openReview(page);
     await expect(page.getByTestId("hint-item")).toHaveCount(3);
     await expect(page.getByTestId("hint-low-count")).toHaveText("2 unclear hints hidden");
@@ -128,7 +129,7 @@ test.describe("unclear hints", () => {
   });
 
   test("an unclear cause leaves the util-linux hint out", async ({ page }) => {
-    await edit(page, (h) => { if (h.kind === "cause") { h.verdict = "unclear"; h.confidence = ""; } });
+    await edit(page, (h) => { if (h.kind === "cause") { h.verdict = "unclear"; delete h.confidence; } });
     await openReview(page);
     await expect(page.getByTestId("hint-item")).toHaveCount(4);
     await expect(page.getByTestId("hint-low-count")).toHaveText("1 unclear hint hidden");
@@ -141,7 +142,7 @@ test.describe("unclear hints", () => {
   });
 
   test("a hint with no confidence shows unchecked", async ({ page }) => {
-    await edit(page, (h) => { if (vulnOf(h) === gzip) h.confidence = ""; });
+    await edit(page, (h) => { if (vulnOf(h) === gzip) delete h.confidence; });
     await openReview(page);
     await expect(item(page, gzip)).toHaveAttribute("data-confidence", "");
     await expect(box(page, gzip)).not.toBeChecked();
@@ -149,7 +150,7 @@ test.describe("unclear hints", () => {
   });
 
   test("an unclear hint checked by hand is written", async ({ page }) => {
-    await edit(page, (h) => { if (vulnOf(h) === gzip) { h.verdict = "unclear"; h.confidence = ""; } });
+    await edit(page, (h) => { if (vulnOf(h) === gzip) { h.verdict = "unclear"; delete h.confidence; } });
     await openReview(page, "?low=1");
     await expect(box(page, gzip)).not.toBeChecked();
     await box(page, gzip).check();
@@ -163,7 +164,7 @@ test.describe("unclear hints", () => {
 
 test.describe("the work banner", () => {
   test("an unclear hint is left out of the count and says so", async ({ page }) => {
-    await edit(page, (h) => { if (vulnOf(h) === gzip) { h.verdict = "unclear"; h.confidence = ""; } });
+    await edit(page, (h) => { if (vulnOf(h) === gzip) { h.verdict = "unclear"; delete h.confidence; } });
     await page.goto(gatesPage);
     await expect(page.getByTestId("review-hints")).toContainText("Review 4 hints");
     await expect(page.getByTestId("work-foot")).toHaveText(/ 1 unclear hint left out\.$/);
@@ -277,7 +278,7 @@ test.describe("hints that replace a person's label", () => {
     await edit(page, (h) => {
       if (vulnOf(h) !== gzip) return;
       h.replaces = true;
-      if (withLabel) h.rows[0].label = { verdict: "tp" };
+      if (withLabel) h.rows[0].label = { verdict: "tp", source: "/ws/claims" };
     });
     await openReview(page);
     await expect(item(page, gzip).getByTestId("hint-replaces")).toHaveText("replaces a TP label");

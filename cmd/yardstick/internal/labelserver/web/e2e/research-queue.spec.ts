@@ -1,8 +1,9 @@
 import { rmSync } from "node:fs";
 import { join } from "node:path";
 import type { Page, Request } from "@playwright/test";
+import type { CancelResponse, ResearchBatch, ResearchQueueResponse } from "../src/gen/wire";
 import { expect, test, workspace } from "./fixtures";
-import { gatesPage, images, openFinding, rows, tableRow, tableRows } from "./helpers";
+import { gatesPage, images, openFinding, rows, startedBatch, tableRow, tableRows } from "./helpers";
 
 // research across gates (/ui/research), the gates banner's research states and a finding's price.
 // On the seed every row that can change a gate already has a hint, so tests that need such rows take
@@ -25,7 +26,7 @@ const segment = (page: Page, id: string) => page.getByTestId("work-legend").loca
 const gateResearch = (page: Page, gate: string) => page.locator(`[data-testid=gate-row][data-gate=${gate}]`).getByTestId("gate-research");
 
 // a batch partway through, since the stand-in's jobs finish in a second or two
-const partway = { id: "b1", started: "2026-10-20T10:00:00Z", model: "sonnet", total: 21, done: 12, running: 2, queued: 7, failed: 0, cancelled: 0,
+const partway: ResearchBatch = { id: "b1", started: "2026-10-20T10:00:00Z", model: "sonnet", total: 21, done: 12, running: 2, queued: 7, failed: 0, cancelled: 0,
   spent: 2.71, estimate: 4.83, secondsLeft: 240, hints: { tp: 0, fp: 9, unclear: 3 } };
 const fakeRunning = (page: Page) => page.route("**/api/research/batch", (r) => r.fulfill({ json: partway }));
 
@@ -66,7 +67,7 @@ test.describe("labeling by hand never waits on research", () => {
   test("with no hint pending and nothing to research, the banner says where each gate stands and Label what's left leads", async ({ page }) => {
     noHints();
     // a dry run with nothing in it draws the banner as research being off does
-    await page.route("**/api/research", async (r) => r.fulfill({ json: { ...await (await r.fetch()).json(), groups: [] } }));
+    await page.route("**/api/research", async (r) => r.fulfill({ json: { ...(await (await r.fetch()).json()) as ResearchQueueResponse, groups: [] } satisfies ResearchQueueResponse }));
     await page.goto(gatesPage);
     await expect(page.getByTestId("work-rcaps")).toHaveText("Where each gate stands");
     await expect(page.locator("[data-testid=work-standing][data-gate=deb-java]")).toHaveAttribute("data-outcome", "fail");
@@ -149,7 +150,7 @@ test.describe("labeling by hand never waits on research", () => {
   test("Cancel stops the rest of the batch", async ({ page }) => {
     await fakeRunning(page);
     let sent: Request | null = null;
-    await page.route("**/api/research/batch/cancel", (r) => { sent = r.request(); return r.fulfill({ json: { cancelled: ["a", "b"], notCancelled: [] } }); });
+    await page.route("**/api/research/batch/cancel", (r) => { sent = r.request(); return r.fulfill({ json: { cancelled: ["a", "b"], notCancelled: [] } satisfies CancelResponse }); });
     await page.goto(gatesPage);
     await page.getByTestId("research-cancel").click();
     await expect(page.getByTestId("toast")).toContainText("2 research jobs cancelled");
@@ -271,7 +272,7 @@ test.describe("the research page", () => {
     await page.route("**/api/research", async (r) => {
       if (r.request().postDataJSON().dryRun) return r.fallback();
       sent = r.request();
-      return r.fulfill({ json: { groups: [], skipped: { researched: 0, hinted: 0, active: 0 }, estimate: {}, concurrency: 2, batch: "b1", jobs: ["a", "b", "c", "d", "e"] } });
+      return r.fulfill({ json: startedBatch(["a", "b", "c", "d", "e"], "b1") });
     });
     await start(page).click();
     await expect(page.getByTestId("toast")).toContainText("5 research jobs started");
