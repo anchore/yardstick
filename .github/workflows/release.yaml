@@ -53,12 +53,13 @@ jobs:
     permissions:
       contents: write # required for creating the GitHub release and pushing the version tag
       packages: write # required for publishing release artifacts to GitHub packages
-      id-token: write # required for keyless signing (cosign/sigstore OIDC)
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 #v7.0.1
         with:
           fetch-depth: 0
-          persist-credentials: true
+          # the tag goes out with TAG_TOKEN (go-make overrides any persisted header for that push), and
+          # the release with GITHUB_TOKEN from the env, so no token is left in .git/config
+          persist-credentials: false
 
       - name: Bootstrap environment
         uses: anchore/go-make/.github/actions/setup@abf41688f36f2cbec13105747abbe8e60f5c56ca # v0.9.3
