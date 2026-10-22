@@ -17,10 +17,15 @@ import (
 // The corpus layout. Paths are corpus-relative and slash-separated, so the same path names an
 // entry in a directory and in a published zip.
 //
-//	pkg/oci/<registry>/<repository>/sha256-<hex>/{sbom.syft.json, <type>.json, image.json}
-//	sbom/sha256-<hex>/{sbom.json, <type>.json, image.json}
-//	global/<type>.json
+//	pkg/oci/<registry>/<repository>/sha256-<hex>/{sbom.syft.json, matches/<type>.json, matches/image.json}
+//	sbom/sha256-<hex>/{sbom.json, matches/<type>.json, matches/image.json}
+//	global/matches/<type>.json
 //	catalog.yaml, vocabulary.yaml
+//
+// Labels sit in a directory named for their kind, under a subject's directory and under global/.
+// Vulnerability-match labels are the one kind there is, in matches/. A sibling directory of another
+// name is a kind this yardstick does not read: validation lists it and fails nothing, so an older
+// yardstick still reads a newer corpus.
 //
 // A digest names its directory with a dash, sha256-<hex>: a ':' in a committed path makes the
 // repository's Go module unfetchable through the proxy. References keep sha256:<hex>.
@@ -29,6 +34,8 @@ const (
 	DocumentSBOMFile = "sbom.json"
 	NoPackageFile    = "image.json"
 	CatalogFile      = "catalog.yaml"
+	// MatchesDir holds vulnerability-match labels, beside the subject's SBOM and under global/
+	MatchesDir = "matches"
 
 	imageRoot    = "pkg/oci"
 	documentRoot = "sbom"
@@ -71,12 +78,28 @@ func DocumentDir(digest string) string {
 
 // TypeFile is the file holding a subject's labels on packages of one type.
 func TypeFile(dir, pkgType string) string {
-	return path.Join(dir, pkgType+".json")
+	return path.Join(dir, MatchesDir, pkgType+".json")
+}
+
+// NoPackagePath is the file holding a subject's labels that name no package.
+func NoPackagePath(dir string) string {
+	return path.Join(dir, MatchesDir, NoPackageFile)
 }
 
 // GlobalFile is the file holding labels on one package type that hold on every subject.
 func GlobalFile(pkgType string) string {
-	return path.Join(globalRoot, pkgType+".json")
+	return path.Join(globalRoot, MatchesDir, pkgType+".json")
+}
+
+// UnknownKind says whether a corpus directory is a label kind this yardstick does not read: a
+// directory directly under a subject's directory or global/ that is not matches/.
+func UnknownKind(dir string) bool {
+	parent, name := path.Split(dir)
+	if name == MatchesDir || parent == "" {
+		return false
+	}
+	_, ok := Locate(NoPackagePath(path.Clean(parent)))
+	return ok || path.Clean(parent) == globalRoot
 }
 
 // Kind is what a corpus file is about.
@@ -91,7 +114,7 @@ const (
 // Location is a corpus path, read back.
 type Location struct {
 	Kind Kind
-	Dir  string // the subject's directory; global/ for global files
+	Dir  string // the subject's directory, not its matches/; global/ for global files
 	Base string // the file's name
 	// Type is the package type of a type file, empty for image.json and the SBOMs.
 	Type string
@@ -109,17 +132,25 @@ func (l Location) IsLabelFile() bool {
 func Locate(p string) (Location, bool) {
 	dir, base := path.Split(p)
 	dir = strings.TrimSuffix(dir, "/")
+	// label files sit in matches/, SBOMs beside it in the subject's directory
+	dir, inMatches := strings.CutSuffix(dir, "/"+MatchesDir)
 	loc := Location{Dir: dir, Base: base}
 	if t, ok := strings.CutSuffix(base, ".json"); ok && ValidType(t) {
 		loc.Type = t
 	}
+	placed := func(sbom string) bool {
+		if inMatches {
+			return loc.IsLabelFile()
+		}
+		return base == sbom
+	}
 	switch {
 	case dir == globalRoot:
 		loc.Kind = Global
-		return loc, loc.Type != ""
+		return loc, inMatches && loc.Type != ""
 	case strings.HasPrefix(dir, documentRoot+"/"):
 		loc.Kind, loc.Digest = DocumentSubject, dirDigest(strings.TrimPrefix(dir, documentRoot+"/"))
-		return loc, loc.Digest != "" && (loc.IsLabelFile() || base == DocumentSBOMFile)
+		return loc, loc.Digest != "" && placed(DocumentSBOMFile)
 	case strings.HasPrefix(dir, imageRoot+"/"):
 		parts := strings.Split(strings.TrimPrefix(dir, imageRoot+"/"), "/")
 		if len(parts) < 3 {
@@ -128,7 +159,7 @@ func Locate(p string) (Location, bool) {
 		loc.Kind, loc.Registry = ImageSubject, parts[0]
 		loc.Repository = strings.Join(parts[1:len(parts)-1], "/")
 		loc.Digest = dirDigest(parts[len(parts)-1])
-		return loc, loc.Digest != "" && (loc.IsLabelFile() || base == ImageSBOMFile)
+		return loc, loc.Digest != "" && placed(ImageSBOMFile)
 	}
 	return loc, false
 }

@@ -93,7 +93,7 @@ func corpus(t *testing.T) string {
 		{File: TypeFile(debDir, "deb"), Subject: debImage, Label: tp(libc, "CVE-2023-4911")},
 		{File: TypeFile(debDir, "deb"), Subject: debImage, Label: fp(zlib, "CVE-2022-37434")},
 		{File: TypeFile(debDir, "deb"), Subject: debImage, Label: tp(ncurse, "CVE-2023-29491")},
-		{File: debDir + "/" + NoPackageFile, Subject: debImage, Label: tp("", "CVE-2023-4911")},
+		{File: NoPackagePath(debDir), Subject: debImage, Label: tp("", "CVE-2023-4911")},
 		{File: GlobalFile("deb"), Label: fp("pkg:deb/debian/libxml2@2.7.8.dfsg-2+squeeze1?distro=debian-7", "CVE-2016-1839")},
 	})
 	if err != nil {
@@ -124,7 +124,7 @@ func read(t *testing.T, path string) string {
 // label-file-format: what the writer writes, the schema accepts; what breaks a rule, it refuses
 func TestLabelFileFormat(t *testing.T) {
 	dir := corpus(t)
-	for _, f := range []string{TypeFile(debDir, "deb"), debDir + "/" + NoPackageFile, GlobalFile("deb")} {
+	for _, f := range []string{TypeFile(debDir, "deb"), NoPackagePath(debDir), GlobalFile("deb")} {
 		if err := claimsv1.ValidateSchema([]byte(read(t, filepath.Join(dir, f)))); err != nil {
 			t.Errorf("%s: expected the writer's output to match the schema: %v", f, err)
 		}
@@ -192,24 +192,24 @@ func TestPaths(t *testing.T) {
 	// path, and the digest is the image's, spelled sha256-<hex> so no committed path holds a ':'
 	r, _ := ref.Parse("oci:docker.io/cloudbees/cloudbees-core-mm:2.277@" + debDigest)
 	dirName := strings.Replace(debDigest, "sha256:", "sha256-", 1)
-	if got := TypeFile(ImageDir(r), "rpm"); got != "pkg/oci/docker.io/cloudbees/cloudbees-core-mm/"+dirName+"/rpm.json" {
+	if got := TypeFile(ImageDir(r), "rpm"); got != "pkg/oci/docker.io/cloudbees/cloudbees-core-mm/"+dirName+"/matches/rpm.json" {
 		t.Errorf("unexpected image path %s", got)
 	}
 	if got := DocumentDir(debDigest); got != "sbom/"+dirName {
 		t.Errorf("unexpected document path %s", got)
 	}
-	if GlobalFile("java-archive") != "global/java-archive.json" {
+	if GlobalFile("java-archive") != "global/matches/java-archive.json" {
 		t.Error("unexpected global path")
 	}
 
 	// corpus-layout: every place a file belongs reads back, and nothing else does
 	for p, want := range map[string]Location{
-		"pkg/oci/docker.io/anchore/test_images/" + dirName + "/deb.json":       {Kind: ImageSubject, Type: "deb", Registry: "docker.io", Repository: "anchore/test_images", Digest: debDigest},
-		"pkg/oci/ghcr.io/a/b/c/" + dirName + "/image.json":                     {Kind: ImageSubject, Registry: "ghcr.io", Repository: "a/b/c", Digest: debDigest},
-		"pkg/oci/docker.io/anchore/test_images/" + dirName + "/sbom.syft.json": {Kind: ImageSubject, Registry: "docker.io", Repository: "anchore/test_images", Digest: debDigest},
-		"sbom/" + dirName + "/npm.json":                                        {Kind: DocumentSubject, Type: "npm", Digest: debDigest},
-		"sbom/" + dirName + "/sbom.json":                                       {Kind: DocumentSubject, Digest: debDigest},
-		"global/java-archive.json":                                             {Kind: Global, Type: "java-archive"},
+		"pkg/oci/docker.io/anchore/test_images/" + dirName + "/matches/deb.json": {Kind: ImageSubject, Type: "deb", Registry: "docker.io", Repository: "anchore/test_images", Digest: debDigest},
+		"pkg/oci/ghcr.io/a/b/c/" + dirName + "/matches/image.json":               {Kind: ImageSubject, Registry: "ghcr.io", Repository: "a/b/c", Digest: debDigest},
+		"pkg/oci/docker.io/anchore/test_images/" + dirName + "/sbom.syft.json":   {Kind: ImageSubject, Registry: "docker.io", Repository: "anchore/test_images", Digest: debDigest},
+		"sbom/" + dirName + "/matches/npm.json":                                  {Kind: DocumentSubject, Type: "npm", Digest: debDigest},
+		"sbom/" + dirName + "/sbom.json":                                         {Kind: DocumentSubject, Digest: debDigest},
+		"global/matches/java-archive.json":                                       {Kind: Global, Type: "java-archive"},
 	} {
 		got, ok := Locate(p)
 		if !ok || got.Kind != want.Kind || got.Type != want.Type || got.Registry != want.Registry || got.Repository != want.Repository || got.Digest != want.Digest {
@@ -224,8 +224,13 @@ func TestPaths(t *testing.T) {
 		"pkg/oci/docker.io/anchore/test_images/" + debDigest + "/deb.json",
 		"sbom/" + debDigest + "/npm.json",
 		"sbom/" + strings.Replace(debDigest, "sha256:", "sha256-", 1) + "/sbom.syft.json",
-		"global/image.json",
-		"global/sub/deb.json",
+		"global/matches/image.json",
+		"global/matches/sub/deb.json",
+		// labels sit in matches/, and SBOMs beside it
+		"pkg/oci/docker.io/anchore/test_images/" + dirName + "/deb.json",
+		"pkg/oci/docker.io/anchore/test_images/" + dirName + "/matches/sbom.syft.json",
+		"global/java-archive.json",
+		"global/packages/deb.json",
 	} {
 		if _, ok := Locate(p); ok {
 			t.Errorf("%s: expected no place in the layout", p)
@@ -279,12 +284,12 @@ func TestWriter(t *testing.T) {
 	w := Writer{Dir: dir, Vocab: vocab}
 
 	// labels landed in their files, package-less in image.json, global in global/
-	if !strings.Contains(read(t, filepath.Join(dir, debDir, NoPackageFile)), `"vulnerability": "CVE-2023-4911"`) ||
-		strings.Contains(read(t, filepath.Join(dir, debDir, NoPackageFile)), `"package"`) {
+	if !strings.Contains(read(t, filepath.Join(dir, NoPackagePath(debDir))), `"vulnerability": "CVE-2023-4911"`) ||
+		strings.Contains(read(t, filepath.Join(dir, NoPackagePath(debDir))), `"package"`) {
 		t.Error("expected the package-less label in image.json, with no package")
 	}
-	if !strings.Contains(read(t, filepath.Join(dir, "global", "deb.json")), "libxml2") || strings.Contains(read(t, filepath.Join(dir, "global", "deb.json")), `"subject"`) {
-		t.Error("expected the global label in global/deb.json, with no subject")
+	if !strings.Contains(read(t, filepath.Join(dir, GlobalFile("deb"))), "libxml2") || strings.Contains(read(t, filepath.Join(dir, GlobalFile("deb"))), `"subject"`) {
+		t.Error("expected the global label in global/matches/deb.json, with no subject")
 	}
 
 	// sorted by package, then vulnerability; the & of a purl is written as it is
@@ -410,7 +415,7 @@ func TestWriterReplaceAndRevert(t *testing.T) {
 // nothing when one key is not there
 func TestWriterRemove(t *testing.T) {
 	dir := corpus(t)
-	file, global := filepath.Join(dir, TypeFile(debDir, "deb")), filepath.Join(dir, "global", "deb.json")
+	file, global := filepath.Join(dir, TypeFile(debDir, "deb")), filepath.Join(dir, GlobalFile("deb"))
 	w := Writer{Dir: dir}
 	key := func(file, pkg, vuln string) Written {
 		return Written{File: file, Key: claimsv1.Key{Package: pkg, Vulnerability: vuln}}
@@ -490,7 +495,7 @@ func TestWriterRefuses(t *testing.T) {
 		"justification not listed":     {Placed{File: TypeFile(debDir, "deb"), Subject: debImage, Label: badJust}, `justification "binary-stripped" is not listed under fp`},
 		"fact source not listed":       {Placed{File: TypeFile(debDir, "deb"), Subject: debImage, Label: badSource}, `"suse-oval"`},
 		"no author":                    {Placed{File: TypeFile(debDir, "deb"), Subject: debImage, Label: noAuthor}, "author is required"},
-		"package in image.json":        {Placed{File: debDir + "/" + NoPackageFile, Subject: debImage, Label: tp(libc, "CVE-2024-6")}, "package must be absent"},
+		"package in image.json":        {Placed{File: NoPackagePath(debDir), Subject: debImage, Label: tp(libc, "CVE-2024-6")}, "package must be absent"},
 		"no package in a type file":    {Placed{File: TypeFile(debDir, "deb"), Subject: debImage, Label: tp("", "CVE-2024-7")}, "package is required"},
 		"unknown namespace":            {Placed{File: TypeFile(debDir, "deb"), Subject: debImage, Label: tp(libc, "FOO-2024-1")}, `namespace "FOO"`},
 		"subject not the path's":       {Placed{File: TypeFile(debDir, "deb"), Subject: &claimsv1.Subject{Image: "docker.io/anchore/other@" + debDigest}, Label: tp(libc, "CVE-2024-8")}, "which the path names"},
@@ -601,7 +606,7 @@ func TestValidateCorpus(t *testing.T) {
 		{"rule justification not under its verdict", edit(claimsv1.VocabularyFile, "verdict: tp, justification: no-fix", "verdict: tp, justification: fix-installed"), claimsv1.VocabularyFile, "", `rule debian/affected-unfixed: justification "fix-installed" is not listed under tp`},
 		{"rule with an unknown ceiling", edit(claimsv1.VocabularyFile, "ceiling: medium, decision: P-4, basis: Debian", "ceiling: certain, decision: P-4, basis: Debian"), claimsv1.VocabularyFile, "", `ceiling "certain"`},
 		{"unknown fact source", edit(debFile, `"debian-security-tracker"`, `"suse-oval"`), debFile, "CVE-2022-37434 on " + zlib, `"suse-oval"`},
-		{"package in image.json", edit(debDir+"/"+NoPackageFile, `"vulnerability":`, `"package": "pkg:deb/debian/libc6", "vulnerability":`), debDir + "/" + NoPackageFile, "CVE-2023-4911 on pkg:deb/debian/libc6", "package must be absent"},
+		{"package in image.json", edit(NoPackagePath(debDir), `"vulnerability":`, `"package": "pkg:deb/debian/libc6", "vulnerability":`), NoPackagePath(debDir), "CVE-2023-4911 on pkg:deb/debian/libc6", "package must be absent"},
 		{"unlisted namespace", edit(debFile, `"CVE-2023-4911"`, `"FOO-2024-1"`), debFile, "FOO-2024-1 on " + libc, `namespace "FOO"`},
 		{"descriptor not the catalog's", edit(CatalogFile, "syft@v1.54.1", "syft@v1.52.0"), debDir + "/" + ImageSBOMFile, "", "syft 1.54.1, where the catalog pins 1.52.0"},
 		{"config not the catalog's", func(t *testing.T, dir string) {
@@ -630,6 +635,12 @@ func TestValidateCorpus(t *testing.T) {
 		{"label file elsewhere", func(t *testing.T, dir string) {
 			write(t, filepath.Join(dir, "images/centos/labels.json"), `{"schema": "1.0.0", "labels": []}`)
 		}, "images/centos/labels.json", "", "not a place in the corpus layout"},
+		{"label file where it was before matches/", func(t *testing.T, dir string) {
+			old := filepath.Join(dir, filepath.FromSlash(debDir), "deb.json")
+			if err := os.Rename(filepath.Join(dir, filepath.FromSlash(debFile)), old); err != nil {
+				t.Fatal(err)
+			}
+		}, debDir + "/deb.json", "", "move it to " + debFile},
 		{"labels without their SBOM", func(t *testing.T, dir string) { _ = os.Remove(filepath.Join(dir, debDir, ImageSBOMFile)) }, debDir, "", "no sbom.syft.json"},
 		{"path and subject disagree", edit(debFile, "docker.io/anchore/yardstick-fixture-deb@", "docker.io/bitnami/yardstick-fixture-deb@"), debFile, "", "subject.image docker.io/bitnami/yardstick-fixture-deb@" + debDigest + " is not docker.io/anchore/yardstick-fixture-deb"},
 		{"index digest without platform", func(t *testing.T, dir string) {
@@ -654,6 +665,20 @@ func TestValidateCorpus(t *testing.T) {
 			t.Errorf("expected a problem in %s about %q with %q, got %v", tt.file, tt.label, tt.want, problems)
 		})
 	}
+
+	// a label kind this yardstick does not read is listed and skipped, never a problem
+	t.Run("unknown label kind", func(t *testing.T) {
+		dir := corpus(t)
+		write(t, filepath.Join(dir, filepath.FromSlash(debDir), "packages", "deb.json"), "not a label file")
+		write(t, filepath.Join(dir, "global", "packages", "deb.json"), "not a label file")
+		if problems, err := ValidateCorpus(dir); err != nil || len(problems) != 0 {
+			t.Errorf("expected an unknown label kind skipped, got %v %v", problems, err)
+		}
+		listed, err := UnknownKinds(dir)
+		if err != nil || len(listed) != 2 || listed[0].File != "global/packages" || listed[1].File != debDir+"/packages" {
+			t.Errorf("expected both packages/ directories listed, got %v %v", listed, err)
+		}
+	})
 
 	// an id in an advisory namespace is valid
 	t.Run("advisory id", func(t *testing.T) {

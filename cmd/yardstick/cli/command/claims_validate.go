@@ -19,7 +19,8 @@ schema, labels sorted with one per package and vulnerability, justifications and
 listed in vocabulary.yaml, every vulnerability id in a listed or advisory namespace, and each
 SBOM's descriptor against catalog.yaml. It prints every problem with its file and label, and
 exits 2 when there is any. Labels whose purl no package of their image's SBOM has, as after an
-SBOM rebuild, are listed on stdout and fail nothing.`,
+SBOM rebuild, are listed on stdout and fail nothing, as are label kinds this yardstick does not
+read: a directory beside matches/ under a subject or global/ is skipped.`,
 		Example: `  yardstick claims validate claims/`,
 		Args:    cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -33,11 +34,16 @@ SBOM rebuild, are listed on stdout and fail nothing.`,
 			if err != nil {
 				return err
 			}
+			// a newer corpus's label kinds are skipped, so an older yardstick still validates it
+			unknown, err := corpus.UnknownKinds(args[0])
+			if err != nil {
+				return err
+			}
 			out := newPrinter(cmd.OutOrStdout())
 			for _, p := range problems {
 				out.row(out.failed(), p.File, out.dim(labelOf(p)), p.Rule)
 			}
-			for _, p := range unpaired {
+			for _, p := range append(unknown, unpaired...) {
 				out.row(out.notice(), p.File, out.dim(labelOf(p)), p.Rule)
 			}
 			if len(problems) == 0 {

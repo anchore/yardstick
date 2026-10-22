@@ -164,7 +164,7 @@ func place(p vex.Product, l claimsv1.Label) ([]corpus.Placed, string) {
 	}
 	dir, subject := corpus.ImageDir(image), &claimsv1.Subject{Image: image.Image()}
 	if len(p.Subcomponents) == 0 {
-		return []corpus.Placed{{File: dir + "/" + corpus.NoPackageFile, Subject: subject, Label: l}}, ""
+		return []corpus.Placed{{File: corpus.NoPackagePath(dir), Subject: subject, Label: l}}, ""
 	}
 	var out []corpus.Placed
 	for _, sc := range p.Subcomponents {

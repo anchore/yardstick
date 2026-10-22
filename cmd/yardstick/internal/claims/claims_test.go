@@ -124,7 +124,7 @@ func readsLimited(t *testing.T, open opener) {
 		at(corpus.TypeFile(dir, "deb"), label(libudv, "CVE-2020-13776", claimsv1.FP)),
 		at(corpus.TypeFile(dir, "python"), label(urllib, "CVE-2021-33503", claimsv1.TP)),
 		at(corpus.TypeFile(dir, "java-archive"), label(struts, "CVE-2017-5638", claimsv1.TP)),
-		at(dir+"/"+corpus.NoPackageFile, label("", "CVE-2017-5638", claimsv1.TP)),
+		at(corpus.NoPackagePath(dir), label("", "CVE-2017-5638", claimsv1.TP)),
 		at(corpus.GlobalFile("deb"), label("pkg:deb/debian/libxml2@2.7.8.dfsg-2+squeeze1?distro=debian-7", "CVE-2016-1839", claimsv1.FP)),
 		at(corpus.GlobalFile("python"), label(urllib, "CVE-2023-43804", claimsv1.TP)),
 		at(corpus.GlobalFile("java-archive"), label(struts, "CVE-2018-11776", claimsv1.TP)),
@@ -136,8 +136,8 @@ func readsLimited(t *testing.T, open opener) {
 		t.Fatal(err)
 	}
 	want := []string{
-		dir + "/deb.json", dir + "/image.json", dir + "/python.json",
-		"global/deb.json", "global/python.json",
+		dir + "/matches/deb.json", dir + "/matches/image.json", dir + "/matches/python.json",
+		"global/matches/deb.json", "global/matches/python.json",
 	}
 	read := src.Read()
 	sortStrings(want)

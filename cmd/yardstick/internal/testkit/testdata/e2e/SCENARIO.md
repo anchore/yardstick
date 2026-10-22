@@ -36,10 +36,10 @@ Written with `yardstick claims add` (author `e2e`), checked in under `claims/`:
 
 | file | package | vulnerability | verdict | justification |
 |---|---|---|---|---|
-| `claims/global/deb.json` | `pkg:deb/debian/libgnutls30` | CVE-2011-3389 | fp (global) | fix-installed |
-| `claims/pkg/oci/ghcr.io/anchore/test-images/vulnerabilities-debian-12-tar-util-linux/sha256-617d48dd2601779266746a9a382bfb9f3fee2744fba698733b320366f41718b0/deb.json` | `pkg:deb/debian/libc6` | CVE-2026-5450 | tp | no-fix |
+| `claims/global/matches/deb.json` | `pkg:deb/debian/libgnutls30` | CVE-2011-3389 | fp (global) | fix-installed |
+| `claims/pkg/oci/ghcr.io/anchore/test-images/vulnerabilities-debian-12-tar-util-linux/sha256-617d48dd2601779266746a9a382bfb9f3fee2744fba698733b320366f41718b0/matches/deb.json` | `pkg:deb/debian/libc6` | CVE-2026-5450 | tp | no-fix |
 | same file | `pkg:deb/debian/tar` | CVE-2026-5704 | fp | fix-installed, note "fixed in the installed 1.34+dfsg-1.2+deb12u1 build" |
-| `claims/pkg/oci/ghcr.io/anchore/test-images/grype-quality-java-log4j-two-jars/sha256-e363e4447342edd5320a67f79c6980a1ab26f5a9af3e9fdee5bf14e86b2a4c65/java-archive.json` | `pkg:maven/org.apache.logging.log4j/log4j-core` | GHSA-vc5p-v9hr-52mj | unclear | not-assessed, note "needs a look at the JNDI lookup config" |
+| `claims/pkg/oci/ghcr.io/anchore/test-images/grype-quality-java-log4j-two-jars/sha256-e363e4447342edd5320a67f79c6980a1ab26f5a9af3e9fdee5bf14e86b2a4c65/matches/java-archive.json` | `pkg:maven/org.apache.logging.log4j/log4j-core` | GHSA-vc5p-v9hr-52mj | unclear | not-assessed, note "needs a look at the JNDI lookup config" |
 
 The two fp labels sit on dropped changes, so those are judged and not open. libc6 is on a match both setups report (it makes the deb subject score). The unclear label sits on the two vc5p rows, and **unclear does not judge a row**: both stay open.
 
@@ -125,7 +125,7 @@ No cause or explanation. The tar row is the same row as in deb-java (same id), s
 ## Notes for the test writer
 
 - every test starts from this workspace: the seed's `POST /__e2e/reset` (called by the shared fixture in `web/e2e/fixtures.ts`) puts the seeded files back and starts a fresh server. Tests run on one worker, since there is one server. Labeling deb-java through is also what settles deb-npm (pass)
-- labels land in the files above, with `subject.image` as the gate wrote the ref (tag included); `smoke.spec.ts` reads the deb image's `deb.json`, not `claims/global/deb.json`
+- labels land in the files above, with `subject.image` as the gate wrote the ref (tag included); `smoke.spec.ts` reads the deb image's `matches/deb.json`, not `claims/global/matches/deb.json`
 - `n` on deb-java opens the log4j row first (a GHSA id, the first open row whose label could move a check), so do not assume a `CVE-` id
 - a check lists only what it counts: a labeled row leaves `unlabeledChangesAtMost`, and a tp on an added row leaves `noNewFalsePositives`; `f1NotWorse` lists every open changed row and, while it does not pass, the labeled ones that lower the candidate's F1
 - the image names hold `tar` and `util-linux`, and the binary packages' purls name `util-linux` as upstream, so a search for either matches more than the package; search the purl (`debian/tar@`)

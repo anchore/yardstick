@@ -81,7 +81,8 @@ func ValidateCorpus(dir string) ([]Problem, error) {
 			return nil
 		}
 		if d.IsDir() {
-			if strings.HasPrefix(d.Name(), ".") && p != "." {
+			// a label kind this yardstick does not read is UnknownKinds' to list, not a problem
+			if strings.HasPrefix(d.Name(), ".") && p != "." || UnknownKind(p) {
 				return fs.SkipDir
 			}
 			return nil
@@ -144,7 +145,13 @@ func (c *corpusCheck) file(p string) {
 	}
 	loc, ok := Locate(p)
 	if !ok {
-		c.addf(p, "", "not a place in the corpus layout: labels live at pkg/oci/<registry>/<repository>/sha256-<hex>/<type>.json or image.json, sbom/sha256-<hex>/, and global/<type>.json")
+		// a label file from before matches/ existed: name where it goes now
+		dir, base := path.Split(p)
+		if moved := path.Join(dir, MatchesDir, base); isLabelFile(moved) {
+			c.addf(p, "", "label files live in %s/: move it to %s", MatchesDir, moved)
+			return
+		}
+		c.addf(p, "", "not a place in the corpus layout: labels live at pkg/oci/<registry>/<repository>/sha256-<hex>/matches/<type>.json or matches/image.json, sbom/sha256-<hex>/matches/, and global/matches/<type>.json")
 		return
 	}
 	data, err := fs.ReadFile(c.fsys, p)
@@ -163,6 +170,30 @@ func (c *corpusCheck) file(p string) {
 			c.addf(p, "", "the document's digest is %s, not %s, which its directory names", got, loc.Digest)
 		}
 	}
+}
+
+func isLabelFile(p string) bool {
+	loc, ok := Locate(p)
+	return ok && loc.IsLabelFile()
+}
+
+// UnknownKinds lists the label kind directories in a corpus this yardstick does not read, such as
+// a newer corpus's packages/ beside matches/. Validation skips them and fails nothing on them.
+func UnknownKinds(dir string) ([]Problem, error) {
+	root, err := os.OpenRoot(dir)
+	if err != nil {
+		return nil, err
+	}
+	defer root.Close()
+	var out []Problem
+	err = fs.WalkDir(root.FS(), ".", func(p string, d fs.DirEntry, err error) error {
+		if err != nil || !d.IsDir() || !UnknownKind(p) {
+			return err
+		}
+		out = append(out, Problem{File: p, Rule: "a label kind this yardstick does not read; skipped"})
+		return fs.SkipDir
+	})
+	return out, err
 }
 
 func (c *corpusCheck) imageSBOM(p string, loc Location, data []byte) {

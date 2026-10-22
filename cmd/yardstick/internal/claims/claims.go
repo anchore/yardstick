@@ -280,7 +280,7 @@ type scopedKey struct {
 }
 
 // Read reads one subject's labels from every source: the type files for its package types, its
-// image.json, and global/<type>.json for the same types. Files are read in no other place, so a
+// image.json, and global/matches/<type>.json for the same types. Files are read in no other place, so a
 // gate's cost follows its subjects.
 func (s *Set) Read(sub Subject) (*Labels, error) {
 	out := &Labels{}
@@ -319,7 +319,7 @@ func subjectFiles(sub Subject) []string {
 	types := append([]string(nil), sub.Types...)
 	sort.Strings(types)
 	log.Debugf("subject %s read package types %v", sub.Name, types)
-	files := []string{sub.Dir + "/" + corpus.NoPackageFile}
+	files := []string{corpus.NoPackagePath(sub.Dir)}
 	for _, t := range types {
 		if corpus.ValidType(t) {
 			files = append(files, corpus.TypeFile(sub.Dir, t), corpus.GlobalFile(t))

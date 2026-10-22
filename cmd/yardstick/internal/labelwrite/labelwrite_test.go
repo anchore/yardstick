@@ -85,7 +85,7 @@ func TestPlace(t *testing.T) {
 		t.Errorf("expected a global label in global/deb.json with no subject or seenIn, got %+v %v", p, err)
 	}
 	l.Package = ""
-	if p, err := Place(sub, l, false); err != nil || p.File != sub.Dir+"/"+corpus.NoPackageFile {
+	if p, err := Place(sub, l, false); err != nil || p.File != corpus.NoPackagePath(sub.Dir) {
 		t.Errorf("expected a package-less label in image.json, got %+v %v", p, err)
 	}
 	if _, err := Place(sub, l, true); err == nil {

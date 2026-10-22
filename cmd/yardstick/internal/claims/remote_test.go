@@ -92,7 +92,7 @@ func newHost(t *testing.T) *host {
 			return
 		}
 		cw := &countingWriter{ResponseWriter: w, h: h}
-		if cut > 0 && strings.HasPrefix(r.URL.Path, "/claims/snapshots/") {
+		if cut > 0 && strings.HasPrefix(r.URL.Path, "/claims/matches/snapshots/") {
 			w.Header().Set("Content-Length", strconv.Itoa(len(data)))
 			_, _ = cw.Write(data[:cut])
 			panic(http.ErrAbortHandler)
@@ -123,7 +123,7 @@ func (h *host) publish(t *testing.T, root string) string {
 	sum := sha256.Sum256(data)
 	h.mu.Lock()
 	defer h.mu.Unlock()
-	h.objects["/claims/snapshots/"+hex.EncodeToString(sum[:])+".zip"] = data
+	h.objects["/claims/matches/snapshots/"+hex.EncodeToString(sum[:])+".zip"] = data
 	return "sha256:" + hex.EncodeToString(sum[:])
 }
 
@@ -166,8 +166,8 @@ func TestRemoteReferenceResolution(t *testing.T) {
 	older := h.publish(t, newCorpus(t, at(corpus.TypeFile(dir, "deb"), label(libudv, "CVE-2020-13776", claimsv1.FP))))
 	newer := h.publish(t, newCorpus(t, at(corpus.TypeFile(dir, "deb"), label(libudv, "CVE-2020-13776", claimsv1.TP))))
 	const commit = "4f2a9c1e00000000000000000000000000000000"
-	h.put(t, "/claims/commits/"+commit+".json", pointer{Digest: older})
-	h.put(t, "/claims/latest-v1.json", pointer{Digest: newer, Commit: "77aa000000000000000000000000000000000000"})
+	h.put(t, "/claims/matches/commits/"+commit+".json", pointer{Digest: older})
+	h.put(t, "/claims/matches/latest-v1.json", pointer{Digest: newer, Commit: "77aa000000000000000000000000000000000000"})
 
 	s, err := openRemoteAt(t, "main")
 	if err != nil || s.Digest != newer || s.Commit != "77aa000000000000000000000000000000000000" {
@@ -225,7 +225,7 @@ func bigCorpus(t *testing.T) string {
 
 func snapshotRequests(h *host) (n int) {
 	for _, r := range h.requests {
-		if strings.HasPrefix(r, "/claims/snapshots/") {
+		if strings.HasPrefix(r, "/claims/matches/snapshots/") {
 			n++
 		}
 	}
@@ -238,8 +238,8 @@ func TestSnapshotReadInPlace(t *testing.T) {
 	t.Setenv("YARDSTICK_CACHE_DIR", cacheDir)
 	h := newHost(t)
 	digest := h.publish(t, bigCorpus(t))
-	h.put(t, "/claims/latest-v1.json", pointer{Digest: digest, Commit: "77aa000000000000000000000000000000000000"})
-	zipped := h.objects["/claims/snapshots/"+strings.TrimPrefix(digest, "sha256:")+".zip"]
+	h.put(t, "/claims/matches/latest-v1.json", pointer{Digest: digest, Commit: "77aa000000000000000000000000000000000000"})
+	zipped := h.objects["/claims/matches/snapshots/"+strings.TrimPrefix(digest, "sha256:")+".zip"]
 
 	read := func() (*Source, error) {
 		t.Helper()
@@ -287,7 +287,7 @@ func TestSnapshotReadInPlace(t *testing.T) {
 		}
 	}
 	// the other image's entries, its large SBOM among them, are never decompressed
-	if got := s.Read(); len(got) != 1 || got[0] != dir+"/deb.json" {
+	if got := s.Read(); len(got) != 1 || got[0] != corpus.TypeFile(dir, "deb") {
 		t.Errorf("expected only the subject's entries read, got %v", got)
 	}
 	// nothing extracted: the cache holds the zip, named by its digest, and nothing else
@@ -318,7 +318,7 @@ func TestCorruptedSnapshot(t *testing.T) {
 	t.Setenv("YARDSTICK_CACHE_DIR", cacheDir)
 	h := newHost(t)
 	digest := h.publish(t, bigCorpus(t))
-	key := "/claims/snapshots/" + strings.TrimPrefix(digest, "sha256:") + ".zip"
+	key := "/claims/matches/snapshots/" + strings.TrimPrefix(digest, "sha256:") + ".zip"
 	h.objects[key] = append([]byte(nil), h.objects[key]...)
 	h.objects[key][100] ^= 0xff
 	_, err := openRemoteAt(t, digest)
@@ -352,8 +352,8 @@ func TestRemoteDigestsAreHex(t *testing.T) {
 		{"a commit in the latest pointer", "main", pointer{Digest: good, Commit: "../../../../../../../../../../../../../x"}, pointer{}, "is not a 40-character lowercase hex sha"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			h.put(t, "/claims/latest-v1.json", tc.latest)
-			h.put(t, "/claims/commits/"+commit+".json", tc.commit)
+			h.put(t, "/claims/matches/latest-v1.json", tc.latest)
+			h.put(t, "/claims/matches/commits/"+commit+".json", tc.commit)
 			h.reset()
 			_, err := openRemoteAt(t, tc.ref)
 			if err == nil || !strings.Contains(err.Error(), tc.want) {
@@ -514,7 +514,7 @@ func TestReopenReusesRemoteSources(t *testing.T) {
 	t.Setenv("YARDSTICK_CACHE_DIR", t.TempDir())
 	h := newHost(t)
 	digest := h.publish(t, newCorpus(t))
-	h.put(t, "/claims/latest-v1.json", pointer{Digest: digest})
+	h.put(t, "/claims/matches/latest-v1.json", pointer{Digest: digest})
 	sources := []gatefile.Source{
 		{Locator: "github.com/anchore/delta-prototype@main", Remote: &gatefile.Remote{Repository: "github.com/anchore/delta-prototype", Ref: "main"}},
 		{Locator: t.TempDir()},
@@ -572,7 +572,7 @@ func TestSnapshotSizeLimits(t *testing.T) {
 	t.Setenv("YARDSTICK_CACHE_DIR", t.TempDir())
 	h := newHost(t)
 	digest := h.publish(t, bigCorpus(t))
-	size := int64(len(h.objects["/claims/snapshots/"+strings.TrimPrefix(digest, "sha256:")+".zip"]))
+	size := int64(len(h.objects["/claims/matches/snapshots/"+strings.TrimPrefix(digest, "sha256:")+".zip"]))
 
 	set(t, &maxDownload, size-1)
 	if _, err := openRemoteAt(t, digest); err == nil || !strings.Contains(err.Error(), "more than a claims snapshot may be") {

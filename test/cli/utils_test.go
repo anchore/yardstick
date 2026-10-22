@@ -468,7 +468,7 @@ func (w *workspace) assertLabelWritten(t *testing.T, vuln, pkg, verdict string) 
 // validateLabels runs `claims validate` on the labels the test wrote. claims/ is a workspace's
 // scratch directory rather than a corpus, so they are laid out as one would be once folded into
 // match-claims: the pinned snapshot's vocabulary.yaml and catalog.yaml at the root, and its SBOM
-// beside each label file. Those come from the snapshot yardstick cached by its digest.
+// beside each label file's matches/. Those come from the snapshot yardstick cached by its digest.
 func (w *workspace) validateLabels(t *testing.T, r report) {
 	t.Helper()
 	corpus := t.TempDir()
@@ -481,7 +481,8 @@ func (w *workspace) validateLabels(t *testing.T, r report) {
 		if err != nil || d.IsDir() {
 			return err
 		}
-		rel, _ := filepath.Rel(claims, filepath.Dir(p))
+		// a label file sits in its subject's matches/, and the SBOM beside that
+		rel, _ := filepath.Rel(claims, filepath.Dir(filepath.Dir(p)))
 		want[filepath.ToSlash(filepath.Join(rel, "sbom.syft.json"))] = true
 		return nil
 	})

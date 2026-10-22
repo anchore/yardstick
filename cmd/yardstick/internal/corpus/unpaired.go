@@ -53,7 +53,10 @@ func unpairedIn(fsys fs.FS, dir string) ([]Problem, error) {
 	for i, a := range doc.Artifacts {
 		pkgs[i] = purl.Package(a.PURL, a.Version)
 	}
-	entries, err := fs.ReadDir(fsys, dir)
+	entries, err := fs.ReadDir(fsys, path.Join(dir, MatchesDir))
+	if errors.Is(err, fs.ErrNotExist) {
+		return nil, nil
+	}
 	if err != nil {
 		return nil, err
 	}
@@ -63,7 +66,7 @@ func unpairedIn(fsys fs.FS, dir string) ([]Problem, error) {
 		if !ok || !ValidType(t) {
 			continue
 		}
-		p := path.Join(dir, e.Name())
+		p := TypeFile(dir, t)
 		data, err := fs.ReadFile(fsys, p)
 		if err != nil {
 			return nil, err

@@ -23,6 +23,7 @@ import (
 	"github.com/anchore/yardstick/cmd/yardstick/internal/bus"
 	"github.com/anchore/yardstick/cmd/yardstick/internal/cache"
 	claimsv1 "github.com/anchore/yardstick/cmd/yardstick/internal/claims/v1"
+	"github.com/anchore/yardstick/cmd/yardstick/internal/corpus"
 	"github.com/anchore/yardstick/cmd/yardstick/internal/event"
 	"github.com/anchore/yardstick/cmd/yardstick/internal/gatefile"
 	"github.com/anchore/yardstick/cmd/yardstick/internal/log"
@@ -30,9 +31,13 @@ import (
 )
 
 // URLVar names the base URL published snapshots are read from: the public address of the bucket
-// the publish workflow writes claims/latest-v<major>.json, claims/commits/<sha>.json and
-// claims/snapshots/<hex>.zip into. Unset, snapshots are read from DefaultURL.
+// the publish workflow writes claims/matches/latest-v<major>.json, claims/matches/commits/<sha>.json
+// and claims/matches/snapshots/<hex>.zip into. Unset, snapshots are read from DefaultURL.
 const URLVar = "YARDSTICK_CLAIMS_URL"
+
+// publishedRoot is where the match label snapshots and their pointers are published, beside any
+// other label kind's
+const publishedRoot = "/claims/" + corpus.MatchesDir
 
 // DefaultURL is where anchore/match-claims publishes its snapshots.
 const DefaultURL = "https://yardstick.anchore.io"
@@ -94,7 +99,7 @@ func openRemote(s gatefile.Source) (*Source, error) {
 	// resolve accepts only sha256:<64 lowercase hex>, so the digest is safe in a path and a URL
 	hexDigest := strings.TrimPrefix(p.Digest, "sha256:")
 	final := filepath.Join(cache.Dir("claims"), hexDigest+".zip")
-	f, size, downloaded, err := openSnapshot(base+"/claims/snapshots/"+hexDigest+".zip", final, p.Digest, details(s.Locator, p))
+	f, size, downloaded, err := openSnapshot(base+publishedRoot+"/snapshots/"+hexDigest+".zip", final, p.Digest, details(s.Locator, p))
 	if err != nil {
 		return nil, fmt.Errorf("claims source %s: snapshot %s: %w", s.Locator, p.Digest, err)
 	}
@@ -270,12 +275,12 @@ func resolve(base, r string) (pointer, error) {
 	case strings.HasPrefix(r, "sha256:"):
 		p.Digest = r
 	case r == "main":
-		u := base + "/claims/latest-" + claimsv1.Major + ".json"
+		u := base + publishedRoot + "/latest-" + claimsv1.Major + ".json"
 		if err := getJSON(u, &p); err != nil {
 			return p, fmt.Errorf("no published snapshot of label format %s: %w", claimsv1.Major, err)
 		}
 	case commitPattern.MatchString(r):
-		if err := getJSON(base+"/claims/commits/"+r+".json", &p); err != nil {
+		if err := getJSON(base+publishedRoot+"/commits/"+r+".json", &p); err != nil {
 			return p, fmt.Errorf("no snapshot was published for commit %s: %w", r, err)
 		}
 		p.Commit = r

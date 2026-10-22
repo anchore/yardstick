@@ -95,12 +95,12 @@ func TestImportOpenVEX(t *testing.T) {
 
 	// a package product is a global label; fixed is an fp with the fix installed
 	fixed := find(got.Placed, "CVE-2024-0727")
-	if len(fixed) != 1 || fixed[0].File != "global/rpm.json" || fixed[0].Subject != nil || fixed[0].Label.Justification != "fix-installed" {
-		t.Errorf("expected a global fp in global/rpm.json, got %+v", fixed)
+	if len(fixed) != 1 || fixed[0].File != corpus.GlobalFile("rpm") || fixed[0].Subject != nil || fixed[0].Label.Justification != "fix-installed" {
+		t.Errorf("expected a global fp in global/matches/rpm.json, got %+v", fixed)
 	}
 	// an image with no subcomponent is about the image: image.json, tp, the action as its note
 	aff := find(got.Placed, "CVE-2023-4911")
-	if len(aff) != 1 || aff[0].File != debDir+"/image.json" || aff[0].Label.Verdict != claimsv1.TP || aff[0].Label.Package != "" || len(aff[0].Label.Notes) != 1 || aff[0].Label.Notes[0].Text != "upgrade libc6" {
+	if len(aff) != 1 || aff[0].File != corpus.NoPackagePath(debDir) || aff[0].Label.Verdict != claimsv1.TP || aff[0].Label.Package != "" || len(aff[0].Label.Notes) != 1 || aff[0].Label.Notes[0].Text != "upgrade libc6" {
 		t.Errorf("expected a tp in image.json, got %+v", aff)
 	}
 	ui := find(got.Placed, "CVE-2023-50495")
@@ -134,7 +134,7 @@ func TestImportOSV(t *testing.T) {
 		t.Fatalf("expected the two fixed versions, got %+v", got.Placed)
 	}
 	for _, p := range got.Placed {
-		if p.File != "global/npm.json" || p.Label.Vulnerability != "CVE-2023-45133" || p.Label.Verdict != claimsv1.FP || p.Label.Justification != "fix-installed" {
+		if p.File != corpus.GlobalFile("npm") || p.Label.Vulnerability != "CVE-2023-45133" || p.Label.Verdict != claimsv1.FP || p.Label.Justification != "fix-installed" {
 			t.Errorf("unexpected label %+v", p)
 		}
 	}
@@ -188,7 +188,7 @@ func TestExport(t *testing.T) {
 		{File: corpus.TypeFile(debDir, "deb"), Subject: subject, Label: label("pkg:deb/debian/zlib1g@1.2.13?distro=debian-12", "CVE-2022-37434", claimsv1.FP, "fix-installed", "")},
 		{File: corpus.TypeFile(debDir, "deb"), Subject: subject, Label: label("pkg:deb/debian/tar@1.34?distro=debian-12", "CVE-2005-2541", claimsv1.FP, "vulnerable_code_not_present", "")},
 		{File: corpus.TypeFile(debDir, "deb"), Subject: subject, Label: label("pkg:deb/debian/bash@5.2?distro=debian-12", "CVE-2019-18276", claimsv1.FP, "different-product", "it is about GNU bash on Windows")},
-		{File: debDir + "/image.json", Subject: subject, Label: label("", "CVE-2023-50495", claimsv1.Unclear, "not-assessed", "")},
+		{File: corpus.NoPackagePath(debDir), Subject: subject, Label: label("", "CVE-2023-50495", claimsv1.Unclear, "not-assessed", "")},
 		{File: corpus.TypeFile(doc, "npm"), Subject: &claimsv1.Subject{SBOM: debDigest}, Label: label("pkg:npm/%40babel/traverse@7.22.0", "GHSA-67hx-6x53-jw92", claimsv1.TP, "", "")},
 		{File: corpus.GlobalFile("rpm"), Label: label("pkg:rpm/rocky/openssl-libs@3.5.5-2.el9_8?epoch=1", "CVE-2024-0727", claimsv1.FP, "fix-installed", "")},
 	})

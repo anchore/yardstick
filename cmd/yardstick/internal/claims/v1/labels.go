@@ -32,7 +32,7 @@ import (
 const Version = "1.0.0"
 
 // Major is Version's MODEL as the corpus names it: the format in its publish.yaml, and the
-// claims/latest-<major>.json pointer a remote source reads.
+// claims/matches/latest-<major>.json pointer a remote source reads.
 const Major = "v1"
 
 // Verdict is a call on a match.

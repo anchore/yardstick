@@ -149,7 +149,7 @@ func (s *served) tarRow() row {
 func (s *served) debLabels() []claimsv1.Label {
 	s.t.Helper()
 	r, _ := ref.Parse(debImage)
-	data, err := os.ReadFile(filepath.Join(s.w.dir, "claims", corpus.ImageDir(r), "deb.json"))
+	data, err := os.ReadFile(filepath.Join(s.w.dir, "claims", filepath.FromSlash(corpus.TypeFile(corpus.ImageDir(r), "deb"))))
 	if err != nil {
 		s.t.Fatal(err)
 	}

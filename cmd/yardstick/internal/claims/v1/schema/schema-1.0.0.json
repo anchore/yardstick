@@ -1,8 +1,8 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "anchore.io/schema/yardstick/claims/1.0.0/label-file",
+  "$id": "anchore.io/schema/yardstick/claims/matches/1.0.0/label-file",
   "title": "yardstick label file, format 1.0.0",
-  "description": "One subject's labels for one package type, at <subject>/<type>.json, where <subject> is pkg/oci/<registry>/<repository>/sha256-<hex>/ for an image or sbom/sha256-<hex>/ for an SBOM document, and <type> is the package type of the labels' packages. Two other kinds of file share this shape: <subject>/image.json holds labels that name no package, and global/<type>.json holds labels for every subject and has no subject. A label is one person's call on whether a scanner reporting one vulnerability on one package is right. Unknown fields are allowed, so an additive change never breaks an older reader; a label's own unknown fields survive a rewrite by an older yardstick, and unknown fields anywhere else do not. Justifications, fact sources, rules and vulnerability namespaces are not listed here: they are the corpus's vocabulary, in its vocabulary.yaml, and grow without a schema change.",
+  "description": "One subject's labels for one package type, at <subject>/matches/<type>.json, where <subject> is pkg/oci/<registry>/<repository>/sha256-<hex>/ for an image or sbom/sha256-<hex>/ for an SBOM document, and <type> is the package type of the labels' packages. Two other kinds of file share this shape: <subject>/matches/image.json holds labels that name no package, and global/matches/<type>.json holds labels for every subject and has no subject. A label is one person's call on whether a scanner reporting one vulnerability on one package is right. Unknown fields are allowed, so an additive change never breaks an older reader; a label's own unknown fields survive a rewrite by an older yardstick, and unknown fields anywhere else do not. Justifications, fact sources, rules and vulnerability namespaces are not listed here: they are the corpus's vocabulary, in its vocabulary.yaml, and grow without a schema change.",
   "type": "object",
   "required": ["schema", "labels"],
   "properties": {
@@ -13,7 +13,7 @@
       "examples": ["1.0.0"]
     },
     "subject": {
-      "description": "What the file's labels are about, which must be the subject its directory names. Required outside global/, and absent in global/ files.",
+      "description": "What the file's labels are about, which must be the subject its directory names. Required outside global/, and absent in global/matches/ files.",
       "$ref": "#/$defs/subject"
     },
     "labels": {

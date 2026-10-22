@@ -20,7 +20,7 @@ import (
 
 // Placed is a label and the corpus file it belongs in.
 type Placed struct {
-	File    string            // corpus-relative: TypeFile, NoPackageFile under a subject dir, or GlobalFile
+	File    string            // corpus-relative: TypeFile, NoPackagePath or GlobalFile
 	Subject *claimsv1.Subject // the file's subject; nil for global files
 	Label   claimsv1.Label
 }

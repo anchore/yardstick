@@ -57,7 +57,7 @@ checks: [{name: unlabeledPercentAtMost, params: {max: 100}}]
 
 	// it lands in the last source, the subject's deb.json, with seenIn from the scan
 	r, _ := ref.Parse(debImage)
-	f := labelFile(t, filepath.Join(w.dir, "local", corpus.ImageDir(r), "deb.json"))
+	f := labelFile(t, filepath.Join(w.dir, "local", filepath.FromSlash(corpus.TypeFile(corpus.ImageDir(r), "deb"))))
 	t.Chdir(w.dir)
 	rec, err := runrecord.Load(runrecord.DefaultName, "deb")
 	if err != nil {
@@ -72,7 +72,7 @@ checks: [{name: unlabeledPercentAtMost, params: {max: 100}}]
 	if _, stderr, code := add("--subject", "deb", "--package", libc, "--vulnerability", "CVE-2026-5450", "--verdict", "tp"); code != 0 {
 		t.Fatalf("expected the label written, got %d: %s", code, stderr)
 	}
-	both, err := claimsv1.Parse("deb.json", []byte(read(t, filepath.Join(w.dir, "local", corpus.ImageDir(r), "deb.json"))))
+	both, err := claimsv1.Parse("deb.json", []byte(read(t, filepath.Join(w.dir, "local", filepath.FromSlash(corpus.TypeFile(corpus.ImageDir(r), "deb"))))))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -81,7 +81,7 @@ checks: [{name: unlabeledPercentAtMost, params: {max: 100}}]
 			t.Errorf("expected seenIn with the candidate's grype for a match both report, got %+v", l.SeenIn)
 		}
 	}
-	if strings.Contains(read(t, filepath.Join(w.dir, "claims", corpus.ImageDir(r), "deb.json")), "CVE-2005-2541") {
+	if strings.Contains(read(t, filepath.Join(w.dir, "claims", filepath.FromSlash(corpus.TypeFile(corpus.ImageDir(r), "deb")))), "CVE-2005-2541") {
 		t.Error("the label was written into the gate's own claims source instead of the last one")
 	}
 
@@ -96,7 +96,7 @@ checks: [{name: unlabeledPercentAtMost, params: {max: 100}}]
 		t.Fatal(err)
 	}
 	sub := olRec.Subjects[0]
-	f = labelFile(t, filepath.Join(w.dir, "local", corpus.DocumentDir(sub.UnfilteredDigest), "python.json"))
+	f = labelFile(t, filepath.Join(w.dir, "local", filepath.FromSlash(corpus.TypeFile(corpus.DocumentDir(sub.UnfilteredDigest), "python"))))
 	if f.Labels[0].SeenIn.SBOM != sub.UnfilteredDigest || sub.Digest == sub.UnfilteredDigest || f.Subject.SBOM != sub.UnfilteredDigest {
 		t.Errorf("expected seenIn.sbom and the subject to be the unfiltered digest %s (scanned %s), got %+v %+v", sub.UnfilteredDigest, sub.Digest, f.Labels[0].SeenIn, f.Subject)
 	}
@@ -105,7 +105,7 @@ checks: [{name: unlabeledPercentAtMost, params: {max: 100}}]
 	if _, stderr, code := add("--subject", "deb", "--vulnerability", "CVE-2023-4911", "--verdict", "tp"); code != 0 {
 		t.Fatalf("expected an image-level label written, got %d: %s", code, stderr)
 	}
-	if _, err := os.Stat(filepath.Join(w.dir, "local", corpus.ImageDir(r), corpus.NoPackageFile)); err != nil {
+	if _, err := os.Stat(filepath.Join(w.dir, "local", corpus.NoPackagePath(corpus.ImageDir(r)))); err != nil {
 		t.Errorf("expected image.json: %v", err)
 	}
 
@@ -194,10 +194,11 @@ func TestClaimsExportStaysInsideTheCorpus(t *testing.T) {
 	if _, stderr, code := yardstick(t, dir, "claims", "import", fixture.Path("vex", "vendor.openvex.json"), "--to", "outside", "--author", "Will Murphy"); code != 0 {
 		t.Fatalf("import: %d %s", code, stderr)
 	}
-	if err := os.MkdirAll(filepath.Join(dir, "corpus", "global"), 0o755); err != nil {
+	global := filepath.FromSlash(corpus.GlobalFile("rpm"))
+	if err := os.MkdirAll(filepath.Dir(filepath.Join(dir, "corpus", global)), 0o755); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.Symlink(filepath.Join(dir, "outside", "global", "rpm.json"), filepath.Join(dir, "corpus", "global", "rpm.json")); err != nil {
+	if err := os.Symlink(filepath.Join(dir, "outside", global), filepath.Join(dir, "corpus", global)); err != nil {
 		t.Fatal(err)
 	}
 	if stdout, _, code := yardstick(t, dir, "claims", "export", "--vex", "corpus"); code == 0 || strings.Contains(stdout, "CVE-2024-0727") {

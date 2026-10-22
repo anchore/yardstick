@@ -54,7 +54,7 @@ func SeenInFor(rec *runrecord.Record, sub *runrecord.Subject, setup string) *cla
 	return out
 }
 
-// Write places a label about a subject (or, when global, in global/<type>.json, dropping its
+// Write places a label about a subject (or, when global, in global/matches/<type>.json, dropping its
 // seenIn) and writes it into the set's writable source. It returns the path written.
 func Write(set *claims.Set, sub *runrecord.Subject, l claimsv1.Label, global bool) (string, error) {
 	placed, err := Place(sub, l, global)
@@ -107,7 +107,7 @@ func reportedBy(rec *runrecord.Record, dir string, sub *runrecord.Subject, l cla
 }
 
 // Place puts a label in its subject's file for the package's type, its image.json when it names
-// no package, or global/<type>.json.
+// no package, or global/matches/<type>.json.
 func Place(sub *runrecord.Subject, l claimsv1.Label, global bool) (corpus.Placed, error) {
 	t := ""
 	if l.Package != "" {
@@ -127,7 +127,7 @@ func Place(sub *runrecord.Subject, l claimsv1.Label, global bool) (corpus.Placed
 	if err != nil {
 		return corpus.Placed{}, err
 	}
-	file := sub.Dir + "/" + corpus.NoPackageFile
+	file := corpus.NoPackagePath(sub.Dir)
 	if t != "" {
 		file = corpus.TypeFile(sub.Dir, t)
 	}

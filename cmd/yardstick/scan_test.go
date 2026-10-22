@@ -193,9 +193,9 @@ func TestRunOpensRemoteSourceOnce(t *testing.T) {
 		requests[r.URL.Path]++
 		mu.Unlock()
 		switch {
-		case strings.HasPrefix(r.URL.Path, "/claims/latest-"):
+		case strings.HasPrefix(r.URL.Path, "/claims/matches/latest-"):
 			_ = json.NewEncoder(w).Encode(map[string]string{"digest": digest})
-		case r.URL.Path == "/claims/snapshots/"+strings.TrimPrefix(digest, "sha256:")+".zip":
+		case r.URL.Path == "/claims/matches/snapshots/"+strings.TrimPrefix(digest, "sha256:")+".zip":
 			_, _ = w.Write(zipped.Bytes())
 		default:
 			http.NotFound(w, r)
@@ -224,7 +224,7 @@ func TestRunOpensRemoteSourceOnce(t *testing.T) {
 	}
 	mu.Lock()
 	defer mu.Unlock()
-	if n := requests["/claims/snapshots/"+strings.TrimPrefix(digest, "sha256:")+".zip"]; n != 1 {
+	if n := requests["/claims/matches/snapshots/"+strings.TrimPrefix(digest, "sha256:")+".zip"]; n != 1 {
 		t.Errorf("expected the snapshot fetched once, got %d requests: %v", n, requests)
 	}
 	if n := len(requests); n != 2 {
@@ -314,7 +314,7 @@ func TestNamedRunsStayApart(t *testing.T) {
 		t.Fatalf("expected the label written, got %d: %s", code, stderr)
 	}
 	r, _ := ref.Parse(debImage)
-	if seen := labelFile(t, filepath.Join(w.dir, "local", corpus.ImageDir(r), "deb.json")).Labels[0].SeenIn; seen.Tool(claimsv1.ToolGrype) != reference {
+	if seen := labelFile(t, filepath.Join(w.dir, "local", filepath.FromSlash(corpus.TypeFile(corpus.ImageDir(r), "deb")))).Labels[0].SeenIn; seen.Tool(claimsv1.ToolGrype) != reference {
 		t.Errorf("expected seenIn from run a's reference grype, got %+v", seen)
 	}
 

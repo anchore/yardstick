@@ -42,7 +42,7 @@ func (c *claimsAddConfig) AddFlags(flags clio.FlagSet) {
 	flags.StringVarP(&c.Justification, "justification", "", "why, as listed under the verdict in vocabulary.yaml (required for fp and unclear)")
 	flags.StringVarP(&c.Note, "note", "", "anything else a reviewer should know")
 	flags.StringVarP(&c.Author, "author", "", "who makes the call (default: git config user.name)")
-	flags.BoolVarP(&c.Global, "global", "", "the label holds on every subject with the package: written to global/<type>.json")
+	flags.BoolVarP(&c.Global, "global", "", "the label holds on every subject with the package: written to global/matches/<type>.json")
 }
 
 // check fails on a missing flag or a run name that is not one segment, before any gate loads.
