@@ -288,20 +288,7 @@ func (r *Resolver) fromSource(res *Resolved, data []byte, src *claims.Source) (*
 // has one, with its config read through that source; nil when there is neither.
 func (r *Resolver) effectiveCatalog() (*Catalog, error) {
 	if r.Catalog != nil {
-		c := &Catalog{Catalog: *r.Catalog, Origin: "the gate's catalog:"}
-		if c.SyftVersion() == "" {
-			if r.syftSHA256 == "" {
-				r.syftSHA256, _ = install.FileSHA256(c.Syft)
-			}
-			c.SyftSHA256 = r.syftSHA256
-		}
-		if c.Config != "" {
-			var err error
-			if c.ConfigData, err = os.ReadFile(c.Config); err != nil {
-				return nil, fmt.Errorf("catalog config: %w", err)
-			}
-		}
-		return c, nil
+		return r.gateCatalog()
 	}
 	for _, src := range r.Sources {
 		data, err := src.ReadFile(corpus.CatalogFile)
@@ -336,6 +323,25 @@ func (r *Resolver) effectiveCatalog() (*Catalog, error) {
 		return c, nil
 	}
 	return nil, nil
+}
+
+// gateCatalog is the gate's own catalog:, with its config read and a syft by path keyed by its
+// bytes.
+func (r *Resolver) gateCatalog() (*Catalog, error) {
+	c := &Catalog{Catalog: *r.Catalog, Origin: "the gate's catalog:"}
+	if c.SyftVersion() == "" {
+		if r.syftSHA256 == "" {
+			r.syftSHA256, _ = install.FileSHA256(c.Syft)
+		}
+		c.SyftSHA256 = r.syftSHA256
+	}
+	if c.Config != "" {
+		var err error
+		if c.ConfigData, err = os.ReadFile(c.Config); err != nil {
+			return nil, fmt.Errorf("catalog config: %w", err)
+		}
+	}
+	return c, nil
 }
 
 func digest(data []byte) string {

@@ -218,6 +218,19 @@ func (m Scans) Resolve(ctx context.Context, g *gatefile.Gate, set *claims.Set) (
 	return out, nil
 }
 
+// writeScan writes a scan's output into the partial run, with its log when it kept one, and
+// returns the log's record.
+func writeScan(partial *runrecord.Partial, rel string, res scanResult) (*runrecord.Log, error) {
+	var logged *runrecord.Log
+	if res.Log != nil {
+		logged = &runrecord.Log{Path: strings.TrimSuffix(rel, ".json") + ".log.gz", SHA256: res.LogSHA256}
+		if err := partial.Write(logged.Path, res.Log); err != nil {
+			return nil, err
+		}
+	}
+	return logged, partial.Write(rel, res.Out)
+}
+
 // scanAll runs every subject's scans, each setup over the subject's one SBOM, on a go-sync
 // executor bounded by Parallelism. The first failure cancels the scans not yet started and kills
 // the running ones.
@@ -260,15 +273,10 @@ func (m Scans) scanAll(ctx context.Context, partial *runrecord.Partial, rec *run
 			bus.ScanFinished(scanCtx, j.sub.Name, j.name, res.Matches, err)
 		}
 		var logged *runrecord.Log
-		switch {
-		case err != nil:
+		if err != nil {
 			err = fmt.Errorf("subject %s, %s setup (grype %s): %w", j.sub.Name, j.name, p.Grype.Spec, err)
-		case res.Log != nil:
-			logged = &runrecord.Log{Path: strings.TrimSuffix(j.rel, ".json") + ".log.gz", SHA256: res.LogSHA256}
-			err = partial.Write(logged.Path, res.Log)
-		}
-		if err == nil {
-			err = partial.Write(j.rel, res.Out)
+		} else {
+			logged, err = writeScan(partial, j.rel, res)
 		}
 		if err != nil {
 			cancel()

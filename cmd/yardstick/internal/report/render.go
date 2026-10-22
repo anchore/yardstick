@@ -209,3 +209,27 @@ func shortSubject(subject string) string {
 	}
 	return path.Base(repo) + "@sha256:" + digest[:12]
 }
+
+// byGate is what the cause and subject layouts share: each gate's header and the focus, then
+// each gate through writeGate, and the summary line.
+func byGate(w io.Writer, s Set, o Options, writeGate func(io.Writer, Gate, *Focus, Options, styles)) error {
+	st := newStyles(o.Color)
+	if !o.Quiet {
+		for _, g := range s.Gates {
+			writeRunHeader(w, g, st)
+			fmt.Fprintln(w)
+		}
+		writeFocus(w, s.Focus, st)
+	}
+	// failing and undecided gates first, each one's outcome before any detail about it
+	gates := append([]Gate(nil), s.Gates...)
+	sort.SliceStable(gates, func(i, j int) bool { return gates[i].Outcome.Rank() > gates[j].Outcome.Rank() })
+	for _, g := range gates {
+		if o.Quiet && g.Outcome == analysis.Pass {
+			continue
+		}
+		writeGate(w, g, s.Focus, o, st)
+	}
+	_, err := fmt.Fprintln(w, summaryLine(s.Summary, st))
+	return err
+}

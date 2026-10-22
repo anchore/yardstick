@@ -17,24 +17,7 @@ import (
 // subject a check does not pass on, with its counts in both setups, what each check says about it
 // and the rows behind them, printed once. Subjects every check passes on collapse to one line.
 func bySubject(w io.Writer, s Set, o Options) error {
-	st := newStyles(o.Color)
-	if !o.Quiet {
-		for _, g := range s.Gates {
-			writeRunHeader(w, g, st)
-			fmt.Fprintln(w)
-		}
-		writeFocus(w, s.Focus, st)
-	}
-	gates := append([]Gate(nil), s.Gates...)
-	sort.SliceStable(gates, func(i, j int) bool { return gates[i].Outcome.Rank() > gates[j].Outcome.Rank() })
-	for _, g := range gates {
-		if o.Quiet && g.Outcome == analysis.Pass {
-			continue
-		}
-		subjectGate(w, g, s.Focus, o, st)
-	}
-	_, err := fmt.Fprintln(w, summaryLine(s.Summary, st))
-	return err
+	return byGate(w, s, o, subjectGate)
 }
 
 // the verbs a gate's outcome takes

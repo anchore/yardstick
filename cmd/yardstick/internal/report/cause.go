@@ -15,25 +15,7 @@ import (
 // change between the setups, every row printed once under the change that produced it. A change
 // is the rows that share a direction, a matcher and a match type, across every subject.
 func byCause(w io.Writer, s Set, o Options) error {
-	st := newStyles(o.Color)
-	if !o.Quiet {
-		for _, g := range s.Gates {
-			writeRunHeader(w, g, st)
-			fmt.Fprintln(w)
-		}
-		writeFocus(w, s.Focus, st)
-	}
-	// failing and undecided gates first, each one's outcome before any detail about it
-	gates := append([]Gate(nil), s.Gates...)
-	sort.SliceStable(gates, func(i, j int) bool { return gates[i].Outcome.Rank() > gates[j].Outcome.Rank() })
-	for _, g := range gates {
-		if o.Quiet && g.Outcome == analysis.Pass {
-			continue
-		}
-		causeWriteGate(w, g, s.Focus, o, st)
-	}
-	_, err := fmt.Fprintln(w, summaryLine(s.Summary, st))
-	return err
+	return byGate(w, s, o, causeWriteGate)
 }
 
 // causeWidth is the column the layout wraps its prose at.
