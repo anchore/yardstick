@@ -15,9 +15,9 @@ rpm-cpes  gates/rpm-cpes.yaml, scanned 2026-10-14 10:00Z
 focus  rows of CVE-2020-12762; counts, values and outcomes are the whole gate's
 
 FAIL rpm-cpes  2 checks fail, 1 passes
-                                      worst subject
-  FAIL  noNewFalsePositives    max 0  1..34   change 1
-  FAIL  unjudgedChangesAtMost  max 0  33..33  no change
+                                       worst subject
+  FAIL  noNewFalsePositives     max 0  1..34   change 1
+  FAIL  unlabeledChangesAtMost  max 0  33..33  no change
 
 what changed in focus  1 of 1 matches: 0 dropped by the candidate, 1 added
 
@@ -49,13 +49,13 @@ focus  rows of CVE-2020-12762; counts, values and outcomes are the whole gate's
 
 FAIL gate rpm-cpes  2 checks fail, 1 passes
 
-FAIL noNewFalsePositives  max 0     worst subject 1..34 fp added
+FAIL noNewFalsePositives  max 0      worst subject 1..34 fp added
   FAIL       1..34   rpm
     1 fp, added by the candidate
       CVE-2020-12762 on pkg:rpm/rocky/json-c@0.14-11.el9
       nvd:cpe cpe-match
 
-FAIL unjudgedChangesAtMost  max 0   worst subject 33..33 unjudged
+FAIL unlabeledChangesAtMost  max 0   worst subject 33..33 unlabeled
   FAIL       33..33  rpm
 
 PASS gate rpm-coverage  1 check passes
@@ -80,13 +80,13 @@ rpm-cpes  gates/rpm-cpes.yaml, scanned 2026-10-14 10:00Z
 focus  rows of CVE-2020-12762; counts, values and outcomes are the whole gate's
 
 FAIL rpm-cpes  2 checks fail, 1 passes
-  FAIL       noNewFalsePositives    max 0  on 1 subject
-  FAIL       unjudgedChangesAtMost  max 0  on 1 subject
+  FAIL       noNewFalsePositives     max 0  on 1 subject
+  FAIL       unlabeledChangesAtMost  max 0  on 1 subject
 
 FAIL rpm
   F1 0.00 -> 0.33   tp 0 -> 1   fp 0 -> 1   unlabeled 453 -> 486
-  FAIL       noNewFalsePositives    1..34
-  FAIL       unjudgedChangesAtMost  33..33
+  FAIL       noNewFalsePositives     1..34
+  FAIL       unlabeledChangesAtMost  33..33
   1 match only the candidate reports, all nvd:cpe cpe-match
     1 fp: CVE-2020-12762
       on json-c@0.14-11.el9

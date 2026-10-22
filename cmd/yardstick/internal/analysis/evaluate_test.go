@@ -120,7 +120,7 @@ func TestCheckRegistry(t *testing.T) {
 		reads bool
 	}{
 		F1NotWorse: {PerSubject, true}, NoNewFalseNegatives: {PerSubject, true}, NoNewFalsePositives: {PerSubject, true},
-		UnjudgedChangesAtMost: {PerSubject, true}, UnlabeledPercentAtMost: {PerSubject, false},
+		UnlabeledChangesAtMost: {PerSubject, true}, UnlabeledPercentAtMost: {PerSubject, false},
 		ExpectationsMetAtLeast: {PerGate, false}, NoNewMisses: {PerGate, true}, MatchesAtLeast: {PerSubject, false},
 	}
 	if len(Names()) != len(want) {
@@ -232,10 +232,10 @@ func TestFixVersionIsNotADelta(t *testing.T) {
 		cand.Matches[i].Vulnerability.Fix.Versions = []string{"99.0"}
 	}
 	deb := pairOne(t, "deb", "deb", cand, grype(t, "deb"), label(libc, "CVE-2026-5450", claimsv1.TP))
-	g := evaluate([]gatefile.Check{check(UnjudgedChangesAtMost, map[string]float64{"max": 0}), check(NoNewFalseNegatives, nil)}, deb)
+	g := evaluate([]gatefile.Check{check(UnlabeledChangesAtMost, map[string]float64{"max": 0}), check(NoNewFalseNegatives, nil)}, deb)
 	for _, c := range g.Checks {
 		if c.State != Pass || c.Value.Worst != 0 {
-			t.Errorf("%s: expected nothing new, dropped or unjudged, got %+v", c.Name, c)
+			t.Errorf("%s: expected nothing new, dropped or unlabeled, got %+v", c.Name, c)
 		}
 	}
 }
@@ -267,12 +267,12 @@ func TestUnlabeledDeltasAreBounded(t *testing.T) {
 			added++
 		}
 	}
-	g := evaluate([]gatefile.Check{check(NoNewFalsePositives, nil), check(UnjudgedChangesAtMost, map[string]float64{"max": 0})}, s)
+	g := evaluate([]gatefile.Check{check(NoNewFalsePositives, nil), check(UnlabeledChangesAtMost, map[string]float64{"max": 0})}, s)
 	// the fp count is bounded, the unlabeled count is measured exactly
 	want := map[string]struct {
 		state State
 		best  float64
-	}{NoNewFalsePositives: {Undecided, 0}, UnjudgedChangesAtMost: {Fail, float64(added)}}
+	}{NoNewFalsePositives: {Undecided, 0}, UnlabeledChangesAtMost: {Fail, float64(added)}}
 	for _, c := range g.Checks {
 		if w := want[c.Name]; c.State != w.state || c.Value.Worst != float64(added) || c.Value.Best != w.best {
 			t.Errorf("%s: expected %s between %v and %d, got %s %+v", c.Name, w.state, w.best, added, c.State, c.Value)
@@ -333,13 +333,13 @@ func TestNewByIdentity(t *testing.T) {
 	}
 }
 
-func TestUnjudgedChangesCountOnlyDeltas(t *testing.T) {
+func TestUnlabeledChangesCountOnlyDeltas(t *testing.T) {
 	// every match both report is unlabeled; two only the candidate reports
 	ref := without(without(grype(t, "deb"), "CVE-2026-5450", "libc6"), "CVE-2023-50495", "ncurses-base")
 	s := pairOne(t, "deb", "deb", grype(t, "deb"), ref, label(libc, "CVE-2026-5928", claimsv1.TP))
 	// a count known exactly: over the limit fails, at or under it passes
 	for limit, want := range map[float64]State{1: Fail, 2: Pass, 3: Pass} {
-		c := evaluate([]gatefile.Check{check(UnjudgedChangesAtMost, map[string]float64{"max": limit})}, s).Checks[0]
+		c := evaluate([]gatefile.Check{check(UnlabeledChangesAtMost, map[string]float64{"max": limit})}, s).Checks[0]
 		if c.State != want || c.Value.Worst != 2 || c.Value.Best != 2 {
 			t.Errorf("max %v: expected %s at 2, got %s %+v", limit, want, c.State, c.Value)
 		}

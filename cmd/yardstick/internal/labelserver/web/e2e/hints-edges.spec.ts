@@ -214,7 +214,7 @@ test.describe("the image rail", () => {
   });
 
   test("a check screen's rail carries the hints, the Labels tab's does not, and accepted hints leave the rail", async ({ page }) => {
-    await page.goto(checkPage("unjudgedChangesAtMost"));
+    await page.goto(checkPage("unlabeledChangesAtMost"));
     await expect(page.getByTestId("rail-review-all")).toHaveText("Review all 4 hints");
     await page.goto(`${gatePage()}labels`);
     await expect(page.getByTestId("image-rail")).toBeVisible();
@@ -259,7 +259,7 @@ test.describe("hints that replace a person's label", () => {
   });
 
   test("a hand label on a hinted row takes its hint out of review and regroups the rest", async ({ page }) => {
-    await openFinding(page, rows.gzip, "unjudgedChangesAtMost", "deb-npm");
+    await openFinding(page, rows.gzip, "unlabeledChangesAtMost", "deb-npm");
     await label(page, "t");
     await expect.poll(() => labelsOf(gzip).map((l) => l.verdict)).toEqual(["tp"]);
 

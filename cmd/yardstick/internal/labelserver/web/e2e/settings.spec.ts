@@ -33,7 +33,7 @@ test("the cog opens and closes by click, Esc and a click outside; Esc doesn't wa
 
   // closed, Esc is the page's again
   await page.keyboard.press("Escape");
-  await expect(page).toHaveURL(/\/checks\/unjudgedChangesAtMost$/);
+  await expect(page).toHaveURL(/\/checks\/unlabeledChangesAtMost$/);
 });
 
 test("j and n typed inside the open cog stay there", async ({ page }) => {

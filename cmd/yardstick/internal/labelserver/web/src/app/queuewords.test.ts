@@ -7,7 +7,7 @@ const gate = (name: string, outcome: string, rows: number, settled = false) => (
 const entry = (row: string, effect: string, ...ins: CrossAppearance[]) =>
   ({ row, effect, key: row, vulnerability: "CVE", package: { ref: "pkg:deb/debian/tar" }, sourcePackage: "tar", image: "deb", in: ins, bears: 0, flips: 0 }) as QueueEntry;
 const at = (g: string, outcome: string, tp?: string, fp?: string, extra: Partial<CrossAppearance["effect"]> = {}): CrossAppearance =>
-  ({ gate: g, row: "r", dir: "dropped", outcome, ...(tp && { effect: { ifTP: { outcome: tp }, ifFP: { outcome: fp! }, bears: ["unjudgedChangesAtMost"], ...extra } }) });
+  ({ gate: g, row: "r", dir: "dropped", outcome, ...(tp && { effect: { ifTP: { outcome: tp }, ifFP: { outcome: fp! }, bears: ["unlabeledChangesAtMost"], ...extra } }) });
 
 // tar CVE-2026-18508 once every hint is accepted: deb-java's last open row
 const lastTar = entry("e3bfd3b0b0c30ee6", "decides", at("deb-java", "undecided", "fail", "pass", { ifTP: { outcome: "fail", fails: ["noNewFalseNegatives"] } }));
@@ -27,7 +27,7 @@ describe("whyNext", () => {
   });
   test("a row that only counts toward a check", () => {
     const ul = entry("9f5eb52729c83cc1", "counted", at("deb-java", "fail", "fail", "fail"));
-    expect(whyNext(ul, "deb-java", [gate("deb-java", "fail", 6)])).toBe("deb-java fails, with 6 open matches. No label here changes an outcome on its own, but it counts toward unjudgedChangesAtMost.");
+    expect(whyNext(ul, "deb-java", [gate("deb-java", "fail", 6)])).toBe("deb-java fails, with 6 open matches. No label here changes an outcome on its own, but it counts toward unlabeledChangesAtMost.");
   });
   test("a row that changes nothing says so plainly", () => {
     const babel = entry("24160b879ac36bf5", "none", at("deb-npm", "pass"));

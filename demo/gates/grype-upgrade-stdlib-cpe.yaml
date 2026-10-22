@@ -21,5 +21,5 @@ checks:
   - name: f1NotWorse
   - name: noNewFalseNegatives
   - name: noNewFalsePositives
-  - name: unjudgedChangesAtMost
+  - name: unlabeledChangesAtMost
     params: {max: 0}

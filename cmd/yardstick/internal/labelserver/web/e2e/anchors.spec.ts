@@ -32,7 +32,7 @@ test("every level carries its anchors", async ({ page }) => {
   await page.getByTestId("rail-expand").click();
 
   // level 2
-  await page.goto(checkPage("unjudgedChangesAtMost"));
+  await page.goto(checkPage("unlabeledChangesAtMost"));
   for (const id of ["check-table", "images-toggle", "group-by"]) await expect(page.getByTestId(id), id).toBeVisible();
   const row = page.getByTestId("check-table").locator("tbody tr[data-id]").first();
   await expect(row).toHaveAttribute("data-id", /^[0-9a-f]{16}$/);

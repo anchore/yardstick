@@ -192,12 +192,12 @@ test.describe("scoped Research buttons", () => {
   });
 
   test("a check offers its own rows, r opens them, and the research page shows the check", async ({ page }) => {
-    await page.goto(checkPage("unjudgedChangesAtMost"));
+    await page.goto(checkPage("unlabeledChangesAtMost"));
     await expect(scoped(page)).toBeVisible();
-    await expect(scoped(page)).toHaveAttribute("href", /^\/ui\/research\?scope=gate%3Adeb-java&check=unjudgedChangesAtMost/);
+    await expect(scoped(page)).toHaveAttribute("href", /^\/ui\/research\?scope=gate%3Adeb-java&check=unlabeledChangesAtMost/);
     await page.keyboard.press("r");
-    await expect(page).toHaveURL(/\/ui\/research\?scope=gate%3Adeb-java&check=unjudgedChangesAtMost/);
-    await expect(page.getByTestId("research-check-chip")).toContainText("unjudgedChangesAtMost");
+    await expect(page).toHaveURL(/\/ui\/research\?scope=gate%3Adeb-java&check=unlabeledChangesAtMost/);
+    await expect(page.getByTestId("research-check-chip")).toContainText("unlabeledChangesAtMost");
   });
 
   test("the gates screen's research pill opens research scoped to its gate", async ({ page }) => {
@@ -217,11 +217,11 @@ test.describe("scoped Research buttons", () => {
   });
 
   test("the palette researches the gate and the check on screen, and lists the jobs", async ({ page }) => {
-    await page.goto(checkPage("unjudgedChangesAtMost"));
+    await page.goto(checkPage("unlabeledChangesAtMost"));
     await page.keyboard.press("Control+k");
     const item = (id: string) => page.getByTestId("palette").locator(`[data-testid=palette-item][data-group=Actions][data-id=${id}]`);
     await expect(item("research-gate")).toHaveAttribute("href", "/ui/research?scope=gate%3Adeb-java");
-    await expect(item("research-check")).toHaveAttribute("href", "/ui/research?scope=gate%3Adeb-java&check=unjudgedChangesAtMost");
+    await expect(item("research-check")).toHaveAttribute("href", "/ui/research?scope=gate%3Adeb-java&check=unlabeledChangesAtMost");
     await item("jobs").click();
     await expect(page).toHaveURL(/\/ui\/research\/jobs$/);
   });

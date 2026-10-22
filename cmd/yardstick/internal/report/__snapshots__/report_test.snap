@@ -15,7 +15,7 @@ gate rpm-cpes (gates/rpm-cpes.yaml), scanned 2026-10-14T10:00:00Z
 GATE          CHECK                   SUBJECT  STATE  WORST  BEST   THRESHOLD  NOTE
 rpm-coverage  unlabeledPercentAtMost  rpm      pass   99.59  99.59  100
 rpm-cpes      noNewFalsePositives     rpm      fail   34     1      0
-rpm-cpes      unjudgedChangesAtMost   rpm      fail   33     33     0
+rpm-cpes      unlabeledChangesAtMost  rpm      fail   33     33     0
 rpm-cpes      noNewFalseNegatives     rpm      pass   0      0      0
 FAILED 1 of 2 gates
 
@@ -639,7 +639,7 @@ FAILED 1 of 2 gates
           ]
         },
         {
-          "name": "unjudgedChangesAtMost",
+          "name": "unlabeledChangesAtMost",
           "scope": "subject",
           "params": {
             "max": 0
@@ -693,18 +693,18 @@ FAILED 1 of 2 gates
           "subject": "rpm",
           "match": "3cfe7d6a1df21d77/CVE-2023-48795",
           "narrows": [
-            "unjudgedChangesAtMost"
+            "unlabeledChangesAtMost"
           ],
           "states": {
             "fp": {
               "noNewFalseNegatives": "pass",
               "noNewFalsePositives": "fail",
-              "unjudgedChangesAtMost": "pass"
+              "unlabeledChangesAtMost": "pass"
             },
             "tp": {
               "noNewFalseNegatives": "pass",
               "noNewFalsePositives": "fail",
-              "unjudgedChangesAtMost": "pass"
+              "unlabeledChangesAtMost": "pass"
             }
           },
           "outcome": {

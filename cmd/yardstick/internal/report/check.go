@@ -109,7 +109,7 @@ var checkUnits = map[string]string{
 	analysis.F1NotWorse:             " F1 drop",
 	analysis.NoNewFalseNegatives:    " tp dropped",
 	analysis.NoNewFalsePositives:    " fp added",
-	analysis.UnjudgedChangesAtMost:  " unjudged",
+	analysis.UnlabeledChangesAtMost: " unlabeled",
 	analysis.UnlabeledPercentAtMost: " percent unlabeled",
 	analysis.ExpectationsMetAtLeast: " expectations met",
 	analysis.NoNewMisses:            " expectations lost",

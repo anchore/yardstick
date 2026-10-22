@@ -126,7 +126,7 @@ func TestE2EWorkspace(t *testing.T) {
 	for _, c := range a.Gate.Result.Checks {
 		checks[c.Name] = c.State
 	}
-	wantChecks := map[string]string{"f1NotWorse": "fail", "noNewFalseNegatives": "fail", "noNewFalsePositives": "fail", "unjudgedChangesAtMost": "fail"}
+	wantChecks := map[string]string{"f1NotWorse": "fail", "noNewFalseNegatives": "fail", "noNewFalsePositives": "fail", "unlabeledChangesAtMost": "fail"}
 	if a.Gate.Result.Outcome != "fail" || !maps.Equal(checks, wantChecks) {
 		t.Errorf("deb-java: %s %v", a.Gate.Result.Outcome, checks)
 	}
@@ -220,7 +220,9 @@ const (
 func failsOn(t *testing.T, h http.Handler, gate string) map[string][]string {
 	t.Helper()
 	var st struct {
-		Gate struct{ Result struct{ Checks []labelserver.CheckResult } }
+		Gate struct {
+			Result struct{ Checks []labelserver.CheckResult }
+		}
 	}
 	get(t, h, "/api/gates/"+gate+"/state", &st)
 	out := map[string][]string{}

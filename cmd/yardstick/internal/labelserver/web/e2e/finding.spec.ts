@@ -3,16 +3,16 @@ import { images, labelsOf, rows, setPref } from "./helpers";
 
 // the finding page (level 3) on the seed: /ui/gates/<gate>/checks/<check>/<row>. The check lists
 // come from GET checks/{check}/findings in its order; SCENARIO.md has the rows.
-const unjudged = "/ui/gates/deb-java/checks/unjudgedChangesAtMost";
+const unlabeledCheck = "/ui/gates/deb-java/checks/unlabeledChangesAtMost";
 const f1 = "/ui/gates/deb-java/checks/f1NotWorse";
-// unjudgedChangesAtMost's open rows in the check's order: the three util-linux binaries, both tar,
+// unlabeledChangesAtMost's open rows in the check's order: the three util-linux binaries, both tar,
 // util-linux itself, then log4j's four (jfh8 twice, vc5p twice, which carry an unclear label)
 const libgnutls = "c54934489d4ac861"; // CVE-2011-3389, the global fp label
 
 test("a finding opened by URL shows its title, subtitle, tabs and the hint", async ({ page }) => {
-  await page.goto(`${unjudged}/${rows.tarDropped}`);
+  await page.goto(`${unlabeledCheck}/${rows.tarDropped}`);
   await expect(page.getByTestId("title")).toHaveText("CVE-2005-2541");
-  await expect(page.getByTestId("breadcrumb")).toHaveText(/^Gates\s*›\s*deb-java\s*›\s*unjudgedChangesAtMost\s*›\s*CVE-2005-2541$/);
+  await expect(page.getByTestId("breadcrumb")).toHaveText(/^Gates\s*›\s*deb-java\s*›\s*unlabeledChangesAtMost\s*›\s*CVE-2005-2541$/);
   await expect(page.getByTestId("title-row").getByTestId("verdict")).toHaveText("unlabeled");
   await expect(page.getByTestId("finding-package")).toHaveText("tar 1.34+dfsg-1.2+deb12u1");
   await expect(page.getByTestId("finding-image")).toHaveText(images.deb.name);
@@ -49,16 +49,16 @@ test("a finding opened by URL shows its title, subtitle, tabs and the hint", asy
 });
 
 test("a accepts the agent hint, writes it to disk and moves to the next open finding", async ({ page }) => {
-  await page.goto(`${unjudged}/${rows.tarDropped}`);
+  await page.goto(`${unlabeledCheck}/${rows.tarDropped}`);
   await expect(page.getByTestId("hint-card")).toBeVisible();
   await page.keyboard.press("a");
   await expect.poll(() => labelsOf("CVE-2005-2541").map((l) => `${l.verdict} ${l.justification}`)).toEqual(["fp fix-installed"]);
-  await expect(page).toHaveURL(new RegExp(`${unjudged}/${rows.tarHand}$`));
+  await expect(page).toHaveURL(new RegExp(`${unlabeledCheck}/${rows.tarHand}$`));
   await expect(page.getByTestId("title")).toHaveText("CVE-2026-18508");
 });
 
 test("t, f and u pick the verdict, and a reason and a note save the label", async ({ page }) => {
-  await page.goto(`${unjudged}/${rows.tarHand}`);
+  await page.goto(`${unlabeledCheck}/${rows.tarHand}`);
   await expect(page.getByTestId("label-panel")).toBeVisible();
   await expect(page.getByTestId("hint-card")).toHaveCount(0);
   const seg = (v: string) => page.locator(`[data-testid=verdict-button][data-verdict=${v}]`);
@@ -88,7 +88,7 @@ test("t, f and u pick the verdict, and a reason and a note save the label", asyn
 });
 
 test("Save and next lands on the next unlabeled finding of the filtered list", async ({ page }) => {
-  await page.goto(`${unjudged}/${rows.tarHand}?verdict=unlabeled`);
+  await page.goto(`${unlabeledCheck}/${rows.tarHand}?verdict=unlabeled`);
   // unclear vc5p rows are filtered out: 8 unlabeled, tar CVE-2026-18508 the fifth
   await expect(page.getByTestId("pager")).toHaveAttribute("data-index", "5");
   await expect(page.getByTestId("pager")).toHaveAttribute("data-total", "8");
@@ -96,7 +96,7 @@ test("Save and next lands on the next unlabeled finding of the filtered list", a
   await page.getByTestId("reason-picker").selectOption("fix-installed");
   await expect(page.getByTestId("save-label")).toHaveText("Save and next");
   await page.getByTestId("save-label").click();
-  await expect(page).toHaveURL(new RegExp(`${unjudged}/${rows.utilLinux[0]}\\?verdict=unlabeled$`));
+  await expect(page).toHaveURL(new RegExp(`${unlabeledCheck}/${rows.utilLinux[0]}\\?verdict=unlabeled$`));
   await expect(page.getByTestId("title")).toHaveText("CVE-2026-3184");
   // the labeled row left the list
   await expect(page.getByTestId("pager")).toHaveAttribute("data-index", "5");
@@ -168,7 +168,7 @@ test("a labeled finding shows the label on file and every source, and can be rel
 });
 
 test("the cause card accepts the package hint for all four util-linux rows", async ({ page }) => {
-  await page.goto(`${unjudged}/${rows.utilLinux[0]}`);
+  await page.goto(`${unlabeledCheck}/${rows.utilLinux[0]}`);
   const card = page.getByTestId("cause-card");
   await expect(card).toHaveAttribute("data-count", "4");
   await expect(card).toContainText("CVE-2026-3184 on util-linux");
@@ -180,7 +180,7 @@ test("the cause card accepts the package hint for all four util-linux rows", asy
 
 test("research started on a finding leaves a researched hint that can be accepted", async ({ page }) => {
   test.setTimeout(120_000);
-  await page.goto(`${unjudged}/${rows.tarHand}`);
+  await page.goto(`${unlabeledCheck}/${rows.tarHand}`);
   await expect(page.getByTestId("label-panel")).toBeVisible();
   await expect(page.getByTestId("hint-card")).toHaveCount(0);
   await expect(page.getByTestId("research-button")).toHaveAttribute("data-researched", "false");

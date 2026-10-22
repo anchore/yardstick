@@ -88,7 +88,7 @@ subjects:
   - oci:docker.io/anchore/test_images:f@` + digest + `
 checks:
   - name: noNewFalseNegatives
-  - name: unjudgedChangesAtMost
+  - name: unlabeledChangesAtMost
     params: {max: 0}
 `
 

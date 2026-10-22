@@ -56,7 +56,7 @@ test.describe("a label from the finding page", () => {
 
   test("labeling the last open finding of a list says nothing is left", async ({ page }) => {
     // the search narrows the check's list to the four util-linux rows
-    await page.goto(`${checkPage("unjudgedChangesAtMost")}/${libblkid1}?q=CVE-2026-3184`);
+    await page.goto(`${checkPage("unlabeledChangesAtMost")}/${libblkid1}?q=CVE-2026-3184`);
     await expect(page.getByTestId("pager")).toHaveAttribute("data-total", "4");
     for (let i = 0; i < 4; i++) {
       await expect(page.getByTestId("label-panel")).toHaveAttribute("data-verdict", "unlabeled");
@@ -71,7 +71,7 @@ test.describe("a label from the finding page", () => {
     expect(labelsOf("CVE-2026-3184").map((l) => l.package.replace(/.*\//, "")).sort()).toEqual(["libblkid1", "libmount1", "mount", "util-linux"]);
     // n enters the queue: this check's open rows first, then the gate's
     await page.keyboard.press("n");
-    await expect(page).toHaveURL(/\/ui\/queue\/[0-9a-f]{16}\?scope=gate%3Adeb-java&check=unjudgedChangesAtMost$/);
+    await expect(page).toHaveURL(/\/ui\/queue\/[0-9a-f]{16}\?scope=gate%3Adeb-java&check=unlabeledChangesAtMost$/);
     await expect(page.getByTestId("queue-bar")).toBeVisible();
   });
 });

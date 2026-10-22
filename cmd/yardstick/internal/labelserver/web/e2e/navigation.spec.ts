@@ -30,8 +30,8 @@ test.describe("moving around", () => {
   test("the breadcrumb goes back up a level at a time", async ({ page }) => {
     await openFinding(page, rows.tarDropped);
     const crumb = (name: string) => page.getByTestId("breadcrumb").getByRole("link", { name, exact: true });
-    await crumb("unjudgedChangesAtMost").click();
-    await expect(page).toHaveURL(new RegExp(`${checkPage("unjudgedChangesAtMost")}$`));
+    await crumb("unlabeledChangesAtMost").click();
+    await expect(page).toHaveURL(new RegExp(`${checkPage("unlabeledChangesAtMost")}$`));
     await expect(tableRows(page, "check-table")).toHaveCount(10);
     await crumb("deb-java").click();
     await expect(page).toHaveURL(new RegExp(`${gatePage()}$`));
@@ -43,11 +43,11 @@ test.describe("moving around", () => {
 
   test("the browser's back and forward buttons walk the levels", async ({ page }) => {
     await page.goto(gatePage());
-    await checkRow(page, "unjudgedChangesAtMost").click();
+    await checkRow(page, "unlabeledChangesAtMost").click();
     await tableRow(page, "check-table", rows.tarDropped).click();
     await onFinding(page, rows.tarDropped);
     await page.goBack();
-    await expect(page).toHaveURL(new RegExp(`${checkPage("unjudgedChangesAtMost")}$`));
+    await expect(page).toHaveURL(new RegExp(`${checkPage("unlabeledChangesAtMost")}$`));
     await expect(tableRows(page, "check-table")).toHaveCount(10);
     await page.goBack();
     await expect(page.getByTestId("check-row")).toHaveCount(4);

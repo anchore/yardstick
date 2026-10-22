@@ -30,7 +30,7 @@ func NewFocus(vulnerabilities, packages []string) *Focus {
 }
 
 // Narrow is a built gate with only the rows in focus: match rows, misses, loose labels, effects,
-// and each check's failing rows, unjudged rows and unmet expectations. Counts, check values and
+// and each check's failing rows, unlabeled rows and unmet expectations. Counts, check values and
 // states, the outcome and Passed are left as they are. A vulnerability is compared by its alias
 // group, so a GHSA id selects the row grype reported under its CVE. A nil focus narrows nothing.
 func (f *Focus) Narrow(g Gate, aliases *pairing.Aliases) Gate {

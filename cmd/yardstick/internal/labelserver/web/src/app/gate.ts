@@ -110,7 +110,7 @@ interface Tab { el: Node | Node[]; key: (e: KeyboardEvent) => boolean; update: (
 
 // ---------- Checks ----------
 
-const units: Record<string, string> = { f1: "worse", fn: "new", fp: "new", unjudged: "unlabeled" };
+const units: Record<string, string> = { f1: "worse", fn: "new", fp: "new", unlabeled: "unlabeled" };
 
 const sentence = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
 

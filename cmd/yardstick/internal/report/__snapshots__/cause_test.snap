@@ -13,9 +13,9 @@ rpm-cpes  gates/rpm-cpes.yaml, scanned 2026-10-14 10:00Z
   built    rpm with syft 1.54.1
 
 FAIL rpm-cpes  2 checks fail, 1 passes
-                                      worst subject
-  FAIL  noNewFalsePositives    max 0  1..34   change 1
-  FAIL  unjudgedChangesAtMost  max 0  33..33  change 1
+                                       worst subject
+  FAIL  noNewFalsePositives     max 0  1..34   change 1
+  FAIL  unlabeledChangesAtMost  max 0  33..33  change 1
 
 what changed  35 of 488 matches: 0 dropped by the candidate, 35 added
 
@@ -49,10 +49,10 @@ rpm-cpes  gates/rpm-cpes.yaml, scanned 2026-10-14 10:00Z
   built    rpm with syft 1.54.1
 
 FAIL rpm-cpes  2 checks fail, 1 passes
-                                      worst subject
-  FAIL  noNewFalsePositives    max 0  1..34   change 1
-  FAIL  unjudgedChangesAtMost  max 0  33..33  change 1
-  PASS  noNewFalseNegatives    max 0  0..0    no change
+                                       worst subject
+  FAIL  noNewFalsePositives     max 0  1..34   change 1
+  FAIL  unlabeledChangesAtMost  max 0  33..33  change 1
+  PASS  noNewFalseNegatives     max 0  0..0    no change
 
 what changed  35 of 488 matches: 0 dropped by the candidate, 35 added
 
@@ -101,10 +101,10 @@ rpm-cpes  gates/rpm-cpes.yaml, scanned 2026-10-14 10:00Z
   built    rpm with syft 1.54.1
 
 FAIL rpm-cpes  2 checks fail, 1 passes
-                                      worst subject
-  FAIL  noNewFalsePositives    max 0  1..34   change 1
-  FAIL  unjudgedChangesAtMost  max 0  33..33  change 1
-  PASS  noNewFalseNegatives    max 0  0..0    no change
+                                       worst subject
+  FAIL  noNewFalsePositives     max 0  1..34   change 1
+  FAIL  unlabeledChangesAtMost  max 0  33..33  change 1
+  PASS  noNewFalseNegatives     max 0  0..0    no change
 
 what changed  35 of 488 matches: 0 dropped by the candidate, 35 added
 

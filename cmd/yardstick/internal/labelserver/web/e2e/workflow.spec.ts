@@ -30,11 +30,11 @@ test("labeling through the UI flips deb-java to pass and settles deb-npm", async
   await page.goto(gatesPage);
   await gateRow(page, "deb-java").click();
   await expect(outcome(page)).toHaveText("fail");
-  await checkStates(page, { f1NotWorse: "fail", noNewFalseNegatives: "fail", noNewFalsePositives: "fail", unjudgedChangesAtMost: "fail" });
+  await checkStates(page, { f1NotWorse: "fail", noNewFalseNegatives: "fail", noNewFalsePositives: "fail", unlabeledChangesAtMost: "fail" });
 
   // the check every open finding bears on, and the tar row with a hint: accepted, and the page moves
   // on to the tar row with none, labeled by hand
-  await checkRow(page, "unjudgedChangesAtMost").click();
+  await checkRow(page, "unlabeledChangesAtMost").click();
   await tableRow(page, "check-table", rows.tarDropped).click();
   await onFinding(page, rows.tarDropped);
   await page.keyboard.press("a");
@@ -51,12 +51,12 @@ test("labeling through the UI flips deb-java to pass and settles deb-npm", async
   // back on the check and the gate: deb has nothing open, and java has no tp or fp label yet, which
   // fails the three checks that score labels until it has one
   await page.keyboard.press("Escape");
-  await expect(page).toHaveURL(new RegExp(`${checkPage("unjudgedChangesAtMost")}$`));
-  // what's judged leaves the check that counts the unjudged: java's four are left
+  await expect(page).toHaveURL(new RegExp(`${checkPage("unlabeledChangesAtMost")}$`));
+  // what's judged leaves the check that counts the unlabeled: java's four are left
   await expect(page.getByTestId("check-table").locator("tbody tr[data-id]")).toHaveCount(4);
   await expect(tableRow(page, "check-table", rows.tarHand)).toHaveCount(0);
   await page.keyboard.press("Escape");
-  await checkStates(page, { f1NotWorse: "fail", noNewFalseNegatives: "fail", noNewFalsePositives: "fail", unjudgedChangesAtMost: "fail" });
+  await checkStates(page, { f1NotWorse: "fail", noNewFalseNegatives: "fail", noNewFalsePositives: "fail", unlabeledChangesAtMost: "fail" });
   await expect(railImage(page, "deb")).toContainText("0 open · 8");
   // open is unlabeled or unclear, so vc5p's two unclear rows count
   await expect(railImage(page, "java")).toContainText("4 open · 4");
@@ -68,7 +68,7 @@ test("labeling through the UI flips deb-java to pass and settles deb-npm", async
   await page.keyboard.press("a");
   await expect.poll(() => labelsOf("GHSA-jfh8-c2jp-5v3q").length).toBe(1);
   await page.goto(gatePage());
-  await checkStates(page, { f1NotWorse: "pass", noNewFalseNegatives: "pass", noNewFalsePositives: "undecided", unjudgedChangesAtMost: "fail" });
+  await checkStates(page, { f1NotWorse: "pass", noNewFalseNegatives: "pass", noNewFalsePositives: "undecided", unlabeledChangesAtMost: "fail" });
   await expect(outcome(page)).toHaveText("fail");
 
   // vc5p replaces the unclear as the deciding label, and the last open match goes: the gate passes
@@ -78,7 +78,7 @@ test("labeling through the UI flips deb-java to pass and settles deb-npm", async
   await expect.poll(() => labelsOf("GHSA-vc5p-v9hr-52mj").length).toBe(2);
   await page.goto(gatePage());
   await expect(outcome(page)).toHaveText("pass");
-  await checkStates(page, { f1NotWorse: "pass", noNewFalseNegatives: "pass", noNewFalsePositives: "pass", unjudgedChangesAtMost: "pass" });
+  await checkStates(page, { f1NotWorse: "pass", noNewFalseNegatives: "pass", noNewFalsePositives: "pass", unlabeledChangesAtMost: "pass" });
   await expect(page.getByTestId("label-next")).toBeDisabled();
   await expect(railImage(page, "java")).toContainText("0 open · 4");
 
@@ -98,7 +98,7 @@ test("labeling through the UI flips deb-java to pass and settles deb-npm", async
 });
 
 test("a tar label in one gate moves the other", async ({ page }) => {
-  await openFinding(page, rows.tarDropped, "unjudgedChangesAtMost", "deb-npm");
+  await openFinding(page, rows.tarDropped, "unlabeledChangesAtMost", "deb-npm");
   await page.keyboard.press("a");
   await expect.poll(() => labelsOf("CVE-2005-2541").length).toBe(1);
   await page.goto(gatePage("deb-npm"));
@@ -123,6 +123,6 @@ test("hand labels on both tar rows by key and picker write what the hints would"
 
   await page.goto(gatePage());
   await checksTab(page);
-  await checkStates(page, { f1NotWorse: "fail", noNewFalseNegatives: "fail", noNewFalsePositives: "fail", unjudgedChangesAtMost: "fail" });
+  await checkStates(page, { f1NotWorse: "fail", noNewFalseNegatives: "fail", noNewFalsePositives: "fail", unlabeledChangesAtMost: "fail" });
   await expect(page.getByTestId("verdict-bar")).toContainText("FP 4");
 });

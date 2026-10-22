@@ -18,7 +18,7 @@ var registry = map[string]CheckDef{
 	"noNewFalseNegatives": {Name: "noNewFalseNegatives", ReadsReference: true, Params: []Param{
 		{Name: "max", Integer: true, Default: ptr(0)},
 	}},
-	"unjudgedChangesAtMost": {Name: "unjudgedChangesAtMost", ReadsReference: true, Params: []Param{
+	"unlabeledChangesAtMost": {Name: "unlabeledChangesAtMost", ReadsReference: true, Params: []Param{
 		{Name: "max", Integer: true, Description: "how many may stay unlabeled"},
 	}},
 	"unlabeledPercentAtMost": {Name: "unlabeledPercentAtMost", Params: []Param{
@@ -141,8 +141,8 @@ func TestLoadRefuses(t *testing.T) {
 		{"misspelled param", swap("tolerance: 0.01", "tolerence: 0.01"), `no param "tolerence"`},
 		{"param not a number", swap("tolerance: 0.01", "tolerance: high"), "must be a number"},
 		{"param below minimum", swap("tolerance: 0.01", "tolerance: -1"), "at least 0"},
-		{"fractional count", swap("  - name: noNewFalseNegatives", "  - name: unjudgedChangesAtMost\n    params: {max: 1.5}"), "max must be a whole number"},
-		{"required param missing", swap("  - name: noNewFalseNegatives", "  - name: unjudgedChangesAtMost"), "needs max"},
+		{"fractional count", swap("  - name: noNewFalseNegatives", "  - name: unlabeledChangesAtMost\n    params: {max: 1.5}"), "max must be a whole number"},
+		{"required param missing", swap("  - name: noNewFalseNegatives", "  - name: unlabeledChangesAtMost"), "needs max"},
 		{"param above maximum", swap("  - name: noNewFalseNegatives", "  - name: unlabeledPercentAtMost\n    params: {max: 120}"), "at most 100"},
 		// undecided-policy
 		{"bad undecided", validGate + "undecided: maybe\n", "undecided must be fail or pass"},

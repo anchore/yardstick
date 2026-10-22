@@ -24,7 +24,7 @@ Both grype versions report the same matches on a deb and an apk image, so the ga
 | f1NotWorse | undecided | 0..1 |
 | noNewFalseNegatives | undecided | 0..2 |
 | noNewFalsePositives | pass | 0..0 |
-| unjudgedChangesAtMost | fail | 2..2 |
+| unlabeledChangesAtMost | fail | 2..2 |
 
 Outcome **fail**: the unlabeled count is measured, not bounded, so 2 over a max of 0 fails.
 

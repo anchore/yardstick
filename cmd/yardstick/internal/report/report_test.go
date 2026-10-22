@@ -91,7 +91,7 @@ func rpmGateOf(t *testing.T, vulns []string, checks ...gatefile.Check) (Gate, *p
 	if len(checks) == 0 {
 		checks = []gatefile.Check{
 			{Name: analysis.NoNewFalsePositives, Params: map[string]float64{"max": 0}},
-			{Name: analysis.UnjudgedChangesAtMost, Params: map[string]float64{"max": 0}},
+			{Name: analysis.UnlabeledChangesAtMost, Params: map[string]float64{"max": 0}},
 			{Name: analysis.NoNewFalseNegatives, Params: map[string]float64{"max": 0}},
 		}
 	}

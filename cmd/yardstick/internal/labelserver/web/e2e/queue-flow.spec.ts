@@ -47,16 +47,16 @@ test.describe("entering and leaving", () => {
   });
 
   test("Esc and Exit leave a check's queue for that check", async ({ page }) => {
-    const entry = "/ui/queue?scope=gate:deb-java&check=unjudgedChangesAtMost";
+    const entry = "/ui/queue?scope=gate:deb-java&check=unlabeledChangesAtMost";
     await page.goto(entry);
     await expect(page.getByTestId("label-panel")).toBeVisible();
     await page.keyboard.press("Escape");
-    await expect(page).toHaveURL(new RegExp(`${checkPage("unjudgedChangesAtMost")}$`));
+    await expect(page).toHaveURL(new RegExp(`${checkPage("unlabeledChangesAtMost")}$`));
 
     await page.goto(entry);
     await expect(page.getByTestId("label-panel")).toBeVisible();
     await page.getByTestId("queue-exit").click();
-    await expect(page).toHaveURL(new RegExp(`${checkPage("unjudgedChangesAtMost")}$`));
+    await expect(page).toHaveURL(new RegExp(`${checkPage("unlabeledChangesAtMost")}$`));
   });
 
   test("a row that isn't open says so and links to the queue's next row; Esc exits", async ({ page }) => {
@@ -168,7 +168,7 @@ test.describe("why this one is next", () => {
   test("tar CVE-2026-18508 on the fresh seed moves no outcome on its own", async ({ page }) => {
     await page.goto(queueRow(rows.tarHand));
     await onFinding(page, rows.tarHand);
-    await expect(whyText(page)).toHaveText("deb-java fails, with 10 open matches. No label here changes an outcome on its own, but it counts toward unjudgedChangesAtMost.");
+    await expect(whyText(page)).toHaveText("deb-java fails, with 10 open matches. No label here changes an outcome on its own, but it counts toward unlabeledChangesAtMost.");
   });
 
   test("tar CVE-2005-2541 in deb-java's queue decides deb-npm", async ({ page }) => {

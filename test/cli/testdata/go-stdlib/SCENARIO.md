@@ -17,7 +17,7 @@ grype v0.115.0 flipped `match.golang.always-use-cpe-for-stdlib` to false, so gry
 | f1NotWorse | fail | 0.22..0.34 |
 | noNewFalseNegatives | fail | 3..5 |
 | noNewFalsePositives | pass | 0..0 |
-| unjudgedChangesAtMost | fail | 2..2 |
+| unlabeledChangesAtMost | fail | 2..2 |
 
 Outcome **fail**, exit 1.
 
@@ -26,7 +26,7 @@ Outcome **fail**, exit 1.
 - review: CVE-2022-1705 and CVE-2022-1962, unlabeled. Their effects say either verdict leaves every check as it is: the gate stays fail
 - CVE-2021-44716, CVE-2022-1705 and CVE-2022-1962 get the reason `constraint/changed`. The two versions spell the same constraint differently (`< 1.17.12,>= 1.18.0, < 1.18.4` and `< 1.17.12, >= 1.18.0, < 1.18.4`), and yardstick compares the text
 
-Labeling both review rows tp leaves the gate failing: noNewFalseNegatives 5..5, f1NotWorse 0.34..0.34, unjudgedChangesAtMost now passes.
+Labeling both review rows tp leaves the gate failing: noNewFalseNegatives 5..5, f1NotWorse 0.34..0.34, unlabeledChangesAtMost now passes.
 
 ## Gate `stdlib-cpe`: v0.120.1 vs v0.120.1, the candidate with `grype/stdlib-cpe.yaml`
 
@@ -37,8 +37,8 @@ Labeling both review rows tp leaves the gate failing: noNewFalseNegatives 5..5, 
 | f1NotWorse | pass | -0.34..-0.22 |
 | noNewFalseNegatives | pass | 0..0 |
 | noNewFalsePositives | fail | 1..3 |
-| unjudgedChangesAtMost | fail | 2..2 |
+| unlabeledChangesAtMost | fail | 2..2 |
 
 Outcome **fail**: CVE-2021-44716 is a labeled fp the config brings back.
 
-The two gates share the review rows. Labeling them tp through `go-upgrade` moves this gate's unjudgedChangesAtMost to pass and noNewFalsePositives to 1..1, with no label written for this gate. It still fails.
+The two gates share the review rows. Labeling them tp through `go-upgrade` moves this gate's unlabeledChangesAtMost to pass and noNewFalsePositives to 1..1, with no label written for this gate. It still fails.

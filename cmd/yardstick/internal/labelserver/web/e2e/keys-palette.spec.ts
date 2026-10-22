@@ -75,7 +75,7 @@ test.describe("keys typed into a field", () => {
     const picker = page.getByTestId("reason-picker");
     await expect(picker).toBeFocused();
     await page.keyboard.press("n");
-    await expect(page).toHaveURL(new RegExp(`${checkPage("unjudgedChangesAtMost")}/${rows.jfhA}$`));
+    await expect(page).toHaveURL(new RegExp(`${checkPage("unlabeledChangesAtMost")}/${rows.jfhA}$`));
 
     await page.goto(`/ui/queue/${rows.jfhA}?scope=gate:deb-java`);
     await onFinding(page, rows.jfhA);
@@ -134,7 +134,7 @@ test.describe("palette queries", () => {
     await input(page).fill("deb-npm");
     await expect(group(page, "Gates")).toHaveCount(1);
     await expect(group(page, "Checks")).toHaveCount(1);
-    await expect(item(page, "Checks", "deb-npm/unjudgedChangesAtMost")).toBeVisible();
+    await expect(item(page, "Checks", "deb-npm/unlabeledChangesAtMost")).toBeVisible();
     await expect(group(page, "Images")).toHaveCount(2);
     await expect(group(page, "Matches")).toHaveCount(0);
   });

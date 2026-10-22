@@ -125,7 +125,7 @@ func (w *Workspace) DebGate() string {
 	whole := w.Grype("whole")
 	noTar := w.Grype("no-tar", "CVE-2005-2541 tar")
 	w.Label(Libc, "CVE-2026-5450")
-	w.Gate("deb", noTar, whole, "", "  - name: unjudgedChangesAtMost\n    params: {max: 0}\n")
+	w.Gate("deb", noTar, whole, "", "  - name: unlabeledChangesAtMost\n    params: {max: 0}\n")
 	return whole
 }
 

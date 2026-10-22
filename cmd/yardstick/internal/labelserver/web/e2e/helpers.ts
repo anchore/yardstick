@@ -61,7 +61,7 @@ export const gatesPage = "/ui/gates/";
 export const gatePage = (gate = "deb-java") => `/ui/gates/${gate}/`;
 export const checkPage = (check: string, gate = "deb-java") => `/ui/gates/${gate}/checks/${check}`;
 // findingPage is a finding reached from a check, or from the gate's Findings tab with no check
-export const findingPage = (row: string, check: string | null = "unjudgedChangesAtMost", gate = "deb-java") =>
+export const findingPage = (row: string, check: string | null = "unlabeledChangesAtMost", gate = "deb-java") =>
   check ? `${checkPage(check, gate)}/${row}` : `/ui/gates/${gate}/findings/${row}`;
 
 // outcome is the status badge in the title row: a gate's outcome on a gate screen, a check's state
@@ -85,7 +85,7 @@ export const tableRow = (page: Page, testid: string, id: string): Locator => pag
 export const tableRows = (page: Page, testid: string): Locator => page.getByTestId(testid).locator("tbody tr[data-id]");
 
 // openFinding loads a finding page and waits for its label panel
-export async function openFinding(page: Page, row: string, check: string | null = "unjudgedChangesAtMost", gate = "deb-java") {
+export async function openFinding(page: Page, row: string, check: string | null = "unlabeledChangesAtMost", gate = "deb-java") {
   await page.goto(findingPage(row, check, gate));
   await expect(page.getByTestId("label-panel")).toHaveAttribute("data-row", row);
 }

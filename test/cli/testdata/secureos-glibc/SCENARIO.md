@@ -23,7 +23,7 @@ The demo saw 26 glibc rows dropped. The 9 here are the ones with exactly one NVD
 | f1NotWorse | undecided | -1..0.88 |
 | noNewFalseNegatives | undecided | 0..7 |
 | noNewFalsePositives | pass | 0..0 |
-| unjudgedChangesAtMost | fail | 7..7 |
+| unlabeledChangesAtMost | fail | 7..7 |
 
 Outcome **fail**, exit 1: the unlabeled count is measured, not bounded, so 7 over a max of 0 fails.
 

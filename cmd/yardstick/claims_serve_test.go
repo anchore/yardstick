@@ -189,7 +189,7 @@ func TestServePages(t *testing.T) {
 		{"/", "/ui/gates/", http.StatusFound},
 		{"/ui/gates/", "", http.StatusOK},
 		{"/ui/gates/deb/", "", http.StatusOK},
-		{"/ui/gates/deb/checks/unjudgedChangesAtMost/0123456789abcdef", "", http.StatusOK},
+		{"/ui/gates/deb/checks/unlabeledChangesAtMost/0123456789abcdef", "", http.StatusOK},
 		{"/ui/gates/nope/labels", "", http.StatusNotFound},
 	} {
 		rec := s.do(http.MethodGet, tc.path, "", "")

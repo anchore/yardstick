@@ -94,7 +94,7 @@ reference: {grype: `+reference+`, db: "dir:`+t.TempDir()+`"}
 subjects: [{ref: "`+debImage+`", name: deb}]
 checks:
   - name: noNewFalseNegatives
-  - name: unjudgedChangesAtMost
+  - name: unlabeledChangesAtMost
     params: {max: 0}
 `)
 }

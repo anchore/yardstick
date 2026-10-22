@@ -13,13 +13,13 @@ rpm-cpes  gates/rpm-cpes.yaml, scanned 2026-10-14 10:00Z
   built    rpm with syft 1.54.1
 
 FAIL rpm-cpes  2 checks fail, 1 passes
-  FAIL       noNewFalsePositives    max 0  on 1 subject
-  FAIL       unjudgedChangesAtMost  max 0  on 1 subject
+  FAIL       noNewFalsePositives     max 0  on 1 subject
+  FAIL       unlabeledChangesAtMost  max 0  on 1 subject
 
 FAIL rpm
   F1 0.00 -> 0.33   tp 0 -> 1   fp 0 -> 1   unlabeled 453 -> 486
-  FAIL       noNewFalsePositives    1..34
-  FAIL       unjudgedChangesAtMost  33..33
+  FAIL       noNewFalsePositives     1..34
+  FAIL       unlabeledChangesAtMost  33..33
   35 matches only the candidate reports, all nvd:cpe cpe-match
     1 tp: CVE-2018-25032
       on zlib@1.2.11-40.el9
@@ -49,15 +49,15 @@ rpm-cpes  gates/rpm-cpes.yaml, scanned 2026-10-14 10:00Z
   built    rpm with syft 1.54.1
 
 FAIL rpm-cpes  2 checks fail, 1 passes
-  FAIL       noNewFalsePositives    max 0  on 1 subject
-  FAIL       unjudgedChangesAtMost  max 0  on 1 subject
-  PASS       noNewFalseNegatives    max 0  on 1 subject
+  FAIL       noNewFalsePositives     max 0  on 1 subject
+  FAIL       unlabeledChangesAtMost  max 0  on 1 subject
+  PASS       noNewFalseNegatives     max 0  on 1 subject
 
 FAIL rpm
   F1 0.00 -> 0.33   tp 0 -> 1   fp 0 -> 1   unlabeled 453 -> 486
-  FAIL       noNewFalsePositives    1..34
-  FAIL       unjudgedChangesAtMost  33..33
-  PASS       noNewFalseNegatives    0..0
+  FAIL       noNewFalsePositives     1..34
+  FAIL       unlabeledChangesAtMost  33..33
+  PASS       noNewFalseNegatives     0..0
   35 matches only the candidate reports, all nvd:cpe cpe-match
     1 tp: CVE-2018-25032
       on zlib@1.2.11-40.el9
@@ -91,15 +91,15 @@ rpm-cpes  gates/rpm-cpes.yaml, scanned 2026-10-14 10:00Z
   built    rpm with syft 1.54.1
 
 FAIL rpm-cpes  2 checks fail, 1 passes
-  FAIL       noNewFalsePositives    max 0  on 1 subject
-  FAIL       unjudgedChangesAtMost  max 0  on 1 subject
-  PASS       noNewFalseNegatives    max 0  on 1 subject
+  FAIL       noNewFalsePositives     max 0  on 1 subject
+  FAIL       unlabeledChangesAtMost  max 0  on 1 subject
+  PASS       noNewFalseNegatives     max 0  on 1 subject
 
 FAIL rpm
   F1 0.00 -> 0.33   tp 0 -> 1   fp 0 -> 1   unlabeled 453 -> 486
-  FAIL       noNewFalsePositives    1..34
-  FAIL       unjudgedChangesAtMost  33..33
-  PASS       noNewFalseNegatives    0..0
+  FAIL       noNewFalsePositives     1..34
+  FAIL       unlabeledChangesAtMost  33..33
+  PASS       noNewFalseNegatives     0..0
   35 matches only the candidate reports, all nvd:cpe cpe-match
     1 tp: CVE-2018-25032
       on zlib@1.2.11-40.el9

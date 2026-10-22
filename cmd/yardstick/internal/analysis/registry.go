@@ -14,7 +14,7 @@ const (
 	F1NotWorse             = "f1NotWorse"
 	NoNewFalseNegatives    = "noNewFalseNegatives"
 	NoNewFalsePositives    = "noNewFalsePositives"
-	UnjudgedChangesAtMost  = "unjudgedChangesAtMost"
+	UnlabeledChangesAtMost = "unlabeledChangesAtMost"
 	UnlabeledPercentAtMost = "unlabeledPercentAtMost"
 	ExpectationsMetAtLeast = "expectationsMetAtLeast"
 	NoNewMisses            = "noNewMisses"
@@ -70,8 +70,8 @@ var registry = map[string]CheckType{
 		Description: "fails when more than max candidate matches paired by an fp label were not reported by the reference",
 		Scope:       PerSubject,
 	},
-	UnjudgedChangesAtMost: {
-		CheckDef: gatefile.CheckDef{Name: UnjudgedChangesAtMost, ReadsReference: true, Params: []gatefile.Param{
+	UnlabeledChangesAtMost: {
+		CheckDef: gatefile.CheckDef{Name: UnlabeledChangesAtMost, ReadsReference: true, Params: []gatefile.Param{
 			{Name: paramMax, Description: "how many matches only one setup reports may stay unlabeled", Integer: true},
 		}},
 		Description: "fails when more than max unlabeled matches appear in only one setup; labeling them lowers the count",

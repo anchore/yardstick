@@ -55,7 +55,7 @@ test("n from the gates screen labels the seed through the queue until every gate
     if (row === rows.tarHand) {
       // no hint, and reached while java's rows are still open, so deb-java fails either way and the
       // label only lowers its unlabeled count; a tp here would be a new false negative
-      await expect(page.getByTestId("why-next")).toContainText("No label here changes an outcome on its own, but it counts toward unjudgedChangesAtMost.");
+      await expect(page.getByTestId("why-next")).toContainText("No label here changes an outcome on its own, but it counts toward unlabeledChangesAtMost.");
       await expect(page.locator("[data-testid=verdict-outcome][data-verdict=tp]")).toHaveText("TP → new FN");
       await label(page, "f", "fix-installed");
     } else await page.keyboard.press("a");

@@ -38,12 +38,12 @@ func TestRowsSummarized(t *testing.T) {
 	g, _ := rpmGate(t)
 	var sc analysis.SubjectCheck
 	for _, c := range g.Checks {
-		if c.Name == analysis.UnjudgedChangesAtMost {
+		if c.Name == analysis.UnlabeledChangesAtMost {
 			sc = c.Subjects[0]
 		}
 	}
 	section := func(out string) string {
-		out = out[strings.Index(out, "FAIL unjudgedChangesAtMost"):]
+		out = out[strings.Index(out, "FAIL unlabeledChangesAtMost"):]
 		return out[:strings.Index(out, "\n\n")+1]
 	}
 	out := render(t, Summarize([]Gate{g}), Options{Format: "check"})

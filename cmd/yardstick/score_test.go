@@ -69,9 +69,9 @@ func TestScore(t *testing.T) {
 	// an unlabeled count is measured, not bounded: over its max the gate fails under either undecided
 	// policy, and at its max it passes
 	for _, policy := range []string{"fail", "pass"} {
-		for limit, want := range map[string]string{"0": "FAIL gate unjudged  1 check fails", "1": "PASS gate unjudged  1 check passes"} {
-			w.gate("unjudged", noNcurses, whole, "", "  - name: unjudgedChangesAtMost\n    params: {max: "+limit+"}\nundecided: "+policy+"\n")
-			stdout, stderr, code := yardstick(t, w.dir, "gates/unjudged.yaml", "-o", "check")
+		for limit, want := range map[string]string{"0": "FAIL gate unlabeled  1 check fails", "1": "PASS gate unlabeled  1 check passes"} {
+			w.gate("unlabeled", noNcurses, whole, "", "  - name: unlabeledChangesAtMost\n    params: {max: "+limit+"}\nundecided: "+policy+"\n")
+			stdout, stderr, code := yardstick(t, w.dir, "gates/unlabeled.yaml", "-o", "check")
 			if code != map[bool]int{true: 1, false: 0}[limit == "0"] || !strings.Contains(stdout, want) {
 				t.Errorf("undecided: %s, max %s: expected %q, got %d: %s %s", policy, limit, want, code, stdout, stderr)
 			}
@@ -333,14 +333,14 @@ func rowless(t *testing.T, doc string) string {
 func TestFocusNeverMovesTheVerdict(t *testing.T) {
 	w := newWorkspace(t)
 	// tar and libc6 drop a tp each, failing noNewFalseNegatives on two CVEs on two packages, and
-	// the unlabeled ncurses-base drop fails unjudgedChangesAtMost
+	// the unlabeled ncurses-base drop fails unlabeledChangesAtMost
 	cand := w.grype("dropped", "CVE-2005-2541 tar", "CVE-2026-5450 libc6", "CVE-2025-69720 ncurses-base")
 	whole := w.grype("whole")
 	const cve, ghsa = "CVE-2005-2541", "GHSA-aaaa-bbbb-cccc"
 	w.relate("whole", cve, ghsa)
 	w.label(tar, cve)
 	w.label(libc, "CVE-2026-5450")
-	checks := "  - name: noNewFalseNegatives\n  - name: unjudgedChangesAtMost\n    params: {max: 0}\n"
+	checks := "  - name: noNewFalseNegatives\n  - name: unlabeledChangesAtMost\n    params: {max: 0}\n"
 	w.gate("one", cand, whole, "", checks)
 	w.gate("two", cand, whole, "", checks)
 	gates := []string{"gates/one.yaml", "gates/two.yaml"}

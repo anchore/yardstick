@@ -11,12 +11,12 @@ test.describe("deb-java", () => {
   test("starts failing, with each check's state and its worst value against its limit", async ({ page }) => {
     await expect(outcome(page)).toHaveText("fail");
     await expect(page.getByTestId("title-row")).toContainText("grype candidate-a vs reference-a · 2 images");
-    await checkStates(page, { f1NotWorse: "fail", noNewFalseNegatives: "fail", noNewFalsePositives: "fail", unjudgedChangesAtMost: "fail" });
+    await checkStates(page, { f1NotWorse: "fail", noNewFalseNegatives: "fail", noNewFalsePositives: "fail", unlabeledChangesAtMost: "fail" });
     await expect(meter(page, "f1NotWorse")).toContainText("0.500 worse · limit 0");
     await expect(meter(page, "noNewFalseNegatives")).toContainText("2 new · limit 0");
     await expect(meter(page, "noNewFalsePositives")).toContainText("4 new · limit 0");
-    await expect(meter(page, "unjudgedChangesAtMost")).toContainText("6 unlabeled · limit 0");
-    await expect(checkRow(page, "unjudgedChangesAtMost").getByTestId("check-count")).toContainText("10 open");
+    await expect(meter(page, "unlabeledChangesAtMost")).toContainText("6 unlabeled · limit 0");
+    await expect(checkRow(page, "unlabeledChangesAtMost").getByTestId("check-count")).toContainText("10 open");
   });
 
   test("the verdict bar and the rail count the changed matches by label", async ({ page }) => {
@@ -42,7 +42,7 @@ test.describe("deb-java", () => {
   });
 
   test("Group by gathers a check's findings by package", async ({ page }) => {
-    await page.goto(checkPage("unjudgedChangesAtMost"));
+    await page.goto(checkPage("unlabeledChangesAtMost"));
     await page.getByTestId("group-by").selectOption("package");
     const groups = page.getByTestId("check-table").locator("tr.group");
     await expect(groups).toHaveCount(6);
@@ -56,9 +56,9 @@ test.describe("deb-npm", () => {
   test("starts failing with its one check", async ({ page }) => {
     await expect(outcome(page)).toHaveText("fail");
     await expect(page.getByTestId("check-row")).toHaveCount(1);
-    await checkStates(page, { unjudgedChangesAtMost: "fail" });
+    await checkStates(page, { unlabeledChangesAtMost: "fail" });
     // worst image: deb has 2 open, npm 1
-    await expect(meter(page, "unjudgedChangesAtMost")).toContainText("2 unlabeled · limit 1");
+    await expect(meter(page, "unlabeledChangesAtMost")).toContainText("2 unlabeled · limit 1");
   });
 
   test("shows the deb and npm images", async ({ page }) => {
@@ -67,7 +67,7 @@ test.describe("deb-npm", () => {
   });
 
   test("its check lists three dropped findings, two with a hint that could move it", async ({ page }) => {
-    await checkRow(page, "unjudgedChangesAtMost").click();
+    await checkRow(page, "unlabeledChangesAtMost").click();
     const table = page.getByTestId("check-table");
     await expect(table.locator("tbody tr[data-id]")).toHaveCount(3);
     // each is open and only the reference reports it, so its outcome is the question a TP would answer

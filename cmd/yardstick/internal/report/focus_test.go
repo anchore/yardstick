@@ -163,7 +163,7 @@ func rowless(t *testing.T, doc string) string {
 // focus-narrows-rows, json names the focus: only rows in focus, every count, value and outcome
 // the whole gate's, and a focus field only on the focused document
 func TestFocusJSON(t *testing.T) {
-	// an unlabeled delta on libssh, which counts toward a failing unjudgedChangesAtMost and has an effect
+	// an unlabeled delta on libssh, which counts toward a failing unlabeledChangesAtMost and has an effect
 	const vuln = "CVE-2023-48795"
 	failing, _ := rpmGate(t)
 	focus := NewFocus([]string{vuln}, nil)

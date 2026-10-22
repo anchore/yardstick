@@ -373,7 +373,7 @@ func (e evaluator) subjectCheck(c gatefile.Check, s Subject) SubjectCheck {
 			values[x] = float64(len(e.newFalsePositives(r, x)))
 		// an unlabeled count is known exactly, so both cases agree and the check passes or fails
 		// outright, as python yardstick's max_unlabeled_percent did
-		case UnjudgedChangesAtMost:
+		case UnlabeledChangesAtMost:
 			values[x] = float64(len(e.unlabeledDeltas(r)))
 		case UnlabeledPercentAtMost:
 			if n := e.matchesIn(r, pairing.Candidate); n > 0 {
@@ -489,7 +489,7 @@ func (e evaluator) rows(c gatefile.Check, r *pairing.Result) (failsOn, rows []st
 func counts(check string, m *pairing.Match) bool {
 	cand, ref := m.In(pairing.Candidate), m.In(pairing.Reference)
 	switch check {
-	case F1NotWorse, UnjudgedChangesAtMost:
+	case F1NotWorse, UnlabeledChangesAtMost:
 		return cand != ref
 	case NoNewFalseNegatives:
 		return ref && !cand
@@ -613,7 +613,7 @@ func (e evaluator) effects(current Gate) []Effect {
 // measured says whether a check's value is known exactly rather than bounded: an unlabeled count,
 // which labeling moves without any case to choose between.
 func measured(check string) bool {
-	return check == UnjudgedChangesAtMost || check == UnlabeledPercentAtMost
+	return check == UnlabeledChangesAtMost || check == UnlabeledPercentAtMost
 }
 
 // rangeOf is a check's value range on a subject, or the gate's for a per-gate check.
