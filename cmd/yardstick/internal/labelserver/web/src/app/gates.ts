@@ -32,9 +32,11 @@ export function gatesView(host: HTMLElement, r0: Route & { level: "gates" }, nav
   const out: View = { update: () => false };
   // the Unlabeled tab prices research by a gate's state: one job costs the same in every gate
   const firstState = () => gateList().then((l) => { const g = l.gates.find((x) => !x.error); return g ? gateState(g.id) : undefined; });
-  let list: GateList, sh: SharedState, labels: WideLabel[], st: State | undefined;
-  const read = () => Promise.all([gateList(), shared(), everyLabel(), r.tab === "unlabeled" ? firstState() : undefined]).then(([l, s, byGate, t]) => {
-    list = l; sh = s; labels = mergeLabels(byGate); st = t;
+  // only the Labels tab reads every label; the counts and sources come with the gate list
+  let list: GateList, sh: SharedState, labels: WideLabel[] = [], st: State | undefined;
+  const read = () => Promise.all([gateList(), shared(), r.tab === "labels" ? everyLabel() : undefined, r.tab === "unlabeled" ? firstState() : undefined]).then(([l, s, byGate, t]) => {
+    list = l; sh = s; st = t;
+    if (byGate) labels = mergeLabels(byGate);
   });
 
   // the tab and the banner are built with the first data and kept: a refresh hands them the new data
@@ -45,8 +47,8 @@ export function gatesView(host: HTMLElement, r0: Route & { level: "gates" }, nav
     above: work?.el,
     // the banner carries the screen's primary action (UI-RULES 7); the other tabs enter the queue here
     actions: work ? undefined : left(sh.findings.length ? formatRoute(queueFor(r)) : null),
-    tabCounts: { gates: list.gates.length, unlabeled: sh.findings.length, labels: labels.length },
-    meta: [...new Set(labels.map((l) => shortSource(l.source)))].join(" + "),
+    tabCounts: { gates: list.gates.length, unlabeled: sh.findings.length, labels: list.labels },
+    meta: [...new Set(list.labelSources.map(shortSource))].join(" + "),
     body,
   });
 
