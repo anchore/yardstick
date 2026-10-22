@@ -18,6 +18,7 @@ import type { GateLines } from "./queuewords";
 import { nextOpen, position, type Item } from "./neighbors";
 import { formatRoute, type Route } from "./route";
 import { advancing } from "./settings";
+import { follow } from "./researchtable";
 import { renderShell, type Nav, type View } from "./shell";
 import { step, verdict } from "./ui";
 
@@ -48,14 +49,13 @@ function savedTab(): Tab {
 }
 function saveTab(t: Tab) { try { localStorage.setItem(tabKey, t); } catch { /* no storage: the tab resets next time */ } }
 
-const sleep = (ms: number) => new Promise((done) => setTimeout(done, ms));
 // the last list loaded, so j and k pressed again before the next finding loads still walk it
 let lastList: { key: string; items: Item[] } | null = null;
 
 // signal aborts once the view is off screen (main.ts, or the queue holding the page)
 export function findingView(host: HTMLElement, r: FindingRoute, nav: Nav, signal: AbortSignal, q?: QueueMode): View {
   // loads counts this view's loads; an older one finishing late doesn't paint
-  let loads = 0;
+  let loads = 0, following = false;
   const listKey = formatRoute({ ...r, row: "" });
   let d: FindingData | null = null;
   // the label panel and the page body are built with the first data and kept, so a repaint (a save
@@ -76,7 +76,8 @@ export function findingView(host: HTMLElement, r: FindingRoute, nav: Nav, signal
       d = next;
       lastList = { key: listKey, items: next.list };
       paint();
-      if (researching(next.row)) void follow();
+      // from the first load on, the page follows the top bar's reads of the jobs, as the tables do
+      if (!following) { following = true; follow(signal, () => !!d && researching(d.row), load); }
     } catch (e) {
       if (mine !== loads || signal.aborted) return;
       renderShell(host, r, { title: "Not found", body: el("div", { class: "placeholder", "data-testid": "placeholder" }, (e as Error).message) });
@@ -203,7 +204,7 @@ export function findingView(host: HTMLElement, r: FindingRoute, nav: Nav, signal
     void write(c.pending, `${said(c.verdict)}, the ✦ package hint accepted on ${plural(c.pending.length, "match", "matches")}`, () => api.acceptCause(r.gate, c.id, c.pending));
   }
 
-  // research starts an agent on this row and redraws while it runs, so its hint shows up here
+  // research starts an agent on this row; the page follows it (load), so its hint shows up here
   async function research() {
     if (!d) return;
     const off = d.state.research && !d.state.research.available ? d.state.research : null;
@@ -212,18 +213,6 @@ export function findingView(host: HTMLElement, r: FindingRoute, nav: Nav, signal
     toast("research started; what it finds arrives as an agent hint");
     void kick();
     await load();
-    await follow();
-  }
-  // follow redraws while a job is queued or running on the row, however it was started
-  let following = false;
-  async function follow() {
-    if (following) return;
-    following = true;
-    for (let i = 0; i < 300 && d && researching(d.row) && !signal.aborted; i++) {
-      await sleep(2000);
-      if (!signal.aborted) await load();
-    }
-    following = false;
   }
   async function cancelResearch() {
     if (!d) return;
