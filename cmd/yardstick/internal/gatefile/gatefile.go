@@ -21,6 +21,7 @@ import (
 
 	"go.yaml.in/yaml/v3"
 
+	"github.com/anchore/syft/syft/pkg"
 	"github.com/anchore/yardstick/cmd/yardstick/internal/log"
 	"github.com/anchore/yardstick/cmd/yardstick/internal/ref"
 )
@@ -610,6 +611,12 @@ func subject(n *yaml.Node, where string, cat *Catalog, dir string, errs *problem
 		}
 		if len(raw.Packages.KeepTypes) == 0 {
 			errs.addf("%s: packages.keepTypes must list at least one package type", where)
+		}
+		// a typo would keep nothing of its type silently, and the types name a cache file
+		for _, t := range raw.Packages.KeepTypes {
+			if !slices.Contains(pkg.AllPkgs, pkg.Type(t)) {
+				errs.addf("%s: packages.keepTypes lists %q, which is not a syft package type", where, t)
+			}
 		}
 		s.KeepTypes = slices.Sorted(slices.Values(raw.Packages.KeepTypes))
 	}

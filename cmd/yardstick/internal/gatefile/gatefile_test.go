@@ -157,6 +157,8 @@ func TestLoadRefuses(t *testing.T) {
 		{"a purl literal", swap("oci:docker.io/anchore/test_images@"+digest, "pkg:deb/debian/libxml2@2.7.8"), "oci:<image>@sha256:<digest> or sbom:<path>"},
 		{"filter without name", swap("  - oci:docker.io/anchore/test_images@"+digest, "  - ref: oci:docker.io/anchore/test_images@"+digest+"\n    packages: {keepTypes: [deb]}"), "needs a name"},
 		{"empty keepTypes", swap("  - oci:docker.io/anchore/test_images@"+digest, "  - ref: oci:docker.io/anchore/test_images@"+digest+"\n    name: x\n    packages: {keepTypes: []}"), "keepTypes must list"},
+		{"unknown keepType", swap("  - oci:docker.io/anchore/test_images@"+digest, "  - ref: oci:docker.io/anchore/test_images@"+digest+"\n    name: x\n    packages: {keepTypes: [deb, go-modules]}"), `packages.keepTypes lists "go-modules", which is not a syft package type`},
+		{"path keepType", swap("  - oci:docker.io/anchore/test_images@"+digest, "  - ref: oci:docker.io/anchore/test_images@"+digest+"\n    name: x\n    packages: {keepTypes: [../deb]}"), `lists "../deb"`},
 		{"subtract filter", swap("  - oci:docker.io/anchore/test_images@"+digest, "  - ref: oci:docker.io/anchore/test_images@"+digest+"\n    name: x\n    packages: {subtract: ubuntu-base}"), `unknown key "subjects[0].packages.subtract"`},
 		{"frozen declared", swap("  - oci:docker.io/anchore/test_images@"+digest, "  - ref: oci:docker.io/anchore/test_images@"+digest+"\n    frozen: true"), `unknown key "subjects[0].frozen"`},
 		{"two subjects one name", swap("  - oci:docker.io/anchore/test_images@"+digest, "  - oci:docker.io/anchore/test_images@"+digest+"\n  - oci:docker.io/anchore/test_images@"+digest), "two subjects are named"},

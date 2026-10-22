@@ -80,7 +80,7 @@ subjects:
     packages: {keepTypes: [java-archive]}
 ```
 
-`packages.keepTypes` drops every package of another syft package type before either setup scans the SBOM. A subject with it needs a `name`, since one image can be listed with several filters. Two subjects may not share a name.
+`packages.keepTypes` drops every package of another syft package type (`deb`, `go-module`, `java-archive` and so on; an unknown type is an error) before either setup scans the SBOM. A subject with it needs a `name`, since one image can be listed with several filters. Two subjects may not share a name.
 
 ### `checks`
 
