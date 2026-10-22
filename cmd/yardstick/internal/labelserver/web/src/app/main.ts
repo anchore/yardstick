@@ -16,7 +16,6 @@ import { findingView } from "./finding";
 import { gateView } from "./gate";
 import { gatesView } from "./gates";
 import { hintsView } from "./hints";
-import { hintsHref } from "./hintsdata";
 import { historyView } from "./history";
 import { gateItems, nextGate } from "./goto";
 import { jobsView } from "./jobs";
@@ -25,7 +24,7 @@ import { openPalette } from "./palette";
 import { queueView } from "./queue";
 import { queueFor, researchFor } from "./queuelist";
 import { researchView } from "./research";
-import { crumbs, formatRoute, gateOf, inGate, parseRoute, up, type Route } from "./route";
+import { crumbs, formatRoute, gateOf, inGate, parseRoute, screenOf, up, type Route } from "./route";
 import { renderShell, type View } from "./shell";
 
 const host = must("#app");
@@ -34,8 +33,6 @@ let view: View = {};
 // life aborts when render() replaces the view on screen: the view's fetches and late callbacks
 // take its signal and stop
 let life = new AbortController();
-
-const screenOf = (r: Route) => formatRoute({ ...r, filters: {} });
 
 function nav(r: Route, replace = false) {
   const url = formatRoute(r);
@@ -115,8 +112,7 @@ document.addEventListener("keydown", (e) => {
   // h opens hint review for the gate or image on screen, else every gate
   if (e.key === "h" && !e.altKey && route && route.level !== "hints") {
     e.preventDefault();
-    history.pushState(null, "", hintsHref({ gate: gateOf(route) ?? undefined, image: route.filters.image }));
-    render();
+    nav({ level: "hints", ...(gateOf(route) && { gate: gateOf(route)! }), filters: route.filters.image ? { image: route.filters.image } : {} });
     return;
   }
   if (view.key?.(e)) {

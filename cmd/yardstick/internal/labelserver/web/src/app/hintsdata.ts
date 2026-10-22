@@ -4,27 +4,18 @@
 import type { CrossFinding, HintEntry, ResearchSummary, analysis } from "../gen/wire";
 import { doing, inFlight, type Doing } from "../shared/agent";
 import { plural } from "../shared/words";
+import { formatRoute, type Route } from "./route";
 
-// HintScope is the review page's query: a gate, an image (slug), and whether unclear hints show
+// HintScope is the review page's scope: a gate, an image (slug), and whether unclear hints show
 export interface HintScope { gate?: string; image?: string; low?: boolean }
 
-export function hintsHref(s: HintScope): string {
-  const p = new URLSearchParams();
-  if (s.gate) p.set("gate", s.gate);
-  if (s.image) p.set("image", s.image);
-  if (s.low) p.set("low", "1");
-  const q = p.toString();
-  return `/ui/hints${q ? `?${q}` : ""}`;
-}
+// hintsRoute is review's route for a scope, and hintsHref its URL
+export const hintsRoute = (s: HintScope): Route & { level: "hints" } =>
+  ({ level: "hints", ...(s.gate && { gate: s.gate }), ...(s.low && { low: true }), filters: s.image ? { image: s.image } : {} });
+export const hintsHref = (s: HintScope) => formatRoute(hintsRoute(s));
 
-export function parseScope(search: string): HintScope {
-  const p = new URLSearchParams(search), s: HintScope = {};
-  const gate = p.get("gate"), image = p.get("image");
-  if (gate) s.gate = gate;
-  if (image) s.image = image;
-  if (p.get("low") === "1") s.low = true;
-  return s;
-}
+// scopeOf is the scope a review route names
+export const scopeOf = (r: Route & { level: "hints" }): HintScope => ({ gate: r.gate, image: r.filters.image, low: r.low });
 
 // isLow is an unclear hint: accepting one closes nothing, so review leaves it out unless asked (low=1)
 export const isLow = (h: HintEntry) => h.verdict === "unclear";

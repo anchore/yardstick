@@ -6,7 +6,7 @@ import * as api from "../shared/api";
 import { el, fill, toast, type Child } from "../shared/dom";
 import { dots, labels as words, plural, sideWords } from "../shared/words";
 import { changed, gateList, gateState, writeFailed, written } from "./data";
-import { hintsHref, imageHints, inScope, parseScope, preselected, previewLabels, rowCount, stillOpen, type OpenRow } from "./hintsdata";
+import { hintsHref, hintsRoute, imageHints, inScope, preselected, scopeOf, previewLabels, rowCount, stillOpen, type OpenRow } from "./hintsdata";
 import { noCounts, type RailImage } from "./images";
 import { gateRows, isOpen } from "./listing";
 import { failed, loading } from "./lists";
@@ -17,12 +17,6 @@ import { about } from "./researchwords";
 import type { Route } from "./route";
 import { renderShell, type Nav, type View } from "./shell";
 import { imageName, outcome, status, verdict } from "./ui";
-
-// go moves to a review URL route.ts doesn't model (gate and low), through main.ts's render
-function go(href: string) {
-  history.pushState(null, "", href);
-  dispatchEvent(new PopStateEvent("popstate"));
-}
 
 const groups: { id: string; title: string; sub: string }[] = [
   { id: "decides", title: "Decide a gate", sub: "accepting one of these changes a gate's outcome on its own" },
@@ -38,9 +32,12 @@ const stateWord = (s: string) => el("span", { class: `sw ${s}` }, s);
 
 interface Data { list: GateList; all: HintEntry[]; states: Map<string, State> }
 
-export function hintsView(host: HTMLElement, r0: Route & { level: "hints" }, _nav: Nav, signal: AbortSignal): View {
+type HintsRoute = Route & { level: "hints" };
+
+export function hintsView(host: HTMLElement, r0: HintsRoute, nav: Nav, signal: AbortSignal): View {
   // a write here or anywhere reads the hints again and draws the screen over what's there
-  const r = r0, out: View = { update: () => false, refresh: async () => { await load(); } };
+  let r = r0;
+  const out: View = { update: () => false, refresh: async () => { await load(); } };
   // the strip saying more hints are coming, built once since it follows the jobs
   const strip = onTheWay(signal);
   // the reader's own checks, over preselection; kept across filter changes, cleared by an accept
@@ -53,11 +50,11 @@ export function hintsView(host: HTMLElement, r0: Route & { level: "hints" }, _na
     if (signal.aborted) return;
     data = { list, all: res.hints, states };
     draw();
-    out.update = () => { draw(); return true; };
+    out.update = (next) => { r = next as HintsRoute; draw(); return true; };
   }).catch((e) => !signal.aborted && renderShell(host, r, { title: "Agent hints", body: failed(e) }));
 
   function draw() {
-    const d = data!, scope = parseScope(location.search);
+    const d = data!, scope = scopeOf(r);
     const { hints, low } = inScope(d.all, scope);
     const isOn = (h: HintEntry) => chosen.get(h.id) ?? preselected(h);
     const gates = d.list.gates.filter((g) => !g.error && (!scope.gate || g.id === scope.gate));
@@ -71,7 +68,7 @@ export function hintsView(host: HTMLElement, r0: Route & { level: "hints" }, _na
     const images = new Map<string, RailImage>();
     for (const g of gates) g.subjects.forEach((s) => images.has(s.slug) || images.set(s.slug, { name: s.name, slug: s.slug, ref: s.ref ?? s.name, counts: { ...noCounts, total: byImage.get(s.slug)?.size ?? 0 } }));
     const img = scope.image ? images.get(scope.image) ?? null : null;
-    const rail = imageRail({ images: [...images.values()], selected: img?.slug ?? null, scope: "hints", onSelect: (slug) => go(hintsHref({ ...scope, image: slug ?? undefined })) });
+    const rail = imageRail({ images: [...images.values()], selected: img?.slug ?? null, scope: "hints", onSelect: (slug) => nav(hintsRoute({ ...scope, image: slug ?? undefined })) });
 
     const chip = (gate: string | undefined, text: string, n: number) => el("a", { class: "chip", href: hintsHref({ ...scope, gate }), "aria-pressed": String(scope.gate === gate),
       "data-testid": "hint-gate-chip", "data-gate": gate ?? "" }, text, el("b", {}, String(n)));
@@ -80,7 +77,7 @@ export function hintsView(host: HTMLElement, r0: Route & { level: "hints" }, _na
       d.list.gates.filter((g) => !g.error).map((g) => chip(g.id, g.id, scopedAll.filter((h) => h.gates.some((x) => x.gate === g.id)).length)));
 
     const lowBox: HTMLInputElement = el("input", { type: "checkbox", checked: !!scope.low, "data-testid": "hint-low-toggle",
-      onchange: () => go(hintsHref({ ...scope, low: lowBox.checked })) });
+      onchange: () => nav(hintsRoute({ ...scope, low: lowBox.checked })) });
     const filters = el("div", { class: "filters" },
       el("label", { class: "label lowtoggle" }, lowBox, "Show unclear"),
       el("span", { class: "muted", "data-testid": "hint-low-count" }, low ? `${plural(low, "unclear hint")} hidden` : scope.low ? "" : "no unclear hints"));
@@ -117,7 +114,7 @@ export function hintsView(host: HTMLElement, r0: Route & { level: "hints" }, _na
       sub: hints.length ? `${plural(hints.length, "hint")} on ${plural(rowCount(hints), "match", "matches")} · ${uniq(hints.map((h) => h.skill || h.author.skill || "agent")).join(", ")}` : undefined,
       actions: chips,
       rail,
-      scope: img && { label: imageName(img.name, img.ref), clear: () => go(hintsHref({ ...scope, image: undefined })) },
+      scope: img && { label: imageName(img.name, img.ref), clear: () => nav(hintsRoute({ ...scope, image: undefined })) },
       body: el("div", { class: "screen" }, strip, filters,
         hints.length
           ? el("div", { class: "review" }, el("div", { class: "hgroups" }, groupEls), impact)

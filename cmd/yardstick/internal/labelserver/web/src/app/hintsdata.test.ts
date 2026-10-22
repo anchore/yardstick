@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import type { CrossFinding, HintEntry } from "../gen/wire";
-import { aloneWords, hintedRows, hintsHref, imageHints, inScope, parseScope, preselected, previewLabels, rowCount, stillOpen, waitWords, workNumbers } from "./hintsdata";
+import { parseRoute } from "./route";
+import { aloneWords, hintedRows, hintsHref, imageHints, inScope, preselected, scopeOf, previewLabels, rowCount, stillOpen, waitWords, workNumbers } from "./hintsdata";
 
 const deb = { name: "deb:617d48d", slug: "deb-617d48d", ref: "deb" }, java = { name: "java:e363e44", slug: "java-e363e44", ref: "java" };
 
@@ -27,8 +28,10 @@ describe("the review page's scope", () => {
   test("round-trips through its URL", () => {
     expect(hintsHref({})).toBe("/ui/hints");
     const s = { gate: "deb-java", image: deb.slug, low: true };
-    expect(parseScope(new URL(hintsHref(s), "http://x").search)).toEqual(s);
-    expect(parseScope("?low=0")).toEqual({});
+    const href = hintsHref(s), u = new URL(href, "http://x");
+    expect(href).toBe(`/ui/hints?gate=deb-java&image=${deb.slug}&low=1`);
+    expect(scopeOf(parseRoute(u.pathname, u.search) as Parameters<typeof scopeOf>[0])).toEqual(s);
+    expect(parseRoute("/ui/hints", "?low=0")).toEqual({ level: "hints", filters: {} });
   });
 
   test("filters by gate and image, and counts the unclear hints it leaves out", () => {

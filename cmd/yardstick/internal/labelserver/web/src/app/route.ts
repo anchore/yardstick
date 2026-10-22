@@ -8,7 +8,7 @@
 // /ui/gates/<gate>/checks/<check>/<row>               finding, reached from a check (level 3)
 // /ui/gates/<gate>/findings/<row>                     finding, reached from the gate's Findings tab
 // /ui/gates/_kit                                      the component kit (not linked from anywhere)
-// /ui/hints, /ui/history                              the labeling flow's screens
+// /ui/hints?gate=&low=, /ui/history                   the labeling flow's screens
 // /ui/research?scope=&check=&rows=&groups=            research open rows across gates (research.ts)
 // /ui/research/jobs                                   every research job (jobs.ts)
 // /ui/queue[/<row>]?scope=&check=&low=                the queue, one open row at a time (queue.ts)
@@ -46,7 +46,8 @@ export type Route =
   // check is null for a finding opened from the gate's Findings tab
   | { level: "finding"; gate: string; check: string | null; row: string; filters: Filters }
   | { level: "kit"; filters: Filters }
-  | { level: "hints"; filters: Filters }
+  // gate scopes hint review to one gate, low keeps unclear hints; the image is a filter
+  | { level: "hints"; gate?: string; low?: boolean; filters: Filters }
   // scope is all, gate:<gate> or image:<slug> (all when absent); check, with a gate scope, puts that
   // check's open rows first; low keeps unclear hints
   | { level: "queue"; row?: string; scope?: string; check?: string; low?: boolean; filters: Filters }
@@ -59,7 +60,7 @@ export type Route =
 
 const seg = (s: string) => encodeURIComponent(s);
 
-function query(f: Filters, extra: [string, string][] = []): string {
+function query(f: Filters, extra: [string, string][] = [], tail: [string, string][] = []): string {
   const p = new URLSearchParams(extra);
   if (f.image) p.set("image", f.image);
   if (f.verdict) p.set("verdict", f.verdict);
@@ -69,6 +70,7 @@ function query(f: Filters, extra: [string, string][] = []): string {
   if (f.page && f.page > 1) p.set("page", String(f.page));
   if (f.since) p.set("since", f.since);
   if (f.chip) p.set("chip", f.chip);
+  for (const [k, v] of tail) p.set(k, v);
   const s = p.toString();
   return s ? `?${s}` : "";
 }
@@ -98,7 +100,8 @@ export function formatRoute(r: Route): string {
       const list = r.check == null ? "findings" : `checks/${seg(r.check)}`;
       return `${base}${seg(r.gate)}/${list}/${seg(r.row)}${query(r.filters)}`;
     }
-    case "hints": case "history": return `/ui/${r.level}${query(r.filters)}`;
+    case "hints": return `/ui/hints${query(r.filters, r.gate ? [["gate", r.gate]] : [], r.low ? [["low", "1"]] : [])}`;
+    case "history": return `/ui/history${query(r.filters)}`;
     case "research": {
       const extra: [string, string][] = [];
       if (r.scope && r.scope !== "all") extra.push(["scope", r.scope]);
@@ -133,7 +136,11 @@ export function parseRoute(pathname: string, search = ""): Route | null {
   }
   const flow = /^\/ui\/(?:(hints|history)|queue(?:\/([^/]+))?)\/?$/.exec(pathname);
   if (flow) {
-    if (flow[1]) return { level: flow[1] as "hints" | "history", filters };
+    if (flow[1] === "history") return { level: "history", filters };
+    if (flow[1]) {
+      const gate = params.get("gate");
+      return { level: "hints", ...(gate && { gate }), ...(params.get("low") === "1" && { low: true }), filters };
+    }
     try {
       const q = { scope: params.get("scope") || undefined, check: params.get("check") || undefined, low: params.get("low") === "1" || undefined };
       for (const k of Object.keys(q) as (keyof typeof q)[]) if (q[k] === undefined) delete q[k];
@@ -208,8 +215,12 @@ function label(r: Route, row?: string): string {
   }
 }
 
+// screenOf names the screen a route shows: the same screen with other filters takes them in place
+// (main.ts). Hint review's gate and low filter its one screen too, keeping the reader's checks.
+export const screenOf = (r: Route) => formatRoute({ ...r, filters: {}, ...(r.level === "hints" && { gate: undefined, low: undefined }) });
+
 // gateOf is the gate a route is in, or null above or outside every gate
-export const gateOf = (r: Route) => ("gate" in r ? r.gate : null);
+export const gateOf = (r: Route) => ("gate" in r ? r.gate ?? null : null);
 
 // inGate is the route r becomes in another gate (the crumb switcher, ⇧J and ⇧K): a gate screen
 // keeps its tab, and anything deeper or outside a gate goes to the gate's Checks
