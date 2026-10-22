@@ -3,7 +3,7 @@
 // checkboxes with a bulk-action bar, optional group headers, and cells that truncate with the full
 // value on hover.
 import { el, fill, type Child } from "../shared/dom";
-import { groupRows, nextSort, sortRows, type Cell, type Sort } from "./table";
+import { groupRows, nextSort, sortRows, type Cell, type Group, type Sort } from "./table";
 
 export interface Column<T> {
   key: string;
@@ -71,8 +71,9 @@ export interface Table<T> {
 
 export function dataTable<T>(o: TableOptions<T>): Table<T> {
   let rows = o.rows, sort = o.sort ?? null, hide = new Set<string>();
-  // order is the rows as drawn, groups included, which the cursor walks; cursor is its index
-  let order: T[] = [], cursor = -1;
+  // order is the rows as drawn, groups included, which the cursor walks; cursor is its index. shown
+  // and groups are the rows and groups as drawn, which a change of selection marks in place
+  let order: T[] = [], cursor = -1, shown: T[] = [], groups: Group<T>[] = [];
   const chosen = new Set<string>();
   const cols = () => o.columns.filter((c) => !hide.has(c.key));
 
@@ -128,22 +129,41 @@ export function dataTable<T>(o: TableOptions<T>): Table<T> {
       for (const id of chosen) if (!ids.has(id)) chosen.delete(id);
     }
     const col = sort && o.columns.find((c) => c.key === sort!.key);
-    const shown = col?.sort ? sortRows(rows, col.sort, sort!.dir) : rows;
+    shown = col?.sort ? sortRows(rows, col.sort, sort!.dir) : rows;
+    groups = o.group ? groupRows(shown, o.group.key) : [];
     const span = cols().length + (o.select ? 1 : 0);
     header();
     if (!shown.length) fill(tbody, el("tr", {}, el("td", { class: "empty", colspan: span }, o.empty ?? "Nothing matches.")));
-    else if (o.group) fill(tbody, groupRows(shown, o.group.key).map((g) => [
-      el("tr", { class: "group" }, el("td", { colspan: span }, o.group!.header(g.key, g.rows))), g.rows.map(line)]));
+    else if (o.group) fill(tbody, groups.map((g) => [el("tr", { class: "group", "data-group": g.key }, el("td", { colspan: span })), g.rows.map(line)]));
     else fill(tbody, shown.map(line));
-    order = o.group ? groupRows(shown, o.group.key).flatMap((g) => g.rows) : shown;
+    order = o.group ? groups.flatMap((g) => g.rows) : shown;
     cursor = Math.min(cursor, order.length - 1);
     mark();
+    fill(foot, o.foot ? o.foot(shown) : `${shown.length.toLocaleString()} ${shown.length === 1 ? "row" : "rows"}`);
+    marks();
+  }
+  // marks shows the selection on the rows as drawn, in place, so a box keeps its focus: each row's
+  // box, the header's box, the group headers (which count what's checked) and the bulk bar
+  function marks() {
+    for (const tr of tbody.querySelectorAll<HTMLElement>("tr[data-id]")) {
+      const on = chosen.has(tr.dataset.id!), box = tr.querySelector<HTMLInputElement>("td.ck input");
+      if (on) tr.dataset.state = "selected"; else delete tr.dataset.state;
+      if (box) box.checked = on;
+    }
+    if (o.group) {
+      for (const tr of tbody.querySelectorAll<HTMLElement>("tr.group")) {
+        const g = groups.find((x) => x.key === tr.dataset.group), td = tr.firstElementChild!;
+        if (!g) continue;
+        const focused = td.contains(document.activeElement);
+        fill(td, o.group.header(g.key, g.rows));
+        if (focused) td.querySelector<HTMLElement>("input, button, a")?.focus();
+      }
+    }
     all.checked = shown.length > 0 && shown.every((r) => chosen.has(o.id(r)));
     all.indeterminate = !all.checked && shown.some((r) => chosen.has(o.id(r)));
     bulk.hidden = chosen.size === 0;
     bulkCount.textContent = `${chosen.size} selected`;
     if (o.select && chosen.size) fill(bulkActions, o.select.bulk([...chosen], clear));
-    fill(foot, o.foot ? o.foot(shown) : `${shown.length.toLocaleString()} ${shown.length === 1 ? "row" : "rows"}`);
     o.select?.changed?.([...chosen]);
   }
   function mark() {
@@ -155,11 +175,11 @@ export function dataTable<T>(o: TableOptions<T>): Table<T> {
   }
   function check(ids: string[], on: boolean) {
     for (const id of ids) for (const x of o.select?.link?.(id) ?? [id]) if (on) chosen.add(x); else chosen.delete(x);
-    draw();
+    marks();
   }
   function clear() {
     chosen.clear();
-    draw();
+    marks();
   }
 
   draw();
