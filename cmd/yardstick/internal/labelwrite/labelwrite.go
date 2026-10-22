@@ -24,7 +24,7 @@ import (
 // digest, the syft that built it, and the grype and DB of the setup that reported the match (the
 // candidate's when both or neither did). dir is the run's directory, holding the scans.
 func SeenIn(rec *runrecord.Record, dir string, sub *runrecord.Subject, l claimsv1.Label, vocab *claimsv1.Vocabulary) (*claimsv1.SeenIn, error) {
-	setup, err := reportedBy(dir, sub, l, vocab)
+	setup, err := reportedBy(rec, dir, sub, l, vocab)
 	if err != nil {
 		return nil, err
 	}
@@ -70,25 +70,34 @@ func Write(set *claims.Set, sub *runrecord.Subject, l claimsv1.Label, global boo
 }
 
 // reportedBy is the setup whose grype and DB a label's seenIn records, reading the scans in dir: the
-// reference when only it reports a match the label pairs, else the candidate.
-func reportedBy(dir string, sub *runrecord.Subject, l claimsv1.Label, vocab *claimsv1.Vocabulary) (string, error) {
+// reference when only it reports a match the label pairs, else the candidate. Aliases come from
+// every subject's scans, as scoring builds them, so a link only another subject carries still
+// pairs the label here.
+func reportedBy(rec *runrecord.Record, dir string, sub *runrecord.Subject, l claimsv1.Label, vocab *claimsv1.Vocabulary) (string, error) {
 	isAdvisory := func(string) bool { return false }
 	if vocab != nil {
 		isAdvisory = vocab.IsAdvisory
 	}
 	aliases := pairing.NewAliases(isAdvisory)
-	scans := map[string]*models.Document{}
-	for setup, rel := range sub.Scans {
-		data, err := os.ReadFile(filepath.Join(dir, rel))
-		if err != nil {
-			return "", err
+	var scans map[string]*models.Document
+	for i := range rec.Subjects {
+		s := &rec.Subjects[i]
+		docs := map[string]*models.Document{}
+		for setup, rel := range s.Scans {
+			data, err := os.ReadFile(filepath.Join(dir, rel))
+			if err != nil {
+				return "", err
+			}
+			doc, err := collect.Decode(data)
+			if err != nil {
+				return "", fmt.Errorf("subject %s, %s scan: %w", s.Name, setup, err)
+			}
+			docs[setup] = &doc
+			aliases.AddScan(&doc)
 		}
-		doc, err := collect.Decode(data)
-		if err != nil {
-			return "", fmt.Errorf("subject %s, %s scan: %w", sub.Name, setup, err)
+		if s.Name == sub.Name {
+			scans = docs
 		}
-		scans[setup] = &doc
-		aliases.AddScan(&doc)
 	}
 	ls := []claims.Label{{Label: l}}
 	aliases.AddLabels(ls)

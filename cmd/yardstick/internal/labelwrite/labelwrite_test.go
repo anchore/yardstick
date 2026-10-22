@@ -1,15 +1,19 @@
 package labelwrite
 
 import (
+	"context"
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
 	"time"
 
+	"github.com/anchore/grype/grype/presenter/models"
 	"github.com/anchore/yardstick/cmd/yardstick/internal/agentstore"
 	"github.com/anchore/yardstick/cmd/yardstick/internal/claims"
 	claimsv1 "github.com/anchore/yardstick/cmd/yardstick/internal/claims/v1"
+	"github.com/anchore/yardstick/cmd/yardstick/internal/fixture"
 	"github.com/anchore/yardstick/cmd/yardstick/internal/gatefile"
 	"github.com/anchore/yardstick/cmd/yardstick/internal/ref"
 	"github.com/anchore/yardstick/cmd/yardstick/internal/runrecord"
@@ -89,5 +93,60 @@ func TestPlace(t *testing.T) {
 	l.Package = "pkg:nonsense/x"
 	if _, err := Place(sub, l, false); err == nil || !strings.Contains(err.Error(), "names no package type") {
 		t.Errorf("expected an unknown package type refused, got %v", err)
+	}
+}
+
+// a label's seenIn names the setup that reported its match, pairing through the gate's aliases:
+// here only another subject's scans relate the reference's GHSA to the label's CVE
+func TestReportedByPairsWithTheGatesAliases(t *testing.T) {
+	t.Setenv("YARDSTICK_CACHE_DIR", t.TempDir())
+	dir := t.TempDir()
+	full, err := os.ReadFile(fixture.Grype("v0.120.1", "java"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var doc models.Document
+	if err := json.Unmarshal(full, &doc); err != nil {
+		t.Fatal(err)
+	}
+	// on subject a the candidate stops reporting the GHSA, and the reference reports it with no
+	// related CVE
+	cand, reference := doc, doc
+	cand.Matches, reference.Matches = nil, nil
+	for _, m := range doc.Matches {
+		if m.Vulnerability.ID == "GHSA-jfh8-c2jp-5v3q" {
+			m.RelatedVulnerabilities = nil
+			reference.Matches = append(reference.Matches, m)
+			continue
+		}
+		cand.Matches = append(cand.Matches, m)
+		reference.Matches = append(reference.Matches, m)
+	}
+	files := map[string]any{"a-candidate.json": cand, "a-reference.json": reference, "b.json": doc}
+	for name, d := range files {
+		data, _ := json.Marshal(d)
+		write(t, filepath.Join(dir, name), data)
+	}
+	r, err := ref.Parse("sbom:" + fixture.SBOM("java", "syft"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	res, err := (&subject.Resolver{}).Resolve(context.Background(), gatefile.Subject{Ref: r, Name: "a"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	a, b := runrecord.Subject{Resolved: *res, Scans: map[string]string{"candidate": "a-candidate.json", "reference": "a-reference.json"}}, runrecord.Subject{Resolved: *res, Scans: map[string]string{"candidate": "b.json", "reference": "b.json"}}
+	b.Name = "b"
+	rec := &runrecord.Record{Subjects: []runrecord.Subject{a, b}}
+	l := claimsv1.Label{Package: "pkg:maven/org.apache.logging.log4j/log4j-core", Vulnerability: "CVE-2021-44228", Verdict: claimsv1.TP}
+	if got, err := reportedBy(rec, dir, &rec.Subjects[0], l, nil); err != nil || got != "reference" {
+		t.Errorf("expected the reference, which alone reports the label's match, got %s %v", got, err)
+	}
+}
+
+func write(t *testing.T, p string, data []byte) {
+	t.Helper()
+	if err := os.WriteFile(p, data, 0o600); err != nil {
+		t.Fatal(err)
 	}
 }
