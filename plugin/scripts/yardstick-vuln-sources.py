@@ -1,14 +1,14 @@
 #!/usr/bin/env python3
 """Collect everything the public record says about one vulnerability on one package, for /yardstick:research-vuln.
 
-    yardstick-vuln-sources.py <VULN-ID | row:<row id>> [--pkg NAME] [--store DIR] [--name RUN] [--gate NAME] [--out DIR] [--model ID]
+    yardstick-vuln-sources.py <VULN-ID | row:<row id>> [--pkg NAME] [--store DIR] [--name RUN] [--gate NAME] [--model ID]
 
-Writes one file per source under <out> (default <store>/.yardstick/research/<VULN>/<pkg>/) plus SUMMARY.md,
+Writes one file per source under <store>/.yardstick/research/<VULN>/<pkg>/ plus SUMMARY.md,
 which lists what was found, the key facts, and a link for every source, and proposal.json: a
 `yardstick claims agent propose` skeleton (row, author, the facts it observed) with verdict, justification,
 confidence, note, the evidence's interpretation and openQuestions left for you. Nothing here decides a
 verdict; read SUMMARY.md and the files, reason, fill proposal.json, then, in the workspace,
-`jq -c . proposal.json | yardstick claims agent propose --gate <gate>`.
+`yardstick claims agent propose --gate <gate> proposal.json`.
 
 Sources: the gate's scored rows (both grype outputs, both cached DBs, existing labels), cve.org (CNA record),
 NVD, OSV (the CVE, Ubuntu's and Debian's records), GitHub advisories, Ubuntu's tracker (JSON + raw
@@ -65,13 +65,16 @@ def main() -> None:
     ap.add_argument("--pkg", help="package name (binary or source) to focus on; default: every package the assay pairs with the vuln")
     ap.add_argument("--store", default=os.environ.get("YARDSTICK_ROOT") or ".", help="the workspace yardstick runs in, containing .yardstick/ (default: $YARDSTICK_ROOT, else cwd)")
     ap.add_argument("--name", help="run name the gate was scanned under (default: $YARDSTICK_NAME, else default)")
-    ap.add_argument("--out")
     ap.add_argument("--model", default=os.environ.get("CLAUDE_MODEL") or os.environ.get("YARDSTICK_MODEL") or "unknown", help="model id recorded as the proposal's author")
     ap.add_argument("--euvd", action="store_true", default=None, help="also consult EUVD (ENISA), provisional; or set YARDSTICK_SKILLS_EUVD=1")
     ap.add_argument("--gate", help="gate (name or file) whose scans to read instead of $YARDSTICK_GATE or the gate scanned last")
     args = ap.parse_args()
 
     store = Path(args.store).resolve()
+    # a research job's workspace is fixed: everything this writes stays under its .yardstick/research/
+    root = os.environ.get("YARDSTICK_ROOT")
+    if root and store != Path(root).resolve():
+        sys.exit(f"--store {store} is not this research job's workspace, {root}")
     ys = dc.find_yardstick(store)
     name = dc.run_name(args.name)
     report, run = None, {}
@@ -90,7 +93,8 @@ def main() -> None:
             sys.exit(f"no row {row_id} in gate {report and report.get('name')}'s scans under run {name}")
         vuln = hit["vulnerability"]
         args.pkg = args.pkg or dc.parse_purl(hit["package"])["name"]
-    out = Path(args.out) if args.out else store / ".yardstick" / "research" / safe_part(vuln) / safe_part(args.pkg or "all")
+    # always under the workspace's research directory, the one place a research job may write
+    out = store / ".yardstick" / "research" / safe_part(vuln) / safe_part(args.pkg or "all")
     out.mkdir(parents=True, exist_ok=True)
     S: list[str] = [f"# Sources for {vuln}" + (f" on {args.pkg}" if args.pkg else ""), ""]
     links: list[str] = []

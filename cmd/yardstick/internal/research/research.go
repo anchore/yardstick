@@ -30,11 +30,11 @@ import (
 // the agent works, so the log is live, and ends in the result line the job's Usage is read from.
 //
 // The agent reads pages anyone can write, so it gets the tools the skill uses and no more: the two
-// yardstick commands and jq it runs, writes only under .yardstick/research/, and no Write anywhere
-// else. The skill's own allowed-tools adds its helper script, by the plugin's path. Its environment
-// is childEnv's.
+// yardstick commands it runs, and file writes only under .yardstick/research/ (an Edit path rule
+// covers Write too). The skill's own allowed-tools adds its helper script, by the plugin's path,
+// which writes only there as well. Its environment is childEnv's.
 const DefaultCommand = `claude -p "/yardstick:research-vuln row:$YARDSTICK_ROW $YARDSTICK_ROOT" --model "${YARDSTICK_MODEL:-sonnet}" ` +
-	`--allowedTools "Bash(yardstick claims agent propose *),Bash(yardstick claims policy),Bash(yardstick claims policy *),Bash(jq *),Read,Grep,Glob,Edit(.yardstick/research/**),WebFetch,WebSearch" ` +
+	`--allowedTools "Bash(yardstick claims agent propose *),Bash(yardstick claims policy),Bash(yardstick claims policy *),Read,Grep,Glob,Edit(.yardstick/research/**),WebFetch,WebSearch" ` +
 	`--output-format stream-json --verbose`
 
 // DefaultModel is the model research runs on unless configured otherwise: a name or alias the

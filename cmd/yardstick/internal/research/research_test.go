@@ -170,7 +170,7 @@ func TestDefaultCommandIsNarrow(t *testing.T) {
 	_, tools, _ := strings.Cut(DefaultCommand, `--allowedTools "`)
 	tools, _, _ = strings.Cut(tools, `"`)
 	for _, tool := range strings.Split(tools, ",") {
-		if tool == "Bash" || tool == "Write" || tool == "Edit" {
+		if tool == "Bash" || tool == "Write" || tool == "Edit" || strings.HasPrefix(tool, "Bash(jq") {
 			t.Errorf("expected no unscoped %s, got %s", tool, tools)
 		}
 	}

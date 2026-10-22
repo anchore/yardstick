@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"encoding/json"
 	"os"
 	"path/filepath"
@@ -166,5 +167,17 @@ func TestClaimsAgentCommands(t *testing.T) {
 	}
 	if _, err := os.Stat(filepath.Join(w.dir, agentstore.Dir, "explanations.jsonl")); err != nil {
 		t.Error(err)
+	}
+
+	// pretty-printed files, as research-vuln writes proposal.json, several in one call
+	var pretty bytes.Buffer
+	if err := json.Indent(&pretty, []byte(strings.Replace(call, "%s", "medium", 1)), "", "  "); err != nil {
+		t.Fatal(err)
+	}
+	a, b := filepath.Join(t.TempDir(), "a.json"), filepath.Join(t.TempDir(), "b.json")
+	writeFile(t, a, pretty.String())
+	writeFile(t, b, pretty.String())
+	if stdout, stderr, code := yardstick(t, w.dir, "claims", "agent", "propose", a, b); code != 0 || strings.Count(stdout, "\tfp\tCVE-2005-2541\t") != 2 {
+		t.Fatalf("expected a proposal from each file, got %d: %s %s", code, stdout, stderr)
 	}
 }

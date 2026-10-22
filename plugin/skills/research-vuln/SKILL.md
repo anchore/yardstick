@@ -10,7 +10,6 @@ allowed-tools:
   - Bash(yardstick claims agent propose *)
   - Bash(yardstick claims policy)
   - Bash(yardstick claims policy *)
-  - Bash(jq *)
   - Read
   - Grep
   - Glob
@@ -162,21 +161,20 @@ sentences, the deciding fact first; the UI shows it under the justification line
 linkified; keep the report path the skeleton put at its end), `openQuestions` (empty unless
 `unclear`). Add facts you relied on that the skeleton did not observe to `evidence[0].facts`, as
 `{"source","url","about","field","value","observedAt"}`. A fact's source must be listed under
-`fact-sources` in `vocabulary.yaml` (`yardstick claims policy -o json | jq .factSources`), or propose
+`fact-sources` in `vocabulary.yaml` (`factSources` in `yardstick claims policy -o json`), or propose
 refuses the line: use the listed name (`cve.org`, `osv`, `debian-security-tracker`, ...), and
 leave out a fact whose source isn't listed (a changelog line, an upstream commit), putting its URL in
 the interpretation instead. An evidence entry needs at least one fact; with none, drop `evidence`
 and put the reasoning in the note. Then, once, in the workspace:
 
 ```bash
-jq -c . <dir>/proposal.json | yardstick claims agent propose --name "${YARDSTICK_NAME:-default}" --gate <gate>
+yardstick claims agent propose --name "${YARDSTICK_NAME:-default}" --gate <gate> <dir>/proposal.json
 ```
 
 (`--gate` reads `$YARDSTICK_GATE` when the flag is left off, so a research job may omit it.)
 
-When `rows.json` lists several binary packages, propose one line per row with the same content:
-`jq -c --arg row <id> '.row=$row' proposal.json` for each, piped together into a single `propose` call.
-In place of `row` a line may give `subject` (`{"image": ...}` or `{"sbom": ...}`), `package` and
+When `rows.json` lists several binary packages, propose once per row with the same content: write a copy of proposal.json per row beside it, `proposal-<row id>.json` with `row` set to that row, and pass them all to a single `propose` call.
+In place of `row` a proposal may give `subject` (`{"image": ...}` or `{"sbom": ...}`), `package` and
 `vulnerability`; there is no proposal for the package anywhere (a global label), so a broader call
 goes in the report and the note.
 

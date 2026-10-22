@@ -1,8 +1,6 @@
 package command
 
 import (
-	"bufio"
-	"bytes"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -187,34 +185,54 @@ func fillDefaults(schema, id *string, ts *time.Time, a *agentstore.Author, now t
 	}
 }
 
-// openInput is the file argument, else stdin.
+// openInput is the file arguments one after another, else stdin.
 func openInput(cmd *cobra.Command, args []string) (io.ReadCloser, error) {
-	if len(args) == 1 {
-		return os.Open(args[0])
+	if len(args) == 0 {
+		return io.NopCloser(cmd.InOrStdin()), nil
 	}
-	return io.NopCloser(cmd.InOrStdin()), nil
+	var files []io.Reader
+	var closers multiCloser
+	for _, a := range args {
+		f, err := os.Open(a)
+		if err != nil {
+			_ = closers.Close()
+			return nil, err
+		}
+		files, closers = append(files, f), append(closers, f)
+	}
+	return struct {
+		io.Reader
+		io.Closer
+	}{io.MultiReader(files...), closers}, nil
 }
 
-// readJSONL reads JSON lines, refusing unknown fields, so a skill that drifts from the format finds
-// out instead of losing data.
+type multiCloser []io.Closer
+
+func (m multiCloser) Close() error {
+	var errs []error
+	for _, c := range m {
+		errs = append(errs, c.Close())
+	}
+	return errors.Join(errs...)
+}
+
+// readJSONL reads JSON values, one a line as the skills pipe them or pretty-printed as a skill
+// writes a file, refusing unknown fields, so a skill that drifts from the format finds out instead
+// of losing data.
 func readJSONL[T any](r io.Reader, what string) ([]T, error) {
 	var out []T
-	scanner := bufio.NewScanner(r)
-	scanner.Buffer(make([]byte, 0, 64*1024), 16*1024*1024)
-	for line := 1; scanner.Scan(); line++ {
-		if len(bytes.TrimSpace(scanner.Bytes())) == 0 {
-			continue
-		}
+	dec := json.NewDecoder(r)
+	dec.DisallowUnknownFields()
+	for i := 1; ; i++ {
 		var v T
-		dec := json.NewDecoder(bytes.NewReader(scanner.Bytes()))
-		dec.DisallowUnknownFields()
-		if err := dec.Decode(&v); err != nil {
-			return nil, fmt.Errorf("line %d: %w", line, err)
+		err := dec.Decode(&v)
+		if errors.Is(err, io.EOF) {
+			break
+		}
+		if err != nil {
+			return nil, fmt.Errorf("%s %d: %w", strings.TrimSuffix(what, "s"), i, err)
 		}
 		out = append(out, v)
-	}
-	if err := scanner.Err(); err != nil {
-		return nil, err
 	}
 	if len(out) == 0 {
 		return nil, fmt.Errorf("no %s given", what)
@@ -231,9 +249,9 @@ type proposalInput struct {
 func ClaimsPropose(app clio.Application) *cobra.Command {
 	cfg := &agentOptions{nameOption: newNameOption()}
 	return app.SetupCommand(&cobra.Command{
-		Use:   "propose [file] --gate <gate>",
-		Short: "Record agent calls as proposals for a person to accept (JSON lines on stdin or in a file)",
-		Long: `propose reads proposals as JSON lines and records them in .yardstick/proposals.jsonl, where the
+		Use:   "propose [file...] --gate <gate>",
+		Short: "Record agent calls as proposals for a person to accept (JSON on stdin or in files)",
+		Long: `propose reads proposals as JSON, one a line or one a file, and records them in .yardstick/proposals.jsonl, where the
 label UI shows them as hints. A proposal is never a label and never counts for scoring until a
 person accepts it. Nothing is recorded unless every line is valid.
 
@@ -251,7 +269,7 @@ one supersedes it. Each recorded proposal prints as id, verdict, vulnerability, 
 subject, tab separated.`,
 		Example: `  echo '{"row":"12f096fe9f1d02ba","verdict":"fp","justification":"fix-installed","confidence":"high",
     "author":{"skill":"triage-deltas","model":"claude-opus-5-5"}}' | yardstick claims agent propose --gate deb`,
-		Args: cobra.MaximumNArgs(1),
+		Args: cobra.ArbitraryArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			in, err := openInput(cmd, args)
 			if err != nil {
