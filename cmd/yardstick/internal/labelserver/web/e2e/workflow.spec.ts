@@ -44,7 +44,7 @@ test("labeling through the UI flips deb-java to pass and settles deb-npm", async
 
   // the util-linux package hint, accepted for its four rows; the page moves on to java's log4j
   await onFinding(page, rows.utilLinux[0]);
-  await page.keyboard.press("A");
+  await page.keyboard.press("Shift+A");
   await expect.poll(() => labelsOf("CVE-2026-3184").length).toBe(4);
   await onFinding(page, rows.jfhA);
 

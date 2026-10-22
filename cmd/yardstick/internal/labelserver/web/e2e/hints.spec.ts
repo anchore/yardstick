@@ -55,7 +55,7 @@ test.describe("a package hint", () => {
   test("A accepts it for every member from the keyboard", async ({ page }) => {
     await openFinding(page, rows.utilLinux[0]);
     await expect(page.getByTestId("cause-card")).toHaveAttribute("data-verdict", "tp");
-    await page.keyboard.press("A");
+    await page.keyboard.press("Shift+A");
     await expect.poll(() => labelsOf("CVE-2026-3184").length).toBe(4);
     for (const l of labelsOf("CVE-2026-3184")) expect(l).toMatchObject({ subject: images.deb.name, verdict: "tp", justification: "no-fix" });
   });
@@ -69,7 +69,7 @@ test.describe("a package hint", () => {
   test("A on a finding with no package hint writes nothing", async ({ page }) => {
     await openFinding(page, rows.jfhA, "f1NotWorse");
     const before = diskLabels().length;
-    await page.keyboard.press("A");
+    await page.keyboard.press("Shift+A");
     await expect(page.getByTestId("toast")).toContainText("no package hint to accept here");
     expect(diskLabels().length).toBe(before);
   });

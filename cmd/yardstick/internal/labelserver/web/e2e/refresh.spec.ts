@@ -142,7 +142,7 @@ test.describe("the finding page", () => {
   test("a note being typed keeps its focus and text while research polls the row", async ({ page }) => {
     test.setTimeout(120_000);
     await openFinding(page, rows.tarHand);
-    await page.keyboard.press("R");
+    await page.keyboard.press("Shift+R");
     await expect(page.getByTestId("toast")).toContainText("research started");
     const kept = await keeps(page, page.getByTestId("label-panel"));
     const note = page.getByTestId("note-input");
@@ -159,7 +159,7 @@ test.describe("the finding page", () => {
   test("an open gate switcher stays open while research polls the row", async ({ page }) => {
     test.setTimeout(120_000);
     await openFinding(page, rows.tarHand);
-    await page.keyboard.press("R");
+    await page.keyboard.press("Shift+R");
     await expect(page.getByTestId("toast")).toContainText("research started");
     await page.getByTestId("gate-switch-button").click();
     const option = page.locator("[data-testid=gate-option][data-gate=deb-npm]");

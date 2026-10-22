@@ -10,7 +10,7 @@ test.setTimeout(120_000);
 test("research started on a finding reaches the lists as an agent hint, and can be accepted there", async ({ page }) => {
   await openFinding(page, rows.tarHand);
   await expect(page.getByTestId("research-button")).toHaveText(/^Research/);
-  await page.keyboard.press("R");
+  await page.keyboard.press("Shift+R");
   await expect(page.getByTestId("toast")).toContainText("research started");
   await expect(page.getByTestId("hint-card")).toHaveAttribute("data-verdict", "tp", { timeout: 60_000 });
   await expect(page.getByTestId("research-button")).toHaveText(/^Research again/);

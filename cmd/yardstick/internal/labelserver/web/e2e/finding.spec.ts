@@ -184,7 +184,7 @@ test("research started on a finding leaves a researched hint that can be accepte
   await expect(page.getByTestId("label-panel")).toBeVisible();
   await expect(page.getByTestId("hint-card")).toHaveCount(0);
   await expect(page.getByTestId("research-button")).toHaveAttribute("data-researched", "false");
-  await page.keyboard.press("R");
+  await page.keyboard.press("Shift+R");
   await expect(page.getByTestId("toast")).toContainText("research started");
 
   const hint = page.getByTestId("hint-card");
