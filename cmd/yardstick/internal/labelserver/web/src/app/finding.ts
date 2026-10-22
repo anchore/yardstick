@@ -28,7 +28,6 @@ type FindingRoute = Extract<Route, { level: "finding" }>;
 // QueueMode is the queue's hold on the page (queue.ts): its bar, why the row is next, the outcome
 // lines under the verdicts, and where j / k, Skip and Save and next go
 export interface QueueMode {
-  route: Route;                                  // the queue's own, which the page stays live on
   bar: Child;
   prefs: () => void;                             // a setting in the cog changed: redraw the bar
   why: Child;

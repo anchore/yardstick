@@ -195,7 +195,6 @@ export function queueView(host: HTMLElement, r: QueueRoute, nav: Nav, signal: Ab
     const items = walk(q.entries, s.done);
     const reuse = again && page?.row === row ? page : null;
     const mode: QueueMode = Object.assign(reuse?.mode ?? ({} as QueueMode), {
-      route: r,
       bar: bar(q, items),
       // "skip labeled" moves the pager, so the bar is made again and the page drawn over it
       prefs() { mode.bar = bar(q, items); },
