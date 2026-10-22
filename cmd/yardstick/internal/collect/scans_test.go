@@ -17,7 +17,7 @@ import (
 	"time"
 
 	"github.com/anchore/yardstick/cmd/yardstick/internal/claims"
-	claimsv1 "github.com/anchore/yardstick/cmd/yardstick/internal/claims/v1"
+	"github.com/anchore/yardstick/cmd/yardstick/internal/corpus"
 	"github.com/anchore/yardstick/cmd/yardstick/internal/execute"
 	"github.com/anchore/yardstick/cmd/yardstick/internal/fixture"
 	"github.com/anchore/yardstick/cmd/yardstick/internal/gatefile"
@@ -104,13 +104,13 @@ func (s stubs) log(t *testing.T) []string {
 // document, on a DB directory, so nothing is downloaded.
 func gate(t *testing.T, s stubs) *gatefile.Gate {
 	t.Helper()
-	corpus := t.TempDir()
+	corpusDir := t.TempDir()
 	debRef, err := ref.Parse("oci:docker.io/anchore/yardstick-fixture-deb@sha256:617d48dd2601779266746a9a382bfb9f3fee2744fba698733b320366f41718b0")
 	if err != nil {
 		t.Fatal(err)
 	}
 	sbom, _ := os.ReadFile(fixture.SBOM("deb", "syft"))
-	write(t, filepath.Join(corpus, claimsv1.ImageDir(debRef), claimsv1.ImageSBOMFile), sbom)
+	write(t, filepath.Join(corpusDir, corpus.ImageDir(debRef), corpus.ImageSBOMFile), sbom)
 	npm, err := ref.Parse("sbom:" + fixture.SBOM("npm", "syft"))
 	if err != nil {
 		t.Fatal(err)
@@ -120,7 +120,7 @@ func gate(t *testing.T, s stubs) *gatefile.Gate {
 		Name:      "deb-and-npm",
 		Candidate: &gatefile.Setup{Grype: s.candidate, DB: db},
 		Reference: &gatefile.Setup{Grype: s.reference, DB: db},
-		Claims:    []gatefile.Source{{Locator: corpus}},
+		Claims:    []gatefile.Source{{Locator: corpusDir}},
 		Subjects:  []gatefile.Subject{{Ref: debRef, Name: "deb"}, {Ref: npm, Name: "npm"}},
 	}
 }

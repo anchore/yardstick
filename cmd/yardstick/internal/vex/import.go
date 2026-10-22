@@ -15,6 +15,7 @@ import (
 	"github.com/anchore/packageurl-go"
 	"github.com/anchore/syft/syft/pkg"
 	claimsv1 "github.com/anchore/yardstick/cmd/yardstick/internal/claims/v1"
+	"github.com/anchore/yardstick/cmd/yardstick/internal/corpus"
 	"github.com/anchore/yardstick/cmd/yardstick/internal/log"
 	"github.com/anchore/yardstick/cmd/yardstick/internal/ref"
 )
@@ -33,7 +34,7 @@ type Options struct {
 // Imported is what one document became: labels placed in corpus files, and every statement
 // that names nothing a label can be about.
 type Imported struct {
-	Placed  []claimsv1.Placed
+	Placed  []corpus.Placed
 	Skipped []string
 }
 
@@ -144,36 +145,36 @@ func statusValue(st vex.Statement) string {
 }
 
 // place puts a label about a product where the corpus keeps it, or says why it can't.
-func place(p vex.Product, l claimsv1.Label) ([]claimsv1.Placed, string) {
+func place(p vex.Product, l claimsv1.Label) ([]corpus.Placed, string) {
 	purl, err := packageurl.FromString(p.ID)
 	if err != nil {
 		return nil, "the product is not a package URL, so it names no image and no package"
 	}
 	if purl.Type != "oci" {
 		t := pkg.TypeFromPURL(p.ID)
-		if t == pkg.UnknownPkg || !claimsv1.ValidType(string(t)) {
+		if t == pkg.UnknownPkg || !corpus.ValidType(string(t)) {
 			return nil, "no package type for the product"
 		}
 		l.Package = p.ID
-		return []claimsv1.Placed{{File: claimsv1.GlobalFile(string(t)), Label: l}}, ""
+		return []corpus.Placed{{File: corpus.GlobalFile(string(t)), Label: l}}, ""
 	}
 	image, err := ociImage(purl)
 	if err != nil {
 		return nil, err.Error()
 	}
-	dir, subject := claimsv1.ImageDir(image), &claimsv1.Subject{Image: image.Image()}
+	dir, subject := corpus.ImageDir(image), &claimsv1.Subject{Image: image.Image()}
 	if len(p.Subcomponents) == 0 {
-		return []claimsv1.Placed{{File: dir + "/" + claimsv1.NoPackageFile, Subject: subject, Label: l}}, ""
+		return []corpus.Placed{{File: dir + "/" + corpus.NoPackageFile, Subject: subject, Label: l}}, ""
 	}
-	var out []claimsv1.Placed
+	var out []corpus.Placed
 	for _, sc := range p.Subcomponents {
 		t := pkg.TypeFromPURL(sc.ID)
-		if t == pkg.UnknownPkg || !claimsv1.ValidType(string(t)) {
+		if t == pkg.UnknownPkg || !corpus.ValidType(string(t)) {
 			return nil, fmt.Sprintf("subcomponent %s is not a package URL with a known type", sc.ID)
 		}
 		withPkg := l
 		withPkg.Package = sc.ID
-		out = append(out, claimsv1.Placed{File: claimsv1.TypeFile(dir, string(t)), Subject: subject, Label: withPkg})
+		out = append(out, corpus.Placed{File: corpus.TypeFile(dir, string(t)), Subject: subject, Label: withPkg})
 	}
 	return out, ""
 }

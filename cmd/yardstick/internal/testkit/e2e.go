@@ -15,7 +15,7 @@ import (
 
 	"go.yaml.in/yaml/v3"
 
-	claimsv1 "github.com/anchore/yardstick/cmd/yardstick/internal/claims/v1"
+	"github.com/anchore/yardstick/cmd/yardstick/internal/corpus"
 	"github.com/anchore/yardstick/cmd/yardstick/internal/fixture"
 	"github.com/anchore/yardstick/cmd/yardstick/internal/ref"
 	"github.com/anchore/yardstick/cmd/yardstick/internal/runrecord"
@@ -53,7 +53,7 @@ func E2E(t TB, dir, tools, bin string) {
 		r := e2eImage(image)
 		sbom, err := os.ReadFile(fixture.SBOM(image, "syft"))
 		must(err)
-		WriteFile(t, filepath.Join(dir, "claims", claimsv1.ImageDir(r), claimsv1.ImageSBOMFile), string(sbom))
+		WriteFile(t, filepath.Join(dir, "claims", corpus.ImageDir(r), corpus.ImageSBOMFile), string(sbom))
 	}
 	must(writeStubs(t, filepath.Join(dir, "tools")))
 

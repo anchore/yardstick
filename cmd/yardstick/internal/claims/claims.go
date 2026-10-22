@@ -19,6 +19,7 @@ import (
 	"testing/fstest"
 
 	claimsv1 "github.com/anchore/yardstick/cmd/yardstick/internal/claims/v1"
+	"github.com/anchore/yardstick/cmd/yardstick/internal/corpus"
 	"github.com/anchore/yardstick/cmd/yardstick/internal/gatefile"
 	"github.com/anchore/yardstick/cmd/yardstick/internal/log"
 )
@@ -209,18 +210,18 @@ func (s *Set) Close() error {
 
 // Writer is a label writer into the last source, which must be a local directory, checking
 // against Vocabulary. A source not there yet is created by the first write.
-func (s *Set) Writer() (claimsv1.Writer, error) {
+func (s *Set) Writer() (corpus.Writer, error) {
 	if len(s.Sources) == 0 {
-		return claimsv1.Writer{}, errors.New("no claims source to write labels to")
+		return corpus.Writer{}, errors.New("no claims source to write labels to")
 	}
 	last := s.writable()
 	if last == nil {
-		return claimsv1.Writer{}, fmt.Errorf("writes need a local last claims source, and the last is %s; add one with --claims <path>", s.Sources[len(s.Sources)-1].Locator)
+		return corpus.Writer{}, fmt.Errorf("writes need a local last claims source, and the last is %s; add one with --claims <path>", s.Sources[len(s.Sources)-1].Locator)
 	}
 	if s.vocab == nil {
-		return claimsv1.Writer{}, errors.New("no claims source has a " + claimsv1.VocabularyFile + ", so no justification or fact source can be checked")
+		return corpus.Writer{}, errors.New("no claims source has a " + claimsv1.VocabularyFile + ", so no justification or fact source can be checked")
 	}
-	return claimsv1.Writer{Dir: last.Dir, Vocab: s.vocab}, nil
+	return corpus.Writer{Dir: last.Dir, Vocab: s.vocab}, nil
 }
 
 // Subject is what a gate reads labels for: a subject's directory in the corpus layout and the
@@ -318,10 +319,10 @@ func subjectFiles(sub Subject) []string {
 	types := append([]string(nil), sub.Types...)
 	sort.Strings(types)
 	log.Debugf("subject %s read package types %v", sub.Name, types)
-	files := []string{sub.Dir + "/" + claimsv1.NoPackageFile}
+	files := []string{sub.Dir + "/" + corpus.NoPackageFile}
 	for _, t := range types {
-		if claimsv1.ValidType(t) {
-			files = append(files, claimsv1.TypeFile(sub.Dir, t), claimsv1.GlobalFile(t))
+		if corpus.ValidType(t) {
+			files = append(files, corpus.TypeFile(sub.Dir, t), corpus.GlobalFile(t))
 		}
 	}
 	return files

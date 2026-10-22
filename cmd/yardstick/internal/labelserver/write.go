@@ -11,6 +11,7 @@ import (
 	"github.com/anchore/yardstick/cmd/yardstick/internal/agentstore"
 	"github.com/anchore/yardstick/cmd/yardstick/internal/analysis"
 	claimsv1 "github.com/anchore/yardstick/cmd/yardstick/internal/claims/v1"
+	"github.com/anchore/yardstick/cmd/yardstick/internal/corpus"
 	"github.com/anchore/yardstick/cmd/yardstick/internal/labelwrite"
 	"github.com/anchore/yardstick/cmd/yardstick/internal/log"
 	"github.com/anchore/yardstick/cmd/yardstick/internal/pairing"
@@ -34,7 +35,7 @@ func global(scope string) (bool, error) {
 
 // pending is a batch of labels to write in one go, and the override records they make.
 type pending struct {
-	placed    []claimsv1.Placed
+	placed    []corpus.Placed
 	overrides []agentstore.Override
 	keys      []LabelKey // what write wrote, once each
 }

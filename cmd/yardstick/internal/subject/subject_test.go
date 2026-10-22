@@ -13,7 +13,7 @@ import (
 	"time"
 
 	"github.com/anchore/yardstick/cmd/yardstick/internal/claims"
-	claimsv1 "github.com/anchore/yardstick/cmd/yardstick/internal/claims/v1"
+	"github.com/anchore/yardstick/cmd/yardstick/internal/corpus"
 	"github.com/anchore/yardstick/cmd/yardstick/internal/fixture"
 	"github.com/anchore/yardstick/cmd/yardstick/internal/gatefile"
 	"github.com/anchore/yardstick/cmd/yardstick/internal/ref"
@@ -103,7 +103,7 @@ func TestDocumentSubjects(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		if res.From != FromFile || res.SBOM != p || res.Dir != claimsv1.DocumentDir(res.Digest) {
+		if res.From != FromFile || res.SBOM != p || res.Dir != corpus.DocumentDir(res.Digest) {
 			t.Errorf("%s: expected the document scanned in place under sbom/<its digest>, got %s %s %s", f, res.From, res.SBOM, res.Dir)
 		}
 		var purls []string
@@ -143,7 +143,7 @@ func TestDocumentSubjects(t *testing.T) {
 func corpusWithDeb(t *testing.T, s gatefile.Subject) string {
 	t.Helper()
 	dir := t.TempDir()
-	write(t, filepath.Join(dir, claimsv1.ImageDir(s.Ref), claimsv1.ImageSBOMFile), read(t, fixture.SBOM("deb", "syft")))
+	write(t, filepath.Join(dir, corpus.ImageDir(s.Ref), corpus.ImageSBOMFile), read(t, fixture.SBOM("deb", "syft")))
 	return dir
 }
 
@@ -215,7 +215,7 @@ func TestImageSBOMOrder(t *testing.T) {
 	t.Run("built with the first source's catalog.yaml", func(t *testing.T) {
 		t.Setenv("YARDSTICK_CACHE_DIR", t.TempDir())
 		withCatalog := t.TempDir()
-		write(t, filepath.Join(withCatalog, claimsv1.CatalogFile), []byte("syft: syft@v1.54.1\nconfig: syft.yaml\nplatform: linux/arm64\n"))
+		write(t, filepath.Join(withCatalog, corpus.CatalogFile), []byte("syft: syft@v1.54.1\nconfig: syft.yaml\nplatform: linux/arm64\n"))
 		write(t, filepath.Join(withCatalog, "syft.yaml"), []byte("scope: all-layers\n"))
 		b := &builder{}
 		r := &Resolver{Sources: []*claims.Source{source(t, t.TempDir()), source(t, withCatalog)}, Build: b.build}
@@ -399,7 +399,7 @@ func TestSourceCatalogIsData(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Setenv("YARDSTICK_CACHE_DIR", t.TempDir())
 			dir := t.TempDir()
-			write(t, filepath.Join(dir, claimsv1.CatalogFile), []byte(tc.catalog))
+			write(t, filepath.Join(dir, corpus.CatalogFile), []byte(tc.catalog))
 			write(t, filepath.Join(dir, "syft.yaml"), []byte("scope: all-layers\nlegacyFile: ~/.ssh/authorized_keys\n"))
 			b := &builder{}
 			_, err := (&Resolver{Sources: []*claims.Source{source(t, dir)}, Build: b.build}).Resolve(context.Background(), s)
@@ -411,7 +411,7 @@ func TestSourceCatalogIsData(t *testing.T) {
 	t.Run("syft variables from a source", func(t *testing.T) {
 		t.Setenv("YARDSTICK_CACHE_DIR", t.TempDir())
 		dir := t.TempDir()
-		write(t, filepath.Join(dir, claimsv1.CatalogFile), []byte("syft: syft@v1.54.1\nenv: {SYFT_PARALLELISM: '2'}\n"))
+		write(t, filepath.Join(dir, corpus.CatalogFile), []byte("syft: syft@v1.54.1\nenv: {SYFT_PARALLELISM: '2'}\n"))
 		b := &builder{}
 		if _, err := (&Resolver{Sources: []*claims.Source{source(t, dir)}, Build: b.build}).Resolve(context.Background(), s); err != nil || b.got.Env["SYFT_PARALLELISM"] != "2" {
 			t.Errorf("expected a build with the source's SYFT_* env, got %v", err)

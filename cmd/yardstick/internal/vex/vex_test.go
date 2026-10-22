@@ -12,6 +12,7 @@ import (
 	"github.com/santhosh-tekuri/jsonschema/v6"
 
 	claimsv1 "github.com/anchore/yardstick/cmd/yardstick/internal/claims/v1"
+	"github.com/anchore/yardstick/cmd/yardstick/internal/corpus"
 	"github.com/anchore/yardstick/cmd/yardstick/internal/fixture"
 	"github.com/anchore/yardstick/cmd/yardstick/internal/ref"
 )
@@ -37,7 +38,7 @@ const debDigest = "sha256:617d48dd2601779266746a9a382bfb9f3fee2744fba698733b3203
 var (
 	now         = time.Date(2026, 10, 14, 12, 0, 0, 0, time.UTC)
 	debImage, _ = ref.Parse("oci:docker.io/anchore/yardstick-fixture-deb@" + debDigest)
-	debDir      = claimsv1.ImageDir(debImage)
+	debDir      = corpus.ImageDir(debImage)
 )
 
 func read(t *testing.T, path string) []byte {
@@ -49,7 +50,7 @@ func read(t *testing.T, path string) []byte {
 	return data
 }
 
-func corpusDir(t *testing.T) (string, claimsv1.Writer) {
+func corpusDir(t *testing.T) (string, corpus.Writer) {
 	t.Helper()
 	dir := t.TempDir()
 	if err := os.WriteFile(filepath.Join(dir, claimsv1.VocabularyFile), []byte(vocabYAML), 0o600); err != nil {
@@ -59,11 +60,11 @@ func corpusDir(t *testing.T) (string, claimsv1.Writer) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	return dir, claimsv1.Writer{Dir: dir, Vocab: v}
+	return dir, corpus.Writer{Dir: dir, Vocab: v}
 }
 
-func find(placed []claimsv1.Placed, vuln string) []claimsv1.Placed {
-	var out []claimsv1.Placed
+func find(placed []corpus.Placed, vuln string) []corpus.Placed {
+	var out []corpus.Placed
 	for _, p := range placed {
 		if p.Label.Vulnerability == vuln {
 			out = append(out, p)
@@ -82,7 +83,7 @@ func TestImportOpenVEX(t *testing.T) {
 
 	// an image product with a subcomponent: an fp in the image's deb file, citing the statement
 	np := find(got.Placed, "CVE-2023-45853")
-	if len(np) != 1 || np[0].File != claimsv1.TypeFile(debDir, "deb") || np[0].Label.Verdict != claimsv1.FP ||
+	if len(np) != 1 || np[0].File != corpus.TypeFile(debDir, "deb") || np[0].Label.Verdict != claimsv1.FP ||
 		np[0].Label.Justification != "vulnerable_code_not_present" || np[0].Label.Package != "pkg:deb/debian/zlib1g@1:1.2.13.dfsg-1?arch=arm64&distro=debian-12" {
 		t.Fatalf("expected an fp on zlib1g in the deb file, got %+v", np)
 	}
@@ -116,7 +117,7 @@ func TestImportOpenVEX(t *testing.T) {
 	if _, err := w.Write(got.Placed); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := os.Stat(filepath.Join(dir, filepath.FromSlash(claimsv1.TypeFile(debDir, "deb")))); err != nil {
+	if _, err := os.Stat(filepath.Join(dir, filepath.FromSlash(corpus.TypeFile(debDir, "deb")))); err != nil {
 		t.Error(err)
 	}
 }
@@ -181,15 +182,15 @@ func TestExport(t *testing.T) {
 				Interpretation: "a reason"}}}
 	}
 	subject := &claimsv1.Subject{Image: debImage.Image(), Platform: "linux/arm64"}
-	doc := claimsv1.DocumentDir(debDigest)
-	_, err := w.Write([]claimsv1.Placed{
-		{File: claimsv1.TypeFile(debDir, "deb"), Subject: subject, Label: label("pkg:deb/debian/libc6@2.36-9?arch=arm64&distro=debian-12", "CVE-2023-4911", claimsv1.TP, "fix-newer", "")},
-		{File: claimsv1.TypeFile(debDir, "deb"), Subject: subject, Label: label("pkg:deb/debian/zlib1g@1.2.13?distro=debian-12", "CVE-2022-37434", claimsv1.FP, "fix-installed", "")},
-		{File: claimsv1.TypeFile(debDir, "deb"), Subject: subject, Label: label("pkg:deb/debian/tar@1.34?distro=debian-12", "CVE-2005-2541", claimsv1.FP, "vulnerable_code_not_present", "")},
-		{File: claimsv1.TypeFile(debDir, "deb"), Subject: subject, Label: label("pkg:deb/debian/bash@5.2?distro=debian-12", "CVE-2019-18276", claimsv1.FP, "different-product", "it is about GNU bash on Windows")},
+	doc := corpus.DocumentDir(debDigest)
+	_, err := w.Write([]corpus.Placed{
+		{File: corpus.TypeFile(debDir, "deb"), Subject: subject, Label: label("pkg:deb/debian/libc6@2.36-9?arch=arm64&distro=debian-12", "CVE-2023-4911", claimsv1.TP, "fix-newer", "")},
+		{File: corpus.TypeFile(debDir, "deb"), Subject: subject, Label: label("pkg:deb/debian/zlib1g@1.2.13?distro=debian-12", "CVE-2022-37434", claimsv1.FP, "fix-installed", "")},
+		{File: corpus.TypeFile(debDir, "deb"), Subject: subject, Label: label("pkg:deb/debian/tar@1.34?distro=debian-12", "CVE-2005-2541", claimsv1.FP, "vulnerable_code_not_present", "")},
+		{File: corpus.TypeFile(debDir, "deb"), Subject: subject, Label: label("pkg:deb/debian/bash@5.2?distro=debian-12", "CVE-2019-18276", claimsv1.FP, "different-product", "it is about GNU bash on Windows")},
 		{File: debDir + "/image.json", Subject: subject, Label: label("", "CVE-2023-50495", claimsv1.Unclear, "not-assessed", "")},
-		{File: claimsv1.TypeFile(doc, "npm"), Subject: &claimsv1.Subject{SBOM: debDigest}, Label: label("pkg:npm/%40babel/traverse@7.22.0", "GHSA-67hx-6x53-jw92", claimsv1.TP, "", "")},
-		{File: claimsv1.GlobalFile("rpm"), Label: label("pkg:rpm/rocky/openssl-libs@3.5.5-2.el9_8?epoch=1", "CVE-2024-0727", claimsv1.FP, "fix-installed", "")},
+		{File: corpus.TypeFile(doc, "npm"), Subject: &claimsv1.Subject{SBOM: debDigest}, Label: label("pkg:npm/%40babel/traverse@7.22.0", "GHSA-67hx-6x53-jw92", claimsv1.TP, "", "")},
+		{File: corpus.GlobalFile("rpm"), Label: label("pkg:rpm/rocky/openssl-libs@3.5.5-2.el9_8?epoch=1", "CVE-2024-0727", claimsv1.FP, "fix-installed", "")},
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -275,8 +276,8 @@ func TestExport(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if libc := find(back.Placed, "CVE-2023-4911"); len(libc) != 1 || libc[0].File != claimsv1.TypeFile(debDir, "deb") {
-		t.Errorf("expected the exported image label to import into %s, got %+v", claimsv1.TypeFile(debDir, "deb"), libc)
+	if libc := find(back.Placed, "CVE-2023-4911"); len(libc) != 1 || libc[0].File != corpus.TypeFile(debDir, "deb") {
+		t.Errorf("expected the exported image label to import into %s, got %+v", corpus.TypeFile(debDir, "deb"), libc)
 	}
 
 	again, _ := Export(os.DirFS(dir), "anchore claims corpus")

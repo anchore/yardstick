@@ -13,6 +13,7 @@ import (
 	"github.com/anchore/yardstick/cmd/yardstick/internal/analysis"
 	"github.com/anchore/yardstick/cmd/yardstick/internal/claims"
 	claimsv1 "github.com/anchore/yardstick/cmd/yardstick/internal/claims/v1"
+	"github.com/anchore/yardstick/cmd/yardstick/internal/corpus"
 	"github.com/anchore/yardstick/cmd/yardstick/internal/fixture"
 	"github.com/anchore/yardstick/cmd/yardstick/internal/gatefile"
 	"github.com/anchore/yardstick/cmd/yardstick/internal/lookup"
@@ -35,8 +36,8 @@ vulnerability-namespaces: [CVE, GHSA]
 
 var debRef, _ = ref.Parse("oci:docker.io/anchore/yardstick-fixture-deb@sha256:617d48dd2601779266746a9a382bfb9f3fee2744fba698733b320366f41718b0")
 
-// corpus is a claims source with one label file for the deb image.
-func corpus(t *testing.T, platform string, ls ...claimsv1.Label) string {
+// newCorpus is a claims source with one label file for the deb image.
+func newCorpus(t *testing.T, platform string, ls ...claimsv1.Label) string {
 	t.Helper()
 	dir := t.TempDir()
 	if err := os.WriteFile(filepath.Join(dir, claimsv1.VocabularyFile), []byte(vocabYAML), 0o600); err != nil {
@@ -44,7 +45,7 @@ func corpus(t *testing.T, platform string, ls ...claimsv1.Label) string {
 	}
 	f := &claimsv1.File{Schema: claimsv1.Version, Subject: &claimsv1.Subject{Image: debRef.Image(), Platform: platform}, Labels: ls}
 	data, _ := claimsv1.Marshal(f)
-	p := filepath.Join(dir, filepath.FromSlash(claimsv1.TypeFile(claimsv1.ImageDir(debRef), "deb")))
+	p := filepath.Join(dir, filepath.FromSlash(corpus.TypeFile(corpus.ImageDir(debRef), "deb")))
 	if err := os.MkdirAll(filepath.Dir(p), 0o755); err != nil {
 		t.Fatal(err)
 	}
@@ -72,7 +73,7 @@ func scanned(t *testing.T, g *gatefile.Gate) *runrecord.Record {
 		t.Fatal(err)
 	}
 	res.Subject = gatefile.Subject{Ref: debRef, Name: "deb", Platform: "linux/amd64"}
-	res.Dir, res.Platform = claimsv1.ImageDir(debRef), "linux/amd64"
+	res.Dir, res.Platform = corpus.ImageDir(debRef), "linux/amd64"
 	rec := &runrecord.Record{Gate: runrecord.Gate{Name: g.Name, Fingerprint: g.Fingerprint()}, Subjects: []runrecord.Subject{{Resolved: *res, Scans: map[string]string{
 		"candidate": "candidate/00.json", "reference": "reference/00.json",
 	}}}}
@@ -117,7 +118,7 @@ func TestWarnings(t *testing.T) {
 	before := label(libc, "CVE-2026-5450", claimsv1.TP)
 	before.SeenIn = &claimsv1.SeenIn{SBOM: "sha256:3e1a000000000000000000000000000000000000000000000000000000000000"}
 	unseen := label(libc, "CVE-2026-5928", claimsv1.TP)
-	g := gate(corpus(t, "linux/arm64", before, unseen))
+	g := gate(newCorpus(t, "linux/arm64", before, unseen))
 	rec := scanned(t, g)
 	v, err := gateOf(t, g, rec)
 	if err != nil {
@@ -139,8 +140,8 @@ func TestWarnings(t *testing.T) {
 func TestDisagreementInEveryRenderer(t *testing.T) {
 	t.Chdir(t.TempDir())
 	const libc = "pkg:deb/debian/libc6"
-	published := corpus(t, "", label(libc, "CVE-2026-5450", claimsv1.FP))
-	local := corpus(t, "", label(libc, "CVE-2026-5450", claimsv1.TP))
+	published := newCorpus(t, "", label(libc, "CVE-2026-5450", claimsv1.FP))
+	local := newCorpus(t, "", label(libc, "CVE-2026-5450", claimsv1.TP))
 	g := gate(published, local)
 	v, err := gateOf(t, g, scanned(t, g))
 	if err != nil {
@@ -177,7 +178,7 @@ func gateOf(t *testing.T, g *gatefile.Gate, rec *runrecord.Record) (report.Gate,
 // a row id resolves back to the match it names, whatever the labels say
 func TestResolveRow(t *testing.T) {
 	t.Chdir(t.TempDir())
-	g := gate(corpus(t, "", label("pkg:deb/debian/libc6", "CVE-2026-5450", claimsv1.TP)))
+	g := gate(newCorpus(t, "", label("pkg:deb/debian/libc6", "CVE-2026-5450", claimsv1.TP)))
 	rec := scanned(t, g)
 	v, err := gateOf(t, g, rec)
 	if err != nil {
@@ -201,7 +202,7 @@ func TestResolveRow(t *testing.T) {
 // without them scores those rows unexplained
 func TestLookupsExplainOneSidedRows(t *testing.T) {
 	t.Chdir(t.TempDir())
-	g := gate(corpus(t, ""))
+	g := gate(newCorpus(t, ""))
 	g.Reference = &gatefile.Setup{}
 	rec := scanned(t, g)
 	// the reference reported nothing
@@ -257,7 +258,7 @@ func TestLookupsExplainOneSidedRows(t *testing.T) {
 // the vulnerabilities filter is applied when scoring, so changing it rescores the same scans
 func TestVulnerabilitiesFilterRescores(t *testing.T) {
 	t.Chdir(t.TempDir())
-	g := gate(corpus(t, "", label("pkg:deb/debian/libc6", "CVE-2026-5450", claimsv1.TP)))
+	g := gate(newCorpus(t, "", label("pkg:deb/debian/libc6", "CVE-2026-5450", claimsv1.TP)))
 	g.Checks = []gatefile.Check{{Name: analysis.MatchesAtLeast, Params: map[string]float64{"min": 1}}}
 	rec := scanned(t, g)
 	for _, tc := range []struct {
@@ -296,7 +297,7 @@ subjects:
 checks:
   - name: noNewFalseNegatives
 `
-	claimsDir := corpus(t, "")
+	claimsDir := newCorpus(t, "")
 	load := func(content, sbom string) *gatefile.Gate {
 		t.Helper()
 		dir := t.TempDir()
@@ -347,7 +348,7 @@ checks:
 // rather than scored as that setup reporting nothing
 func TestIncompleteScansAreRefused(t *testing.T) {
 	t.Chdir(t.TempDir())
-	g := gate(corpus(t, "linux/amd64", label("pkg:deb/debian/libc6", "CVE-2026-5450", claimsv1.TP)))
+	g := gate(newCorpus(t, "linux/amd64", label("pkg:deb/debian/libc6", "CVE-2026-5450", claimsv1.TP)))
 	rec := scanned(t, g)
 	rec.Setups = map[string]setup.Prepared{pairing.Candidate: {}, pairing.Reference: {}}
 	if _, err := gateOf(t, g, rec); err != nil {

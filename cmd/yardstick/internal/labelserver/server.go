@@ -84,7 +84,7 @@
 //	history                   ← every label file in each gate's writable source (claims.Set.Writer,
 //	                            the last source), rows from the pairing's labels held by that source;
 //	                            since= on lastUpdated, started the server's start
-//	POST history/revert       ← claimsv1.Writer.Revert in a writable source; a write's labels are
+//	POST history/revert       ← corpus.Writer.Revert in a writable source; a write's labels are
 //	                            the keys it wrote with the label each replaced, for undoing it
 //
 //	row.research, researchLevel, researched, researchedBy, hint.origin

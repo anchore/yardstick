@@ -2,15 +2,20 @@
 // each label one person's call (tp, fp or unclear) on one vulnerability on one package, carrying
 // the evidence it rests on. yardstick owns the format; the corpus owns the vocabulary.
 //
-// the v1 here is the format's MODEL and nothing else. A breaking change to yardstick leaves it
-// alone, and a v2 format lands beside this package rather than in it.
+// the v1 here is the format's MODEL and nothing else: the types, Parse and Marshal, the schema
+// and the vocabulary. Where files sit in a corpus, writing them and checking a corpus whole are
+// internal/corpus, which no format version owns. A breaking change to yardstick leaves this
+// package alone, and a v2 format lands beside it rather than in it.
 package v1
 
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"sort"
+	"strings"
+	"time"
 
 	"github.com/Masterminds/semver/v3"
 )
@@ -258,12 +263,6 @@ func MajorOf(schema string) string {
 	return fmt.Sprintf("v%d", v.Major())
 }
 
-// newer reports whether schema is a later version than Version. Both are the same MODEL.
-func newer(schema string) bool {
-	v, err := semver.StrictNewVersion(schema)
-	return err == nil && v.GreaterThan(semver.MustParse(Version))
-}
-
 // Parse reads a label file, refusing a format MODEL this yardstick does not read before
 // anything else about it is trusted. Unlike syft, a later REVISION or ADDITION of the same MODEL
 // is read: the corpus moves ahead of yardstick releases, and unknown fields are kept. name is
@@ -283,4 +282,66 @@ func Parse(name string, data []byte) (*File, error) {
 		return nil, fmt.Errorf("%s: %w", name, err)
 	}
 	return &f, nil
+}
+
+// CheckRequired refuses a label missing a required field, with a verdict outside tp, fp and
+// unclear, or an fp or unclear verdict without a justification.
+func CheckRequired(l Label, v *Vocabulary) error {
+	switch {
+	case l.Vulnerability == "":
+		return errors.New("vulnerability is required")
+	case l.Verdict != TP && l.Verdict != FP && l.Verdict != Unclear:
+		return fmt.Errorf("verdict must be tp, fp or unclear, got %q", l.Verdict)
+	case l.Author == "":
+		return errors.New("author is required")
+	case l.Verdict != TP && l.Justification == "":
+		msg := fmt.Sprintf("%s needs a justification", l.Verdict)
+		if v != nil {
+			msg += " (one of: " + strings.Join(v.Allowed(l.Verdict), ", ") + ")"
+		}
+		return errors.New(msg)
+	}
+	for name, t := range map[string]string{"firstIssued": l.FirstIssued, "lastUpdated": l.LastUpdated} {
+		if _, err := time.Parse(time.RFC3339, t); err != nil {
+			return fmt.Errorf("%s must be an RFC 3339 time, got %q", name, t)
+		}
+	}
+	if err := checkNotesAndTools(l); err != nil {
+		return err
+	}
+	for i, e := range l.Evidence {
+		if len(e.Facts) == 0 {
+			return fmt.Errorf("evidence[%d] needs at least one fact", i)
+		}
+		for j, f := range e.Facts {
+			if f.Source == "" || f.Field == "" || f.About == nil {
+				return fmt.Errorf("evidence[%d].facts[%d] needs source, about and field", i, j)
+			}
+			if _, err := time.Parse(time.RFC3339, f.ObservedAt); err != nil {
+				return fmt.Errorf("evidence[%d].facts[%d].observedAt must be an RFC 3339 time, got %q", i, j, f.ObservedAt)
+			}
+		}
+	}
+	return nil
+}
+
+// checkNotesAndTools refuses a note without text, author or an RFC 3339 time, and a seenIn tool
+// without a name or version.
+func checkNotesAndTools(l Label) error {
+	for i, n := range l.Notes {
+		if n.Text == "" || n.Author == "" {
+			return fmt.Errorf("notes[%d] needs text and author", i)
+		}
+		if _, err := time.Parse(time.RFC3339, n.At); err != nil {
+			return fmt.Errorf("notes[%d].at must be an RFC 3339 time, got %q", i, n.At)
+		}
+	}
+	if l.SeenIn != nil {
+		for i, t := range l.SeenIn.Tools {
+			if t.Name == "" || t.Version == "" {
+				return fmt.Errorf("seenIn.tools[%d] needs name and version", i)
+			}
+		}
+	}
+	return nil
 }

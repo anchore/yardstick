@@ -1,4 +1,8 @@
-package v1
+// Package corpus is a claims corpus on disk: the layout (where a subject's files sit), the writer
+// every command writes labels through, corpus validation, and the SBOM checks that pair labels
+// with packages and the catalog's syft setup. The label format is claims/v1; none of this belongs
+// to one format version.
+package corpus
 
 import (
 	"path"
@@ -23,7 +27,6 @@ const (
 	DocumentSBOMFile = "sbom.json"
 	NoPackageFile    = "image.json"
 	CatalogFile      = "catalog.yaml"
-	VocabularyFile   = "vocabulary.yaml"
 
 	imageRoot    = "pkg/oci"
 	documentRoot = "sbom"

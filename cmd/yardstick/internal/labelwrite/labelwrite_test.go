@@ -13,6 +13,7 @@ import (
 	"github.com/anchore/yardstick/cmd/yardstick/internal/agentstore"
 	"github.com/anchore/yardstick/cmd/yardstick/internal/claims"
 	claimsv1 "github.com/anchore/yardstick/cmd/yardstick/internal/claims/v1"
+	"github.com/anchore/yardstick/cmd/yardstick/internal/corpus"
 	"github.com/anchore/yardstick/cmd/yardstick/internal/fixture"
 	"github.com/anchore/yardstick/cmd/yardstick/internal/gatefile"
 	"github.com/anchore/yardstick/cmd/yardstick/internal/ref"
@@ -36,7 +37,7 @@ func runSubject(t *testing.T) *runrecord.Subject {
 	if err != nil {
 		t.Fatal(err)
 	}
-	return &runrecord.Subject{Resolved: subject.Resolved{Subject: gatefile.Subject{Written: written, Name: "x", Platform: "linux/arm64"}, Dir: claimsv1.ImageDir(r)}}
+	return &runrecord.Subject{Resolved: subject.Resolved{Subject: gatefile.Subject{Written: written, Name: "x", Platform: "linux/arm64"}, Dir: corpus.ImageDir(r)}}
 }
 
 // accepting a proposal writes the label it says, by the person accepting, with the run's seenIn and
@@ -80,11 +81,11 @@ func TestAccept(t *testing.T) {
 func TestPlace(t *testing.T) {
 	sub := runSubject(t)
 	l := claimsv1.Label{Package: "pkg:deb/debian/zlib1g", Vulnerability: "CVE-1", SeenIn: &claimsv1.SeenIn{Tools: []claimsv1.Tool{{Name: claimsv1.ToolGrype, Version: "v0.120.1"}}}}
-	if p, err := Place(sub, l, true); err != nil || p.File != claimsv1.GlobalFile("deb") || p.Subject != nil || p.Label.SeenIn != nil {
+	if p, err := Place(sub, l, true); err != nil || p.File != corpus.GlobalFile("deb") || p.Subject != nil || p.Label.SeenIn != nil {
 		t.Errorf("expected a global label in global/deb.json with no subject or seenIn, got %+v %v", p, err)
 	}
 	l.Package = ""
-	if p, err := Place(sub, l, false); err != nil || p.File != sub.Dir+"/"+claimsv1.NoPackageFile {
+	if p, err := Place(sub, l, false); err != nil || p.File != sub.Dir+"/"+corpus.NoPackageFile {
 		t.Errorf("expected a package-less label in image.json, got %+v %v", p, err)
 	}
 	if _, err := Place(sub, l, true); err == nil {

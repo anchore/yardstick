@@ -3,10 +3,7 @@ package v1
 import (
 	"bytes"
 	_ "embed"
-	"errors"
 	"fmt"
-	"os"
-	"path/filepath"
 	"sync"
 
 	"github.com/santhosh-tekuri/jsonschema/v6"
@@ -47,20 +44,5 @@ func ValidateSchema(data []byte) error {
 // SchemaFile is the name the schema is published under, as syft names its own: schema-<version>.json.
 const SchemaFile = "schema-" + Version + ".json"
 
-// WriteSchema writes the schema into dir as SchemaFile, for a corpus to publish beside its labels.
-// Like syft's generator it leaves an identical file alone and refuses to replace a different
-// one, since a published schema is never edited and a change to it needs a new Version. wrote
-// says whether the file is new.
-func WriteSchema(dir string) (path string, wrote bool, err error) {
-	path = filepath.Join(dir, SchemaFile)
-	existing, err := os.ReadFile(path)
-	switch {
-	case err == nil && bytes.Equal(existing, schema):
-		return path, false, nil
-	case err == nil:
-		return path, false, fmt.Errorf("%s differs from the schema this yardstick embeds; a published schema is never edited, so a change to it needs a new format version", path)
-	case !errors.Is(err, os.ErrNotExist):
-		return path, false, err
-	}
-	return path, true, WriteFile(dir, SchemaFile, schema)
-}
+// SchemaJSON is the schema's bytes, a copy each call, for a corpus to publish beside its labels.
+func SchemaJSON() []byte { return bytes.Clone(schema) }

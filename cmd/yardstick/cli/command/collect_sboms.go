@@ -12,8 +12,8 @@ import (
 
 	"github.com/anchore/clio"
 	"github.com/anchore/yardstick/cmd/yardstick/internal/cache"
-	claimsv1 "github.com/anchore/yardstick/cmd/yardstick/internal/claims/v1"
 	"github.com/anchore/yardstick/cmd/yardstick/internal/collect"
+	"github.com/anchore/yardstick/cmd/yardstick/internal/corpus"
 	"github.com/anchore/yardstick/cmd/yardstick/internal/execute"
 	"github.com/anchore/yardstick/cmd/yardstick/internal/gatefile"
 	"github.com/anchore/yardstick/cmd/yardstick/internal/install"
@@ -89,10 +89,10 @@ func collectImage(cmd *cobra.Command, cfg *collectSBOMsOptions, args []string) e
 	}
 	catPath, inCorpus := cfg.Catalog, false
 	if catPath == "" {
-		if _, err := os.Stat(claimsv1.CatalogFile); err != nil {
+		if _, err := os.Stat(corpus.CatalogFile); err != nil {
 			return errors.New("collect sboms needs --catalog <catalog.yaml>, or to run in a corpus holding one")
 		}
-		catPath, inCorpus = claimsv1.CatalogFile, true
+		catPath, inCorpus = corpus.CatalogFile, true
 	}
 	cat, err := readCatalog(catPath)
 	if err != nil {
@@ -114,7 +114,7 @@ func collectImage(cmd *cobra.Command, cfg *collectSBOMsOptions, args []string) e
 	case cfg.Out != "":
 		out = cfg.Out
 	case inCorpus:
-		out = filepath.Join(filepath.FromSlash(claimsv1.ImageDir(image)), claimsv1.ImageSBOMFile)
+		out = filepath.Join(filepath.FromSlash(corpus.ImageDir(image)), corpus.ImageSBOMFile)
 	}
 	if err := subject.WriteFile(out, data); err != nil {
 		return err
@@ -154,7 +154,7 @@ func readCatalog(path string) (*subject.Catalog, error) {
 		return nil, err
 	}
 	defer root.Close()
-	if cat.ConfigData, err = claimsv1.ReadCatalogConfig(root.FS(), cat.Config); err == nil {
+	if cat.ConfigData, err = corpus.ReadCatalogConfig(root.FS(), cat.Config); err == nil {
 		err = gatefile.CheckDataConfig(cat.ConfigData)
 	}
 	if err != nil {

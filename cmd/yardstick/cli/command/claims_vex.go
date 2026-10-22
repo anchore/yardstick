@@ -10,6 +10,7 @@ import (
 
 	"github.com/anchore/clio"
 	claimsv1 "github.com/anchore/yardstick/cmd/yardstick/internal/claims/v1"
+	"github.com/anchore/yardstick/cmd/yardstick/internal/corpus"
 	"github.com/anchore/yardstick/cmd/yardstick/internal/log"
 	"github.com/anchore/yardstick/cmd/yardstick/internal/vex"
 )
@@ -53,7 +54,7 @@ skipped and listed.`,
 			if err != nil {
 				return err
 			}
-			var placed []claimsv1.Placed
+			var placed []corpus.Placed
 			var skipped []string
 			for _, a := range args {
 				data, err := os.ReadFile(a)
@@ -66,7 +67,7 @@ skipped and listed.`,
 				}
 				placed, skipped = append(placed, got.Placed...), append(skipped, got.Skipped...)
 			}
-			written, err := (claimsv1.Writer{Dir: cfg.To, Vocab: vocab}).Write(placed)
+			written, err := (corpus.Writer{Dir: cfg.To, Vocab: vocab}).Write(placed)
 			if err != nil {
 				return err
 			}

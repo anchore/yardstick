@@ -22,6 +22,7 @@ import (
 	"time"
 
 	claimsv1 "github.com/anchore/yardstick/cmd/yardstick/internal/claims/v1"
+	"github.com/anchore/yardstick/cmd/yardstick/internal/corpus"
 	"github.com/anchore/yardstick/cmd/yardstick/internal/fixture"
 	"github.com/anchore/yardstick/cmd/yardstick/internal/gatefile"
 )
@@ -162,8 +163,8 @@ func TestRemoteSnapshot(t *testing.T) {
 func TestRemoteReferenceResolution(t *testing.T) {
 	t.Setenv("YARDSTICK_CACHE_DIR", t.TempDir())
 	h := newHost(t)
-	older := h.publish(t, corpus(t, at(claimsv1.TypeFile(dir, "deb"), label(libudv, "CVE-2020-13776", claimsv1.FP))))
-	newer := h.publish(t, corpus(t, at(claimsv1.TypeFile(dir, "deb"), label(libudv, "CVE-2020-13776", claimsv1.TP))))
+	older := h.publish(t, newCorpus(t, at(corpus.TypeFile(dir, "deb"), label(libudv, "CVE-2020-13776", claimsv1.FP))))
+	newer := h.publish(t, newCorpus(t, at(corpus.TypeFile(dir, "deb"), label(libudv, "CVE-2020-13776", claimsv1.TP))))
 	const commit = "4f2a9c1e00000000000000000000000000000000"
 	h.put(t, "/claims/commits/"+commit+".json", pointer{Digest: older})
 	h.put(t, "/claims/latest-v1.json", pointer{Digest: newer, Commit: "77aa000000000000000000000000000000000000"})
@@ -199,9 +200,9 @@ func TestRemoteReferenceResolution(t *testing.T) {
 // several hundred KiB deflated
 func bigCorpus(t *testing.T) string {
 	t.Helper()
-	root := corpus(t,
-		at(claimsv1.TypeFile(dir, "deb"), label(libudv, "CVE-2020-13776", claimsv1.FP)),
-		at(claimsv1.TypeFile(otherDir, "deb"), label(libudv, "CVE-2021-33910", claimsv1.TP)),
+	root := newCorpus(t,
+		at(corpus.TypeFile(dir, "deb"), label(libudv, "CVE-2020-13776", claimsv1.FP)),
+		at(corpus.TypeFile(otherDir, "deb"), label(libudv, "CVE-2021-33910", claimsv1.TP)),
 	)
 	f, err := os.Open(fixture.Path("vml", "sbom", "docker.io+oraclelinux@sha256-a06327c0f1d18d753f2a60bb17864c84a850bb6dcbcf5946dd1a8123f6e75495.syft.json.gz"))
 	if err != nil {
@@ -216,7 +217,7 @@ func bigCorpus(t *testing.T) string {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(filepath.Join(root, filepath.FromSlash(otherDir), claimsv1.ImageSBOMFile), data, 0o600); err != nil {
+	if err := os.WriteFile(filepath.Join(root, filepath.FromSlash(otherDir), corpus.ImageSBOMFile), data, 0o600); err != nil {
 		t.Fatal(err)
 	}
 	return root
@@ -335,7 +336,7 @@ func TestRemoteDigestsAreHex(t *testing.T) {
 	cacheDir := t.TempDir()
 	t.Setenv("YARDSTICK_CACHE_DIR", cacheDir)
 	h := newHost(t)
-	good := h.publish(t, corpus(t, at(claimsv1.TypeFile(dir, "deb"), label(libudv, "CVE-2020-13776", claimsv1.FP))))
+	good := h.publish(t, newCorpus(t, at(corpus.TypeFile(dir, "deb"), label(libudv, "CVE-2020-13776", claimsv1.FP))))
 	traversal := "sha256:" + strings.Repeat("../", 21) + "x"
 	const commit = "4f2a9c1e00000000000000000000000000000000"
 	for _, tc := range []struct {
@@ -441,7 +442,7 @@ func TestRepositoryArchiveCachedByCommit(t *testing.T) {
 	t.Setenv("YARDSTICK_CACHE_DIR", cacheDir)
 	t.Setenv("GITHUB_TOKEN", "")
 	g := newGitHub(t)
-	first := g.push(t, "main", corpus(t, at(claimsv1.TypeFile(dir, "deb"), label(libudv, "CVE-2020-13776", claimsv1.FP))))
+	first := g.push(t, "main", newCorpus(t, at(corpus.TypeFile(dir, "deb"), label(libudv, "CVE-2020-13776", claimsv1.FP))))
 	downloads := func() (n int) {
 		g.mu.Lock()
 		defer g.mu.Unlock()
@@ -463,7 +464,7 @@ func TestRepositoryArchiveCachedByCommit(t *testing.T) {
 	}
 
 	// main moves: the next open downloads the new commit's archive
-	second := g.push(t, "main", corpus(t, at(claimsv1.TypeFile(dir, "deb"), label(libudv, "CVE-2020-13776", claimsv1.TP))))
+	second := g.push(t, "main", newCorpus(t, at(corpus.TypeFile(dir, "deb"), label(libudv, "CVE-2020-13776", claimsv1.TP))))
 	s, err := openArchiveAt(t, "tests/quality/claims", "main")
 	if err != nil || s.Commit != second || !s.Downloaded || downloads() != 2 {
 		t.Fatalf("expected the moved main downloaded, got %v %+v %v", err, s, g.requests)
@@ -498,7 +499,7 @@ func TestRepositoryArchiveCachedByCommit(t *testing.T) {
 func TestRepositoryPathMissing(t *testing.T) {
 	t.Setenv("YARDSTICK_CACHE_DIR", t.TempDir())
 	g := newGitHub(t)
-	g.push(t, "main", corpus(t))
+	g.push(t, "main", newCorpus(t))
 	_, err := openArchiveAt(t, "tests/quality/nope", "main")
 	if err == nil || !strings.Contains(err.Error(), "github.com/anchore/vunnel at main has no directory tests/quality/nope") {
 		t.Errorf("expected the repository, ref and path named, got %v", err)
@@ -512,7 +513,7 @@ func TestRepositoryPathMissing(t *testing.T) {
 func TestReopenReusesRemoteSources(t *testing.T) {
 	t.Setenv("YARDSTICK_CACHE_DIR", t.TempDir())
 	h := newHost(t)
-	digest := h.publish(t, corpus(t))
+	digest := h.publish(t, newCorpus(t))
 	h.put(t, "/claims/latest-v1.json", pointer{Digest: digest})
 	sources := []gatefile.Source{
 		{Locator: "github.com/anchore/delta-prototype@main", Remote: &gatefile.Remote{Repository: "github.com/anchore/delta-prototype", Ref: "main"}},

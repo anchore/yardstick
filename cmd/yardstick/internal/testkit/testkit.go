@@ -10,6 +10,7 @@ import (
 	"slices"
 
 	claimsv1 "github.com/anchore/yardstick/cmd/yardstick/internal/claims/v1"
+	"github.com/anchore/yardstick/cmd/yardstick/internal/corpus"
 	"github.com/anchore/yardstick/cmd/yardstick/internal/fixture"
 	"github.com/anchore/yardstick/cmd/yardstick/internal/ref"
 )
@@ -55,7 +56,7 @@ func NewWorkspace(t TB, dir, tools string) *Workspace {
 	if err != nil {
 		t.Fatal(err)
 	}
-	WriteFile(t, filepath.Join(dir, "claims", claimsv1.ImageDir(r), claimsv1.ImageSBOMFile), string(sbom))
+	WriteFile(t, filepath.Join(dir, "claims", corpus.ImageDir(r), corpus.ImageSBOMFile), string(sbom))
 	WriteFile(t, filepath.Join(dir, "claims", claimsv1.VocabularyFile), Vocabulary)
 	return w
 }
@@ -91,7 +92,7 @@ func (w *Workspace) Grype(name string, drop ...string) string {
 func (w *Workspace) Label(pkg, vuln string) {
 	w.T.Helper()
 	r, _ := ref.Parse(DebImage)
-	f := claimsv1.TypeFile(claimsv1.ImageDir(r), "deb")
+	f := corpus.TypeFile(corpus.ImageDir(r), "deb")
 	p := filepath.Join(w.Dir, "claims", filepath.FromSlash(f))
 	file := claimsv1.File{Schema: claimsv1.Version, Subject: &claimsv1.Subject{Image: r.Image()}}
 	if data, err := os.ReadFile(p); err == nil {

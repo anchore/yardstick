@@ -13,6 +13,9 @@ import (
 	"go.yaml.in/yaml/v3"
 )
 
+// VocabularyFile is where a corpus keeps its vocabulary, at its root.
+const VocabularyFile = "vocabulary.yaml"
+
 // Vocabulary is the corpus's categories, as data in vocabulary.yaml: justification values by
 // verdict, fact sources, and which vulnerability id namespaces a label may name. A new value is
 // one corpus pull request and no yardstick release.

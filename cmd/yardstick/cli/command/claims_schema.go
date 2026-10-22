@@ -4,7 +4,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/anchore/clio"
-	claimsv1 "github.com/anchore/yardstick/cmd/yardstick/internal/claims/v1"
+	"github.com/anchore/yardstick/cmd/yardstick/internal/corpus"
 )
 
 func ClaimsSchema(app clio.Application) *cobra.Command {
@@ -18,7 +18,7 @@ needs a new format version.`,
 		Example: `  yardstick claims schema schema/`,
 		Args:    cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			path, wrote, err := claimsv1.WriteSchema(args[0])
+			path, wrote, err := corpus.WriteSchema(args[0])
 			if err != nil {
 				return err
 			}

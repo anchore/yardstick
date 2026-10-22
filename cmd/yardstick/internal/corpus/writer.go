@@ -1,6 +1,7 @@
-package v1
+package corpus
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
 	"maps"
@@ -11,21 +12,24 @@ import (
 	"strings"
 	"time"
 
+	"github.com/Masterminds/semver/v3"
+
+	claimsv1 "github.com/anchore/yardstick/cmd/yardstick/internal/claims/v1"
 	"github.com/anchore/yardstick/cmd/yardstick/internal/log"
 )
 
 // Placed is a label and the corpus file it belongs in.
 type Placed struct {
-	File    string   // corpus-relative: TypeFile, NoPackageFile under a subject dir, or GlobalFile
-	Subject *Subject // the file's subject; nil for global files
-	Label   Label
+	File    string            // corpus-relative: TypeFile, NoPackageFile under a subject dir, or GlobalFile
+	Subject *claimsv1.Subject // the file's subject; nil for global files
+	Label   claimsv1.Label
 }
 
 // Writer writes labels into one claims source, the writable one, through the only path every
 // command shares: claims add, claims import and the label UI.
 type Writer struct {
 	Dir   string
-	Vocab *Vocabulary
+	Vocab *claimsv1.Vocabulary
 }
 
 // rename renames inside a corpus; tests make it fail to show a failed write leaves the old file.
@@ -35,8 +39,8 @@ var rename = func(root *os.Root, oldname, newname string) error { return root.Re
 // when the key was new. Revert takes it back.
 type Written struct {
 	File  string
-	Key   Key
-	Prior *Label
+	Key   claimsv1.Key
+	Prior *claimsv1.Label
 }
 
 // Write checks every label, then rewrites each file the batch touches once: a label replaces
@@ -83,13 +87,13 @@ func (w Writer) Write(batch []Placed) ([]Written, error) {
 // them, less any the same author already said, so a re-import adds nothing), and prior's evidence
 // when the new label brings none and makes the same call, since evidence for another verdict
 // cites rules that refuse it.
-func carry(prior, l Label) Label {
+func carry(prior, l claimsv1.Label) claimsv1.Label {
 	if prior.FirstIssued != "" {
 		l.FirstIssued = prior.FirstIssued
 	}
 	notes := slices.Clone(prior.Notes)
 	for _, n := range l.Notes {
-		if !slices.ContainsFunc(notes, func(o Note) bool { return o.Text == n.Text && o.Author == n.Author }) {
+		if !slices.ContainsFunc(notes, func(o claimsv1.Note) bool { return o.Text == n.Text && o.Author == n.Author }) {
 			notes = append(notes, n)
 		}
 	}
@@ -118,11 +122,11 @@ func (w Writer) Check(p Placed) (err error) {
 	if err := checkPlacement(p); err != nil {
 		return fmt.Errorf("%s: %w", where, err)
 	}
-	if err := CheckRequired(p.Label, w.Vocab); err != nil {
+	if err := claimsv1.CheckRequired(p.Label, w.Vocab); err != nil {
 		return fmt.Errorf("%s: %w", where, err)
 	}
 	if w.Vocab == nil {
-		return fmt.Errorf("%s: no %s to check the justification and fact sources against", where, VocabularyFile)
+		return fmt.Errorf("%s: no %s to check the justification and fact sources against", where, claimsv1.VocabularyFile)
 	}
 	if err := w.Vocab.CheckVulnerability(p.Label.Vulnerability); err != nil {
 		return fmt.Errorf("%s: %w", where, err)
@@ -154,7 +158,7 @@ func checkPlacement(p Placed) error {
 }
 
 // checkSubject says whether a file's subject is the one its directory addresses.
-func checkSubject(loc Location, s *Subject) error {
+func checkSubject(loc Location, s *claimsv1.Subject) error {
 	switch loc.Kind {
 	case ImageSubject:
 		want := loc.Registry + "/" + loc.Repository
@@ -173,90 +177,28 @@ func checkSubject(loc Location, s *Subject) error {
 	return nil
 }
 
-// CheckRequired refuses a label missing a required field, with a verdict outside tp, fp and
-// unclear, or an fp or unclear verdict without a justification.
-func CheckRequired(l Label, v *Vocabulary) error {
-	switch {
-	case l.Vulnerability == "":
-		return errors.New("vulnerability is required")
-	case l.Verdict != TP && l.Verdict != FP && l.Verdict != Unclear:
-		return fmt.Errorf("verdict must be tp, fp or unclear, got %q", l.Verdict)
-	case l.Author == "":
-		return errors.New("author is required")
-	case l.Verdict != TP && l.Justification == "":
-		msg := fmt.Sprintf("%s needs a justification", l.Verdict)
-		if v != nil {
-			msg += " (one of: " + strings.Join(v.Allowed(l.Verdict), ", ") + ")"
-		}
-		return errors.New(msg)
-	}
-	for name, t := range map[string]string{"firstIssued": l.FirstIssued, "lastUpdated": l.LastUpdated} {
-		if _, err := time.Parse(time.RFC3339, t); err != nil {
-			return fmt.Errorf("%s must be an RFC 3339 time, got %q", name, t)
-		}
-	}
-	if err := checkNotesAndTools(l); err != nil {
-		return err
-	}
-	for i, e := range l.Evidence {
-		if len(e.Facts) == 0 {
-			return fmt.Errorf("evidence[%d] needs at least one fact", i)
-		}
-		for j, f := range e.Facts {
-			if f.Source == "" || f.Field == "" || f.About == nil {
-				return fmt.Errorf("evidence[%d].facts[%d] needs source, about and field", i, j)
-			}
-			if _, err := time.Parse(time.RFC3339, f.ObservedAt); err != nil {
-				return fmt.Errorf("evidence[%d].facts[%d].observedAt must be an RFC 3339 time, got %q", i, j, f.ObservedAt)
-			}
-		}
-	}
-	return nil
-}
-
-// checkNotesAndTools refuses a note without text, author or an RFC 3339 time, and a seenIn tool
-// without a name or version.
-func checkNotesAndTools(l Label) error {
-	for i, n := range l.Notes {
-		if n.Text == "" || n.Author == "" {
-			return fmt.Errorf("notes[%d] needs text and author", i)
-		}
-		if _, err := time.Parse(time.RFC3339, n.At); err != nil {
-			return fmt.Errorf("notes[%d].at must be an RFC 3339 time, got %q", i, n.At)
-		}
-	}
-	if l.SeenIn != nil {
-		for i, t := range l.SeenIn.Tools {
-			if t.Name == "" || t.Version == "" {
-				return fmt.Errorf("seenIn.tools[%d] needs name and version", i)
-			}
-		}
-	}
-	return nil
-}
-
 func (w Writer) writeFile(root *os.Root, rel string, placed []Placed) ([]Written, error) {
 	target := filepath.FromSlash(rel)
-	f := &File{Schema: Version}
+	f := &claimsv1.File{Schema: claimsv1.Version}
 	if data, err := root.ReadFile(target); err == nil {
-		if f, err = Parse(rel, data); err != nil {
+		if f, err = claimsv1.Parse(rel, data); err != nil {
 			return nil, err
 		}
 		// what this writes is Version, so an older file is raised to it; a newer one keeps its own,
 		// since its unknown fields are carried through untouched
 		if !newer(f.Schema) {
-			f.Schema = Version
+			f.Schema = claimsv1.Version
 		}
 	} else if !errors.Is(err, os.ErrNotExist) {
 		return nil, err
 	}
-	byKey := map[Key]int{}
+	byKey := map[claimsv1.Key]int{}
 	for i, l := range f.Labels {
 		byKey[l.Key()] = i
 	}
 	// a key the batch places twice reports, and carries forward, what the file held
 	var out []Written
-	priors := map[Key]*Label{}
+	priors := map[claimsv1.Key]*claimsv1.Label{}
 	for _, p := range placed {
 		if err := mergeSubject(rel, f, p.Subject); err != nil {
 			return nil, err
@@ -264,7 +206,7 @@ func (w Writer) writeFile(root *os.Root, rel string, placed []Placed) ([]Written
 		l, k := p.Label, p.Label.Key()
 		i, ok := byKey[k]
 		if _, seen := priors[k]; !seen {
-			var prior *Label
+			var prior *claimsv1.Label
 			if ok {
 				held := f.Labels[i]
 				prior = &held
@@ -283,7 +225,7 @@ func (w Writer) writeFile(root *os.Root, rel string, placed []Placed) ([]Written
 		f.Labels = append(f.Labels, l)
 	}
 	sort.SliceStable(f.Labels, func(i, j int) bool { return f.Labels[i].Key().Less(f.Labels[j].Key()) })
-	data, err := Marshal(f)
+	data, err := claimsv1.Marshal(f)
 	if err != nil {
 		return nil, err
 	}
@@ -312,18 +254,18 @@ func (w Writer) Revert(written []Written) error {
 		return err
 	}
 	defer root.Close()
-	kept := map[string]*File{}
+	kept := map[string]*claimsv1.File{}
 	for rel, ks := range byFile {
 		data, err := root.ReadFile(filepath.FromSlash(rel))
 		if err != nil {
 			return err
 		}
-		f, err := Parse(rel, data)
+		f, err := claimsv1.Parse(rel, data)
 		if err != nil {
 			return err
 		}
 		for _, k := range ks {
-			i := slices.IndexFunc(f.Labels, func(l Label) bool { return l.Key() == k.Key })
+			i := slices.IndexFunc(f.Labels, func(l claimsv1.Label) bool { return l.Key() == k.Key })
 			switch {
 			case i < 0:
 				return fmt.Errorf("%s: no label %s", rel, k.Key)
@@ -344,7 +286,7 @@ func (w Writer) Revert(written []Written) error {
 			}
 			continue
 		}
-		data, err := Marshal(f)
+		data, err := claimsv1.Marshal(f)
 		if err != nil {
 			return err
 		}
@@ -365,7 +307,7 @@ func checkRevert(k Written) error {
 		if p.Key() != k.Key {
 			return fmt.Errorf("%s: the label to restore is %s, not %s", k.File, p.Key(), k.Key)
 		}
-		if err := CheckRequired(*p, nil); err != nil {
+		if err := claimsv1.CheckRequired(*p, nil); err != nil {
 			return fmt.Errorf("%s: the label to restore, %s: %w", k.File, k.Key, err)
 		}
 	}
@@ -373,7 +315,7 @@ func checkRevert(k Written) error {
 }
 
 // mergeSubject keeps the subject a file already names, and refuses a label about another.
-func mergeSubject(rel string, f *File, s *Subject) error {
+func mergeSubject(rel string, f *claimsv1.File, s *claimsv1.Subject) error {
 	switch {
 	case s == nil || f.Subject == nil:
 		if f.Subject == nil {
@@ -420,4 +362,29 @@ func WriteFile(dir, rel string, data []byte) error {
 	}
 	defer root.Close()
 	return writeAtomic(root, filepath.FromSlash(rel), data)
+}
+
+// newer reports whether schema is a later version than Version. Both are the same MODEL.
+func newer(schema string) bool {
+	v, err := semver.StrictNewVersion(schema)
+	return err == nil && v.GreaterThan(semver.MustParse(claimsv1.Version))
+}
+
+// WriteSchema writes the label schema into dir as claimsv1.SchemaFile, for a corpus to publish beside its labels.
+// Like syft's generator it leaves an identical file alone and refuses to replace a different
+// one, since a published schema is never edited and a change to it needs a new Version. wrote
+// says whether the file is new.
+func WriteSchema(dir string) (path string, wrote bool, err error) {
+	schema := claimsv1.SchemaJSON()
+	path = filepath.Join(dir, claimsv1.SchemaFile)
+	existing, err := os.ReadFile(path)
+	switch {
+	case err == nil && bytes.Equal(existing, schema):
+		return path, false, nil
+	case err == nil:
+		return path, false, fmt.Errorf("%s differs from the schema this yardstick embeds; a published schema is never edited, so a change to it needs a new format version", path)
+	case !errors.Is(err, os.ErrNotExist):
+		return path, false, err
+	}
+	return path, true, WriteFile(dir, claimsv1.SchemaFile, schema)
 }

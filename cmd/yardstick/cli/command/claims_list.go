@@ -11,6 +11,7 @@ import (
 	"github.com/anchore/clio"
 	"github.com/anchore/yardstick/cmd/yardstick/internal/claims"
 	claimsv1 "github.com/anchore/yardstick/cmd/yardstick/internal/claims/v1"
+	"github.com/anchore/yardstick/cmd/yardstick/internal/corpus"
 	"github.com/anchore/yardstick/cmd/yardstick/internal/purl"
 )
 
@@ -93,7 +94,7 @@ func sourceLabels(src *claims.Source) ([]listedLabel, error) {
 		if err != nil || d.IsDir() {
 			return err
 		}
-		if loc, ok := claimsv1.Locate(p); !ok || !loc.IsLabelFile() {
+		if loc, ok := corpus.Locate(p); !ok || !loc.IsLabelFile() {
 			return nil
 		}
 		data, err := fs.ReadFile(src.FS, p)

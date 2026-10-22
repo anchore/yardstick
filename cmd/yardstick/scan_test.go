@@ -18,6 +18,7 @@ import (
 	"testing"
 
 	claimsv1 "github.com/anchore/yardstick/cmd/yardstick/internal/claims/v1"
+	"github.com/anchore/yardstick/cmd/yardstick/internal/corpus"
 	"github.com/anchore/yardstick/cmd/yardstick/internal/fixture"
 	"github.com/anchore/yardstick/cmd/yardstick/internal/ref"
 	"github.com/anchore/yardstick/cmd/yardstick/internal/testkit"
@@ -33,11 +34,11 @@ const debImage = testkit.DebImage
 // collect-builds-an-sbom-from-a-catalog, the refusals; the build itself runs the real syft in
 // TestCollectIntoACorpus (-tags integration)
 func TestCollectRefuses(t *testing.T) {
-	corpus := filepath.Join(t.TempDir(), "corpus")
-	writeFile(t, filepath.Join(corpus, claimsv1.CatalogFile), "syft: syft@v1.54.1\n")
-	outside := filepath.Join(filepath.Dir(corpus), "outside.yaml")
+	corpusDir := filepath.Join(t.TempDir(), "corpus")
+	writeFile(t, filepath.Join(corpusDir, corpus.CatalogFile), "syft: syft@v1.54.1\n")
+	outside := filepath.Join(filepath.Dir(corpusDir), "outside.yaml")
 	writeFile(t, outside, "search:\n  scope: all-layers\n")
-	if err := os.Symlink(outside, filepath.Join(corpus, "linked.yaml")); err != nil {
+	if err := os.Symlink(outside, filepath.Join(corpusDir, "linked.yaml")); err != nil {
 		t.Fatal(err)
 	}
 	for _, tc := range []struct {
@@ -60,10 +61,10 @@ func TestCollectRefuses(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			args := append([]string{"collect", "sboms"}, tc.args...)
 			if tc.catalog != "" {
-				writeFile(t, filepath.Join(corpus, "c.yaml"), tc.catalog)
+				writeFile(t, filepath.Join(corpusDir, "c.yaml"), tc.catalog)
 				args = append(args, debImage, "--catalog", "c.yaml")
 			}
-			_, stderr, code := yardstick(t, corpus, args...)
+			_, stderr, code := yardstick(t, corpusDir, args...)
 			if code != 2 || !strings.Contains(stderr, tc.want) {
 				t.Errorf("expected exit 2 saying %q, got %d: %s", tc.want, code, stderr)
 			}
@@ -85,7 +86,7 @@ func scanGate(t *testing.T, dir string) {
 	reference := stubTool(t, tools, "reference-grype", strings.Replace(stubGrype, "{{OUT}}", fixture.Grype("v0.119.0", "deb"), 1))
 	r, _ := ref.Parse(debImage)
 	sbom, _ := os.ReadFile(fixture.SBOM("deb", "syft"))
-	writeFile(t, filepath.Join(dir, "claims", claimsv1.ImageDir(r), claimsv1.ImageSBOMFile), string(sbom))
+	writeFile(t, filepath.Join(dir, "claims", corpus.ImageDir(r), corpus.ImageSBOMFile), string(sbom))
 	writeFile(t, filepath.Join(dir, "claims", claimsv1.VocabularyFile), "justifications: {fp: {fix-installed: x}}\nfact-sources: [sbom]\nadvisory-ids: [ELSA]\nvulnerability-namespaces: [CVE, GHSA]\n")
 	writeFile(t, filepath.Join(dir, "gates/deb.yaml"), `schema: v1
 claims: [../claims]
@@ -313,7 +314,7 @@ func TestNamedRunsStayApart(t *testing.T) {
 		t.Fatalf("expected the label written, got %d: %s", code, stderr)
 	}
 	r, _ := ref.Parse(debImage)
-	if seen := labelFile(t, filepath.Join(w.dir, "local", claimsv1.ImageDir(r), "deb.json")).Labels[0].SeenIn; seen.Tool(claimsv1.ToolGrype) != reference {
+	if seen := labelFile(t, filepath.Join(w.dir, "local", corpus.ImageDir(r), "deb.json")).Labels[0].SeenIn; seen.Tool(claimsv1.ToolGrype) != reference {
 		t.Errorf("expected seenIn from run a's reference grype, got %+v", seen)
 	}
 

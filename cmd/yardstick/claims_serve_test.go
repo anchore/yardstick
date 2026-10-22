@@ -15,6 +15,7 @@ import (
 	"github.com/anchore/yardstick/cmd/yardstick/internal/agentstore"
 	"github.com/anchore/yardstick/cmd/yardstick/internal/analysis"
 	claimsv1 "github.com/anchore/yardstick/cmd/yardstick/internal/claims/v1"
+	"github.com/anchore/yardstick/cmd/yardstick/internal/corpus"
 	"github.com/anchore/yardstick/cmd/yardstick/internal/gatefile"
 	"github.com/anchore/yardstick/cmd/yardstick/internal/labelserver"
 	"github.com/anchore/yardstick/cmd/yardstick/internal/labelwrite"
@@ -148,7 +149,7 @@ func (s *served) tarRow() row {
 func (s *served) debLabels() []claimsv1.Label {
 	s.t.Helper()
 	r, _ := ref.Parse(debImage)
-	data, err := os.ReadFile(filepath.Join(s.w.dir, "claims", claimsv1.ImageDir(r), "deb.json"))
+	data, err := os.ReadFile(filepath.Join(s.w.dir, "claims", corpus.ImageDir(r), "deb.json"))
 	if err != nil {
 		s.t.Fatal(err)
 	}

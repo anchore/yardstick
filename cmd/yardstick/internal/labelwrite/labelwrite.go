@@ -15,6 +15,7 @@ import (
 	"github.com/anchore/yardstick/cmd/yardstick/internal/claims"
 	claimsv1 "github.com/anchore/yardstick/cmd/yardstick/internal/claims/v1"
 	"github.com/anchore/yardstick/cmd/yardstick/internal/collect"
+	"github.com/anchore/yardstick/cmd/yardstick/internal/corpus"
 	"github.com/anchore/yardstick/cmd/yardstick/internal/pairing"
 	"github.com/anchore/yardstick/cmd/yardstick/internal/ref"
 	"github.com/anchore/yardstick/cmd/yardstick/internal/runrecord"
@@ -63,7 +64,7 @@ func Write(set *claims.Set, sub *runrecord.Subject, l claimsv1.Label, global boo
 	if err != nil {
 		return "", err
 	}
-	if _, err := w.Write([]claimsv1.Placed{placed}); err != nil {
+	if _, err := w.Write([]corpus.Placed{placed}); err != nil {
 		return "", err
 	}
 	return filepath.Join(w.Dir, filepath.FromSlash(placed.File)), nil
@@ -110,25 +111,25 @@ func reportedBy(rec *runrecord.Record, dir string, sub *runrecord.Subject, l cla
 
 // Place puts a label in its subject's file for the package's type, its image.json when it names
 // no package, or global/<type>.json.
-func Place(sub *runrecord.Subject, l claimsv1.Label, global bool) (claimsv1.Placed, error) {
+func Place(sub *runrecord.Subject, l claimsv1.Label, global bool) (corpus.Placed, error) {
 	t := ""
 	if l.Package != "" {
 		t = string(pkg.TypeFromPURL(l.Package))
-		if t == string(pkg.UnknownPkg) || !claimsv1.ValidType(t) {
-			return claimsv1.Placed{}, fmt.Errorf("package %s names no package type a label file can be named for", l.Package)
+		if t == string(pkg.UnknownPkg) || !corpus.ValidType(t) {
+			return corpus.Placed{}, fmt.Errorf("package %s names no package type a label file can be named for", l.Package)
 		}
 	}
 	if global {
 		if t == "" {
-			return claimsv1.Placed{}, errors.New("a global label names a package")
+			return corpus.Placed{}, errors.New("a global label names a package")
 		}
 		l.SeenIn = nil
-		return claimsv1.Placed{File: claimsv1.GlobalFile(t), Label: l}, nil
+		return corpus.Placed{File: corpus.GlobalFile(t), Label: l}, nil
 	}
 	// the record keeps the subject's reference as written
 	r, err := ref.Parse(sub.Written)
 	if err != nil {
-		return claimsv1.Placed{}, err
+		return corpus.Placed{}, err
 	}
 	s := &claimsv1.Subject{Platform: sub.Platform}
 	if r.Kind == ref.Image {
@@ -137,11 +138,11 @@ func Place(sub *runrecord.Subject, l claimsv1.Label, global bool) (claimsv1.Plac
 		// a document is addressed by its own bytes, before any filter
 		s.SBOM = sub.UnfilteredDigest
 	}
-	file := sub.Dir + "/" + claimsv1.NoPackageFile
+	file := sub.Dir + "/" + corpus.NoPackageFile
 	if t != "" {
-		file = claimsv1.TypeFile(sub.Dir, t)
+		file = corpus.TypeFile(sub.Dir, t)
 	}
-	return claimsv1.Placed{File: file, Subject: s, Label: l}, nil
+	return corpus.Placed{File: file, Subject: s, Label: l}, nil
 }
 
 // Accept writes the label accepting a proposal says, by the person accepting it: its verdict,

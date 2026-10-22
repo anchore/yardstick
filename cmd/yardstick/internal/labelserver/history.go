@@ -11,6 +11,7 @@ import (
 	"github.com/anchore/yardstick/cmd/yardstick/internal/analysis"
 	"github.com/anchore/yardstick/cmd/yardstick/internal/claims"
 	claimsv1 "github.com/anchore/yardstick/cmd/yardstick/internal/claims/v1"
+	"github.com/anchore/yardstick/cmd/yardstick/internal/corpus"
 	"github.com/anchore/yardstick/cmd/yardstick/internal/log"
 	"github.com/anchore/yardstick/cmd/yardstick/internal/pairing"
 	"github.com/anchore/yardstick/cmd/yardstick/internal/purl"
@@ -110,7 +111,7 @@ func historyLabels(src *claims.Source, rows map[string][]GateRow) ([]HistoryLabe
 		if err != nil || d.IsDir() {
 			return err
 		}
-		if loc, ok := claimsv1.Locate(p); !ok || !loc.IsLabelFile() {
+		if loc, ok := corpus.Locate(p); !ok || !loc.IsLabelFile() {
 			return nil
 		}
 		data, err := fs.ReadFile(src.FS, p)
@@ -212,14 +213,14 @@ func (s *Server) handleRevert(w http.ResponseWriter, req *http.Request) {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	bySource := map[string][]claimsv1.Written{}
+	bySource := map[string][]corpus.Written{}
 	for _, k := range body.Labels {
 		if !slices.ContainsFunc(sources, func(x *claims.Source) bool { return x.Locator == k.Source }) {
 			http.Error(w, k.Source+" is not a writable claims source", http.StatusBadRequest)
 			return
 		}
-		wt := claimsv1.Written{File: k.File, Key: claimsv1.Key{Package: k.Package, Vulnerability: k.Vulnerability}, Prior: k.Prior}
-		if !slices.ContainsFunc(bySource[k.Source], func(x claimsv1.Written) bool { return x.File == wt.File && x.Key == wt.Key }) {
+		wt := corpus.Written{File: k.File, Key: claimsv1.Key{Package: k.Package, Vulnerability: k.Vulnerability}, Prior: k.Prior}
+		if !slices.ContainsFunc(bySource[k.Source], func(x corpus.Written) bool { return x.File == wt.File && x.Key == wt.Key }) {
 			bySource[k.Source] = append(bySource[k.Source], wt)
 		}
 	}
@@ -231,7 +232,7 @@ func (s *Server) handleRevert(w http.ResponseWriter, req *http.Request) {
 		if len(ws) == 0 {
 			continue
 		}
-		if err := (claimsv1.Writer{Dir: src.Dir}).Revert(ws); err != nil {
+		if err := (corpus.Writer{Dir: src.Dir}).Revert(ws); err != nil {
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}

@@ -1,4 +1,4 @@
-package v1
+package corpus
 
 import (
 	"errors"
@@ -9,6 +9,7 @@ import (
 	"sort"
 	"strings"
 
+	claimsv1 "github.com/anchore/yardstick/cmd/yardstick/internal/claims/v1"
 	"github.com/anchore/yardstick/cmd/yardstick/internal/purl"
 )
 
@@ -67,7 +68,7 @@ func unpairedIn(fsys fs.FS, dir string) ([]Problem, error) {
 		if err != nil {
 			return nil, err
 		}
-		f, err := Parse(p, data)
+		f, err := claimsv1.Parse(p, data)
 		if err != nil {
 			continue
 		}

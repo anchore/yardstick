@@ -1,4 +1,4 @@
-package v1
+package corpus
 
 import (
 	"crypto/sha256"
@@ -12,6 +12,7 @@ import (
 	"sort"
 	"strings"
 
+	claimsv1 "github.com/anchore/yardstick/cmd/yardstick/internal/claims/v1"
 	"github.com/anchore/yardstick/cmd/yardstick/internal/gatefile"
 	"github.com/anchore/yardstick/cmd/yardstick/internal/log"
 )
@@ -33,7 +34,7 @@ func (p Problem) String() string {
 // corpusCheck is one validation pass over a corpus tree.
 type corpusCheck struct {
 	fsys     fs.FS
-	vocab    *Vocabulary
+	vocab    *claimsv1.Vocabulary
 	catalog  *gatefile.Catalog
 	catCfg   []byte
 	problems []Problem
@@ -100,13 +101,13 @@ func ValidateCorpus(dir string) ([]Problem, error) {
 
 func (c *corpusCheck) loadRoot() error {
 	var err error
-	if c.vocab, err = LoadVocabulary(c.fsys); err != nil {
-		c.addf(VocabularyFile, "", "%v", err)
+	if c.vocab, err = claimsv1.LoadVocabulary(c.fsys); err != nil {
+		c.addf(claimsv1.VocabularyFile, "", "%v", err)
 	} else if c.vocab == nil {
-		c.addf(VocabularyFile, "", "missing: a corpus lists its justifications and fact sources")
+		c.addf(claimsv1.VocabularyFile, "", "missing: a corpus lists its justifications and fact sources")
 	} else {
 		for _, p := range c.vocab.CheckRules() {
-			c.addf(VocabularyFile, "", "%s", p)
+			c.addf(claimsv1.VocabularyFile, "", "%s", p)
 		}
 	}
 	data, err := fs.ReadFile(c.fsys, CatalogFile)
@@ -187,12 +188,12 @@ func (c *corpusCheck) imageSBOM(p string, loc Location, data []byte) {
 }
 
 func (c *corpusCheck) labelFile(p string, loc Location, data []byte) {
-	f, err := Parse(p, data)
+	f, err := claimsv1.Parse(p, data)
 	if err != nil {
 		c.addf(p, "", "%v", err)
 		return
 	}
-	if err := ValidateSchema(data); err != nil {
+	if err := claimsv1.ValidateSchema(data); err != nil {
 		c.addf(p, "", "does not match the v1 schema: %v", err)
 	}
 	if loc.Kind != Global {
@@ -210,7 +211,7 @@ func (c *corpusCheck) labelFile(p string, loc Location, data []byte) {
 	c.labels(p, loc, f.Labels)
 }
 
-func (c *corpusCheck) labels(p string, loc Location, labels []Label) {
+func (c *corpusCheck) labels(p string, loc Location, labels []claimsv1.Label) {
 	for i, l := range labels {
 		key := l.Key().String()
 		if err := checkPlacement(Placed{File: p, Subject: subjectFor(loc), Label: l}); err != nil {
@@ -240,12 +241,12 @@ func (c *corpusCheck) labels(p string, loc Location, labels []Label) {
 }
 
 // subjectFor is a subject consistent with a location, for the placement check alone.
-func subjectFor(loc Location) *Subject {
+func subjectFor(loc Location) *claimsv1.Subject {
 	switch loc.Kind {
 	case ImageSubject:
-		return &Subject{Image: loc.Registry + "/" + loc.Repository + "@" + loc.Digest}
+		return &claimsv1.Subject{Image: loc.Registry + "/" + loc.Repository + "@" + loc.Digest}
 	case DocumentSubject:
-		return &Subject{SBOM: loc.Digest}
+		return &claimsv1.Subject{SBOM: loc.Digest}
 	}
 	return nil
 }

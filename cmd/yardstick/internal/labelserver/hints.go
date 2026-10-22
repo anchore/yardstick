@@ -10,6 +10,7 @@ import (
 	"github.com/anchore/yardstick/cmd/yardstick/internal/agentstore"
 	"github.com/anchore/yardstick/cmd/yardstick/internal/analysis"
 	claimsv1 "github.com/anchore/yardstick/cmd/yardstick/internal/claims/v1"
+	"github.com/anchore/yardstick/cmd/yardstick/internal/corpus"
 	"github.com/anchore/yardstick/cmd/yardstick/internal/log"
 	"github.com/anchore/yardstick/cmd/yardstick/internal/pairing"
 )
@@ -238,7 +239,7 @@ type hintAccept struct {
 }
 
 // put adds the label a hint says for a row to the gate's batch p, unless it was written already.
-func (a *hintAccept) put(e *entry, wr claimsv1.Writer, p *pending, hint string, r *rowRef, l claimsv1.Label) error {
+func (a *hintAccept) put(e *entry, wr corpus.Writer, p *pending, hint string, r *rowRef, l claimsv1.Label) error {
 	if len(a.Rows) > 0 && !slices.Contains(a.Rows, r.match.Row) {
 		return nil
 	}

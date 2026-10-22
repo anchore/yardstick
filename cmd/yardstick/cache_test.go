@@ -11,6 +11,7 @@ import (
 	"time"
 
 	claimsv1 "github.com/anchore/yardstick/cmd/yardstick/internal/claims/v1"
+	"github.com/anchore/yardstick/cmd/yardstick/internal/corpus"
 	"github.com/anchore/yardstick/cmd/yardstick/internal/fixture"
 	"github.com/anchore/yardstick/cmd/yardstick/internal/ref"
 )
@@ -41,7 +42,7 @@ func importingGate(t *testing.T, dir, archive, signal string) {
 	reference := stubTool(t, tools, "reference-grype", strings.Replace(stub, "{{OUT}}", fixture.Grype("v0.119.0", "deb"), 1))
 	r, _ := ref.Parse(debImage)
 	sbom, _ := os.ReadFile(fixture.SBOM("deb", "syft"))
-	writeFile(t, filepath.Join(dir, "claims", claimsv1.ImageDir(r), claimsv1.ImageSBOMFile), string(sbom))
+	writeFile(t, filepath.Join(dir, "claims", corpus.ImageDir(r), corpus.ImageSBOMFile), string(sbom))
 	writeFile(t, filepath.Join(dir, "claims", claimsv1.VocabularyFile), "justifications: {fp: {fix-installed: x}}\nfact-sources: [sbom]\nadvisory-ids: [ELSA]\nvulnerability-namespaces: [CVE, GHSA]\n")
 	writeFile(t, filepath.Join(dir, "gates/deb.yaml"), `schema: v1
 claims: [../claims]

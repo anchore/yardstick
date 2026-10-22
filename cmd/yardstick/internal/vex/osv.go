@@ -9,6 +9,7 @@ import (
 	"github.com/anchore/packageurl-go"
 	"github.com/anchore/syft/syft/pkg"
 	claimsv1 "github.com/anchore/yardstick/cmd/yardstick/internal/claims/v1"
+	"github.com/anchore/yardstick/cmd/yardstick/internal/corpus"
 )
 
 // osvRecord is the part of an OSV record a label can come from.
@@ -50,7 +51,7 @@ func ImportOSV(name string, data []byte, opts Options) (*Imported, error) {
 	for i, a := range rec.Affected {
 		base, err := packageurl.FromString(a.Package.PURL)
 		t := pkg.TypeFromPURL(a.Package.PURL)
-		if a.Package.PURL == "" || err != nil || t == pkg.UnknownPkg || !claimsv1.ValidType(string(t)) {
+		if a.Package.PURL == "" || err != nil || t == pkg.UnknownPkg || !corpus.ValidType(string(t)) {
 			out.Skipped = append(out.Skipped, fmt.Sprintf("%s affected[%d] (%s %s): no package URL with a known type", name, i, a.Package.Ecosystem, a.Package.Name))
 			continue
 		}
@@ -81,7 +82,7 @@ func ImportOSV(name string, data []byte, opts Options) (*Imported, error) {
 					Interpretation: fmt.Sprintf("OSV record %s lists %s as %s", rec.ID, sv.version, sv.meaning),
 				}},
 			}
-			out.Placed = append(out.Placed, claimsv1.Placed{File: claimsv1.GlobalFile(string(t)), Label: l})
+			out.Placed = append(out.Placed, corpus.Placed{File: corpus.GlobalFile(string(t)), Label: l})
 		}
 	}
 	return out, nil

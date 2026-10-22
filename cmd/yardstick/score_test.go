@@ -10,6 +10,7 @@ import (
 
 	"github.com/anchore/yardstick/cmd/yardstick/internal/analysis"
 	claimsv1 "github.com/anchore/yardstick/cmd/yardstick/internal/claims/v1"
+	"github.com/anchore/yardstick/cmd/yardstick/internal/corpus"
 	"github.com/anchore/yardstick/cmd/yardstick/internal/fixture"
 	"github.com/anchore/yardstick/cmd/yardstick/internal/ref"
 	"github.com/anchore/yardstick/cmd/yardstick/internal/report"
@@ -171,7 +172,7 @@ func TestScoreWithOtherClaims(t *testing.T) {
 	demo := filepath.Join(w.dir, ".demo-claims")
 	file := claimsv1.File{Schema: claimsv1.Version, Subject: &claimsv1.Subject{Image: r.Image()}, Labels: []claimsv1.Label{{Package: tar, Vulnerability: "CVE-2005-2541", Verdict: claimsv1.TP, Author: "e2e", FirstIssued: "2026-10-16T10:00:00Z", LastUpdated: "2026-10-16T10:00:00Z"}}}
 	out, _ := claimsv1.Marshal(&file)
-	writeFile(t, filepath.Join(demo, filepath.FromSlash(claimsv1.TypeFile(claimsv1.ImageDir(r), "deb"))), string(out))
+	writeFile(t, filepath.Join(demo, filepath.FromSlash(corpus.TypeFile(corpus.ImageDir(r), "deb"))), string(out))
 	t.Setenv("PATH", "")
 	stdout, stderr, code := yardstick(t, w.dir, "score", "gates/deb.yaml", "--claims", ".demo-claims", "-o", "check")
 	if code != 1 || !strings.Contains(stdout, "FAIL noNewFalseNegatives") || strings.Contains(stdout, "UNDECIDED gate deb") {
@@ -180,7 +181,7 @@ func TestScoreWithOtherClaims(t *testing.T) {
 
 	// a source ahead of the corpus holding another SBOM for the image: the scans no longer apply
 	npm, _ := os.ReadFile(fixture.SBOM("npm", "syft"))
-	writeFile(t, filepath.Join(w.dir, "other", claimsv1.ImageDir(r), claimsv1.ImageSBOMFile), string(npm))
+	writeFile(t, filepath.Join(w.dir, "other", corpus.ImageDir(r), corpus.ImageSBOMFile), string(npm))
 	writeFile(t, filepath.Join(w.dir, ".yardstick.yaml"), "claims: [./other, ./claims]\n")
 	stdout, _, code = yardstick(t, w.dir, "score", "gates/deb.yaml", "-o", "check")
 	if code != 1 || !strings.Contains(stdout, "FAIL gate deb: subject deb was scanned from SBOM") || !strings.Contains(stdout, "run yardstick ") {

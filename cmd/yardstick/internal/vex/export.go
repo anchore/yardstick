@@ -16,6 +16,7 @@ import (
 
 	"github.com/anchore/packageurl-go"
 	claimsv1 "github.com/anchore/yardstick/cmd/yardstick/internal/claims/v1"
+	"github.com/anchore/yardstick/cmd/yardstick/internal/corpus"
 	"github.com/anchore/yardstick/cmd/yardstick/internal/log"
 )
 
@@ -28,20 +29,20 @@ var vexJustifications = []vex.Justification{
 // Export writes every label in a corpus as one OpenVEX document: tp is affected, fp with the fix
 // installed is fixed, any other fp is not_affected, and unclear is under_investigation. Evidence
 // and seenIn stay behind. The same corpus gives the same bytes.
-func Export(corpus fs.FS, author string) ([]byte, error) {
+func Export(fsys fs.FS, author string) ([]byte, error) {
 	log.Infof("exporting the corpus to OpenVEX")
 	defer log.Timed("exporting the corpus to OpenVEX")()
 	var statements []vex.Statement
 	newest := time.Time{}
-	err := fs.WalkDir(corpus, ".", func(p string, d fs.DirEntry, err error) error {
+	err := fs.WalkDir(fsys, ".", func(p string, d fs.DirEntry, err error) error {
 		if err != nil || d.IsDir() {
 			return err
 		}
-		loc, ok := claimsv1.Locate(p)
+		loc, ok := corpus.Locate(p)
 		if !ok || !loc.IsLabelFile() {
 			return nil
 		}
-		data, err := fs.ReadFile(corpus, p)
+		data, err := fs.ReadFile(fsys, p)
 		if err != nil {
 			return err
 		}
@@ -88,7 +89,7 @@ func Export(corpus fs.FS, author string) ([]byte, error) {
 	return encode(doc)
 }
 
-func statement(loc claimsv1.Location, subject *claimsv1.Subject, l claimsv1.Label) (vex.Statement, error) {
+func statement(loc corpus.Location, subject *claimsv1.Subject, l claimsv1.Label) (vex.Statement, error) {
 	issued, err := time.Parse(time.RFC3339, l.LastUpdated)
 	if err != nil {
 		return vex.Statement{}, err
@@ -120,13 +121,13 @@ func statement(loc claimsv1.Location, subject *claimsv1.Subject, l claimsv1.Labe
 
 // productOf is what a label is about: the image (with the package as a subcomponent), the SBOM
 // document by its digest, or the package itself for a global label.
-func productOf(loc claimsv1.Location, subject *claimsv1.Subject, l claimsv1.Label) vex.Product {
+func productOf(loc corpus.Location, subject *claimsv1.Subject, l claimsv1.Label) vex.Product {
 	var p vex.Product
 	switch loc.Kind {
-	case claimsv1.Global:
+	case corpus.Global:
 		p.ID = l.Package
 		return p
-	case claimsv1.ImageSubject:
+	case corpus.ImageSubject:
 		qualifiers := packageurl.QualifiersFromMap(map[string]string{"repository_url": loc.Registry + "/" + loc.Repository})
 		if subject != nil && subject.Platform != "" {
 			os, arch, _ := strings.Cut(subject.Platform, "/")
@@ -134,7 +135,7 @@ func productOf(loc claimsv1.Location, subject *claimsv1.Subject, l claimsv1.Labe
 		}
 		purl := packageurl.NewPackageURL("oci", "", path.Base(loc.Repository), loc.Digest, qualifiers, "")
 		p.ID = purl.ToString()
-	case claimsv1.DocumentSubject:
+	case corpus.DocumentSubject:
 		hex := strings.TrimPrefix(loc.Digest, "sha256:")
 		p.ID = "urn:sha256:" + hex
 		p.Hashes = map[vex.Algorithm]vex.Hash{vex.SHA256: vex.Hash(hex)}

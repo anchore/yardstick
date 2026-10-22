@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	claimsv1 "github.com/anchore/yardstick/cmd/yardstick/internal/claims/v1"
+	"github.com/anchore/yardstick/cmd/yardstick/internal/corpus"
 	"github.com/anchore/yardstick/cmd/yardstick/internal/fixture"
 	"github.com/anchore/yardstick/cmd/yardstick/internal/ref"
 	"github.com/anchore/yardstick/cmd/yardstick/internal/runrecord"
@@ -56,7 +57,7 @@ checks: [{name: unlabeledPercentAtMost, params: {max: 100}}]
 
 	// it lands in the last source, the subject's deb.json, with seenIn from the scan
 	r, _ := ref.Parse(debImage)
-	f := labelFile(t, filepath.Join(w.dir, "local", claimsv1.ImageDir(r), "deb.json"))
+	f := labelFile(t, filepath.Join(w.dir, "local", corpus.ImageDir(r), "deb.json"))
 	t.Chdir(w.dir)
 	rec, err := runrecord.Load(runrecord.DefaultName, "deb")
 	if err != nil {
@@ -71,7 +72,7 @@ checks: [{name: unlabeledPercentAtMost, params: {max: 100}}]
 	if _, stderr, code := add("--subject", "deb", "--package", libc, "--vulnerability", "CVE-2026-5450", "--verdict", "tp"); code != 0 {
 		t.Fatalf("expected the label written, got %d: %s", code, stderr)
 	}
-	both, err := claimsv1.Parse("deb.json", []byte(read(t, filepath.Join(w.dir, "local", claimsv1.ImageDir(r), "deb.json"))))
+	both, err := claimsv1.Parse("deb.json", []byte(read(t, filepath.Join(w.dir, "local", corpus.ImageDir(r), "deb.json"))))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -80,7 +81,7 @@ checks: [{name: unlabeledPercentAtMost, params: {max: 100}}]
 			t.Errorf("expected seenIn with the candidate's grype for a match both report, got %+v", l.SeenIn)
 		}
 	}
-	if strings.Contains(read(t, filepath.Join(w.dir, "claims", claimsv1.ImageDir(r), "deb.json")), "CVE-2005-2541") {
+	if strings.Contains(read(t, filepath.Join(w.dir, "claims", corpus.ImageDir(r), "deb.json")), "CVE-2005-2541") {
 		t.Error("the label was written into the gate's own claims source instead of the last one")
 	}
 
@@ -95,7 +96,7 @@ checks: [{name: unlabeledPercentAtMost, params: {max: 100}}]
 		t.Fatal(err)
 	}
 	sub := olRec.Subjects[0]
-	f = labelFile(t, filepath.Join(w.dir, "local", claimsv1.DocumentDir(sub.UnfilteredDigest), "python.json"))
+	f = labelFile(t, filepath.Join(w.dir, "local", corpus.DocumentDir(sub.UnfilteredDigest), "python.json"))
 	if f.Labels[0].SeenIn.SBOM != sub.UnfilteredDigest || sub.Digest == sub.UnfilteredDigest || f.Subject.SBOM != sub.UnfilteredDigest {
 		t.Errorf("expected seenIn.sbom and the subject to be the unfiltered digest %s (scanned %s), got %+v %+v", sub.UnfilteredDigest, sub.Digest, f.Labels[0].SeenIn, f.Subject)
 	}
@@ -104,7 +105,7 @@ checks: [{name: unlabeledPercentAtMost, params: {max: 100}}]
 	if _, stderr, code := add("--subject", "deb", "--vulnerability", "CVE-2023-4911", "--verdict", "tp"); code != 0 {
 		t.Fatalf("expected an image-level label written, got %d: %s", code, stderr)
 	}
-	if _, err := os.Stat(filepath.Join(w.dir, "local", claimsv1.ImageDir(r), claimsv1.NoPackageFile)); err != nil {
+	if _, err := os.Stat(filepath.Join(w.dir, "local", corpus.ImageDir(r), corpus.NoPackageFile)); err != nil {
 		t.Errorf("expected image.json: %v", err)
 	}
 
@@ -168,7 +169,7 @@ func TestClaimsAddStaysInsideTheSource(t *testing.T) {
 	// through it are refused as well
 	r, _ := ref.Parse(debImage)
 	outside := t.TempDir()
-	link := filepath.Join(w.dir, "local", filepath.FromSlash(claimsv1.ImageDir(r)))
+	link := filepath.Join(w.dir, "local", filepath.FromSlash(corpus.ImageDir(r)))
 	if err := os.MkdirAll(filepath.Dir(link), 0o755); err != nil {
 		t.Fatal(err)
 	}
