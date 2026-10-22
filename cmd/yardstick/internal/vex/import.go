@@ -60,9 +60,6 @@ func Import(name string, data []byte, opts Options) (*Imported, error) {
 	return nil, fmt.Errorf("%s is neither an OpenVEX document nor an OSV record", name)
 }
 
-// ImportOpenVEX turns each statement's products into labels: an image product's subcomponents
-// into labels in that image's type files, an image product alone into its image.json, and a
-// package product into global/. A product that is neither is skipped and listed.
 // logImported passes an import's result through, reporting its totals.
 func logImported(name string) func(*Imported, error) (*Imported, error) {
 	return func(got *Imported, err error) (*Imported, error) {
@@ -76,6 +73,9 @@ func logImported(name string) func(*Imported, error) (*Imported, error) {
 	}
 }
 
+// ImportOpenVEX turns each statement's products into labels: an image product's subcomponents
+// into labels in that image's type files, an image product alone into its image.json, and a
+// package product into global/. A product that is neither is skipped and listed.
 func ImportOpenVEX(name string, data []byte, opts Options) (*Imported, error) {
 	doc, err := vex.Parse(data)
 	if err != nil {
