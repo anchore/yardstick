@@ -9,9 +9,11 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"maps"
 	"os"
 	"path/filepath"
 	"regexp"
+	"slices"
 
 	"github.com/anchore/yardstick/cmd/yardstick/internal/setup"
 	"github.com/anchore/yardstick/cmd/yardstick/internal/subject"
@@ -54,6 +56,19 @@ type Record struct {
 	// score as unexplained.
 	Lookups  map[string]string `json:"lookups,omitempty"`
 	Warnings []string          `json:"warnings,omitempty"`
+}
+
+// Complete fails unless every subject has a scan from every setup the record prepared: what an
+// interrupted run would leave, and what scoring would read as a setup reporting nothing.
+func (r *Record) Complete() error {
+	for _, s := range r.Subjects {
+		for _, setup := range slices.Sorted(maps.Keys(r.Setups)) {
+			if s.Scans[setup] == "" {
+				return fmt.Errorf("the scans of gate %s are incomplete: subject %s has no %s scan", r.Gate.Name, s.Name, setup)
+			}
+		}
+	}
+	return nil
 }
 
 // Gate identifies the gate file the scans were made for.

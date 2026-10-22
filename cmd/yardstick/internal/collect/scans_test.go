@@ -6,6 +6,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
+	"errors"
 	"io"
 	"io/fs"
 	"os"
@@ -13,6 +14,7 @@ import (
 	"strconv"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/anchore/yardstick/cmd/yardstick/internal/claims"
 	claimsv1 "github.com/anchore/yardstick/cmd/yardstick/internal/claims/v1"
@@ -441,6 +443,55 @@ func TestScanKeepsLogsAndLookups(t *testing.T) {
 	for _, stub := range []string{"candidate-grype", "reference-grype"} {
 		if !strings.Contains(string(calls), stub+" -c ") {
 			t.Errorf("expected %s searched with its config, got\n%s", stub, calls)
+		}
+	}
+}
+
+// Ctrl-C mid-scan: clio cancels the command's context, the run fails, and the last good scans
+// stay as they were rather than being replaced by a record with scans missing
+func TestCancelMidScanKeepsTheLastScans(t *testing.T) {
+	t.Chdir(t.TempDir())
+	t.Setenv("YARDSTICK_CACHE_DIR", t.TempDir())
+	s := newStubs(t)
+	g := gate(t, s)
+	if _, err := scanGate(t, scanner(), g); err != nil {
+		t.Fatal(err)
+	}
+	before := tree(t, runrecord.RunsDir)
+
+	// each scan now takes 0.3s, one at a time; cancel once the first has started
+	events := filepath.Join(t.TempDir(), "events")
+	t.Setenv("EVENTS", events)
+	m := scanner()
+	m.Parallelism, m.Rescan = 1, true
+	set, err := claims.OpenSet(g.Claims)
+	if err != nil {
+		t.Fatal(err)
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+	go func() {
+		for {
+			if _, err := os.Stat(events); err == nil {
+				cancel()
+				return
+			}
+			time.Sleep(10 * time.Millisecond)
+		}
+	}()
+	_, err = m.Gate(ctx, g, set)
+	if !errors.Is(err, context.Canceled) {
+		t.Fatalf("expected the run to fail as cancelled, got %v", err)
+	}
+	if n := len(s.log(t)); n != 4+1 {
+		t.Errorf("expected the first run's 4 scans and the one the cancel killed, got %d grype runs", n)
+	}
+	after := tree(t, runrecord.RunsDir)
+	if len(before) != len(after) {
+		t.Errorf("a cancelled rerun changed the scans: %d files, then %d", len(before), len(after))
+	}
+	for p, sum := range before {
+		if after[p] != sum {
+			t.Errorf("a cancelled rerun changed %s", p)
 		}
 	}
 }

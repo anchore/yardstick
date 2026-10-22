@@ -87,6 +87,10 @@ type Paired struct {
 // Pair reads a gate's scans under a run name and the labels its subjects need, and pairs them.
 func Pair(run string, g *gatefile.Gate, rec *runrecord.Record, set *claims.Set) (*Paired, error) {
 	log.Infof("scoring %s with its existing scans from %s", g.Name, rec.Created)
+	// a subject missing a setup's scan would read as that setup reporting nothing
+	if err := rec.Complete(); err != nil {
+		return nil, fmt.Errorf("%w; run %s", err, runrecord.Rerun(run, g.Path))
+	}
 	isAdvisory := func(string) bool { return false }
 	if v := set.Vocabulary(); v != nil {
 		isAdvisory = v.IsAdvisory

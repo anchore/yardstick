@@ -16,9 +16,11 @@ import (
 	"github.com/anchore/yardstick/cmd/yardstick/internal/fixture"
 	"github.com/anchore/yardstick/cmd/yardstick/internal/gatefile"
 	"github.com/anchore/yardstick/cmd/yardstick/internal/lookup"
+	"github.com/anchore/yardstick/cmd/yardstick/internal/pairing"
 	"github.com/anchore/yardstick/cmd/yardstick/internal/ref"
 	"github.com/anchore/yardstick/cmd/yardstick/internal/report"
 	"github.com/anchore/yardstick/cmd/yardstick/internal/runrecord"
+	"github.com/anchore/yardstick/cmd/yardstick/internal/setup"
 	"github.com/anchore/yardstick/cmd/yardstick/internal/subject"
 )
 
@@ -338,5 +340,21 @@ checks:
 		if v := Stale(ctx, runrecord.DefaultName, g, rec, set); v == nil {
 			t.Errorf("expected another %s to make the scans stale", what)
 		}
+	}
+}
+
+// a record missing a setup's scan of a subject, as an interrupted run would leave it, is refused
+// rather than scored as that setup reporting nothing
+func TestIncompleteScansAreRefused(t *testing.T) {
+	t.Chdir(t.TempDir())
+	g := gate(corpus(t, "linux/amd64", label("pkg:deb/debian/libc6", "CVE-2026-5450", claimsv1.TP)))
+	rec := scanned(t, g)
+	rec.Setups = map[string]setup.Prepared{pairing.Candidate: {}, pairing.Reference: {}}
+	if _, err := gateOf(t, g, rec); err != nil {
+		t.Fatalf("expected the whole record scored, got %v", err)
+	}
+	delete(rec.Subjects[0].Scans, pairing.Reference)
+	if _, err := gateOf(t, g, rec); err == nil || !strings.Contains(err.Error(), "subject deb has no reference scan") {
+		t.Errorf("expected the missing reference scan refused, got %v", err)
 	}
 }

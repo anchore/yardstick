@@ -189,6 +189,11 @@ func (m Scans) Gate(ctx context.Context, g *gatefile.Gate, set *claims.Set) (*ru
 		partial.Discard()
 		return nil, err
 	}
+	// the last good scans are replaced only by a whole set
+	if err := rec.Complete(); err != nil {
+		partial.Discard()
+		return nil, err
+	}
 	if g.Reference != nil {
 		isAdvisory := func(string) bool { return false }
 		if v := set.Vocabulary(); v != nil {
@@ -233,10 +238,12 @@ func (m Scans) scanAll(ctx context.Context, partial *runrecord.Partial, rec *run
 	}
 	// the executor is carried in the context, as syft does, so the limit is not threaded by hand
 	ctx = gosync.SetContextExecutor(ctx, ExecutorGrype, gosync.NewExecutor(n))
-	// Collect gets the uncancelled ctx so it waits for every scan to finish before the caller
-	// discards the partial; the scans themselves run on the cancellable one.
+	// the scans run on scanCtx, which the caller's cancel (clio cancels on Ctrl-C) and the first
+	// failure both end. Collect returns as soon as its context is done, without waiting for running
+	// scans, so it gets one nothing cancels: no scan is still writing the record when this returns.
 	scanCtx, cancel := context.WithCancel(ctx)
 	defer cancel()
+	collectCtx := context.WithoutCancel(ctx)
 
 	type job struct {
 		sub  *runrecord.Subject
@@ -251,7 +258,7 @@ func (m Scans) scanAll(ctx context.Context, partial *runrecord.Partial, rec *run
 	}
 	var mu sync.Mutex
 	var reused, ran atomic.Int64
-	err := gosync.Collect(&ctx, ExecutorGrype, slices.Values(jobs), func(j job) (struct{}, error) {
+	err := gosync.Collect(&collectCtx, ExecutorGrype, slices.Values(jobs), func(j job) (struct{}, error) {
 		if scanCtx.Err() != nil {
 			return struct{}{}, nil
 		}
@@ -294,6 +301,11 @@ func (m Scans) scanAll(ctx context.Context, partial *runrecord.Partial, rec *run
 		}
 		return struct{}{}, nil
 	}, nil)
+	// an interrupted run skipped the scans it had not started and killed the running ones, which
+	// may have failed or returned nothing; either way it is not a set of scans
+	if ctx.Err() != nil {
+		return fmt.Errorf("scanning gate %s: %w", rec.Gate.Name, ctx.Err())
+	}
 	if err == nil {
 		log.Infof("scans of %s: %d reused, %d ran", rec.Gate.Name, reused.Load(), ran.Load())
 	}
