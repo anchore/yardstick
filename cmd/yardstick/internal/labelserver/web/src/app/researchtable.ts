@@ -79,18 +79,18 @@ export function started(jobs: number, skipped = 0) {
   void kick();
 }
 
-// follow redraws a table from fresh rows when the jobs change while any row on it has a job in
-// flight, or when nothing is in flight any more but the rows still say so (a job that finished
-// before the table saw it run), for as long as the table is on screen
-export function follow(table: HTMLElement, anyInFlight: () => boolean, redraw: () => Promise<void>) {
+// follow redraws from fresh rows when the jobs change while any row on screen has a job in flight,
+// or when nothing is in flight any more but the rows still say so (a job that finished before the
+// screen saw it run), until signal aborts with the view
+export function follow(signal: AbortSignal, anyInFlight: () => boolean, redraw: () => Promise<void>) {
   let seen = "";
   onJobs((j) => {
-    if (!table.isConnected) return false;
+    if (signal.aborted) return false;
     const now = j.jobs.map((x) => `${x.id}:${x.status}:${x.position ?? ""}`).join(",");
     if (anyInFlight() && (now !== seen || !busy(j.summary))) void redraw().catch(() => undefined);
     seen = now;
   });
   // rows cached before their job finished still say it's in flight, and with nothing in flight the
-  // top bar won't read the jobs again by itself: read them once, after the table's first draw
+  // top bar won't read the jobs again by itself: read them once, after the first draw
   setTimeout(() => { if (anyInFlight() && !busy(latest()?.summary)) void kick(); });
 }

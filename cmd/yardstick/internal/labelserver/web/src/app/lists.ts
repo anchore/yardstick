@@ -1,7 +1,6 @@
 // lists.ts is what the list screens share beyond the shell: the loading and error bodies, the one
-// primary button, a cursor for row lists, and a guard against drawing a screen the reader has left.
+// primary button and a cursor for row lists.
 import { el } from "../shared/dom";
-import { formatRoute, parseRoute, type Route } from "./route";
 import { kbd } from "./ui";
 
 export const loading = () => el("div", { class: "placeholder", "data-testid": "loading" }, "Loading…");
@@ -22,15 +21,6 @@ export function keptPrimary(text: string) {
     else if (href) b.setAttribute("href", href);
     return b;
   };
-}
-
-const screen = (r: Route | null) => (r ? formatRoute({ ...r, filters: {} }) : "");
-
-// shown says, later, whether the screen of route r is still the one on show: data that arrives
-// after the reader moved on is dropped
-export function shown(r: Route): () => boolean {
-  const mine = screen(r);
-  return () => screen(parseRoute(location.pathname, location.search)) === mine;
 }
 
 // listCursor walks a list of row links with j and k, by focus; Enter on the focused row follows it

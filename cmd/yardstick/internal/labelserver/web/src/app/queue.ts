@@ -11,7 +11,7 @@ import * as api from "../shared/api";
 import { written } from "./data";
 import { findingView, type QueueMode } from "./finding";
 import { checkRows, isOpen } from "./listing";
-import { failed, loading, shown } from "./lists";
+import { failed, loading } from "./lists";
 import { position, type Item } from "./neighbors";
 import { entryGate, exitRoute, newlyDone, ordered, pickNext, scopeGate, walk, type DoneRow, type QueueRoute } from "./queuelist";
 import { boundaryWords, outcomeLines, progress, sessionLabels, sessionWords, settledWords, whyNext } from "./queuewords";
@@ -53,20 +53,20 @@ function keep(s: Session) {
 
 // fetchQueue is the queue the route names, fresh: a gate scope is that gate's rows (a check's open
 // rows first) and then every other gate's, since the queue continues across gates
-async function fetchQueue(r: QueueRoute): Promise<Queue> {
-  const get = (scope: string) => api.queue(scope, !!r.low);
+async function fetchQueue(r: QueueRoute, signal: AbortSignal): Promise<Queue> {
+  const get = (scope: string) => api.queue(scope, !!r.low, signal);
   const gate = scopeGate(r.scope);
   if (!gate) return get(r.scope ?? "all");
   const [mine, all, cf] = await Promise.all([get(r.scope!), get("all"),
-    r.check ? api.checkFindings(gate, r.check) : null]);
+    r.check ? api.checkFindings(gate, r.check, signal) : null]);
   const first = cf ? checkRows(cf).filter((x) => x.row && isOpen(x)).map((x) => x.row!) : [];
   return { ...all, entries: ordered(first, mine.entries, all.entries) };
 }
 
 // ---------- the view ----------
 
-export function queueView(host: HTMLElement, r: QueueRoute, nav: Nav): View {
-  const alive = shown(r), out: View = {};
+export function queueView(host: HTMLElement, r: QueueRoute, nav: Nav, signal: AbortSignal): View {
+  const out: View = {};
   const s = session(r, !r.row);
   const go = (row: string, replace = false) => nav({ ...r, row }, replace);
   const exit = () => nav(exitRoute(r));
@@ -123,8 +123,8 @@ export function queueView(host: HTMLElement, r: QueueRoute, nav: Nav): View {
 
   async function showEnd(q: Queue) {
     let written = 0;
-    try { written = sessionLabels((await api.history({ limit: 500 })).labels.map((l) => l.label.lastUpdated), s.start); } catch { /* the count is left at 0 */ }
-    if (!alive()) return;
+    try { written = sessionLabels((await api.history({ limit: 500 }, signal)).labels.map((l) => l.label.lastUpdated), s.start); } catch { /* the count is left at 0 */ }
+    if (signal.aborted) return;
     showCard(q, "Nothing left to label", null,
       endCard({ gates: q.gates, foot: `${sessionWords(written, s.hints, s.hand)} They are in ./claims.`, back: gatesHref, history: "/ui/history" }),
       () => nav({ level: "gates", tab: "gates", filters: {} }));
@@ -144,8 +144,8 @@ export function queueView(host: HTMLElement, r: QueueRoute, nav: Nav): View {
 
   async function after(e: QueueEntry | undefined, gate: string, rows: string[], text: string, how: "hint" | "hand", keys: LabelKey[]) {
     let q: Queue;
-    try { q = await fetchQueue(r); } catch (err) { toast((err as Error).message, true); return; }
-    if (!alive()) return;
+    try { q = await fetchQueue(r, signal); } catch (err) { if (!signal.aborted) toast((err as Error).message, true); return; }
+    if (signal.aborted) return;
     s[how === "hint" ? "hints" : "hand"] += Math.max(1, note(q).length);
     keep(s);
     written(text, keys);
@@ -173,11 +173,11 @@ export function queueView(host: HTMLElement, r: QueueRoute, nav: Nav): View {
   // the finding page on the same row and hands it the queue's new bar
   async function load(again = false) {
     let q: Queue;
-    try { q = await fetchQueue(r); } catch (e) {
-      if (alive()) renderShell(host, r, { title: "Labeling", body: failed(e) });
+    try { q = await fetchQueue(r, signal); } catch (e) {
+      if (!signal.aborted) renderShell(host, r, { title: "Labeling", body: failed(e) });
       return;
     }
-    if (!alive()) return;
+    if (signal.aborted) return;
     note(q);
     if (!r.row) {
       if (!q.entries.length) return showEnd(q);
@@ -218,7 +218,7 @@ export function queueView(host: HTMLElement, r: QueueRoute, nav: Nav): View {
       },
     } satisfies QueueMode);
     if (reuse) return reuse.view.refresh?.();
-    const view = findingView(host, { level: "finding", gate, check: null, row, filters: {} }, nav, mode);
+    const view = findingView(host, { level: "finding", gate, check: null, row, filters: {} }, nav, signal, mode);
     page = { row, mode, view };
     out.key = view.key;
   }

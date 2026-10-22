@@ -12,7 +12,7 @@ import { hintWords, labelPicker } from "./findings";
 import { labelsTable, type LRow } from "./labelstable";
 import { openOf } from "./images";
 import { labelText, mergeLabels, pageInfo, shortSource, square, sumTally, type WideLabel } from "./listing";
-import { failed, keptPrimary, listCursor, loading, shown } from "./lists";
+import { failed, keptPrimary, listCursor, loading } from "./lists";
 import { queueFor } from "./queuelist";
 import { formatRoute, withFilters, type Route } from "./route";
 import { bulkResearch, cellFor, follow, researchOf, started, type Research } from "./researchtable";
@@ -26,9 +26,8 @@ const day = (iso: string) => {
   return Number.isNaN(d.getTime()) ? iso : d.toLocaleDateString(undefined, { month: "short", day: "numeric" });
 };
 
-export function gatesView(host: HTMLElement, r0: Route & { level: "gates" }, nav: Nav): View {
+export function gatesView(host: HTMLElement, r0: Route & { level: "gates" }, nav: Nav, signal: AbortSignal): View {
   let r = r0;
-  const alive = shown(r);
   // a filter change before the data is in draws the screen again
   const out: View = { update: () => false };
   // the Unlabeled tab prices research by a gate's state: one job costs the same in every gate
@@ -52,9 +51,9 @@ export function gatesView(host: HTMLElement, r0: Route & { level: "gates" }, nav
   });
 
   read().then(() => {
-    if (!alive()) return;
-    work = r.tab === "gates" ? workBanner(list) : null;
-    tab = r.tab === "unlabeled" ? unlabeledTab(() => sh, async () => { sh = await freshShared(); }, st, r, nav)
+    if (signal.aborted) return;
+    work = r.tab === "gates" ? workBanner(list, signal) : null;
+    tab = r.tab === "unlabeled" ? unlabeledTab(() => sh, async () => { sh = await freshShared(); }, st, r, nav, signal)
       : r.tab === "labels" ? labelsTab(() => labels, r, nav) : gatesTab(() => list.gates, work);
     fill(body, tab.el);
     paint();
@@ -62,12 +61,12 @@ export function gatesView(host: HTMLElement, r0: Route & { level: "gates" }, nav
     out.update = (n) => { r = n as typeof r; return tab.update?.(n) ?? false; };
     out.refresh = async () => {
       await read();
-      if (!alive()) return;
+      if (signal.aborted) return;
       work?.refresh(list);
       tab.refresh();
       paint();
     };
-  }).catch((e) => alive() && renderShell(host, r, { title: "Gates", body: failed(e) }));
+  }).catch((e) => !signal.aborted && renderShell(host, r, { title: "Gates", body: failed(e) }));
   renderShell(host, r, { title: "Gates", body: loading() });
   return out;
 }
@@ -118,7 +117,7 @@ const crossDoing = (f: CrossFinding) => doing(f.research, { open: true, research
 // unlabeledTab is every open finding across gates, the ones whose label decides the most gates
 // first. Research here runs each finding once, under the gate the research page would pick.
 // sh is the view's data as last read, and fresh reads it again for research in flight
-function unlabeledTab(sh: () => SharedState, fresh: () => Promise<void>, st: State | undefined, r0: Route, nav: Nav): Tab {
+function unlabeledTab(sh: () => SharedState, fresh: () => Promise<void>, st: State | undefined, r0: Route, nav: Nav, signal: AbortSignal): Tab {
   let r = r0;
   let byKey = new Map<string, CrossFinding>();
   const research: Research = researchOf(st);
@@ -174,7 +173,7 @@ function unlabeledTab(sh: () => SharedState, fresh: () => Promise<void>, st: Sta
     return true;
   }
   update(r);
-  follow(table.el, () => sh().findings.some((f) => inFlight(f.research)), redraw);
+  follow(signal, () => sh().findings.some((f) => inFlight(f.research)), redraw);
   return { el: [el("div", { class: "filters" }, el("p", { class: "help" }, "Labels are about a match, not a gate: one label counts in every gate that reports it."), search), table.el], key: table.key, update, refresh: () => update(r) };
 }
 

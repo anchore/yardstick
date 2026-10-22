@@ -9,7 +9,7 @@ import { findingsList } from "./findings";
 import { noCounts, type RailImage } from "./images";
 import { labelsTable } from "./labelstable";
 import { gateRows, nextOpen, pageSize, sumTally, type FRow } from "./listing";
-import { failed, keptPrimary, listCursor, loading, shown } from "./lists";
+import { failed, keptPrimary, listCursor, loading } from "./lists";
 import { railHints } from "./hints";
 import { imageRail, type Rail } from "./rail";
 import { queueFor, researchFor } from "./queuelist";
@@ -46,9 +46,9 @@ export const lookupsAlert = (st: State) => st.outdatedLookups
   ? el("div", { class: "alert", role: "status", "data-testid": "outdated-lookups" }, el("h2", {}, "Computed reasons may be out of date"), el("section", {}, st.outdatedLookups))
   : null;
 
-export function gateView(host: HTMLElement, r0: GateRoute, nav: Nav): View {
+export function gateView(host: HTMLElement, r0: GateRoute, nav: Nav, signal: AbortSignal): View {
   let r = r0;
-  const gate = r.gate, alive = shown(r), out: View = { update: () => false };
+  const gate = r.gate, out: View = { update: () => false };
   let st: State, all: GateLabels, rows: FRow[] = [], images: RailImage[] = [];
   const imageOf = (slug: string | undefined) => images.find((i) => i.slug === slug) ?? null;
   // the Labels tab's rail counts labels, the others changed matches
@@ -82,11 +82,11 @@ export function gateView(host: HTMLElement, r0: GateRoute, nav: Nav): View {
   }
 
   read().then(() => {
-    if (!alive()) return;
+    if (signal.aborted) return;
     rail = imageRail({ images: railed(), selected: imageOf(r.filters.image)?.slug ?? null, scope: r.tab === "labels" ? "labels" : "gate",
       onSelect: (slug) => nav(withFilters(r, { image: slug ?? undefined })) });
     if (r.tab !== "labels") railHints(rail, gate);
-    tab = r.tab === "findings" ? findingsTab(gate, () => rows, async () => (rows = gateRows(await freshState(gate))), r, nav, st)
+    tab = r.tab === "findings" ? findingsTab(gate, () => rows, async () => (rows = gateRows(await freshState(gate))), r, nav, st, signal)
       : r.tab === "labels" ? labelsTab(gate, r, nav, (slug) => !!imageOf(slug))
         : r.tab === "map" ? mapTab(() => st, r, nav)
           : checksTab(() => st);
@@ -95,13 +95,13 @@ export function gateView(host: HTMLElement, r0: GateRoute, nav: Nav): View {
     out.update = (nr) => { r = nr as GateRoute; paint(); return true; };
     out.refresh = async () => {
       await read();
-      if (!alive()) return;
+      if (signal.aborted) return;
       rail.images(railed());
       if (r.tab !== "labels") railHints(rail, gate);
       paint(true);
     };
     out.key = (e) => (e.key === "r" && research.go()) || tab.key(e) || rail.key(e);
-  }).catch((e) => alive() && renderShell(host, r, { title: gate, body: failed(e) }));
+  }).catch((e) => !signal.aborted && renderShell(host, r, { title: gate, body: failed(e) }));
   renderShell(host, r, { title: gate, body: loading() });
   return out;
 }
@@ -169,9 +169,9 @@ function checksTab(st: () => State): Tab {
 // ---------- Findings ----------
 
 // rows are the gate's rows as the view last read them, and fresh reads them again
-function findingsTab(gate: string, rows: () => FRow[], fresh: () => Promise<FRow[]>, r0: Route, nav: Nav, st: State): Tab {
+function findingsTab(gate: string, rows: () => FRow[], fresh: () => Promise<FRow[]>, r0: Route, nav: Nav, st: State, signal: AbortSignal): Tab {
   let r = r0;
-  const list = findingsList({ gate, route: r, nav, vocab: st.vocabulary, research: researchOf(st), fresh,
+  const list = findingsList({ gate, route: r, nav, vocab: st.vocabulary, research: researchOf(st), fresh, signal,
     open: (x) => x.row && nav({ level: "finding", gate, check: null, row: x.row, filters: r.filters }) });
   return {
     el: list.el,

@@ -16,12 +16,12 @@ export interface FindingData {
   image: { name: string; slug: string; ref: string };
 }
 
-export async function loadFinding(gate: string, id: string, check: string | null, filters: Filters): Promise<FindingData> {
+export async function loadFinding(gate: string, id: string, check: string | null, filters: Filters, signal?: AbortSignal): Promise<FindingData> {
   const [state, detail, matches, cf] = await Promise.all([
-    api.state(gate), api.row(gate, id),
+    api.state(gate, signal), api.row(gate, id, signal),
     // the raw matches only draw the lanes and the Raw match tab; the page stands without them
-    api.matches(gate, id).catch(() => null),
-    check ? api.checkFindings(gate, check) : Promise.resolve(null),
+    api.matches(gate, id, signal).catch(() => null),
+    check ? api.checkFindings(gate, check, signal) : Promise.resolve(null),
   ]);
   const si = state.subjects.findIndex((s) => s.rows.some((r) => r.id === id));
   const sub = state.subjects[si] ?? state.subjects[0];

@@ -10,7 +10,7 @@ import { checkCounts, checkMeter, countWords, railImages } from "./gate";
 const sentenceCase = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
 import { noCounts, type RailImage } from "./images";
 import { checkRows, nextOpen, type FRow } from "./listing";
-import { failed, keptPrimary, loading, shown } from "./lists";
+import { failed, keptPrimary, loading } from "./lists";
 import { railHints } from "./hints";
 import { imageRail, type Rail } from "./rail";
 import { queueFor, researchFor } from "./queuelist";
@@ -22,9 +22,9 @@ import { imageName, status } from "./ui";
 
 type CheckRoute = Route & { level: "check" };
 
-export function checkView(host: HTMLElement, r0: CheckRoute, nav: Nav): View {
+export function checkView(host: HTMLElement, r0: CheckRoute, nav: Nav, signal: AbortSignal): View {
   let r = r0;
-  const { gate, check } = r, alive = shown(r), out: View = { update: () => false };
+  const { gate, check } = r, out: View = { update: () => false };
   let f: CheckFindings, st: State, rows: FRow[] = [], images: RailImage[] = [], shownRows: FRow[] = [];
   const imageOf = (slug: string | undefined) => images.find((i) => i.slug === slug) ?? null;
   const read = () => Promise.all([checkFindings(gate, check), gateState(gate)]).then(([nf, ns]) => {
@@ -57,7 +57,7 @@ export function checkView(host: HTMLElement, r0: CheckRoute, nav: Nav): View {
   }
 
   read().then(() => {
-    if (!alive()) return;
+    if (signal.aborted) return;
     rail = imageRail({ images, selected: imageOf(r.filters.image)?.slug ?? null, scope: "check", onSelect: (slug) => nav(withFilters(r, { image: slug ?? undefined })) });
     railHints(rail, gate);
 
@@ -76,20 +76,20 @@ export function checkView(host: HTMLElement, r0: CheckRoute, nav: Nav): View {
       const [nf, ns] = await Promise.all([freshFindings(gate, check), freshState(gate)]);
       return (rows = checkRows(nf, ns));
     };
-    list = findingsList({ gate, route: r, nav, vocab: st.vocabulary, extra: [toggle, group], testid: "check-table", research: researchOf(st), fresh,
+    list = findingsList({ gate, route: r, nav, vocab: st.vocabulary, extra: [toggle, group], testid: "check-table", research: researchOf(st), fresh, signal,
       open: (x) => x.row && nav({ level: "finding", gate, check, row: x.row, filters: r.filters }) });
     body = el("div", { class: "screen" }, list.el);
     paint();
     out.update = (nr) => { r = nr as CheckRoute; paint(); return true; };
     out.refresh = async () => {
       await read();
-      if (!alive()) return;
+      if (signal.aborted) return;
       rail.images(images);
       railHints(rail, gate);
       paint(true);
     };
     out.key = (e) => (e.key === "r" && research.go()) || list.table.key(e) || rail.key(e);
-  }).catch((e) => alive() && renderShell(host, r, { title: check, body: failed(e) }));
+  }).catch((e) => !signal.aborted && renderShell(host, r, { title: check, body: failed(e) }));
   renderShell(host, r, { title: check, body: loading() });
   return out;
 }

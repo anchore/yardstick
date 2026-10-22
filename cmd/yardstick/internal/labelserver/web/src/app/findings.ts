@@ -52,6 +52,7 @@ export interface FindingsOptions {
   testid?: string;
   research: Research;
   fresh: () => Promise<FRow[]>; // the rows read again, for research in flight
+  signal: AbortSignal;          // the view's, which the table follows research until
 }
 
 export interface FindingsList {
@@ -127,7 +128,7 @@ export function findingsList(o: FindingsOptions): FindingsList {
       return shown;
     },
   };
-  follow(table.el, () => rows.some((x) => inFlight(x.research)), redraw);
+  follow(o.signal, () => rows.some((x) => inFlight(x.research)), redraw);
   return out;
 }
 

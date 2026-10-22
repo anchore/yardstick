@@ -49,15 +49,13 @@ function savedTab(): Tab {
 function saveTab(t: Tab) { try { localStorage.setItem(tabKey, t); } catch { /* no storage: the tab resets next time */ } }
 
 const sleep = (ms: number) => new Promise((done) => setTimeout(done, ms));
-let current = 0; // the newest load anywhere on the page; an older one finishing late doesn't paint
-let views = 0;   // the newest finding view; research polling stops when its view is gone
 // the last list loaded, so j and k pressed again before the next finding loads still walk it
 let lastList: { key: string; items: Item[] } | null = null;
 
-export function findingView(host: HTMLElement, r: FindingRoute, nav: Nav, q?: QueueMode): View {
-  const gen = ++views, path = formatRoute(q?.route ?? r).split("?")[0];
-  // live is this view still on screen: no newer finding view, and the URL still names this row
-  const live = () => gen === views && location.pathname === path;
+// signal aborts once the view is off screen (main.ts, or the queue holding the page)
+export function findingView(host: HTMLElement, r: FindingRoute, nav: Nav, signal: AbortSignal, q?: QueueMode): View {
+  // loads counts this view's loads; an older one finishing late doesn't paint
+  let loads = 0;
   const listKey = formatRoute({ ...r, row: "" });
   let d: FindingData | null = null;
   // the label panel and the page body are built with the first data and kept, so a repaint (a save
@@ -69,18 +67,18 @@ export function findingView(host: HTMLElement, r: FindingRoute, nav: Nav, q?: Qu
   const go = (row: string | undefined, none: string) => (row ? nav(at(row)) : toast(none));
 
   async function load() {
-    const mine = ++current;
+    const mine = ++loads;
     // this page writes and researches outside data.ts, so the lists read fresh after it
     forget();
     try {
-      const next = await loadFinding(r.gate, r.row, r.check, r.filters);
-      if (mine !== current || !live()) return;
+      const next = await loadFinding(r.gate, r.row, r.check, r.filters, signal);
+      if (mine !== loads || signal.aborted) return;
       d = next;
       lastList = { key: listKey, items: next.list };
       paint();
       if (researching(next.row)) void follow();
     } catch (e) {
-      if (mine !== current || !live()) return;
+      if (mine !== loads || signal.aborted) return;
       renderShell(host, r, { title: "Not found", body: el("div", { class: "placeholder", "data-testid": "placeholder" }, (e as Error).message) });
     }
   }
@@ -165,6 +163,8 @@ export function findingView(host: HTMLElement, r: FindingRoute, nav: Nav, q?: Qu
   async function write(rows: string[], text: string, call: () => Promise<{ labels: LabelKey[] }>, how: "hint" | "hand" = "hint") {
     let keys: LabelKey[];
     try { keys = (await call()).labels; } catch (e) { toast((e as Error).message, true); return; }
+    // the reader left while it was written: say so with its Undo, and go nowhere
+    if (signal.aborted) { written(text, keys); changed(); return; }
     await after(rows, text, how, keys);
   }
   const said = (v: claimsv1.Verdict) => `${labels[v].glyph} ${labels[v].word}`;
@@ -210,9 +210,9 @@ export function findingView(host: HTMLElement, r: FindingRoute, nav: Nav, q?: Qu
   async function follow() {
     if (following) return;
     following = true;
-    for (let i = 0; i < 300 && d && researching(d.row) && live(); i++) {
+    for (let i = 0; i < 300 && d && researching(d.row) && !signal.aborted; i++) {
       await sleep(2000);
-      if (live()) await load();
+      if (!signal.aborted) await load();
     }
     following = false;
   }

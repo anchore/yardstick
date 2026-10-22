@@ -13,7 +13,7 @@ import { labels as words, plural } from "../shared/words";
 import { busy, kick, latest, onJobs } from "./activity";
 import { gateState } from "./data";
 import { hintsHref } from "./hintsdata";
-import { failed, loading, shown } from "./lists";
+import { failed, loading } from "./lists";
 import { started, tick } from "./researchtable";
 import { costWords, fromWords, jobGroups, liveLog, modelWords, money, newHints, stateWords, timeWords } from "./researchwords";
 import { formatRoute, type Route } from "./route";
@@ -34,8 +34,7 @@ export function jobsToggle(on: "matches" | "jobs") {
 // Where is a job's rows as the page names them: the image, and every version they cover
 interface Where { image: string; versions: string[] }
 
-export function jobsView(host: HTMLElement, r: Extract<Route, { level: "jobs" }>, _nav: Nav): View {
-  const alive = shown(r);
+export function jobsView(host: HTMLElement, r: Extract<Route, { level: "jobs" }>, _nav: Nav, signal: AbortSignal): View {
   const more = { queued: false, finished: false };
   const sum = el("section", { class: "jsum", "data-testid": "jobs-summary" });
   const list = el("div", { class: "jt", "data-testid": "jobs-list" });
@@ -46,7 +45,7 @@ export function jobsView(host: HTMLElement, r: Extract<Route, { level: "jobs" }>
 
   // read is the jobs, their price basis and the hints nobody has accepted, read again by a refresh
   async function read() {
-    const [j, plan, hints] = await Promise.all([api.researchJobs(), api.planResearch({ scope: "all" }).catch(() => null),
+    const [j, plan, hints] = await Promise.all([api.researchJobs(signal), api.planResearch({ scope: "all" }).catch(() => null),
       api.hints().catch(() => null)]);
     basis = plan?.estimate.basis ?? null;
     pending = hints?.hints ?? [];
@@ -56,12 +55,12 @@ export function jobsView(host: HTMLElement, r: Extract<Route, { level: "jobs" }>
 
   async function load() {
     const j = await read();
-    if (!alive()) return;
+    if (signal.aborted) return;
     shell(el("div", { class: "screen" }, sum, list));
     draw(j);
     // the top bar reads the jobs while any is in flight; the page redraws on each read
     onJobs((next) => {
-      if (!alive() || !list.isConnected) return false;
+      if (signal.aborted) return false;
       void place(next).then(() => draw(next));
     });
     void kick();
@@ -186,6 +185,6 @@ export function jobsView(host: HTMLElement, r: Extract<Route, { level: "jobs" }>
   }
 
   renderShell(host, r, { title: "Research jobs", actions: jobsToggle("jobs"), body: loading() });
-  load().catch((e) => alive() && renderShell(host, r, { title: "Research jobs", body: failed(e) }));
-  return { refresh: async () => { const j = await read(); if (alive() && list.isConnected) draw(j); } };
+  load().catch((e) => !signal.aborted && renderShell(host, r, { title: "Research jobs", body: failed(e) }));
+  return { refresh: async () => { const j = await read(); if (!signal.aborted && list.isConnected) draw(j); } };
 }

@@ -31,6 +31,9 @@ import { renderShell, type View } from "./shell";
 const host = must("#app");
 let route: Route | null = null;
 let view: View = {};
+// life aborts when render() replaces the view on screen: the view's fetches and late callbacks
+// take its signal and stop
+let life = new AbortController();
 
 const screenOf = (r: Route) => formatRoute({ ...r, filters: {} });
 
@@ -50,17 +53,20 @@ function render() {
   }
   route = next;
   document.title = next ? `${crumbs(next).at(-1)!.label} · yardstick` : "yardstick";
+  life.abort();
+  life = new AbortController();
+  const signal = life.signal;
   view = next == null ? notFound()
     : next.level === "kit" ? kitView(host, next, nav)
-      : next.level === "gates" ? gatesView(host, next, nav)
-        : next.level === "gate" ? gateView(host, next, nav)
-          : next.level === "check" ? checkView(host, next, nav)
-            : next.level === "finding" ? findingView(host, next, nav)
-              : next.level === "hints" ? hintsView(host, next, nav)
-                : next.level === "queue" ? queueView(host, next, nav)
-                  : next.level === "research" ? researchView(host, next, nav)
-                    : next.level === "jobs" ? jobsView(host, next, nav)
-                      : historyView(host, next, nav);
+      : next.level === "gates" ? gatesView(host, next, nav, signal)
+        : next.level === "gate" ? gateView(host, next, nav, signal)
+          : next.level === "check" ? checkView(host, next, nav, signal)
+            : next.level === "finding" ? findingView(host, next, nav, signal)
+              : next.level === "hints" ? hintsView(host, next, nav, signal)
+                : next.level === "queue" ? queueView(host, next, nav, signal)
+                  : next.level === "research" ? researchView(host, next, nav, signal)
+                    : next.level === "jobs" ? jobsView(host, next, nav, signal)
+                      : historyView(host, next, nav, signal);
 }
 
 function notFound(): View {

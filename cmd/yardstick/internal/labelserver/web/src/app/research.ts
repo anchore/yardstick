@@ -15,7 +15,7 @@ import { forget, gateList } from "./data";
 import { effectCell } from "./findings";
 import { jobsToggle } from "./jobs";
 import { effectRank } from "./listing";
-import { failed, loading, shown } from "./lists";
+import { failed, loading } from "./lists";
 import { queueFor } from "./queuelist";
 import { formatRoute, withFilters, type Route } from "./route";
 import { renderShell, type Nav, type View } from "./shell";
@@ -36,8 +36,8 @@ const chipWords: Record<string, string> = { all: "All", change: "Can change a ga
 // models the page offers; the configured one is added when it is none of these
 const models = ["sonnet", "opus", "haiku"];
 
-export function researchView(host: HTMLElement, r: ResearchRoute, nav: Nav): View {
-  const alive = shown(r), scope = r.scope ?? "all", rows = r.rows, check = rows ? undefined : r.check;
+export function researchView(host: HTMLElement, r: ResearchRoute, nav: Nav, signal: AbortSignal): View {
+  const scope = r.scope ?? "all", rows = r.rows, check = rows ? undefined : r.check;
   const left = el("a", { class: "btn", "data-variant": "outline", href: formatRoute(queueFor(r)), "data-testid": "label-left" }, "Label what's left ", kbd("n"));
   const toggle = jobsToggle("matches");
   // the plan has both groups selected, so each match sits in one job and the change group claims first
@@ -46,10 +46,10 @@ export function researchView(host: HTMLElement, r: ResearchRoute, nav: Nav): Vie
   // a write elsewhere (a toast's Undo) plans again and draws the page over what's there, its checks
   // starting over as on arrival
   const load = () => Promise.all([gateList(), plan()]).then(([list, first]) => {
-    if (alive()) update = draw(list, first);
+    if (!signal.aborted) update = draw(list, first);
   });
 
-  load().catch((e) => alive() && renderShell(host, r, { title: "Research open matches", actions: [toggle, left], body: failed(e) }));
+  load().catch((e) => !signal.aborted && renderShell(host, r, { title: "Research open matches", actions: [toggle, left], body: failed(e) }));
   renderShell(host, r, { title: "Research open matches", actions: [toggle, left], body: loading() });
 
   function draw(list: GateList, first: ResearchQueueResponse) {
@@ -89,7 +89,7 @@ export function researchView(host: HTMLElement, r: ResearchRoute, nav: Nav): Vie
         x.siblings ? `shares with ${x.siblings}` : "own job") },
       { key: "price", label: "Price", num: true, help: help.price, cell: (x) => el("span", { class: "cost", "data-testid": "research-row-price" }, x.job === x.id ? each() : "") },
     ];
-    // groupHeader is a group's row: a box for every match of it shown, then its matches, jobs and price
+    // groupHeader is a group's row: a box for every match of it then its matches, jobs and price
     function groupHeader(g: string, rs: RRow[]) {
       const on = new Set(table.selected()), n = rs.filter((x) => on.has(x.id)).length, jobs = jobsIn(rs);
       const box: HTMLInputElement = el("input", { type: "checkbox", checked: n === rs.length, "aria-label": `Check every match shown in ${groups[g].title}`, "data-testid": "research-group-toggle",
@@ -186,7 +186,7 @@ export function researchView(host: HTMLElement, r: ResearchRoute, nav: Nav): Vie
       const mine = ++seq;
       try {
         const p = await plan(model.value);
-        if (mine !== seq || !alive()) return;
+        if (mine !== seq || signal.aborted) return;
         basis = p.estimate.basis;
         refresh();
       } catch (e) {

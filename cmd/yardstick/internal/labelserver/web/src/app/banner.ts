@@ -32,7 +32,8 @@ export interface Work {
   refresh(list: GateList): void;
 }
 
-export function workBanner(list: GateList): Work {
+// signal is the gates view's: the banner stops reading once it aborts
+export function workBanner(list: GateList, signal: AbortSignal): Work {
   let gates = list.gates.filter((g) => !g.error);
   const nums = { open: el("b", { "data-testid": "work-open" }, "–"), hinted: el("b", { "data-testid": "work-hinted" }, "–"), need: el("b", { "data-testid": "work-need" }, "–") };
   const big = (b: HTMLElement, word: string) => el("div", { class: "big" }, b, el("span", {}, word));
@@ -141,10 +142,10 @@ export function workBanner(list: GateList): Work {
     watching = true;
     setTimeout(async () => {
       watching = false;
-      if (!banner.isConnected) return;
+      if (signal.aborted) return;
       try {
         const [b, res] = await Promise.all([api.researchBatch(), api.hints()]);
-        if (!banner.isConnected) return;
+        if (signal.aborted) return;
         const pending = inScope(res.hints, {}).hints.length;
         fill(review, `Review ${plural(pending, "hint")} `, kbd("h"));
         if (active(b)) { running(b, pending); watch(); } else void load();
@@ -158,7 +159,7 @@ export function workBanner(list: GateList): Work {
     const [res, queue, plan, batch] = await Promise.all([api.hints(), api.queue("all", true),
       // research may be off here (no runner, or the plugin missing): the banner then never offers it
       api.planResearch({ scope: "all" }).catch(() => null), api.researchBatch().catch(() => null)]);
-    if (!banner.isConnected) return;
+    if (signal.aborted) return;
     const n = workNumbers(queue.entries), all = res.hints;
     fill(nums.open, n.open.toLocaleString());
     fill(nums.hinted, n.hinted.toLocaleString());

@@ -8,7 +8,7 @@ import { columnHelp, justWords, plural } from "../shared/words";
 import { revert } from "./data";
 import * as api from "../shared/api";
 import { pageInfo, pageSize, shortSource } from "./listing";
-import { failed, loading, shown } from "./lists";
+import { failed, loading } from "./lists";
 import { dayKey, dayWords } from "./queuewords";
 import { formatRoute, withFilters, type Route, type VerdictFilter } from "./route";
 import { renderShell, type Nav, type View } from "./shell";
@@ -31,9 +31,8 @@ function query(r: HistoryRoute): api.HistoryQuery {
   return { since: f.since === "all" ? undefined : f.since ?? "start", verdict: f.verdict === "unlabeled" ? undefined : f.verdict, q: f.q };
 }
 
-export function historyView(host: HTMLElement, r0: HistoryRoute, nav: Nav): View {
+export function historyView(host: HTMLElement, r0: HistoryRoute, nav: Nav, signal: AbortSignal): View {
   let r = r0, seq = 0;
-  const alive = shown(r);
   const search: HTMLInputElement = el("input", { class: "input search", type: "search", placeholder: "Filter by CVE, package, image, reason, note…", "aria-label": "Filter history", value: r.filters.q ?? "",
     oninput: () => nav(withFilters(r, { q: search.value }), true) });
   const chipRow = el("div", { class: "chips", role: "group", "aria-label": "Filter by verdict" });
@@ -96,8 +95,8 @@ export function historyView(host: HTMLElement, r0: HistoryRoute, nav: Nav): View
     r = next as HistoryRoute;
     const mine = ++seq, f = r.filters;
     let h: History;
-    try { h = await api.history({ ...query(r), offset: ((f.page ?? 1) - 1) * pageSize, limit: pageSize }); } catch (e) { if (alive()) renderShell(host, r, { title: "History", body: failed(e) }); return; }
-    if (mine !== seq || !alive()) return;
+    try { h = await api.history({ ...query(r), offset: ((f.page ?? 1) - 1) * pageSize, limit: pageSize }, signal); } catch (e) { if (!signal.aborted) renderShell(host, r, { title: "History", body: failed(e) }); return; }
+    if (mine !== seq || signal.aborted) return;
     if (!host.contains(table.el)) draw(h);
     if (document.activeElement !== search && search.value !== (f.q ?? "")) search.value = f.q ?? "";
     started = h.started; total = h.total; shownLabels = h.labels; confirm.hidden = true;

@@ -9,7 +9,7 @@ import { changed, gateList, gateState, written } from "./data";
 import { hintsHref, imageHints, inScope, parseScope, preselected, previewLabels, rowCount, stillOpen, type OpenRow } from "./hintsdata";
 import { noCounts, type RailImage } from "./images";
 import { gateRows, isOpen } from "./listing";
-import { failed, loading, shown } from "./lists";
+import { failed, loading } from "./lists";
 import { imageRail, type Rail } from "./rail";
 import { busy, kick, latest, onJobs } from "./activity";
 import { scopedResearch } from "./research";
@@ -38,9 +38,11 @@ const stateWord = (s: string) => el("span", { class: `sw ${s}` }, s);
 
 interface Data { list: GateList; all: HintEntry[]; states: Map<string, State> }
 
-export function hintsView(host: HTMLElement, r0: Route & { level: "hints" }, _nav: Nav): View {
+export function hintsView(host: HTMLElement, r0: Route & { level: "hints" }, _nav: Nav, signal: AbortSignal): View {
   // a write here or anywhere reads the hints again and draws the screen over what's there
-  const r = r0, alive = shown(r), out: View = { update: () => false, refresh: async () => { await load(); } };
+  const r = r0, out: View = { update: () => false, refresh: async () => { await load(); } };
+  // the strip saying more hints are coming, built once since it follows the jobs
+  const strip = onTheWay(signal);
   // the reader's own checks, over preselection; kept across filter changes, cleared by an accept
   const chosen = new Map<string, boolean>();
   let data: Data | null = null;
@@ -48,11 +50,11 @@ export function hintsView(host: HTMLElement, r0: Route & { level: "hints" }, _na
   const load = () => Promise.all([gateList(), api.hints()]).then(async ([list, res]) => {
     const gates = list.gates.filter((g) => !g.error);
     const states = new Map(await Promise.all(gates.map(async (g) => [g.id, await gateState(g.id)] as const)));
-    if (!alive()) return;
+    if (signal.aborted) return;
     data = { list, all: res.hints, states };
     draw();
     out.update = () => { draw(); return true; };
-  }).catch((e) => alive() && renderShell(host, r, { title: "Agent hints", body: failed(e) }));
+  }).catch((e) => !signal.aborted && renderShell(host, r, { title: "Agent hints", body: failed(e) }));
 
   function draw() {
     const d = data!, scope = parseScope(location.search);
@@ -116,7 +118,7 @@ export function hintsView(host: HTMLElement, r0: Route & { level: "hints" }, _na
       actions: chips,
       rail,
       scope: img && { label: imageName(img.name, img.ref), clear: () => go(hintsHref({ ...scope, image: undefined })) },
-      body: el("div", { class: "screen" }, onTheWay(), filters,
+      body: el("div", { class: "screen" }, strip, filters,
         hints.length
           ? el("div", { class: "review" }, el("div", { class: "hgroups" }, groupEls), impact)
           : el("div", { class: "placeholder", "data-testid": "hints-empty" }, "No pending agent hints here.")),
@@ -190,7 +192,7 @@ export function hintsView(host: HTMLElement, r0: Route & { level: "hints" }, _na
 
 // onTheWay is the strip saying more hints are coming while research is in flight, with the way to
 // the jobs; it follows the top bar's reads of the jobs
-function onTheWay() {
+function onTheWay(signal: AbortSignal) {
   const strip = el("div", { class: "strip", hidden: true, "data-testid": "hints-on-the-way" });
   const draw = (s: ResearchJobsSummary) => {
     strip.hidden = !busy(s);
@@ -201,7 +203,7 @@ function onTheWay() {
   };
   const was = latest();
   if (was) draw(was.summary);
-  onJobs((j) => { if (!strip.isConnected) return false; draw(j.summary); });
+  onJobs((j) => { if (signal.aborted) return false; draw(j.summary); });
   void kick();
   return strip;
 }
