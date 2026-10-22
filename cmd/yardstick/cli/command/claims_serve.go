@@ -9,6 +9,7 @@ import (
 	"os"
 	"os/exec"
 	"runtime"
+	"strconv"
 	"time"
 
 	"github.com/spf13/cobra"
@@ -35,7 +36,7 @@ func (c *claimsServeConfig) AddFlags(flags clio.FlagSet) {
 	c.claimsOption.AddFlags(flags)
 	c.nameOption.AddFlags(flags)
 	flags.StringVarP(&c.Author, "author", "", "who makes the calls (default: git config user.name)")
-	flags.StringVarP(&c.Addr, "addr", "", "address to listen on; keep it on localhost, since a per-start token is the only authentication")
+	flags.StringVarP(&c.Addr, "addr", "", "loopback address to listen on; a per-start token is the only authentication, so no other is accepted")
 	flags.BoolVarP(&c.Open, "open", "", "open the UI in a browser")
 	flags.StringVarP(&c.ResearchModel, "research-model", "", "model research jobs run on")
 }
@@ -138,8 +139,14 @@ func serve(ctx context.Context, cmd *cobra.Command, addr string, open bool, h ht
 	if err != nil {
 		return err
 	}
-	h = labelserver.LocalOnly(ln.Addr().(*net.TCPAddr).Port, h)
-	url := "http://" + ln.Addr().String() + "/"
+	bound := ln.Addr().(*net.TCPAddr)
+	if !bound.IP.IsLoopback() {
+		ln.Close()
+		return fmt.Errorf("--addr %s listens on %s, beyond this machine; the label server has no authentication but a per-start token, so give a loopback address such as 127.0.0.1:%d", addr, bound.IP, bound.Port)
+	}
+	h = labelserver.LocalOnly(bound.Port, h)
+	// a name LocalOnly allows, whatever form the address was given in
+	url := "http://" + net.JoinHostPort(bound.IP.String(), strconv.Itoa(bound.Port)) + "/"
 	out := newPrinter(cmd.OutOrStdout())
 	out.row(out.done(), "labeling at "+out.bold(url), out.dim("ctrl-c to stop"))
 	if err := out.flush(); err != nil {

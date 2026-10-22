@@ -118,6 +118,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/fs"
+	"net"
 	"net/http"
 	"net/url"
 	"strings"
@@ -301,16 +302,21 @@ func (s *Server) servePage(w http.ResponseWriter, path string) {
 	_, _ = w.Write(bytes.ReplaceAll(page, []byte("{{TOKEN}}"), []byte(s.token)))
 }
 
-// LocalOnly refuses a request whose Host is not this server's loopback address on port, and a POST
-// whose Origin, when present, is not one of those: a page on another site that rebinds its name to
-// 127.0.0.1 reaches the server under its own Host, and the token alone does not stop a rebound page
-// from reading it out of a served page.
+// LocalOnly refuses a request from anywhere but this machine, whose Host is not this server's
+// loopback address on port, or a POST whose Origin, when present, is not one of those: a page on
+// another site that rebinds its name to 127.0.0.1 reaches the server under its own Host, the token
+// alone does not stop a rebound page from reading it out of a served page, and a client elsewhere
+// can send any Host it likes.
 func LocalOnly(port int, h http.Handler) http.Handler {
 	allowed := map[string]bool{}
 	for _, host := range []string{"127.0.0.1", "localhost", "[::1]"} {
 		allowed[fmt.Sprintf("%s:%d", host, port)] = true
 	}
 	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+		if host, _, err := net.SplitHostPort(req.RemoteAddr); err != nil || !net.ParseIP(host).IsLoopback() {
+			http.Error(w, "only this machine may use the label server", http.StatusForbidden)
+			return
+		}
 		if !allowed[req.Host] {
 			http.Error(w, "unexpected host "+req.Host, http.StatusForbidden)
 			return

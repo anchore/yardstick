@@ -1,6 +1,7 @@
 package main
 
 import (
+	"cmp"
 	"context"
 	"encoding/json"
 	"net/http"
@@ -214,17 +215,21 @@ func TestServeLocalOnly(t *testing.T) {
 	for _, tc := range []struct {
 		method, host, origin string
 		code                 int
+		remote               string
 	}{
-		{http.MethodGet, "127.0.0.1:7655", "", http.StatusOK},
-		{http.MethodGet, "localhost:7655", "", http.StatusOK},
-		{http.MethodPost, "[::1]:7655", "http://localhost:7655", http.StatusOK},
-		{http.MethodGet, "evil.example:7655", "", http.StatusForbidden},
-		{http.MethodGet, "127.0.0.1:8000", "", http.StatusForbidden},
-		{http.MethodPost, "127.0.0.1:7655", "http://evil.example", http.StatusForbidden},
-		{http.MethodPost, "127.0.0.1:7655", "https://127.0.0.1:7655", http.StatusForbidden},
+		{http.MethodGet, "127.0.0.1:7655", "", http.StatusOK, ""},
+		{http.MethodGet, "localhost:7655", "", http.StatusOK, ""},
+		{http.MethodPost, "[::1]:7655", "http://localhost:7655", http.StatusOK, "[::1]:50000"},
+		{http.MethodGet, "evil.example:7655", "", http.StatusForbidden, ""},
+		{http.MethodGet, "127.0.0.1:8000", "", http.StatusForbidden, ""},
+		{http.MethodPost, "127.0.0.1:7655", "http://evil.example", http.StatusForbidden, ""},
+		{http.MethodPost, "127.0.0.1:7655", "https://127.0.0.1:7655", http.StatusForbidden, ""},
+		// a client on the network sending a loopback Host
+		{http.MethodGet, "127.0.0.1:7655", "", http.StatusForbidden, "192.168.1.20:50000"},
 	} {
 		req := httptest.NewRequest(tc.method, "/", nil)
 		req.Host = tc.host
+		req.RemoteAddr = cmp.Or(tc.remote, "127.0.0.1:50000")
 		if tc.origin != "" {
 			req.Header.Set("Origin", tc.origin)
 		}
