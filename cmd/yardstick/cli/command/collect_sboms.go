@@ -106,10 +106,10 @@ func collectImage(cmd *cobra.Command, cfg *collectSBOMsOptions, args []string) e
 	if err != nil {
 		return err
 	}
-	if err := subject.WriteFile(subject.CachePath(image, cat, cat.Platform), data); err != nil {
+	out := subject.CachePath(image, cat, cat.Platform)
+	if err := subject.WriteFile(out, data); err != nil {
 		return err
 	}
-	out := subject.CachePath(image, cat, cat.Platform)
 	switch {
 	case cfg.Out != "":
 		out = cfg.Out

@@ -139,12 +139,7 @@ func historyLabels(src *claims.Source, rows map[string][]GateRow) ([]HistoryLabe
 // historyText says a label holds the lowercase text in its vulnerability, package, image, reason,
 // author or a note.
 func historyText(l HistoryLabel, text string) bool {
-	for _, s := range []string{l.Label.Vulnerability, l.Package.PURL, l.ImageName, l.Label.Justification, l.Label.Author} {
-		if strings.Contains(strings.ToLower(s), text) {
-			return true
-		}
-	}
-	return slices.ContainsFunc(l.Label.Notes, func(n claimsv1.Note) bool { return strings.Contains(strings.ToLower(n.Text), text) })
+	return containsText(text, l.Label.Notes, l.Label.Vulnerability, l.Package.PURL, l.ImageName, l.Label.Justification, l.Label.Author)
 }
 
 // handleHistory answers with the labels in the writable sources, newest first, filtered by

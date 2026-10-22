@@ -505,10 +505,15 @@ func (s *Server) handleGateLabels(w http.ResponseWriter, req *http.Request) {
 
 // matchesText is the free-text filter: vulnerability, package, justification, author or a note.
 func matchesText(l *GateLabel, text string) bool {
-	for _, s := range []string{l.Vulnerability, l.Package.PURL, l.Justification, l.Author} {
+	return containsText(text, l.Notes, l.Vulnerability, l.Package.PURL, l.Justification, l.Author)
+}
+
+// containsText says whether any field or note holds the lowercase text.
+func containsText(text string, notes []claimsv1.Note, fields ...string) bool {
+	for _, s := range fields {
 		if strings.Contains(strings.ToLower(s), text) {
 			return true
 		}
 	}
-	return slices.ContainsFunc(l.Notes, func(n claimsv1.Note) bool { return strings.Contains(strings.ToLower(n.Text), text) })
+	return slices.ContainsFunc(notes, func(n claimsv1.Note) bool { return strings.Contains(strings.ToLower(n.Text), text) })
 }
