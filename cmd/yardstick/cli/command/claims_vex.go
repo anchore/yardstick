@@ -44,7 +44,12 @@ skipped and listed.`,
 			}
 			log.Debugf("options: to=%s author=%s source=%s", cfg.To, cfg.Author, cfg.Source)
 			log.Infof("importing %d VEX documents into %s", len(args), cfg.To)
-			vocab, err := claimsv1.FindVocabulary(os.DirFS(cfg.To))
+			to, err := os.OpenRoot(cfg.To)
+			if err != nil {
+				return err
+			}
+			defer to.Close()
+			vocab, err := claimsv1.FindVocabulary(to.FS())
 			if err != nil {
 				return err
 			}
@@ -112,7 +117,13 @@ statement), and unclear is under_investigation. Evidence and seenIn are not expo
 			}
 			log.Debugf("options: output=%q author=%s", cfg.Output, cfg.Author)
 			log.Infof("exporting %s as VEX", args[0])
-			data, err := vex.Export(os.DirFS(args[0]), cfg.Author)
+			// a corpus can be pull request content, so a symlink in it never leads the export outside
+			root, err := os.OpenRoot(args[0])
+			if err != nil {
+				return err
+			}
+			defer root.Close()
+			data, err := vex.Export(root.FS(), cfg.Author)
 			if err != nil {
 				return err
 			}

@@ -185,16 +185,37 @@ func TestClaimsAddStaysInsideTheSource(t *testing.T) {
 	}
 }
 
-// importing over a label someone already made says so, since the vendor's statement replaces it
-func TestClaimsImportWarnsOnReplace(t *testing.T) {
+// export reads the corpus through os.Root, so a label file symlinked from outside it is refused
+// rather than exported
+func TestClaimsExportStaysInsideTheCorpus(t *testing.T) {
 	dir := t.TempDir()
-	writeFile(t, filepath.Join(dir, "claims", claimsv1.VocabularyFile), `justifications:
+	writeFile(t, filepath.Join(dir, "outside", claimsv1.VocabularyFile), importVocabulary)
+	if _, stderr, code := yardstick(t, dir, "claims", "import", fixture.Path("vex", "vendor.openvex.json"), "--to", "outside", "--author", "Will Murphy"); code != 0 {
+		t.Fatalf("import: %d %s", code, stderr)
+	}
+	if err := os.MkdirAll(filepath.Join(dir, "corpus", "global"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(filepath.Join(dir, "outside", "global", "rpm.json"), filepath.Join(dir, "corpus", "global", "rpm.json")); err != nil {
+		t.Fatal(err)
+	}
+	if stdout, _, code := yardstick(t, dir, "claims", "export", "--vex", "corpus"); code == 0 || strings.Contains(stdout, "CVE-2024-0727") {
+		t.Errorf("expected the symlinked label file refused, got %d %s", code, stdout)
+	}
+}
+
+const importVocabulary = `justifications:
   fp: {fix-installed: Installed version has the fix, vulnerable_code_not_present: Vulnerable code is not in this package}
   tp: {fix-newer: Fix is in a newer version than installed}
   unclear: {not-assessed: Nobody has assessed this version}
 fact-sources: [openvex]
 vulnerability-namespaces: [CVE]
-`)
+`
+
+// importing over a label someone already made says so, since the vendor's statement replaces it
+func TestClaimsImportWarnsOnReplace(t *testing.T) {
+	dir := t.TempDir()
+	writeFile(t, filepath.Join(dir, "claims", claimsv1.VocabularyFile), importVocabulary)
 	doc := fixture.Path("vex", "vendor.openvex.json")
 	imp := func(author string) string {
 		t.Helper()
