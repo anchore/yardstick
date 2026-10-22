@@ -139,6 +139,41 @@ test.describe("toast undo", () => {
     await expect(lines(page)).toHaveCount(0);
   });
 
+  test("a relabel's Undo puts the earlier label back rather than leaving the match unlabeled", async ({ page }) => {
+    await openFinding(page, rows.tarHand);
+    await setPref(page, "advance-checkbox", false);
+    await label(page, "f", "fix-installed");
+    await expect(page.getByTestId("finding")).toHaveAttribute("data-verdict", "fp");
+    const fp = claimSet();
+    await label(page, "t");
+    await expect(page.getByTestId("finding")).toHaveAttribute("data-verdict", "tp");
+    await expect.poll(() => labelsOf("CVE-2026-18508").map((l) => l.verdict)).toEqual(["tp"]);
+    await toast(page).getByTestId("toast-action").click();
+    await expect(toast(page)).toContainText("1 earlier label put back");
+    await expect(page.getByTestId("finding")).toHaveAttribute("data-verdict", "fp");
+    expect(labelsOf("CVE-2026-18508").map((l) => `${l.verdict} ${l.justification}`)).toEqual(["fp fix-installed"]);
+    expect(claimSet()).toEqual(fp);
+  });
+
+  test("an accepted hint's Undo puts back the person's label it replaced, note and all", async ({ page }) => {
+    await openFinding(page, rows.jfhA, "f1NotWorse");
+    await page.keyboard.press("u");
+    await page.getByTestId("reason-picker").selectOption("not-assessed");
+    await page.getByTestId("note-input").fill("check the jar");
+    await page.getByTestId("save-label").click();
+    await expect.poll(() => labelsOf("GHSA-jfh8-c2jp-5v3q").map((l) => l.verdict)).toEqual(["unclear"]);
+    const unclear = claimSet();
+
+    await page.goto("/ui/hints");
+    await page.getByTestId("hint-item").filter({ hasText: "GHSA-jfh8-c2jp-5v3q" }).getByTestId("hint-check").check();
+    await page.getByTestId("accept-hints").click();
+    await expect.poll(() => labelsOf("GHSA-jfh8-c2jp-5v3q").map((l) => l.verdict)).toEqual(["tp"]);
+    await toast(page).getByTestId("toast-action").click();
+    await expect(toast(page)).toContainText("earlier label put back");
+    await expect.poll(() => labelsOf("GHSA-jfh8-c2jp-5v3q").map((l) => `${l.verdict} ${l.notes.join(" ")}`)).toEqual(["unclear check the jar"]);
+    expect(claimSet().filter((l) => l.includes("GHSA-jfh8"))).toEqual(unclear.filter((l) => l.includes("GHSA-jfh8")));
+  });
+
   test("accepting hints in review undoes as one batch", async ({ page }) => {
     const before = claimSet();
     await acceptAll(page);
