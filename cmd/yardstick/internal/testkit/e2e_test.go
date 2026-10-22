@@ -126,7 +126,7 @@ func TestE2EWorkspace(t *testing.T) {
 	for _, c := range a.Gate.Result.Checks {
 		checks[c.Name] = c.State
 	}
-	wantChecks := map[string]string{"f1NotWorse": "fail", "noNewFalseNegatives": "fail", "noNewFalsePositives": "fail", "unlabeledChangesAtMost": "fail"}
+	wantChecks := map[string]string{"f1NotWorse": "fail", "noNewFalseNegatives": "fail", "noNewFalsePositives": "fail", "unlabeledChangesAtMost": "fail", "matchesAtLeast": "pass"}
 	if a.Gate.Result.Outcome != "fail" || !maps.Equal(checks, wantChecks) {
 		t.Errorf("deb-java: %s %v", a.Gate.Result.Outcome, checks)
 	}

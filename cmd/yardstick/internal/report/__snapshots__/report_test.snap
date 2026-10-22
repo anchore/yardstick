@@ -14,9 +14,11 @@ gate rpm-cpes (gates/rpm-cpes.yaml), scanned 2026-10-14T10:00:00Z
   built: the SBOM of rpm, with syft 1.54.1
 GATE          CHECK                   SUBJECT  STATE  WORST  BEST   THRESHOLD  NOTE
 rpm-coverage  unlabeledPercentAtMost  rpm      pass   99.59  99.59  100
+rpm-coverage  matchesAtLeast          rpm      pass   941    941    1
 rpm-cpes      noNewFalsePositives     rpm      fail   34     1      0
 rpm-cpes      unlabeledChangesAtMost  rpm      fail   33     33     0
 rpm-cpes      noNewFalseNegatives     rpm      pass   0      0      0
+rpm-cpes      matchesAtLeast          rpm      pass   941    941    1
 FAILED 1 of 2 gates
 
 ---
@@ -101,6 +103,29 @@ FAILED 1 of 2 gates
               ]
             }
           ]
+        },
+        {
+          "name": "matchesAtLeast",
+          "scope": "subject",
+          "params": {
+            "min": 1
+          },
+          "threshold": 1,
+          "value": {
+            "worst": 9,
+            "best": 9
+          },
+          "state": "pass",
+          "subjects": [
+            {
+              "subject": "rpm",
+              "value": {
+                "worst": 9,
+                "best": 9
+              },
+              "state": "pass"
+            }
+          ]
         }
       ],
       "effects": [
@@ -109,9 +134,11 @@ FAILED 1 of 2 gates
           "match": "3cfe7d6a1df21d77/CVE-2023-48795",
           "states": {
             "fp": {
+              "matchesAtLeast": "pass",
               "unlabeledPercentAtMost": "pass"
             },
             "tp": {
+              "matchesAtLeast": "pass",
               "unlabeledPercentAtMost": "pass"
             }
           },
@@ -686,6 +713,29 @@ FAILED 1 of 2 gates
               "state": "pass"
             }
           ]
+        },
+        {
+          "name": "matchesAtLeast",
+          "scope": "subject",
+          "params": {
+            "min": 1
+          },
+          "threshold": 1,
+          "value": {
+            "worst": 9,
+            "best": 9
+          },
+          "state": "pass",
+          "subjects": [
+            {
+              "subject": "rpm",
+              "value": {
+                "worst": 9,
+                "best": 9
+              },
+              "state": "pass"
+            }
+          ]
         }
       ],
       "effects": [
@@ -697,11 +747,13 @@ FAILED 1 of 2 gates
           ],
           "states": {
             "fp": {
+              "matchesAtLeast": "pass",
               "noNewFalseNegatives": "pass",
               "noNewFalsePositives": "fail",
               "unlabeledChangesAtMost": "pass"
             },
             "tp": {
+              "matchesAtLeast": "pass",
               "noNewFalseNegatives": "pass",
               "noNewFalsePositives": "fail",
               "unlabeledChangesAtMost": "pass"

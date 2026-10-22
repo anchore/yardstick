@@ -234,7 +234,7 @@ func TestFixVersionIsNotADelta(t *testing.T) {
 	}
 	deb := pairOne(t, "deb", "deb", cand, grype(t, "deb"), label(libc, "CVE-2026-5450", claimsv1.TP))
 	g := evaluate([]gatefile.Check{check(UnlabeledChangesAtMost, map[string]float64{"max": 0}), check(NoNewFalseNegatives, nil)}, deb)
-	for _, c := range g.Checks {
+	for _, c := range g.Checks[:2] {
 		if c.State != Pass || c.Value.Worst != 0 {
 			t.Errorf("%s: expected nothing new, dropped or unlabeled, got %+v", c.Name, c)
 		}
@@ -274,7 +274,7 @@ func TestUnlabeledDeltasAreBounded(t *testing.T) {
 		state State
 		best  float64
 	}{NoNewFalsePositives: {Undecided, 0}, UnlabeledChangesAtMost: {Fail, float64(added)}}
-	for _, c := range g.Checks {
+	for _, c := range g.Checks[:2] {
 		if w := want[c.Name]; c.State != w.state || c.Value.Worst != float64(added) || c.Value.Best != w.best {
 			t.Errorf("%s: expected %s between %v and %d, got %s %+v", c.Name, w.state, w.best, added, c.State, c.Value)
 		}
@@ -436,14 +436,47 @@ func TestNoLabels(t *testing.T) {
 func TestNoChangesPassWithoutLabels(t *testing.T) {
 	// both setups report the same matches and no label applies: the checks that compare them pass
 	same := pairOne(t, "deb", "deb", grype(t, "deb"), grype(t, "deb"))
-	g := evaluate([]gatefile.Check{check(F1NotWorse, nil), check(NoNewFalseNegatives, nil), check(NoNewFalsePositives, nil)}, same)
-	for _, c := range g.Checks {
-		if sc := c.Subjects[0]; c.State != Pass || sc.Message != "both setups report the same matches" || c.Value != (Value{}) {
+	g := evaluate([]gatefile.Check{check(F1NotWorse, nil), check(NoNewFalseNegatives, nil), check(NoNewFalsePositives, nil),
+		check(UnlabeledPercentAtMost, map[string]float64{"max": 0}), check(NoNewMisses, nil)}, same)
+	for _, c := range g.Checks[:5] {
+		msg := c.Message
+		if len(c.Subjects) > 0 {
+			msg = c.Subjects[0].Message
+		}
+		if c.State != Pass || msg != sameMatches || c.Value != (Value{}) {
 			t.Errorf("%s: expected a pass saying nothing changed, got %+v", c.Name, c)
 		}
 	}
 	if g.Outcome != Pass {
 		t.Errorf("expected the gate to pass, got %s", g.Outcome)
+	}
+	// a floor on the candidate is no comparison, so nothing changing does not pass it
+	if c := evaluate([]gatefile.Check{check(ExpectationsMetAtLeast, map[string]float64{"min": 1})}, same).Checks[0]; c.State != Fail {
+		t.Errorf("expected expectationsMetAtLeast to fail with no expectations, got %+v", c)
+	}
+	// the guard is per subject: an unchanged subject passes whatever another does
+	changed := pairOne(t, "deb-changed", "deb", without(grype(t, "deb"), "CVE-2026-5450", "libc6"), grype(t, "deb"))
+	c := evaluate([]gatefile.Check{check(UnlabeledPercentAtMost, map[string]float64{"max": 0})}, same, changed).Checks[0]
+	if c.Subjects[0].State != Pass || c.Subjects[1].State != Fail {
+		t.Errorf("expected the unchanged subject to pass and the changed one to fail, got %+v", c.Subjects)
+	}
+}
+
+// a gate that lists no matchesAtLeast gets it with min 1, as python's fail_on_empty_match_set
+// defaulted on: a broken DB reporting nothing on both sides fails rather than passing every check
+func TestEmptyMatchSetFailsByDefault(t *testing.T) {
+	empty := pairOne(t, "npm", "npm", &models.Document{}, &models.Document{})
+	g := evaluate([]gatefile.Check{check(NoNewFalseNegatives, nil)}, empty)
+	if len(g.Checks) != 2 || g.Checks[0].State != Pass || g.Outcome != Fail {
+		t.Fatalf("expected noNewFalseNegatives to pass and the gate to fail, got %s %+v", g.Outcome, g.Checks)
+	}
+	if c := g.Checks[1]; c.Name != MatchesAtLeast || c.State != Fail || c.Params[paramMin] != 1 || !strings.Contains(c.Message, "unless it lists matchesAtLeast") {
+		t.Errorf("expected the implicit matchesAtLeast min 1 to fail, got %+v", c)
+	}
+	// listing it replaces the default
+	g = evaluate([]gatefile.Check{check(MatchesAtLeast, map[string]float64{"min": 0})}, empty)
+	if len(g.Checks) != 1 || g.Outcome != Pass {
+		t.Errorf("expected only the listed matchesAtLeast, passing, got %s %+v", g.Outcome, g.Checks)
 	}
 }
 

@@ -69,7 +69,7 @@ func TestScore(t *testing.T) {
 	// an unlabeled count is measured, not bounded: over its max the gate fails under either undecided
 	// policy, and at its max it passes
 	for _, policy := range []string{"fail", "pass"} {
-		for limit, want := range map[string]string{"0": "FAIL gate unlabeled  1 check fails", "1": "PASS gate unlabeled  1 check passes"} {
+		for limit, want := range map[string]string{"0": "FAIL gate unlabeled  1 check fails, 1 passes", "1": "PASS gate unlabeled  2 checks pass"} {
 			w.gate("unlabeled", noNcurses, whole, "", "  - name: unlabeledChangesAtMost\n    params: {max: "+limit+"}\nundecided: "+policy+"\n")
 			stdout, stderr, code := yardstick(t, w.dir, "gates/unlabeled.yaml", "-o", "check")
 			if code != map[bool]int{true: 1, false: 0}[limit == "0"] || !strings.Contains(stdout, want) {

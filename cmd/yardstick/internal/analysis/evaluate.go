@@ -117,7 +117,7 @@ func MatchID(m *pairing.Match) string {
 // candidate, and, per unlabeled delta, what labeling it would change. Nothing here reads a flag:
 // the result is the verdict set renderers show.
 func Evaluate(checks []gatefile.Check, subjects []Subject) Gate {
-	e := evaluator{checks: checks, subjects: subjects}
+	e := newEvaluator(checks, subjects, nil)
 	g := e.gate()
 	g.Effects = e.effects(g)
 	return g
@@ -126,7 +126,7 @@ func Evaluate(checks []gatefile.Check, subjects []Subject) Gate {
 // EvaluateAs computes every check as if the given matches were labeled so, leaving out the
 // per-delta effects: what the label server previews before anything is written.
 func EvaluateAs(checks []gatefile.Check, subjects []Subject, hyp map[*pairing.Match]claimsv1.Verdict) Gate {
-	return evaluator{checks: checks, subjects: subjects, hyp: hyp}.gate()
+	return newEvaluator(checks, subjects, hyp).gate()
 }
 
 type evaluator struct {
@@ -134,12 +134,47 @@ type evaluator struct {
 	subjects []Subject
 	// hyp labels matches hypothetically, to work out what labeling them would do
 	hyp map[*pairing.Match]claimsv1.Verdict
+	// implicit says the last check is the matchesAtLeast every gate gets unless it lists one
+	implicit bool
+}
+
+// sameMatches is why the identical-results guard passed a check.
+const sameMatches = "both setups report the same matches"
+
+// newEvaluator holds the gate-level guards python yardstick ran before any check, so no check
+// repeats them. An empty match set fails: a gate listing no matchesAtLeast gets it with min 1, as
+// fail_on_empty_match_set defaulted on. Identical results pass: see unchanged.
+func newEvaluator(checks []gatefile.Check, subjects []Subject, hyp map[*pairing.Match]claimsv1.Verdict) evaluator {
+	e := evaluator{checks: checks, subjects: subjects, hyp: hyp}
+	if !slices.ContainsFunc(checks, func(c gatefile.Check) bool { return c.Name == MatchesAtLeast }) {
+		e.checks = append(slices.Clip(checks), gatefile.Check{Name: MatchesAtLeast, Params: map[string]float64{paramMin: 1}})
+		e.implicit = true
+	}
+	return e
+}
+
+// unchanged says whether the identical-results guard passes a check over these subjects: python
+// yardstick passed an image both setups reported the same matches on before reading a label. The
+// at-least checks are floors on what the candidate reports, not comparisons, so it leaves them.
+func unchanged(check string, rs ...*pairing.Result) bool {
+	if check == MatchesAtLeast || check == ExpectationsMetAtLeast {
+		return false
+	}
+	for _, r := range rs {
+		if slices.ContainsFunc(r.Matches, delta) {
+			return false
+		}
+	}
+	return true
 }
 
 func (e evaluator) gate() Gate {
 	g := Gate{Outcome: Pass}
-	for _, c := range e.checks {
+	for i, c := range e.checks {
 		res := e.check(c)
+		if e.implicit && i == len(e.checks)-1 && res.State == Fail {
+			res.Message = "every gate runs this unless it lists matchesAtLeast, as python yardstick's fail_on_empty_match_set did"
+		}
 		g.Outcome = worse(g.Outcome, res.State)
 		g.Checks = append(g.Checks, res)
 	}
@@ -157,6 +192,14 @@ func (e evaluator) evalCheck(c gatefile.Check) Check {
 	def := registry[c.Name]
 	res := Check{Name: c.Name, Scope: def.Scope, Params: c.Params, State: Pass}
 	if def.Scope == PerGate {
+		rs := make([]*pairing.Result, len(e.subjects))
+		for i, s := range e.subjects {
+			rs[i] = s.Result
+		}
+		if unchanged(c.Name, rs...) {
+			res.Message = sameMatches
+			return res
+		}
 		return e.gateCheck(c, res)
 	}
 	res.Threshold = threshold(c)
@@ -351,14 +394,12 @@ func delta(m *pairing.Match) bool {
 func (e evaluator) subjectCheck(c gatefile.Check, s Subject) SubjectCheck {
 	r := s.Result
 	sc := SubjectCheck{Subject: s.Name}
+	if unchanged(c.Name, r) {
+		sc.State, sc.Message = Pass, sameMatches
+		return sc
+	}
 	readsLabels := c.Name == F1NotWorse || c.Name == NoNewFalseNegatives || c.Name == NoNewFalsePositives
 	if readsLabels && !e.hasLabels(r) {
-		// the gate compares the setups, so with nothing changed there is nothing for a label to
-		// judge, as python yardstick passed identical results before reading labels
-		if !slices.ContainsFunc(r.Matches, delta) {
-			sc.State, sc.Message = Pass, "both setups report the same matches"
-			return sc
-		}
 		sc.State, sc.Message = Fail, "no tp or fp label applies to this subject"
 		return sc
 	}

@@ -55,6 +55,7 @@ Subjects `deb` and `java` (image order 1, 2). Checks:
 | noNewFalseNegatives (max 0) | fail | 2 |
 | noNewFalsePositives (max 0) | fail | 4 |
 | unlabeledChangesAtMost (max 0) | fail | 6 |
+| matchesAtLeast (min 1, not listed: every gate gets it) | pass | every subject has matches |
 
 unlabeledChangesAtMost is a count of unlabeled changes, known exactly, so it passes or fails and is never undecided. `/api/gates` reports `gateOutcome: "fail"`. 12 changes in all: 4 dropped (2 labeled fp), 8 added. 10 are open.
 
@@ -101,13 +102,13 @@ The outcome moves as the labels land (measured with `claims add` in this order, 
 | both tar rows fp | fail | f1 fail, noNewFN fail, noNewFP fail, unlabeled fail (4) |
 | plus the 4 util-linux rows tp | fail | f1 fail, noNewFN fail, noNewFP fail, unlabeled fail (4, the java rows) |
 | plus jfh8 tp (both jars) | fail | f1 and noNewFN pass; noNewFP undecided; unlabeled fail (2, the vc5p rows) |
-| plus vc5p tp (both jars) | **pass** | all four pass, 0 open |
+| plus vc5p tp (both jars) | **pass** | all pass, 0 open |
 
 A tp label on a dropped row would fail noNewFalseNegatives, and an fp label on an added row would fail noNewFalsePositives, so those verdicts do not flip the gate.
 
 ## Gate deb-npm (initial outcome fail)
 
-Subjects `deb` and `npm`. One check, `unlabeledChangesAtMost` (max 1), failing with worst-subject value 2 (deb has 2 open, npm has 1). 3 changes, all dropped, all open:
+Subjects `deb` and `npm`. One listed check, `unlabeledChangesAtMost` (max 1), beside the implicit `matchesAtLeast` (min 1, passing), failing with worst-subject value 2 (deb has 2 open, npm has 1). 3 changes, all dropped, all open:
 
 | row | image | package | vulnerability | hint |
 |---|---|---|---|---|

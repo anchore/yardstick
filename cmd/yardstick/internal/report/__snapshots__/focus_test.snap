@@ -14,10 +14,10 @@ rpm-cpes  gates/rpm-cpes.yaml, scanned 2026-10-14 10:00Z
 
 focus  rows of CVE-2020-12762; counts, values and outcomes are the whole gate's
 
-FAIL rpm-cpes  2 checks fail, 1 passes
+FAIL rpm-cpes  2 checks fail, 2 pass
                                        worst subject
-  FAIL  noNewFalsePositives     max 0  1..34   change 1
-  FAIL  unlabeledChangesAtMost  max 0  33..33  no change
+  FAIL  noNewFalsePositives     max 0  1..34     change 1
+  FAIL  unlabeledChangesAtMost  max 0  33..33    no change
 
 what changed in focus  1 of 1 matches: 0 dropped by the candidate, 1 added
 
@@ -27,7 +27,7 @@ what changed in focus  1 of 1 matches: 0 dropped by the candidate, 1 added
       CVE-2020-12762 on json-c@0.14-11.el9
       fails noNewFalsePositives
 
-PASS rpm-coverage  1 check passes
+PASS rpm-coverage  2 checks pass
 FAILED 1 of 2 gates
 
 ---
@@ -47,18 +47,18 @@ rpm-cpes  gates/rpm-cpes.yaml, scanned 2026-10-14 10:00Z
 
 focus  rows of CVE-2020-12762; counts, values and outcomes are the whole gate's
 
-FAIL gate rpm-cpes  2 checks fail, 1 passes
+FAIL gate rpm-cpes  2 checks fail, 2 pass
 
 FAIL noNewFalsePositives  max 0      worst subject 1..34 fp added
-  FAIL       1..34   rpm
+  FAIL       1..34     rpm
     1 fp, added by the candidate
       CVE-2020-12762 on pkg:rpm/rocky/json-c@0.14-11.el9
       nvd:cpe cpe-match
 
 FAIL unlabeledChangesAtMost  max 0   worst subject 33..33 unlabeled
-  FAIL       33..33  rpm
+  FAIL       33..33    rpm
 
-PASS gate rpm-coverage  1 check passes
+PASS gate rpm-coverage  2 checks pass
 
 FAILED 1 of 2 gates
 
@@ -79,7 +79,7 @@ rpm-cpes  gates/rpm-cpes.yaml, scanned 2026-10-14 10:00Z
 
 focus  rows of CVE-2020-12762; counts, values and outcomes are the whole gate's
 
-FAIL rpm-cpes  2 checks fail, 1 passes
+FAIL rpm-cpes  2 checks fail, 2 pass
   FAIL       noNewFalsePositives     max 0  on 1 subject
   FAIL       unlabeledChangesAtMost  max 0  on 1 subject
 
@@ -91,7 +91,7 @@ FAIL rpm
     1 fp: CVE-2020-12762
       on json-c@0.14-11.el9
 
-PASS rpm-coverage  1 check passes
+PASS rpm-coverage  2 checks pass
 
 FAILED 1 of 2 gates
 

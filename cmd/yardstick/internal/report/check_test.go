@@ -18,11 +18,11 @@ func TestVerdictFirst(t *testing.T) {
 	out := render(t, Summarize([]Gate{passing(t), failing}), Options{Format: "check"})
 	verdicts := out[strings.Index(out, "FAIL gate rpm-cpes"):]
 	lines := strings.Split(strings.TrimSpace(verdicts), "\n")
-	if lines[0] != "FAIL gate rpm-cpes  2 checks fail, 1 passes" {
+	if lines[0] != "FAIL gate rpm-cpes  2 checks fail, 2 pass" {
 		t.Errorf("expected the failing gate's outcome before any detail and before the passing gate, got %q", lines[0])
 	}
 	// the passing gate prints one line
-	if strings.Count(verdicts, "rpm-coverage") != 1 || !strings.Contains(verdicts, "\nPASS gate rpm-coverage  1 check passes\n\nFAILED 1 of 2 gates") {
+	if strings.Count(verdicts, "rpm-coverage") != 1 || !strings.Contains(verdicts, "\nPASS gate rpm-coverage  2 checks pass\n\nFAILED 1 of 2 gates") {
 		t.Errorf("expected the passing gate on one line just before the summary, got\n%s", verdicts)
 	}
 	// with --quiet a failure and the summary still print

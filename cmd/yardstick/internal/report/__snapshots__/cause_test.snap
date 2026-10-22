@@ -12,10 +12,10 @@ rpm-cpes  gates/rpm-cpes.yaml, scanned 2026-10-14 10:00Z
   claims   github.com/anchore/delta-prototype@main at sha256:7df20f57, commit 77aa0000
   built    rpm with syft 1.54.1
 
-FAIL rpm-cpes  2 checks fail, 1 passes
+FAIL rpm-cpes  2 checks fail, 2 pass
                                        worst subject
-  FAIL  noNewFalsePositives     max 0  1..34   change 1
-  FAIL  unlabeledChangesAtMost  max 0  33..33  change 1
+  FAIL  noNewFalsePositives     max 0  1..34     change 1
+  FAIL  unlabeledChangesAtMost  max 0  33..33    change 1
 
 what changed  35 of 488 matches: 0 dropped by the candidate, 35 added
 
@@ -30,7 +30,7 @@ what changed  35 of 488 matches: 0 dropped by the candidate, 35 added
       33 CVEs on 6 packages
       one labeled tp or fp: no change; the gate stays FAIL
 
-PASS rpm-coverage  1 check passes
+PASS rpm-coverage  2 checks pass
 FAILED 1 of 2 gates
 
 ---
@@ -48,11 +48,12 @@ rpm-cpes  gates/rpm-cpes.yaml, scanned 2026-10-14 10:00Z
   claims   github.com/anchore/delta-prototype@main at sha256:7df20f57, commit 77aa0000
   built    rpm with syft 1.54.1
 
-FAIL rpm-cpes  2 checks fail, 1 passes
+FAIL rpm-cpes  2 checks fail, 2 pass
                                        worst subject
-  FAIL  noNewFalsePositives     max 0  1..34   change 1
-  FAIL  unlabeledChangesAtMost  max 0  33..33  change 1
-  PASS  noNewFalseNegatives     max 0  0..0    no change
+  FAIL  noNewFalsePositives     max 0  1..34     change 1
+  FAIL  unlabeledChangesAtMost  max 0  33..33    change 1
+  PASS  noNewFalseNegatives     max 0  0..0      no change
+  PASS  matchesAtLeast          min 1  941..941  no change
 
 what changed  35 of 488 matches: 0 dropped by the candidate, 35 added
 
@@ -67,9 +68,10 @@ what changed  35 of 488 matches: 0 dropped by the candidate, 35 added
       33 CVEs on 6 packages
       one labeled tp or fp: no change; the gate stays FAIL
 
-PASS rpm-coverage  1 check passes
+PASS rpm-coverage  2 checks pass
                                          worst subject
   PASS  unlabeledPercentAtMost  max 100  99.59..99.59  change 1
+  PASS  matchesAtLeast          min 1    941..941      no change
 
 what changed  35 of 488 matches: 0 dropped by the candidate, 35 added
 
@@ -100,11 +102,12 @@ rpm-cpes  gates/rpm-cpes.yaml, scanned 2026-10-14 10:00Z
   claims   github.com/anchore/delta-prototype@main at sha256:7df20f57, commit 77aa0000
   built    rpm with syft 1.54.1
 
-FAIL rpm-cpes  2 checks fail, 1 passes
+FAIL rpm-cpes  2 checks fail, 2 pass
                                        worst subject
-  FAIL  noNewFalsePositives     max 0  1..34   change 1
-  FAIL  unlabeledChangesAtMost  max 0  33..33  change 1
-  PASS  noNewFalseNegatives     max 0  0..0    no change
+  FAIL  noNewFalsePositives     max 0  1..34     change 1
+  FAIL  unlabeledChangesAtMost  max 0  33..33    change 1
+  PASS  noNewFalseNegatives     max 0  0..0      no change
+  PASS  matchesAtLeast          min 1  941..941  no change
 
 what changed  35 of 488 matches: 0 dropped by the candidate, 35 added
 
@@ -154,9 +157,10 @@ what changed  35 of 488 matches: 0 dropped by the candidate, 35 added
       CVE-2021-35939   rpm@4.16.1.3-40.el9        /var/lib/rpm/rpmdb.sqlite
       CVE-2022-37434   zlib@1.2.11-40.el9         /var/lib/rpm/rpmdb.sqlite
 
-PASS rpm-coverage  1 check passes
+PASS rpm-coverage  2 checks pass
                                          worst subject
   PASS  unlabeledPercentAtMost  max 100  99.59..99.59  change 1
+  PASS  matchesAtLeast          min 1    941..941      no change
 
 what changed  35 of 488 matches: 0 dropped by the candidate, 35 added
 

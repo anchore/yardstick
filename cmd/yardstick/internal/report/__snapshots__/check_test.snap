@@ -12,10 +12,10 @@ rpm-cpes  gates/rpm-cpes.yaml, scanned 2026-10-14 10:00Z
   claims   github.com/anchore/delta-prototype@main at sha256:7df20f57, commit 77aa0000
   built    rpm with syft 1.54.1
 
-FAIL gate rpm-cpes  2 checks fail, 1 passes
+FAIL gate rpm-cpes  2 checks fail, 2 pass
 
 FAIL noNewFalsePositives  max 0      worst subject 1..34 fp added
-  FAIL       1..34   rpm
+  FAIL       1..34     rpm
     1 fp, added by the candidate
       CVE-2020-12762 on pkg:rpm/rocky/json-c@0.14-11.el9
       nvd:cpe cpe-match
@@ -40,7 +40,7 @@ FAIL noNewFalsePositives  max 0      worst subject 1..34 fp added
       nvd:cpe cpe-match; the gate fails however one is labeled
 
 FAIL unlabeledChangesAtMost  max 0   worst subject 33..33 unlabeled
-  FAIL       33..33  rpm
+  FAIL       33..33    rpm
     1 unlabeled, added  same rows as noNewFalsePositives
     14 unlabeled, added  same rows as noNewFalsePositives
     1 unlabeled, added  same rows as noNewFalsePositives
@@ -48,7 +48,7 @@ FAIL unlabeledChangesAtMost  max 0   worst subject 33..33 unlabeled
     4 unlabeled, added  same rows as noNewFalsePositives
     2 unlabeled, added  same rows as noNewFalsePositives
 
-PASS gate rpm-coverage  1 check passes
+PASS gate rpm-coverage  2 checks pass
 
 FAILED 1 of 2 gates
 
@@ -67,10 +67,10 @@ rpm-cpes  gates/rpm-cpes.yaml, scanned 2026-10-14 10:00Z
   claims   github.com/anchore/delta-prototype@main at sha256:7df20f57, commit 77aa0000
   built    rpm with syft 1.54.1
 
-FAIL gate rpm-cpes  2 checks fail, 1 passes
+FAIL gate rpm-cpes  2 checks fail, 2 pass
 
 FAIL noNewFalsePositives  max 0      worst subject 1..34 fp added
-  FAIL       1..34   rpm
+  FAIL       1..34     rpm
     1 fp, added by the candidate
       CVE-2020-12762 on pkg:rpm/rocky/json-c@0.14-11.el9
       nvd:cpe cpe-match
@@ -95,7 +95,7 @@ FAIL noNewFalsePositives  max 0      worst subject 1..34 fp added
       nvd:cpe cpe-match; the gate fails however one is labeled
 
 FAIL unlabeledChangesAtMost  max 0   worst subject 33..33 unlabeled
-  FAIL       33..33  rpm
+  FAIL       33..33    rpm
     1 unlabeled, added  same rows as noNewFalsePositives
     14 unlabeled, added  same rows as noNewFalsePositives
     1 unlabeled, added  same rows as noNewFalsePositives
@@ -106,9 +106,15 @@ FAIL unlabeledChangesAtMost  max 0   worst subject 33..33 unlabeled
 PASS noNewFalseNegatives  max 0      worst subject 0..0 tp dropped
   1 subject passes
 
-PASS gate rpm-coverage  1 check passes
+PASS matchesAtLeast  min 1           worst subject 941..941 matches
+  1 subject passes
+
+PASS gate rpm-coverage  2 checks pass
 
 PASS unlabeledPercentAtMost  max 100   worst subject 99.59..99.59 percent unlabeled
+  1 subject passes
+
+PASS matchesAtLeast  min 1             worst subject 941..941 matches
   1 subject passes
 
 FAILED 1 of 2 gates
@@ -128,10 +134,10 @@ rpm-cpes  gates/rpm-cpes.yaml, scanned 2026-10-14 10:00Z
   claims   github.com/anchore/delta-prototype@main at sha256:7df20f57, commit 77aa0000
   built    rpm with syft 1.54.1
 
-FAIL gate rpm-cpes  2 checks fail, 1 passes
+FAIL gate rpm-cpes  2 checks fail, 2 pass
 
 FAIL noNewFalsePositives  max 0      worst subject 1..34 fp added
-  FAIL       1..34   rpm
+  FAIL       1..34     rpm
     1 fp, added by the candidate
       CVE-2020-12762 on pkg:rpm/rocky/json-c@0.14-11.el9
       nvd:cpe cpe-match
@@ -191,7 +197,7 @@ FAIL noNewFalsePositives  max 0      worst subject 1..34 fp added
       CVE-2025-24928   libxml2@2.9.13-14.el9_7   /var/lib/rpm/rpmdb.sqlite
 
 FAIL unlabeledChangesAtMost  max 0   worst subject 33..33 unlabeled
-  FAIL       33..33  rpm
+  FAIL       33..33    rpm
     1 unlabeled, added  same rows as noNewFalsePositives
     14 unlabeled, added  same rows as noNewFalsePositives
     1 unlabeled, added  same rows as noNewFalsePositives
@@ -201,9 +207,13 @@ FAIL unlabeledChangesAtMost  max 0   worst subject 33..33 unlabeled
 
 PASS noNewFalseNegatives  max 0      worst subject 0..0 tp dropped
   1 subject passes
-  PASS       0..0    rpm
+  PASS       0..0      rpm
 
-PASS gate rpm-coverage  1 check passes
+PASS matchesAtLeast  min 1           worst subject 941..941 matches
+  1 subject passes
+  PASS       941..941  rpm
+
+PASS gate rpm-coverage  2 checks pass
 
 PASS unlabeledPercentAtMost  max 100   worst subject 99.59..99.59 percent unlabeled
   1 subject passes
@@ -903,6 +913,10 @@ PASS unlabeledPercentAtMost  max 100   worst subject 99.59..99.59 percent unlabe
       CVE-2026-22185 on pkg:rpm/rocky/openldap@2.6.8-4.el9.0.1
       redhat:distro:redhat:9 exact-direct-match
       CVE-2026-22185   openldap@2.6.8-4.el9.0.1   /var/lib/rpm/rpmdb.sqlite
+
+PASS matchesAtLeast  min 1             worst subject 941..941 matches
+  1 subject passes
+  PASS       941..941      rpm
 
 FAILED 1 of 2 gates
 

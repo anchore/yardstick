@@ -42,7 +42,7 @@ bin/yardstick demo/gates/grype-upgrade.yaml
 ```
 
 ```
-FAIL grype-upgrade  2 checks fail, 1 undecided, 1 passes
+FAIL grype-upgrade  2 checks fail, 1 undecided, 2 pass
                                                   worst subject
   FAIL       noNewFalseNegatives     max 0        3..73    changes 1, 2
   FAIL       unlabeledChangesAtMost  max 0        70..70   changes 1, 2
@@ -88,7 +88,7 @@ bin/yardstick demo/gates/go-stdlib-cpe.yaml
 ```
 
 ```
-PASS go-stdlib-cpe  4 checks pass
+PASS go-stdlib-cpe  5 checks pass
 PASSED 1 of 1 gates
 ```
 
@@ -99,7 +99,7 @@ bin/yardstick demo/gates/grype-upgrade-stdlib-cpe.yaml
 ```
 
 ```
-FAIL grype-upgrade-stdlib-cpe  1 check fails, 2 undecided, 1 passes
+FAIL grype-upgrade-stdlib-cpe  1 check fails, 2 undecided, 2 pass
                                                   worst subject
   FAIL       unlabeledChangesAtMost  max 0        21..21   change 1
   UNDECIDED  f1NotWorse              tolerance 0  0..0.89  change 1
@@ -152,7 +152,7 @@ bin/yardstick score demo/gates/grype-upgrade-stdlib-cpe.yaml
 ```
 
 ```
-FAIL grype-upgrade-stdlib-cpe  1 check fails, 2 undecided, 1 passes
+FAIL grype-upgrade-stdlib-cpe  1 check fails, 2 undecided, 2 pass
                                                   worst subject
   FAIL       unlabeledChangesAtMost  max 0        5..5     change 1
   UNDECIDED  f1NotWorse              tolerance 0  0..0.32  change 1
@@ -197,7 +197,7 @@ SBOMs made while labeling aren't copied anywhere either. They reach R2 when the 
 - `-v`, `-vv` and `-vvv` log to stderr, so stdout stays the report.
 - `--vulnerability` and `--package` narrow the report to some rows. The checks and the exit code are still the whole gate's.
 - `vulnerabilities:` in a gate file narrows what every check sees, in both setups. `maxYear: 2021` drops matches and labels on a vulnerability from a later year: the year is read from a CVE, ALAS or ELSA id, else from the CVE grype relates to the match, and an id with no year is kept. `namespaces: [nvd:cpe, ...]` keeps only the matches from those grype namespaces and filters no labels. It applies when scoring, so `score` re-applies a changed filter without scanning again.
-- The `matchesAtLeast` check (`params: {min: 1}`) fails a subject the candidate and the reference together report fewer than `min` matches on, after `vulnerabilities:`, so with `min: 1` only a subject both setups find nothing on fails. It reads no labels, so it is never undecided.
+- The `matchesAtLeast` check fails a subject the candidate and the reference together report fewer than `min` matches on, after `vulnerabilities:`, so with `min: 1` only a subject both setups find nothing on fails. Every gate runs it with `min: 1` unless it lists `matchesAtLeast` itself, which is why a gate's report counts one more check than it lists. It reads no labels, so it is never undecided.
 - `--name` keeps several runs of one gate apart under `.yardstick/runs/<name>/`.
 - `collect sboms`, `collect scans` and `score` run a gate's three steps one at a time.
 - `cache status` and `cache delete` show and clean the scan, tool, DB and claims cache.
