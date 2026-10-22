@@ -66,7 +66,7 @@ func Write(set *claims.Set, sub *runrecord.Subject, l claimsv1.Label, global boo
 	if _, err := w.Write([]claimsv1.Placed{placed}); err != nil {
 		return "", err
 	}
-	return w.Dir + "/" + placed.File, nil
+	return filepath.Join(w.Dir, filepath.FromSlash(placed.File)), nil
 }
 
 // reportedBy is the setup whose grype and DB a label's seenIn records, reading the scans in dir: the
