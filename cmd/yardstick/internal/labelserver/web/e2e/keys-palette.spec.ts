@@ -16,7 +16,7 @@ const typed = "nhJ2j"; // every key that would go somewhere if it were not text
 async function openPalette(page: Page) {
   await page.keyboard.press("Control+k");
   await expect(palette(page)).toBeVisible();
-  await expect(group(page, "Checks")).toHaveCount(5);
+  await expect(group(page, "Checks")).toHaveCount(7);
 }
 
 test.describe("keys typed into a field", () => {
@@ -128,13 +128,15 @@ test.describe("palette queries", () => {
     await expect(group(page, "Matches")).toHaveCount(4);
   });
 
-  test("a gate's name finds the gate, its check, the images it scans and no findings", async ({ page }) => {
+  test("a gate's name finds the gate, its checks, the images it scans and no findings", async ({ page }) => {
     await page.goto(gatesPage);
     await openPalette(page);
     await input(page).fill("deb-npm");
     await expect(group(page, "Gates")).toHaveCount(1);
-    await expect(group(page, "Checks")).toHaveCount(1);
+    await expect(group(page, "Checks")).toHaveCount(2);
     await expect(item(page, "Checks", "deb-npm/unlabeledChangesAtMost")).toBeVisible();
+    // every gate gets matchesAtLeast, listed or not
+    await expect(item(page, "Checks", "deb-npm/matchesAtLeast")).toBeVisible();
     await expect(group(page, "Images")).toHaveCount(2);
     await expect(group(page, "Matches")).toHaveCount(0);
   });
@@ -235,7 +237,7 @@ test.describe("between gates", () => {
     await openFinding(page, rows.jfhA);
     await page.keyboard.press("Shift+J");
     await expect(page).toHaveURL(/\/ui\/gates\/deb-npm\/$/);
-    await expect(page.getByTestId("check-row")).toHaveCount(1);
+    await expect(page.getByTestId("check-row")).toHaveCount(2);
   });
 
   test("⇧J drops the image filter", async ({ page }) => {
@@ -268,7 +270,7 @@ test.describe("between gates", () => {
     await expect.poll(() => labelsOf("GHSA-67hx-6x53-jw92").map((l) => l.verdict)).toEqual(["fp"]);
 
     await page.goto(gatePage());
-    await expect(page.getByTestId("check-row")).toHaveCount(4);
+    await expect(page.getByTestId("check-row")).toHaveCount(5);
     await page.keyboard.press("Shift+J");
     await expect(page.getByTestId("toast")).toContainText("no other gate has open matches");
     await expect(page).toHaveURL(/\/ui\/gates\/deb-java\/$/);

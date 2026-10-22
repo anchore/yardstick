@@ -53,10 +53,10 @@ test.describe("deb-java", () => {
 test.describe("deb-npm", () => {
   test.beforeEach(async ({ page }) => { await page.goto(gatePage("deb-npm")); });
 
-  test("starts failing with its one check", async ({ page }) => {
+  test("starts failing with its one check, beside the matchesAtLeast every gate gets", async ({ page }) => {
     await expect(outcome(page)).toHaveText("fail");
-    await expect(page.getByTestId("check-row")).toHaveCount(1);
-    await checkStates(page, { unlabeledChangesAtMost: "fail" });
+    await expect(page.getByTestId("check-row")).toHaveCount(2);
+    await checkStates(page, { unlabeledChangesAtMost: "fail", matchesAtLeast: "pass" });
     // worst image: deb has 2 open, npm 1
     await expect(meter(page, "unlabeledChangesAtMost")).toContainText("2 unlabeled · limit 1");
   });

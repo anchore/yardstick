@@ -34,7 +34,7 @@ test.describe("Label next", () => {
     await expect(queuePager(page)).toHaveText(/1 of 12/);
 
     await page.goto(gatePage("deb-npm"));
-    await expect(page.getByTestId("check-row")).toHaveCount(1);
+    await expect(page.getByTestId("check-row")).toHaveCount(2);
     await page.keyboard.press("n");
     await expect(page).toHaveURL(new RegExp(`/ui/queue/${rows.gzip}\\?scope=gate%3Adeb-npm$`));
     await expect(queuePager(page)).toHaveText(/1 of 12/);
@@ -77,7 +77,7 @@ test.describe("between gates", () => {
     await expect(page.getByTestId("check-table")).toBeVisible();
     await page.keyboard.press("Shift+J");
     await expect(page).toHaveURL(/\/ui\/gates\/deb-npm\/$/);
-    await expect(page.getByTestId("check-row")).toHaveCount(1);
+    await expect(page.getByTestId("check-row")).toHaveCount(2);
   });
 
   test("the gate crumb is a switcher listing every gate with its outcome and open rows", async ({ page }) => {
@@ -98,7 +98,7 @@ test.describe("between gates", () => {
     await page.getByTestId("gate-switch-button").click();
     await option("deb-npm").click();
     await expect(page).toHaveURL(/\/ui\/gates\/deb-npm\/$/);
-    await expect(page.getByTestId("check-row")).toHaveCount(1);
+    await expect(page.getByTestId("check-row")).toHaveCount(2);
   });
 });
 

@@ -44,7 +44,7 @@ test("a gate lists its checks with meters, and a check row opens the check", asy
   await page.goto("/ui/gates/deb-java/");
   await expect(page.getByTestId("verdict-bar")).toContainText("12 changed matches");
   const checks = page.getByTestId("check-row");
-  await expect(checks).toHaveCount(4);
+  await expect(checks).toHaveCount(5);
   await expect(page.locator("[data-testid=check-row][data-check=unlabeledChangesAtMost]")).toHaveAttribute("data-state", "fail");
   await expect(page.locator("[data-testid=check-row][data-check=f1NotWorse] [data-testid=meter]")).toContainText("0.500 worse · limit 0");
   // a check row says what the check means in a line, and its definition on hover
@@ -146,7 +146,7 @@ test("Label as… on the gate's Findings tab labels the rows selected", async ({
 
 test("n on a gate filtered to an image enters the queue for that image", async ({ page }) => {
   await page.goto(`/ui/gates/deb-java/?image=${images.java.slug}`);
-  await expect(page.getByTestId("check-row")).toHaveCount(4);
+  await expect(page.getByTestId("check-row")).toHaveCount(5);
   await page.keyboard.press("n");
   await expect(page).toHaveURL(new RegExp(`/ui/queue/${rows.jfhA}\\?scope=image%3A${images.java.slug}$`));
 });

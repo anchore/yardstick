@@ -35,7 +35,7 @@ test.describe("moving around", () => {
     await expect(tableRows(page, "check-table")).toHaveCount(10);
     await crumb("deb-java").click();
     await expect(page).toHaveURL(new RegExp(`${gatePage()}$`));
-    await expect(page.getByTestId("check-row")).toHaveCount(4);
+    await expect(page.getByTestId("check-row")).toHaveCount(5);
     await crumb("Gates").click();
     await expect(page).toHaveURL(/\/ui\/gates\/$/);
     await expect(page.getByTestId("gate-row")).toHaveCount(2);
@@ -50,7 +50,7 @@ test.describe("moving around", () => {
     await expect(page).toHaveURL(new RegExp(`${checkPage("unlabeledChangesAtMost")}$`));
     await expect(tableRows(page, "check-table")).toHaveCount(10);
     await page.goBack();
-    await expect(page.getByTestId("check-row")).toHaveCount(4);
+    await expect(page.getByTestId("check-row")).toHaveCount(5);
     await page.goForward();
     await expect(tableRows(page, "check-table")).toHaveCount(10);
     await page.goForward();
@@ -128,7 +128,7 @@ test.describe("old links", () => {
     await expect(page).toHaveURL(/\/ui\/gates\/$/);
     await page.goto("/ui/map/gates/?gate=deb-npm");
     await expect(page).toHaveURL(/\/ui\/gates\/deb-npm\/$/);
-    await expect(page.getByTestId("check-row")).toHaveCount(1);
+    await expect(page.getByTestId("check-row")).toHaveCount(2);
     await page.goto(`/ui/map/gates/deb-java/delta?image=${images.java.slug}`);
     await expect(page).toHaveURL(new RegExp(`/ui/gates/deb-java/map\\?image=${images.java.slug}$`));
     await expect(page.getByTestId("treemap")).toBeVisible();
