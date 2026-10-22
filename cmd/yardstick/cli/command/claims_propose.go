@@ -308,20 +308,17 @@ subject, tab separated.`,
 func (s *scanned) proposal(in proposalInput, now time.Time) (agentstore.Proposal, error) {
 	p := in.Proposal
 	if in.Row != "" {
-		r, err := s.row(in.Row)
+		// a package or vulnerability given beside the row must be the row's, as a cause member's is:
+		// a hint pairs its row by the exact purl, so a near miss would never show
+		m, r, err := s.member(agentstore.Member{Row: in.Row, Package: p.Package, Vulnerability: p.Vulnerability})
 		if err != nil {
 			return p, err
 		}
+		p.Package, p.Vulnerability = m.Package, m.Vulnerability
 		if p.Subject == (claimsv1.Subject{}) {
 			if p.Subject, err = subjectOf(r.Subject); err != nil {
 				return p, err
 			}
-		}
-		if p.Package == "" {
-			p.Package = r.Match.Package.PURL
-		}
-		if p.Vulnerability == "" {
-			p.Vulnerability = r.Match.Vulnerability
 		}
 	}
 	if err := s.checkGate(&p.Gate); err != nil {

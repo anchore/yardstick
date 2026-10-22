@@ -71,6 +71,13 @@ func TestClaimsAgentCommands(t *testing.T) {
 	if _, stderr, code := propose(`{"row":"`+tarRow+`","verdict":"tp","bogus":1}`, "claims", "agent", "propose", "--gate", "deb"); code != 2 || !strings.Contains(stderr, "bogus") {
 		t.Fatalf("expected the unknown field refused, got %d: %s", code, stderr)
 	}
+	// a package or vulnerability beside the row must be the row's
+	for _, extra := range []string{`"package":"pkg:deb/debian/tar"`, `"vulnerability":"CVE-1999-0001"`} {
+		line := `{"row":"` + tarRow + `",` + extra + `,"verdict":"tp","justification":"no-fix","confidence":"medium","author":{"skill":"triage-deltas"}}`
+		if _, stderr, code := propose(line, "claims", "agent", "propose", "--gate", "deb"); code != 2 || !strings.Contains(stderr, "row "+tarRow) {
+			t.Errorf("%s: expected refused for not matching the row, got %d: %s", extra, code, stderr)
+		}
+	}
 	if got, _ := store.Proposals.Current(); len(got) != 0 {
 		t.Fatalf("expected nothing recorded, got %+v", got)
 	}
