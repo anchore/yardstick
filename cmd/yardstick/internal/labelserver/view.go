@@ -285,7 +285,7 @@ func (v *view) orderedRows() []*rowRef {
 // hintPending is a hint's status while its row is open.
 const hintPending = "pending"
 
-// hint is the newest proposal on a row and where it stands against the row's label and the policy.
+// Hint is the newest proposal on a row and where it stands against the row's label and the policy.
 type Hint struct {
 	Proposal agentstore.Proposal `json:"proposal"`
 	Policy   PolicyCheck         `json:"policy"`

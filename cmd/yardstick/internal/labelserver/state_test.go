@@ -39,3 +39,15 @@ func TestLogTailKeepsRunesWhole(t *testing.T) {
 		t.Errorf("expected two whole runes with no newline to cut at, got %q", got)
 	}
 }
+
+// subject slugs stay unique however the names collide with numbered ones
+func TestSubjectSlugsAreUnique(t *testing.T) {
+	used := map[string]bool{}
+	var got []string
+	for _, name := range []string{"x", "x", "x-2", "x"} {
+		got = append(got, uniqueSlug(used, name))
+	}
+	if strings.Join(got, " ") != "x x-2 x-2-2 x-3" {
+		t.Errorf("expected unique slugs, got %v", got)
+	}
+}

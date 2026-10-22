@@ -70,7 +70,7 @@ type State struct {
 	ResearchEstimate *research.Basis `json:"researchEstimate,omitempty"`
 }
 
-// vocabulary is what the UI needs of vocabulary.yaml: the justifications by verdict.
+// Vocabulary is what the UI needs of vocabulary.yaml: the justifications by verdict.
 type Vocabulary struct {
 	Justifications map[claimsv1.Verdict]map[string]string `json:"justifications"`
 }
@@ -369,17 +369,25 @@ type SubjectInfo struct {
 	Ref  string `json:"ref,omitempty"` // the gate's reference, shown on hover
 }
 
+// uniqueSlug is name's slug, numbered past any already used, and marks it used: subjects x, x
+// and x-2 are x, x-2 and x-2-2.
+func uniqueSlug(used map[string]bool, name string) string {
+	base := slugify(name)
+	slug := base
+	for n := 2; used[slug]; n++ {
+		slug = fmt.Sprintf("%s-%d", base, n)
+	}
+	used[slug] = true
+	return slug
+}
+
 func summarize(e *entry, v *view) RunSummary {
 	sum := RunSummary{ID: e.name, Created: e.rec.Created, Gate: e.gate.Path, Compared: compared(v.verdict.Header)}
-	seen := map[string]int{}
+	used := map[string]bool{}
 	var names []string
 	for _, s := range e.rec.Subjects {
 		name := subjectName(s.Name)
-		slug := slugify(name)
-		if seen[slug]++; seen[slug] > 1 {
-			slug = fmt.Sprintf("%s-%d", slug, seen[slug])
-		}
-		sum.Subjects = append(sum.Subjects, SubjectInfo{Name: name, Slug: slug, Ref: s.Name})
+		sum.Subjects = append(sum.Subjects, SubjectInfo{Name: name, Slug: uniqueSlug(used, name), Ref: s.Name})
 		names = append(names, name)
 	}
 	switch len(names) {
