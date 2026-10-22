@@ -121,7 +121,13 @@ func MatchID(m *pairing.Match) string {
 // the result is the verdict set renderers show.
 func Evaluate(checks []gatefile.Check, subjects []Subject) Gate {
 	e := newEvaluator(checks, subjects, nil)
+	done := log.Timed("evaluating %d checks over %d subjects", len(e.checks), len(subjects))
 	g := e.gate()
+	done()
+	for _, c := range g.Checks {
+		log.Debugf("check %s: worst %v, best %v, %s", c.Name, c.Value.Worst, c.Value.Best, c.State)
+	}
+	defer log.Timed("working out the effects of labeling each unlabeled change")()
 	g.Effects = e.effects(g)
 	return g
 }
@@ -139,6 +145,10 @@ type evaluator struct {
 	hyp map[*pairing.Match]claimsv1.Verdict
 	// implicit says the last check is the matchesAtLeast every gate gets unless it lists one
 	implicit bool
+	// base, when set, is the gate as labeled: per-subject checks keep its result on every subject
+	// but the one at index touched, the only one the hypothesis can move
+	base    *Gate
+	touched int
 }
 
 // sameMatches is why the identical-results guard passed a check.
@@ -174,7 +184,7 @@ func unchanged(check string, rs ...*pairing.Result) bool {
 func (e evaluator) gate() Gate {
 	g := Gate{Outcome: Pass}
 	for i, c := range e.checks {
-		res := e.check(c)
+		res := e.evalCheck(i, c)
 		if e.implicit && i == len(e.checks)-1 && res.State == Fail {
 			res.Message = "every gate runs this unless it lists matchesAtLeast, as python yardstick's fail_on_empty_match_set did"
 		}
@@ -184,14 +194,8 @@ func (e evaluator) gate() Gate {
 	return g
 }
 
-func (e evaluator) check(c gatefile.Check) Check {
-	defer log.Timed("evaluating check %s", c.Name)()
-	res := e.evalCheck(c)
-	log.Debugf("check %s: worst %v, best %v, %s", c.Name, res.Value.Worst, res.Value.Best, res.State)
-	return res
-}
-
-func (e evaluator) evalCheck(c gatefile.Check) Check {
+// evalCheck evaluates the gate's i-th check.
+func (e evaluator) evalCheck(i int, c gatefile.Check) Check {
 	def := registry[c.Name]
 	res := Check{Name: c.Name, Scope: def.Scope, Params: c.Params, State: Pass}
 	if def.Scope == PerGate {
@@ -212,8 +216,13 @@ func (e evaluator) evalCheck(c gatefile.Check) Check {
 		beyond = func(a, b float64) bool { return a < b }
 	}
 	first := true
-	for _, s := range e.subjects {
-		sc := e.subjectCheck(c, s)
+	for j, s := range e.subjects {
+		var sc SubjectCheck
+		if e.base != nil && j != e.touched {
+			sc = e.base.Checks[i].Subjects[j]
+		} else {
+			sc = e.subjectCheck(c, s)
+		}
 		res.Subjects = append(res.Subjects, sc)
 		res.State = worse(res.State, sc.State)
 		for _, id := range sc.FailsOn {
@@ -664,12 +673,14 @@ func count(v Value) string {
 // would do to each check and to the gate.
 func (e evaluator) effects(current Gate) []Effect {
 	var out []Effect
-	for _, s := range e.subjects {
+	for si, s := range e.subjects {
 		for _, m := range e.unlabeledDeltas(s.Result) {
 			eff := Effect{Subject: s.Name, Match: MatchID(m), States: map[claimsv1.Verdict]map[string]State{}, Outcome: map[claimsv1.Verdict]State{}}
 			narrows := map[string]bool{}
 			for _, v := range []claimsv1.Verdict{claimsv1.TP, claimsv1.FP} {
-				h := evaluator{checks: e.checks, subjects: e.subjects, hyp: map[*pairing.Match]claimsv1.Verdict{m: v}}
+				// only this subject's per-subject checks and the per-gate ones can move
+				h := e
+				h.hyp, h.base, h.touched = map[*pairing.Match]claimsv1.Verdict{m: v}, &current, si
 				g := h.gate()
 				eff.Outcome[v] = g.Outcome
 				eff.States[v] = map[string]State{}

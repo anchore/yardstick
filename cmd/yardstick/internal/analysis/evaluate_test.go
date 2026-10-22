@@ -638,3 +638,38 @@ func TestPerGateChecksUnderAHypothesis(t *testing.T) {
 		}
 	}
 }
+
+// effects splice the one subject a hypothesis touches into the gate as labeled; they must agree
+// with evaluating the whole gate under the same hypothesis
+func TestEffectsMatchAFullEvaluation(t *testing.T) {
+	deb := pairOne(t, "deb", "deb", without(grype(t, "deb"), "CVE-2026-5450", "libc6"), grype(t, "deb"), label(ncursesBase, "CVE-2023-50495", claimsv1.TP))
+	rpm := cpes(t, label("pkg:rpm/rocky/openssl-libs", "CVE-2026-45447", claimsv1.TP))
+	checks := []gatefile.Check{check(F1NotWorse, nil), check(NoNewFalseNegatives, nil), check(NoNewFalsePositives, nil),
+		check(UnlabeledChangesAtMost, map[string]float64{"max": 0}), check(NoNewMisses, nil), check(ExpectationsMetAtLeast, map[string]float64{"minFraction": 0.5})}
+	subjects := []Subject{deb, rpm}
+	g := Evaluate(checks, subjects)
+	if len(g.Effects) < 2 {
+		t.Fatalf("expected an effect per unlabeled change, got %d", len(g.Effects))
+	}
+	for _, eff := range g.Effects {
+		var m *pairing.Match
+		for _, s := range subjects {
+			for _, x := range s.Result.Matches {
+				if s.Name == eff.Subject && MatchID(x) == eff.Match {
+					m = x
+				}
+			}
+		}
+		for _, v := range []claimsv1.Verdict{claimsv1.TP, claimsv1.FP} {
+			full := EvaluateAs(checks, subjects, map[*pairing.Match]claimsv1.Verdict{m: v})
+			if full.Outcome != eff.Outcome[v] {
+				t.Errorf("%s %s as %s: expected outcome %s, got %s", eff.Subject, eff.Match, v, full.Outcome, eff.Outcome[v])
+			}
+			for _, c := range full.Checks {
+				if eff.States[v][c.Name] != c.State {
+					t.Errorf("%s %s as %s: %s expected %s, got %s", eff.Subject, eff.Match, v, c.Name, c.State, eff.States[v][c.Name])
+				}
+			}
+		}
+	}
+}
