@@ -40,7 +40,7 @@ type Proposal struct {
 	Vulnerability string              `json:"vulnerability"`
 	Verdict       claimsv1.Verdict    `json:"verdict"`
 	Justification string              `json:"justification,omitempty"`
-	Confidence    string              `json:"confidence,omitempty"` // high, medium or low
+	Confidence    string              `json:"confidence,omitempty" tstype:"Confidence"`
 	Evidence      []claimsv1.Evidence `json:"evidence,omitempty"`
 	Note          string              `json:"note,omitempty"`
 	OpenQuestions []string            `json:"openQuestions,omitempty"` // what would settle an unclear verdict
@@ -101,11 +101,11 @@ type Cause struct {
 	// Subject is the subject the rows are in; nil when they span subjects.
 	Subject       *claimsv1.Subject   `json:"subject,omitempty"`
 	SourcePackage string              `json:"sourcePackage"`
-	Direction     string              `json:"direction,omitempty"` // added (candidate only) or dropped (reference only)
+	Direction     string              `json:"direction,omitempty" tstype:"CauseDirection"`
 	Members       []Member            `json:"members"`
 	Verdict       claimsv1.Verdict    `json:"verdict"`
 	Justification string              `json:"justification,omitempty"`
-	Confidence    string              `json:"confidence,omitempty"`
+	Confidence    string              `json:"confidence,omitempty" tstype:"Confidence"`
 	Evidence      []claimsv1.Evidence `json:"evidence,omitempty"`
 	OpenQuestions []string            `json:"openQuestions,omitempty"`
 	Author        Author              `json:"author"`
@@ -182,7 +182,7 @@ type Explanation struct {
 // LogExcerpt is lines copied from one side's grype log in the run. SHA256 is the log text's, as the
 // run record holds it, so the excerpt can be checked against the run.
 type LogExcerpt struct {
-	Side   string `json:"side"` // candidate or reference
+	Side   string `json:"side" tstype:"Side"`
 	File   string `json:"file"` // the log's path relative to the run's gate directory
 	Lines  [2]int `json:"lines"`
 	Text   string `json:"text"`
@@ -254,7 +254,7 @@ type Override struct {
 
 // Reason is why a person overrode a proposal: one of ReasonKinds, and free text.
 type Reason struct {
-	Kind string `json:"kind"`
+	Kind string `json:"kind" tstype:"ReasonKind"`
 	Text string `json:"text,omitempty"`
 }
 

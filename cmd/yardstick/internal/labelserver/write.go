@@ -101,11 +101,11 @@ func writeFailed(w http.ResponseWriter, err error, landed []LabelKey) {
 
 type LabelsRequest struct {
 	Rows          []string `json:"rows"`
-	Verdict       string   `json:"verdict"`
+	Verdict       string   `json:"verdict" tstype:"claimsv1.Verdict"`
 	Justification string   `json:"justification"`
 	Note          string   `json:"note"`
 	// Scope is "subject" (the package within the scanned subject) or "anywhere".
-	Scope string `json:"scope"`
+	Scope string `json:"scope" tstype:"LabelScope"`
 	// OverrideReason, optional, says why the verdict differs from the rows' hints; it goes on the
 	// override records, never on the label.
 	OverrideReason *agentstore.Reason `json:"overrideReason,omitempty"`

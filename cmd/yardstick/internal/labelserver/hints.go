@@ -38,11 +38,11 @@ type HintsResponse struct {
 // label from a claims source, unclear included.
 type HintEntry struct {
 	HintSummary `tstype:",extends"`
-	Kind        string            `json:"kind"`            // proposal or cause
+	Kind        string            `json:"kind" tstype:"HintKind"`
 	Cause       string            `json:"cause,omitempty"` // a cause's one-line title
 	Author      agentstore.Author `json:"author"`
 	Note        string            `json:"note,omitempty"`
-	Group       string            `json:"group"`
+	Group       string            `json:"group" tstype:"HintGroup"`
 	Replaces    bool              `json:"replaces"`
 	Rows        []HintRow         `json:"rows"`
 	Gates       []HintGate        `json:"gates"`
@@ -54,7 +54,7 @@ type HintRow struct {
 	Image         ImageRef      `json:"image"`
 	Vulnerability string        `json:"vulnerability"`
 	Package       PackageInfo   `json:"package"`
-	Direction     string        `json:"direction"`
+	Direction     string        `json:"direction" tstype:"Direction"`
 	Label         *FindingLabel `json:"label" tstype:"FindingLabel | null"`
 	Gates         []string      `json:"gates"`
 }

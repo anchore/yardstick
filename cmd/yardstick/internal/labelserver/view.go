@@ -290,7 +290,7 @@ type Hint struct {
 	Proposal agentstore.Proposal `json:"proposal"`
 	Policy   PolicyCheck         `json:"policy"`
 	// Status is pending (the row is open), agrees or disagrees (someone labeled it).
-	Status string `json:"status"`
+	Status string `json:"status" tstype:"HintStatus"`
 }
 
 type PolicyCheck struct {

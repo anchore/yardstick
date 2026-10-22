@@ -21,6 +21,7 @@ func webDeps() {
 	Run(bun(), run.Args("install", "--frozen-lockfile"), run.InDir(web))
 	if file.Exists(web + "/tygo.yaml") {
 		Run("tygo generate --config " + web + "/tygo.yaml")
+		unionEnums(web + "/src/gen")
 	}
 }
 

@@ -38,7 +38,7 @@ type QueueEntry struct {
 	CrossFinding `tstype:",extends"`
 	Row          string        `json:"row"`
 	Label        *FindingLabel `json:"label" tstype:"FindingLabel | null"` // the unclear label, when there is one
-	Effect       string        `json:"effect"`
+	Effect       string        `json:"effect" tstype:"QueueEffect"`
 }
 
 const effectNone = "none"

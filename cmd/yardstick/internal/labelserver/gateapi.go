@@ -67,7 +67,7 @@ const (
 )
 
 type FindingLabel struct {
-	Verdict       string `json:"verdict"` // tp, fp or unclear
+	Verdict       string `json:"verdict" tstype:"claimsv1.Verdict"`
 	Justification string `json:"justification,omitempty"`
 	Source        string `json:"source"`
 	Note          string `json:"note,omitempty"` // the newest note, why it was chosen
@@ -77,8 +77,8 @@ type FindingLabel struct {
 // listing it.
 type FindingHint struct {
 	Verdict    claimsv1.Verdict `json:"verdict"`
-	Confidence string           `json:"confidence,omitempty"`
-	Kind       string           `json:"kind"` // proposal or cause
+	Confidence string           `json:"confidence,omitempty" tstype:"agentstore.Confidence"`
+	Kind       string           `json:"kind" tstype:"HintKind"`
 }
 
 type Finding struct {
@@ -87,10 +87,10 @@ type Finding struct {
 	Image         ImageRef      `json:"image"`
 	Vulnerability string        `json:"vulnerability"`
 	Package       PackageInfo   `json:"package"`
-	Direction     string        `json:"direction"` // added, dropped, both or neither
+	Direction     string        `json:"direction" tstype:"Direction"`
 	Label         *FindingLabel `json:"label" tstype:"FindingLabel | null"`
 	Hint          *FindingHint  `json:"hint" tstype:"FindingHint | null"`
-	Effect        string        `json:"effect"` // decides, could-move or counted
+	Effect        string        `json:"effect" tstype:"Effect"`
 }
 
 // CheckFindings is GET checks/{check}/findings.

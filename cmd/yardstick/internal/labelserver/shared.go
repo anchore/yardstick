@@ -61,7 +61,7 @@ type CrossCause struct {
 	Title      string           `json:"title"`
 	Gate       string           `json:"gate"` // a gate to accept it in
 	Verdict    claimsv1.Verdict `json:"verdict,omitempty"`
-	Confidence string           `json:"confidence,omitempty"`
+	Confidence string           `json:"confidence,omitempty" tstype:"agentstore.Confidence"`
 }
 
 type CrossAppearance struct {

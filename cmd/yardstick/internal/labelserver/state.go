@@ -97,16 +97,16 @@ type StateRow struct {
 	ID           string       `json:"id"`
 	MatchID      string       `json:"match"`
 	Package      PkgRef       `json:"package"`
-	Verdict      string       `json:"verdict"`
+	Verdict      string       `json:"verdict" tstype:"RowVerdict"`
 	Hint         *HintSummary `json:"hint,omitempty"`
 	Causes       []string     `json:"causes,omitempty"`
 	Explanation  string       `json:"explanation,omitempty"`
 	Gate         *RowEffect   `json:"gate,omitempty"`
 	// Effect is the row's strongest effect over the gate's checks (decides, could-move or counted),
 	// as their findings say it; absent when no check counts it. Only /state sets it.
-	Effect string `json:"effect,omitempty"`
+	Effect string `json:"effect,omitempty" tstype:"Effect"`
 	// ResearchLevel is "", "triaged" or "researched"; Researched is it being "researched".
-	ResearchLevel string           `json:"researchLevel,omitempty"`
+	ResearchLevel string           `json:"researchLevel,omitempty" tstype:"ResearchLevel"`
 	Researched    bool             `json:"researched,omitempty"`
 	ResearchedBy  []string         `json:"researchedBy,omitempty"`
 	Research      *ResearchSummary `json:"research,omitempty"` // the newest job covering the row
@@ -160,7 +160,7 @@ type HintSummary struct {
 	ID            string           `json:"id"`
 	Verdict       claimsv1.Verdict `json:"verdict"`
 	Justification string           `json:"justification,omitempty"`
-	Confidence    string           `json:"confidence,omitempty"`
+	Confidence    string           `json:"confidence,omitempty" tstype:"agentstore.Confidence"`
 	Skill         string           `json:"skill,omitempty"`
 	Model         string           `json:"model,omitempty"`
 	ResearchJob   string           `json:"researchJob,omitempty"`
@@ -168,9 +168,9 @@ type HintSummary struct {
 	Decision      string           `json:"decision,omitempty"`
 	Title         string           `json:"title,omitempty"` // the rule's, a headline for people
 	Problems      int              `json:"problems,omitempty"`
-	Status        string           `json:"status"`
+	Status        string           `json:"status" tstype:"HintStatus"`
 	Written       time.Time        `json:"written,omitzero"`
-	Origin        string           `json:"origin,omitempty"` // label-ui, research-job or skill-run
+	Origin        string           `json:"origin,omitempty" tstype:"HintOrigin"`
 }
 
 func (h *Hint) summary() *HintSummary {
@@ -229,7 +229,7 @@ type CheckResult struct {
 	Summary    string             `json:"summary,omitempty"`
 	ValueMeans string             `json:"valueMeans"`
 	Counts     string             `json:"counts,omitempty"`
-	Direction  string             `json:"direction"`
+	Direction  string             `json:"direction" tstype:"CheckDirection"`
 	Params     map[string]float64 `json:"params,omitempty"`
 	Threshold  float64            `json:"threshold"`
 	Value      analysis.Value     `json:"value"`

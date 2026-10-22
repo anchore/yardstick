@@ -55,7 +55,7 @@ type ResearchQueueResponse struct {
 // ResearchGroup is one group's jobs in the queue's order. Rows counts the open rows they cover. An
 // unselected group's jobs are what selecting it would add.
 type ResearchGroup struct {
-	Group    string            `json:"group"` // change or none
+	Group    string            `json:"group" tstype:"ResearchGroupName"`
 	Selected bool              `json:"selected"`
 	Rows     int               `json:"rows"`
 	Jobs     []ResearchJobPlan `json:"jobs"`
@@ -80,7 +80,7 @@ type ResearchMatch struct {
 	Row           string      `json:"row"`
 	Vulnerability string      `json:"vulnerability"`
 	Package       PackageInfo `json:"package"`
-	Effect        string      `json:"effect"`
+	Effect        string      `json:"effect" tstype:"QueueEffect"`
 }
 
 // ResearchSkipped counts the open rows in scope left out: research finished on them, an agent
@@ -537,7 +537,7 @@ func (s *Server) handleResearchBatch(w http.ResponseWriter, req *http.Request) {
 type ResearchJobHint struct {
 	ID         string           `json:"id"`
 	Verdict    claimsv1.Verdict `json:"verdict"`
-	Confidence string           `json:"confidence,omitempty"`
+	Confidence string           `json:"confidence,omitempty" tstype:"agentstore.Confidence"`
 }
 
 // jobHints are the proposals each job recorded, by job id.

@@ -192,7 +192,7 @@ func hintOrigin(idx *researchIndex, rowID string, p agentstore.Proposal) (origin
 // job, with scope=gate:<gate>.
 type ResearchRequest struct {
 	Rows []string `json:"rows"`
-	From string   `json:"from,omitempty"`
+	From string   `json:"from,omitempty" tstype:"ResearchFrom"`
 }
 
 // ResearchResponse is what a start queued: the jobs, the rows they cover (Matches), and the rows

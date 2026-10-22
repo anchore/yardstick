@@ -85,13 +85,13 @@ type StateCause struct {
 	Title         string            `json:"title"`
 	Verdict       claimsv1.Verdict  `json:"verdict"`
 	Justification string            `json:"justification,omitempty"`
-	Confidence    string            `json:"confidence,omitempty"`
+	Confidence    string            `json:"confidence,omitempty" tstype:"agentstore.Confidence"`
 	Author        agentstore.Author `json:"author"`
 	Rule          string            `json:"rule,omitempty"`
 	RuleText      string            `json:"ruleText,omitempty"` // what the rule rests on, in plain words
 	Problems      int               `json:"problems,omitempty"`
 	SourcePackage string            `json:"sourcePackage"`
-	Direction     string            `json:"direction,omitempty"`
+	Direction     string            `json:"direction,omitempty" tstype:"agentstore.CauseDirection"`
 	Rows          []string          `json:"rows"`
 	Pending       []string          `json:"pending"`
 	Conflicts     []string          `json:"conflicts"`
@@ -131,8 +131,8 @@ func (v *view) stateCauses() []StateCause {
 
 type CauseMember struct {
 	agentstore.Member `tstype:",extends"`
-	State             string       `json:"state"` // pending, conflict, labeled, accepted, or missing
-	Verdict           string       `json:"verdict,omitempty"`
+	State             string       `json:"state" tstype:"MemberState"`
+	Verdict           string       `json:"verdict,omitempty" tstype:"RowVerdict"`
 	Hint              *HintSummary `json:"hint,omitempty"`
 }
 
