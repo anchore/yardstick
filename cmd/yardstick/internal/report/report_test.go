@@ -427,3 +427,25 @@ func TestRowsCarryLocation(t *testing.T) {
 		}
 	}
 }
+
+// text from an SBOM, a scan or a claims source reaches a terminal with no control characters in it
+func TestRenderStripsControlCharacters(t *testing.T) {
+	for _, format := range Formats {
+		set := smallSet(t)
+		m := &set.Gates[1].Subjects[0].Matches[0]
+		m.Package = "pkg:rpm/evil\x1b[2J\r@1.0"
+		m.Vulnerability = "CVE-2026-0001\x1b]8;;https://example.invalid\x07"
+		for _, color := range []bool{false, true} {
+			out := render(t, set, Options{Format: format, Details: DetailsRows, Color: color})
+			if strings.Contains(out, "\x1b[2J") || strings.Contains(out, "\x1b]8") || strings.ContainsAny(out, "\r\x07") {
+				t.Errorf("%s (color %v): expected no control characters from the data, got %q", format, color, out)
+			}
+			if !color && strings.Contains(out, "\x1b") {
+				t.Errorf("%s: expected no escape at all without color", format)
+			}
+		}
+		if out := render(t, set, Options{Format: format, Details: DetailsRows}); format != "table" && !strings.Contains(out, "CVE-2026-0001]8;;https://example.invalid") {
+			t.Errorf("%s: expected the text around the control characters kept, got %q", format, out)
+		}
+	}
+}

@@ -5,8 +5,10 @@ import (
 	"fmt"
 	"io"
 	"path"
+	"reflect"
 	"sort"
 	"strings"
+	"unicode"
 	"unicode/utf8"
 
 	"github.com/anchore/yardstick/cmd/yardstick/internal/analysis"
@@ -62,8 +64,10 @@ func (o Options) showRows() bool    { return o.Details == DetailsRows }
 // CheckFormat refuses a renderer that does not exist, naming the valid ones.
 func CheckFormat(f string) error { return checkOneOf("output", f, Formats) }
 
-// Render writes the set. It reads the set only.
+// Render writes the set. It changes no state, count or code in it; it only strips control
+// characters from its text (stripControls), so every format shows the same text.
 func Render(w io.Writer, s Set, o Options) error {
+	stripControls(reflect.ValueOf(&s).Elem())
 	switch o.Format {
 	case "json":
 		enc := json.NewEncoder(w)
@@ -140,6 +144,59 @@ func table(w io.Writer, s Set, o Options) error {
 	}
 	_, err := fmt.Fprintln(w, summaryLine(s.Summary, st))
 	return err
+}
+
+// stripControls removes control characters but tab and newline from every string the set holds,
+// in place: package and vulnerability text from SBOMs, scans and claims sources, remote ones too,
+// could otherwise move a terminal's cursor or restyle what a report shows. Only exported fields
+// are walked, which json renders, so there is no cycle to follow.
+func stripControls(v reflect.Value) {
+	switch v.Kind() {
+	case reflect.Pointer:
+		if !v.IsNil() {
+			stripControls(v.Elem())
+		}
+	case reflect.Interface:
+		if !v.IsNil() && v.CanSet() {
+			e := reflect.New(v.Elem().Type()).Elem()
+			e.Set(v.Elem())
+			stripControls(e)
+			v.Set(e)
+		}
+	case reflect.Struct:
+		for i := range v.NumField() {
+			if f := v.Field(i); f.CanSet() {
+				stripControls(f)
+			}
+		}
+	case reflect.Slice, reflect.Array:
+		if v.Type().Elem().Kind() == reflect.Uint8 {
+			return
+		}
+		for i := range v.Len() {
+			stripControls(v.Index(i))
+		}
+	case reflect.Map:
+		for _, k := range v.MapKeys() {
+			e := reflect.New(v.Type().Elem()).Elem()
+			e.Set(v.MapIndex(k))
+			stripControls(e)
+			v.SetMapIndex(k, e)
+		}
+	case reflect.String:
+		if v.CanSet() && strings.ContainsFunc(v.String(), control) {
+			v.SetString(strings.Map(func(r rune) rune {
+				if control(r) {
+					return -1
+				}
+				return r
+			}, v.String()))
+		}
+	}
+}
+
+func control(r rune) bool {
+	return unicode.IsControl(r) && r != '\t' && r != '\n'
 }
 
 // shortSubject is how the table names a subject pinned by digest: its repository's last path
