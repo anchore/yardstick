@@ -113,7 +113,7 @@ func TestImportOpenVEX(t *testing.T) {
 
 	// and the writer takes every one
 	dir, w := corpusDir(t)
-	if err := w.Write(got.Placed); err != nil {
+	if _, err := w.Write(got.Placed); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := os.Stat(filepath.Join(dir, filepath.FromSlash(claimsv1.TypeFile(debDir, "deb")))); err != nil {
@@ -165,7 +165,7 @@ func TestImportOSV(t *testing.T) {
 		t.Errorf("expected 13 listed versions as tp and the fix as fp, got %d and %d", tps, fps)
 	}
 	_, w := corpusDir(t)
-	if err := w.Write(got.Placed); err != nil {
+	if _, err := w.Write(got.Placed); err != nil {
 		t.Fatal(err)
 	}
 }
@@ -182,7 +182,7 @@ func TestExport(t *testing.T) {
 	}
 	subject := &claimsv1.Subject{Image: debImage.Image(), Platform: "linux/arm64"}
 	doc := claimsv1.DocumentDir(debDigest)
-	err := w.Write([]claimsv1.Placed{
+	_, err := w.Write([]claimsv1.Placed{
 		{File: claimsv1.TypeFile(debDir, "deb"), Subject: subject, Label: label("pkg:deb/debian/libc6@2.36-9?arch=arm64&distro=debian-12", "CVE-2023-4911", claimsv1.TP, "fix-newer", "")},
 		{File: claimsv1.TypeFile(debDir, "deb"), Subject: subject, Label: label("pkg:deb/debian/zlib1g@1.2.13?distro=debian-12", "CVE-2022-37434", claimsv1.FP, "fix-installed", "")},
 		{File: claimsv1.TypeFile(debDir, "deb"), Subject: subject, Label: label("pkg:deb/debian/tar@1.34?distro=debian-12", "CVE-2005-2541", claimsv1.FP, "vulnerable_code_not_present", "")},

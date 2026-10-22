@@ -62,7 +62,7 @@ func corpus(t *testing.T, placed ...claimsv1.Placed) string {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := (claimsv1.Writer{Dir: root, Vocab: v}).Write(placed); err != nil {
+	if _, err := (claimsv1.Writer{Dir: root, Vocab: v}).Write(placed); err != nil {
 		t.Fatal(err)
 	}
 	return root
@@ -300,7 +300,7 @@ func TestWritesGoToTheLastLocalSource(t *testing.T) {
 	if w.Dir != local || w.Vocab == nil {
 		t.Errorf("expected writes into %s checked against the published vocabulary, got %+v", local, w)
 	}
-	if err := w.Write([]claimsv1.Placed{at(claimsv1.TypeFile(dir, "deb"), label(libudv, "CVE-2020-13776", claimsv1.TP))}); err != nil {
+	if _, err := w.Write([]claimsv1.Placed{at(claimsv1.TypeFile(dir, "deb"), label(libudv, "CVE-2020-13776", claimsv1.TP))}); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := os.Stat(filepath.Join(local, filepath.FromSlash(claimsv1.TypeFile(dir, "deb")))); err != nil {

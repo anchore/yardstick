@@ -56,32 +56,47 @@ func (p *pending) add(e *entry, r *rowRef, l claimsv1.Label, glob bool) error {
 }
 
 // write writes the batch into the gate's writable claims source, then the override records. The
-// writer checks every label before writing any.
-func (s *Server) write(w http.ResponseWriter, v *view, p *pending) bool {
+// writer checks every label before writing any. p.keys is what landed, error or not.
+func (s *Server) write(v *view, p *pending) error {
 	p.keys = []LabelKey{}
 	if len(p.placed) == 0 {
-		return true
+		return nil
 	}
 	wr, err := v.set.Writer()
-	if err == nil {
-		err = wr.Write(p.placed)
+	if err != nil {
+		return err
+	}
+	written, err := wr.Write(p.placed)
+	for _, wt := range written {
+		p.keys = append(p.keys, LabelKey{Source: wr.Dir, File: wt.File, Package: wt.Key.Package, Vulnerability: wt.Key.Vulnerability, Prior: wt.Prior})
 	}
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
-		return false
-	}
-	for _, pl := range p.placed {
-		if k := (LabelKey{Source: wr.Dir, File: pl.File, Package: pl.Label.Package, Vulnerability: pl.Label.Vulnerability}); !slices.Contains(p.keys, k) {
-			p.keys = append(p.keys, k)
-		}
+		return err
 	}
 	if len(p.overrides) > 0 {
 		if err := s.opts.Store.Overrides.Add(p.overrides...); err != nil {
-			http.Error(w, "the labels were written, but not the override records: "+err.Error(), http.StatusInternalServerError)
-			return false
+			return fmt.Errorf("the labels were written, but not the override records: %w", err)
 		}
 	}
-	return true
+	return nil
+}
+
+// WriteError is the body of a write that failed once some labels had landed: the error, and the
+// labels written, which POST /api/history/revert takes to undo them. A write that failed before
+// any landed answers 400 with the error as plain text instead.
+type WriteError struct {
+	Error  string     `json:"error"`
+	Labels []LabelKey `json:"labels"`
+}
+
+// writeFailed answers a failed write, listing what landed when anything did.
+func writeFailed(w http.ResponseWriter, err error, landed []LabelKey) {
+	if len(landed) == 0 {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	log.Warnf("a write failed after %d label(s) landed: %v", len(landed), err)
+	writeJSONStatus(w, http.StatusInternalServerError, WriteError{err.Error(), landed})
 }
 
 type LabelsRequest struct {
@@ -151,7 +166,8 @@ func (s *Server) handleLabels(w http.ResponseWriter, req *http.Request) {
 		http.Error(w, "an override reason was given, but no row has a differing hint", http.StatusBadRequest)
 		return
 	}
-	if !s.write(w, v, &batch) {
+	if err := s.write(v, &batch); err != nil {
+		writeFailed(w, err, batch.keys)
 		return
 	}
 	log.Infof("wrote %d %s label(s), %d overriding an agent", len(batch.placed), verdict, len(overridden))
@@ -215,7 +231,8 @@ func (s *Server) handleAccept(w http.ResponseWriter, req *http.Request) {
 			return
 		}
 	}
-	if !s.write(w, v, &batch) {
+	if err := s.write(v, &batch); err != nil {
+		writeFailed(w, err, batch.keys)
 		return
 	}
 	log.Infof("accepted %d proposal(s)", len(batch.placed))
@@ -273,7 +290,8 @@ func (s *Server) handleAcceptCause(w http.ResponseWriter, req *http.Request) {
 			return
 		}
 	}
-	if !s.write(w, v, &batch) {
+	if err := s.write(v, &batch); err != nil {
+		writeFailed(w, err, batch.keys)
 		return
 	}
 	log.Infof("accepted cause %s for %d row(s)", cv.ID, len(batch.placed))

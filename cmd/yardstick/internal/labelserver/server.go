@@ -84,8 +84,8 @@
 //	history                   ← every label file in each gate's writable source (claims.Set.Writer,
 //	                            the last source), rows from the pairing's labels held by that source;
 //	                            since= on lastUpdated, started the server's start
-//	POST history/revert       ← claimsv1.Writer.Remove from a writable source; a write's labels are
-//	                            the keys it wrote, for undoing it
+//	POST history/revert       ← claimsv1.Writer.Revert in a writable source; a write's labels are
+//	                            the keys it wrote with the label each replaced, for undoing it
 //
 //	row.research, researchLevel, researched, researchedBy, hint.origin
 //	                          ← research.Job records under .yardstick/research/jobs/, as in delta;
@@ -343,8 +343,13 @@ func decode(w http.ResponseWriter, req *http.Request, v any) bool {
 }
 
 func writeJSON(w http.ResponseWriter, v any) {
+	writeJSONStatus(w, http.StatusOK, v)
+}
+
+func writeJSONStatus(w http.ResponseWriter, code int, v any) {
 	w.Header().Set("Content-Type", "application/json")
 	w.Header().Set("Cache-Control", "no-store")
+	w.WriteHeader(code)
 	enc := json.NewEncoder(w)
 	enc.SetEscapeHTML(false)
 	if err := enc.Encode(v); err != nil {

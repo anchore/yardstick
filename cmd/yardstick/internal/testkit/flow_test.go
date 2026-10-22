@@ -13,6 +13,7 @@ import (
 	"strings"
 	"testing"
 
+	claimsv1 "github.com/anchore/yardstick/cmd/yardstick/internal/claims/v1"
 	"github.com/anchore/yardstick/cmd/yardstick/internal/labelserver"
 )
 
@@ -417,18 +418,80 @@ func TestE2EHistoryUndo(t *testing.T) {
 	if code := revert(srv.Token(), []labelserver.LabelKey{other}); code != http.StatusBadRequest {
 		t.Errorf("revert from a source that is not writable: %d", code)
 	}
+	// the tp replaced the fp in ./claims, so undoing it puts that fp back rather than removing it
+	if p := res.Labels[0].Prior; p == nil || p.Verdict != "fp" || p.LastUpdated != "2026-01-01T00:00:00Z" {
+		t.Fatalf("the tp's prior: %+v", p)
+	}
 	var rev labelserver.RevertResponse
-	if code := post(t, h, srv.Token(), "/api/history/revert", labelserver.RevertRequest{Labels: res.Labels}, &rev); code != http.StatusOK || rev.Removed != 1 {
+	if code := post(t, h, srv.Token(), "/api/history/revert", labelserver.RevertRequest{Labels: res.Labels}, &rev); code != http.StatusOK || rev.Restored != 1 || rev.Removed != 0 {
 		t.Fatalf("revert the tp: %d %+v", code, rev)
 	}
-	// the corpus's fp decides again, and ./claims no longer holds the key
+	if hist = history(""); hist.Total != 5 || !slices.ContainsFunc(hist.Labels, func(l labelserver.HistoryLabel) bool {
+		return l.Label.Vulnerability == "CVE-2026-41992" && l.Label.Verdict == "fp" && l.Label.LastUpdated == "2026-01-01T00:00:00Z"
+	}) {
+		t.Errorf("history after the revert: %+v", hist.Labels)
+	}
+	// removing it from history (a key with no prior) leaves the corpus's fp deciding
+	removed := res.Labels[0]
+	removed.Prior = nil
+	if code := post(t, h, srv.Token(), "/api/history/revert", labelserver.RevertRequest{Labels: []labelserver.LabelKey{removed}}, &rev); code != http.StatusOK || rev.Removed != 1 {
+		t.Fatalf("remove the fp: %d %+v", code, rev)
+	}
 	if v := rowVerdict(t, h, "deb-npm", gzip); v != "fp" {
-		t.Errorf("gzip after the revert: %s", v)
+		t.Errorf("gzip after the remove: %s", v)
 	}
 	if hist = history(""); hist.Total != 4 || slices.ContainsFunc(hist.Labels, func(l labelserver.HistoryLabel) bool { return l.Label.Vulnerability == "CVE-2026-41992" }) {
-		t.Errorf("history after the revert: %d", hist.Total)
+		t.Errorf("history after the remove: %d", hist.Total)
 	}
-	if code := revert(srv.Token(), res.Labels); code != http.StatusBadRequest {
+	if code := revert(srv.Token(), []labelserver.LabelKey{removed}); code != http.StatusBadRequest {
 		t.Errorf("revert of a label no longer in ./claims: %d", code)
+	}
+}
+
+// relabel then undo with one claims source: the undo puts the replaced label back, its note and
+// all, where removing the key would leave the row unlabeled
+func TestE2ERelabelUndo(t *testing.T) {
+	srv, _, _, _ := e2eServer(t)
+	h := srv.Handler()
+	const gzip = "5e50fe5b2007001a"
+	label := func(req labelserver.LabelsRequest) labelserver.LabelsResponse {
+		t.Helper()
+		var res labelserver.LabelsResponse
+		if code := post(t, h, srv.Token(), "/api/gates/deb-npm/labels", req, &res); code != http.StatusOK || len(res.Labels) != 1 {
+			t.Fatalf("label %s: %d %+v", req.Verdict, code, res.Labels)
+		}
+		return res
+	}
+	first := label(labelserver.LabelsRequest{Rows: []string{gzip}, Verdict: "unclear", Justification: "not-assessed", Note: "check the jar"})
+	if first.Labels[0].Prior != nil {
+		t.Fatalf("expected no prior on a first label, got %+v", first.Labels[0].Prior)
+	}
+	relabel := label(labelserver.LabelsRequest{Rows: []string{gzip}, Verdict: "fp", Justification: "fix-installed"})
+	if p := relabel.Labels[0].Prior; p == nil || p.Verdict != "unclear" || len(p.Notes) != 1 || p.Notes[0].Text != "check the jar" {
+		t.Fatalf("expected the unclear label as the prior, got %+v", p)
+	}
+	historyLabel := func() claimsv1.Label {
+		t.Helper()
+		var hist labelserver.History
+		get(t, h, "/api/history?since=start", &hist)
+		if hist.Total != 1 {
+			t.Fatalf("expected one label since the start, got %d", hist.Total)
+		}
+		return hist.Labels[0].Label
+	}
+	// the fp keeps the unclear label's note
+	if l := historyLabel(); l.Verdict != "fp" || len(l.Notes) != 1 || l.Notes[0].Text != "check the jar" {
+		t.Errorf("the fp after the relabel: %+v", l)
+	}
+
+	var rev labelserver.RevertResponse
+	if code := post(t, h, srv.Token(), "/api/history/revert", labelserver.RevertRequest{Labels: relabel.Labels}, &rev); code != http.StatusOK || rev.Restored != 1 || rev.Removed != 0 {
+		t.Fatalf("undo: %d %+v", code, rev)
+	}
+	if v := rowVerdict(t, h, "deb-npm", gzip); v != "unclear" {
+		t.Errorf("after the undo: %s", v)
+	}
+	if l := historyLabel(); l.Verdict != "unclear" || l.Justification != "not-assessed" || len(l.Notes) != 1 || l.Notes[0].Text != "check the jar" {
+		t.Errorf("expected the unclear label back as it was, got %+v", l)
 	}
 }

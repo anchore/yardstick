@@ -27,20 +27,24 @@ type History struct {
 }
 
 // LabelKey names one label in a writable claims source: what a write wrote, and what
-// POST /api/history/revert removes.
+// POST /api/history/revert takes back. Prior is the label the write replaced, absent when the key
+// was new; revert puts it back, and removes the key when there is none.
 type LabelKey struct {
-	Source        string `json:"source"`
-	File          string `json:"file"` // corpus-relative
-	Package       string `json:"package"`
-	Vulnerability string `json:"vulnerability"`
+	Source        string          `json:"source"`
+	File          string          `json:"file"` // corpus-relative
+	Package       string          `json:"package"`
+	Vulnerability string          `json:"vulnerability"`
+	Prior         *claimsv1.Label `json:"prior,omitempty"`
 }
 
 type RevertRequest struct {
 	Labels []LabelKey `json:"labels"`
 }
 
+// RevertResponse counts the keys removed and the replaced labels put back.
 type RevertResponse struct {
-	Removed int `json:"removed"`
+	Removed  int `json:"removed"`
+	Restored int `json:"restored"`
 }
 
 // HistoryLabel is one label as its file holds it, and the rows it pairs in each gate.
@@ -193,9 +197,10 @@ func (s *Server) handleHistory(w http.ResponseWriter, req *http.Request) {
 	writeJSON(w, out)
 }
 
-// handleRevert removes labels from the writable sources, undoing what a write wrote: a label held
-// by an earlier source then decides again. Nothing is removed when any key names a source that is
-// not writable or a label that is not there.
+// handleRevert undoes what a write wrote in the writable sources: a key with a prior gets that
+// label back, and one without is removed, so a label held by an earlier source decides again.
+// Nothing is reverted when any key names a source that is not writable or a label that is not
+// there.
 func (s *Server) handleRevert(w http.ResponseWriter, req *http.Request) {
 	var body RevertRequest
 	if !decode(w, req, &body) {
@@ -212,28 +217,37 @@ func (s *Server) handleRevert(w http.ResponseWriter, req *http.Request) {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	bySource := map[string][]claimsv1.FileKey{}
+	bySource := map[string][]claimsv1.Written{}
 	for _, k := range body.Labels {
 		if !slices.ContainsFunc(sources, func(x *claims.Source) bool { return x.Locator == k.Source }) {
 			http.Error(w, k.Source+" is not a writable claims source", http.StatusBadRequest)
 			return
 		}
-		if fk := (claimsv1.FileKey{File: k.File, Key: claimsv1.Key{Package: k.Package, Vulnerability: k.Vulnerability}}); !slices.Contains(bySource[k.Source], fk) {
-			bySource[k.Source] = append(bySource[k.Source], fk)
+		wt := claimsv1.Written{File: k.File, Key: claimsv1.Key{Package: k.Package, Vulnerability: k.Vulnerability}, Prior: k.Prior}
+		if !slices.ContainsFunc(bySource[k.Source], func(x claimsv1.Written) bool { return x.File == wt.File && x.Key == wt.Key }) {
+			bySource[k.Source] = append(bySource[k.Source], wt)
 		}
 	}
-	// ponytail: checked per source, so a second source refusing leaves the first's removals; one
+	// ponytail: checked per source, so a second source refusing leaves the first's reverts; one
 	// writable source is the usual workspace
-	n := 0
+	var out RevertResponse
 	for _, src := range sources {
-		if ks := bySource[src.Locator]; len(ks) > 0 {
-			if err := (claimsv1.Writer{Dir: src.Dir}).Remove(ks); err != nil {
-				http.Error(w, err.Error(), http.StatusBadRequest)
-				return
+		ws := bySource[src.Locator]
+		if len(ws) == 0 {
+			continue
+		}
+		if err := (claimsv1.Writer{Dir: src.Dir}).Revert(ws); err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+		for _, wt := range ws {
+			if wt.Prior != nil {
+				out.Restored++
+			} else {
+				out.Removed++
 			}
-			n += len(ks)
 		}
 	}
-	log.Infof("reverted %d label(s)", n)
-	writeJSON(w, RevertResponse{n})
+	log.Infof("reverted %d label(s): %d removed, %d restored", out.Removed+out.Restored, out.Removed, out.Restored)
+	writeJSON(w, out)
 }

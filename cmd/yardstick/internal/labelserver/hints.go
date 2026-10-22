@@ -381,13 +381,12 @@ func (s *Server) handleAcceptHints(w http.ResponseWriter, req *http.Request) {
 		}
 	}
 	for _, gb := range batches {
-		if !s.write(w, gb.v, gb.p) {
+		err := s.write(gb.v, gb.p)
+		a.out.Labels = append(a.out.Labels, gb.p.keys...)
+		if err != nil {
+			// the gates before this one wrote theirs, so the error lists them for undoing
+			writeFailed(w, err, a.out.Labels)
 			return
-		}
-		for _, k := range gb.p.keys {
-			if !slices.Contains(a.out.Labels, k) {
-				a.out.Labels = append(a.out.Labels, k)
-			}
 		}
 	}
 	a.touched(rowGates)

@@ -6,6 +6,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 
@@ -89,7 +90,7 @@ func corpus(t *testing.T) string {
 	}
 	write(t, filepath.Join(dir, filepath.FromSlash(debDir), ImageSBOMFile), string(sbom))
 	w := Writer{Dir: dir, Vocab: vocab}
-	err = w.Write([]Placed{
+	_, err = w.Write([]Placed{
 		{File: TypeFile(debDir, "deb"), Subject: debImage, Label: tp(libc, "CVE-2023-4911")},
 		{File: TypeFile(debDir, "deb"), Subject: debImage, Label: fp(zlib, "CVE-2022-37434")},
 		{File: TypeFile(debDir, "deb"), Subject: debImage, Label: tp(ncurse, "CVE-2023-29491")},
@@ -185,7 +186,7 @@ func TestFormatMajorAndAdditiveChanges(t *testing.T) {
 	}
 
 	// another label written into the file keeps the unknown field on the one already there
-	if err := (Writer{Dir: dir, Vocab: vocab}).Write([]Placed{{File: TypeFile(debDir, "deb"), Subject: debImage, Label: tp(libc, "CVE-2024-2961")}}); err != nil {
+	if _, err := (Writer{Dir: dir, Vocab: vocab}).Write([]Placed{{File: TypeFile(debDir, "deb"), Subject: debImage, Label: tp(libc, "CVE-2024-2961")}}); err != nil {
 		t.Fatal(err)
 	}
 	if !strings.Contains(read(t, file), `"reviewedBy": "Alex Goodman"`) {
@@ -328,7 +329,7 @@ func TestWriter(t *testing.T) {
 	before := read(t, file)
 	relabeled := tp(zlib, "CVE-2022-37434")
 	relabeled.FirstIssued, relabeled.LastUpdated = later, later
-	if err := w.Write([]Placed{
+	if _, err := w.Write([]Placed{
 		{File: TypeFile(debDir, "deb"), Subject: debImage, Label: tp("pkg:deb/debian/apt@2.6.1?arch=arm64&distro=debian-12", "CVE-2011-3374")},
 		{File: TypeFile(debDir, "deb"), Subject: debImage, Label: relabeled},
 	}); err != nil {
@@ -345,7 +346,7 @@ func TestWriter(t *testing.T) {
 
 	// identical input, identical bytes
 	again := read(t, file)
-	if err := w.Write([]Placed{{File: TypeFile(debDir, "deb"), Subject: debImage, Label: relabeled}}); err != nil {
+	if _, err := w.Write([]Placed{{File: TypeFile(debDir, "deb"), Subject: debImage, Label: relabeled}}); err != nil {
 		t.Fatal(err)
 	}
 	if read(t, file) != again {
@@ -353,23 +354,102 @@ func TestWriter(t *testing.T) {
 	}
 }
 
-// remove drops labels by file and key, deletes a file it empties, and removes nothing when one key
-// is not there
+// a replacement carries the replaced label's notes forward and its evidence when the call is the
+// same, says what it replaced, and reverting that puts the replaced label back byte for byte
+func TestWriterReplaceAndRevert(t *testing.T) {
+	dir := corpus(t)
+	file := filepath.Join(dir, TypeFile(debDir, "deb"))
+	w := Writer{Dir: dir, Vocab: vocab}
+	at := func(l Label) Placed { return Placed{File: TypeFile(debDir, "deb"), Subject: debImage, Label: l} }
+
+	first := fp(zlib, "CVE-2022-37434")
+	first.Evidence[0].Interpretation = "checked by hand"
+	first.Notes = NotesOf("check the jar", "Will Murphy", now)
+	if _, err := w.Write([]Placed{at(first)}); err != nil {
+		t.Fatal(err)
+	}
+	before := read(t, file)
+
+	again := fp(zlib, "CVE-2022-37434")
+	again.Evidence, again.Notes, again.FirstIssued, again.LastUpdated = nil, NotesOf("still fp", "Alex Goodman", later), later, later
+	newKey := tp("pkg:deb/debian/apt@2.6.1?arch=arm64&distro=debian-12", "CVE-2011-3374")
+	written, err := w.Write([]Placed{at(again), at(newKey), at(again)})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(written) != 2 {
+		t.Fatalf("expected each key once, got %+v", written)
+	}
+	for _, wr := range written {
+		switch wr.Key {
+		case newKey.Key():
+			if wr.Prior != nil {
+				t.Errorf("expected no prior for a new key, got %+v", wr.Prior)
+			}
+		case first.Key():
+			if wr.Prior == nil || wr.Prior.Notes[0].Text != "check the jar" || len(wr.Prior.Notes) != 1 {
+				t.Errorf("expected the file's label as the prior, got %+v", wr.Prior)
+			}
+		default:
+			t.Errorf("unexpected key %s", wr.Key)
+		}
+	}
+	f, _ := Parse("deb.json", []byte(read(t, file)))
+	i := slices.IndexFunc(f.Labels, func(l Label) bool { return l.Key() == first.Key() })
+	got := f.Labels[i]
+	if len(got.Notes) != 2 || got.Notes[0].Text != "check the jar" || got.Notes[1].Text != "still fp" {
+		t.Errorf("expected both notes, the old one first, got %+v", got.Notes)
+	}
+	if len(got.Evidence) != 1 || got.Evidence[0].Interpretation != "checked by hand" || got.FirstIssued != now {
+		t.Errorf("expected the fp's evidence and firstIssued kept, got %+v", got)
+	}
+
+	// a call the other way keeps the notes but not evidence for the other verdict
+	flipped := tp(zlib, "CVE-2022-37434")
+	flip, err := w.Write([]Placed{at(flipped)})
+	if err != nil {
+		t.Fatal(err)
+	}
+	f, _ = Parse("deb.json", []byte(read(t, file)))
+	got = f.Labels[slices.IndexFunc(f.Labels, func(l Label) bool { return l.Key() == first.Key() })]
+	if len(got.Evidence) != 0 || len(got.Notes) != 2 {
+		t.Errorf("expected the tp with the notes and no fp evidence, got %+v", got)
+	}
+
+	if err := w.Revert(flip); err != nil {
+		t.Fatal(err)
+	}
+	if err := w.Revert(written); err != nil {
+		t.Fatal(err)
+	}
+	if read(t, file) != before {
+		t.Errorf("expected reverting both writes to restore the file, got\n%s", read(t, file))
+	}
+
+	// a prior that is not the key's label is refused
+	bad := Written{File: TypeFile(debDir, "deb"), Key: first.Key(), Prior: &newKey}
+	if err := w.Revert([]Written{bad}); err == nil {
+		t.Error("expected a prior for another key refused")
+	}
+}
+
+// revert without a prior drops labels by file and key, deletes a file it empties, and reverts
+// nothing when one key is not there
 func TestWriterRemove(t *testing.T) {
 	dir := corpus(t)
 	file, global := filepath.Join(dir, TypeFile(debDir, "deb")), filepath.Join(dir, "global", "deb.json")
 	w := Writer{Dir: dir}
-	key := func(file, pkg, vuln string) FileKey {
-		return FileKey{File: file, Key: Key{Package: pkg, Vulnerability: vuln}}
+	key := func(file, pkg, vuln string) Written {
+		return Written{File: file, Key: Key{Package: pkg, Vulnerability: vuln}}
 	}
 
 	before := read(t, file)
-	for name, keys := range map[string][]FileKey{
+	for name, keys := range map[string][]Written{
 		"a key not in the file":   {key(TypeFile(debDir, "deb"), zlib, "CVE-2022-37434"), key(TypeFile(debDir, "deb"), zlib, "CVE-2099-1")},
 		"a file not there":        {key(TypeFile(debDir, "rpm"), zlib, "CVE-2022-37434")},
 		"not a place in a layout": {key("images/centos/labels.json", zlib, "CVE-2022-37434")},
 	} {
-		if err := w.Remove(keys); err == nil {
+		if err := w.Revert(keys); err == nil {
 			t.Errorf("%s: expected the remove refused", name)
 		}
 		if read(t, file) != before {
@@ -377,7 +457,7 @@ func TestWriterRemove(t *testing.T) {
 		}
 	}
 
-	if err := w.Remove([]FileKey{
+	if err := w.Revert([]Written{
 		key(TypeFile(debDir, "deb"), zlib, "CVE-2022-37434"),
 		key(TypeFile(debDir, "deb"), ncurse, "CVE-2023-29491"),
 		key(GlobalFile("deb"), "pkg:deb/debian/libxml2@2.7.8.dfsg-2+squeeze1?distro=debian-7", "CVE-2016-1839"),
@@ -449,7 +529,7 @@ func TestWriterRefuses(t *testing.T) {
 		"batch with one refused label": {Placed{File: TypeFile(debDir, "deb"), Subject: debImage, Label: noJust}, "needs a justification"},
 	} {
 		batch := []Placed{{File: TypeFile(debDir, "deb"), Subject: debImage, Label: tp(libc, "CVE-2024-10")}, tt.p}
-		err := w.Write(batch)
+		_, err := w.Write(batch)
 		if err == nil || !strings.Contains(err.Error(), tt.want) {
 			t.Errorf("%s: expected an error with %q, got %v", name, tt.want, err)
 		}
@@ -457,18 +537,18 @@ func TestWriterRefuses(t *testing.T) {
 			t.Fatalf("%s: expected the file unchanged", name)
 		}
 	}
-	if err := w.Write([]Placed{{File: TypeFile(debDir, "deb"), Subject: debImage, Label: tpOnly}}); err != nil {
+	if _, err := w.Write([]Placed{{File: TypeFile(debDir, "deb"), Subject: debImage, Label: tpOnly}}); err != nil {
 		t.Errorf("expected a tp with no justification written, got %v", err)
 	}
 	// a label on an advisory judges the match grype reported
-	if err := w.Write([]Placed{{File: TypeFile(debDir, "deb"), Subject: debImage, Label: tp(libc, "ELSA-2023-4428")}}); err != nil {
+	if _, err := w.Write([]Placed{{File: TypeFile(debDir, "deb"), Subject: debImage, Label: tp(libc, "ELSA-2023-4428")}}); err != nil {
 		t.Errorf("expected a label on an advisory id written, got %v", err)
 	}
 	anyRule := tp(libc, "CVE-2024-16")
 	anyRule.Evidence = fp(libc, "CVE-2024-16").Evidence
 	anyRule.Evidence[0].Rule = "judgement/prior-claims-pattern"
 	anyRule.Evidence[0].Interpretation = ""
-	if err := w.Write([]Placed{{File: TypeFile(debDir, "deb"), Subject: debImage, Label: anyRule}}); err != nil {
+	if _, err := w.Write([]Placed{{File: TypeFile(debDir, "deb"), Subject: debImage, Label: anyRule}}); err != nil {
 		t.Errorf("expected a rule supporting either verdict, and evidence with no interpretation, written; got %v", err)
 	}
 }
@@ -481,7 +561,7 @@ func TestInterruptedWrite(t *testing.T) {
 	saved := rename
 	rename = func(*os.Root, string, string) error { return errors.New("killed") }
 	defer func() { rename = saved }()
-	if err := (Writer{Dir: dir, Vocab: vocab}).Write([]Placed{{File: TypeFile(debDir, "deb"), Subject: debImage, Label: tp(libc, "CVE-2024-11")}}); err == nil {
+	if _, err := (Writer{Dir: dir, Vocab: vocab}).Write([]Placed{{File: TypeFile(debDir, "deb"), Subject: debImage, Label: tp(libc, "CVE-2024-11")}}); err == nil {
 		t.Fatal("expected the failed rename returned")
 	}
 	if read(t, file) != before {
@@ -647,7 +727,7 @@ func symlinkSubject(t *testing.T, corpusDir, subjectDir string) string {
 func TestSymlinkedSubjectDirectory(t *testing.T) {
 	dir := corpus(t)
 	outside := symlinkSubject(t, dir, debDir)
-	err := (Writer{Dir: dir, Vocab: vocab}).Write([]Placed{{File: TypeFile(debDir, "deb"), Subject: debImage, Label: tp(libc, "CVE-2024-11")}})
+	_, err := (Writer{Dir: dir, Vocab: vocab}).Write([]Placed{{File: TypeFile(debDir, "deb"), Subject: debImage, Label: tp(libc, "CVE-2024-11")}})
 	if err == nil {
 		t.Error("expected a write through a symlink out of the corpus refused")
 	}

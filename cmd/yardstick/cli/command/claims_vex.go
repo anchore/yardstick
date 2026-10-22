@@ -61,11 +61,18 @@ skipped and listed.`,
 				}
 				placed, skipped = append(placed, got.Placed...), append(skipped, got.Skipped...)
 			}
-			if err := (claimsv1.Writer{Dir: cfg.To, Vocab: vocab}).Write(placed); err != nil {
+			written, err := (claimsv1.Writer{Dir: cfg.To, Vocab: vocab}).Write(placed)
+			if err != nil {
 				return err
 			}
 			out := newPrinter(cmd.OutOrStdout())
 			out.row(out.done(), fmt.Sprintf("imported %d labels", len(placed)), out.dim("into "+cfg.To))
+			// a vendor statement replacing someone's call is worth a look, since it is now theirs
+			for _, w := range written {
+				if p := w.Prior; p != nil {
+					out.row(out.notice(), fmt.Sprintf("replaced %s's %s label on %s", p.Author, p.Verdict, w.Key), out.dim(w.File))
+				}
+			}
 			if len(skipped) > 0 {
 				out.row(out.notice(), fmt.Sprintf("skipped %d statements", len(skipped)), out.dim("they name no image or package a label can be about"))
 				for _, s := range skipped {

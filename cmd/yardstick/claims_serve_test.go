@@ -436,6 +436,32 @@ func TestServeOverridingAHintIsRecorded(t *testing.T) {
 	}
 }
 
+// a write whose override record fails after the label landed answers with the label, for undoing
+func TestServePartialWriteListsWhatLanded(t *testing.T) {
+	s := newServed(t)
+	tar := s.tarRow()
+	p := agentstore.Proposal{Schema: agentstore.Schema, ID: "p1", Gate: "deb", Subject: s.subject(), Package: tar.Package.Ref, Vulnerability: "CVE-2005-2541",
+		Verdict: claimsv1.FP, Justification: "fix-installed", Author: agentstore.Author{Kind: agentstore.Agent}, Timestamp: time.Now()}
+	if err := s.store.Proposals.Add(p); err != nil {
+		t.Fatal(err)
+	}
+	// the override log cannot be appended to while a directory sits where it goes
+	if err := os.MkdirAll(filepath.Join(agentstore.Dir, "overrides.jsonl"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	rec := s.post("/labels", `{"rows":["`+tar.ID+`"],"verdict":"tp"}`)
+	var body labelserver.WriteError
+	if err := json.Unmarshal(rec.Body.Bytes(), &body); err != nil || rec.Code != http.StatusInternalServerError || rec.Header().Get("Content-Type") != "application/json" {
+		t.Fatalf("expected a JSON error, got %d %s (%v)", rec.Code, rec.Body, err)
+	}
+	if len(body.Labels) != 1 || body.Labels[0].Vulnerability != "CVE-2005-2541" || !strings.Contains(body.Error, "override records") {
+		t.Errorf("expected the written label listed with the error, got %+v", body)
+	}
+	if l := s.labelOf("CVE-2005-2541"); l == nil || l.Verdict != claimsv1.TP {
+		t.Errorf("expected the tp written, got %+v", l)
+	}
+}
+
 func TestServeCausesAndExplanations(t *testing.T) {
 	s := newServed(t)
 	tar := s.tarRow()

@@ -22,7 +22,7 @@ type Placed struct {
 }
 
 // Writer writes labels into one claims source, the writable one, through the only path every
-// command shares: claims add, import and migrate.
+// command shares: claims add, claims import and the label UI.
 type Writer struct {
 	Dir   string
 	Vocab *Vocabulary
@@ -31,14 +31,23 @@ type Writer struct {
 // rename renames inside a corpus; tests make it fail to show a failed write leaves the old file.
 var rename = func(root *os.Root, oldname, newname string) error { return root.Rename(oldname, newname) }
 
+// Written is one key a write placed a label under, and the label it replaced there; Prior is nil
+// when the key was new. Revert takes it back.
+type Written struct {
+	File  string
+	Key   Key
+	Prior *Label
+}
+
 // Write checks every label, then rewrites each file the batch touches once: a label replaces
-// the one with its key, keeping that one's firstIssued, and the file stays sorted. Nothing is
-// written when any label is refused.
-func (w Writer) Write(batch []Placed) error {
+// the one with its key (see carry), and the file stays sorted. Nothing is written when any label
+// is refused. It returns each key written, once, with the label it replaced; on an error part
+// way, the keys in the files written before it.
+func (w Writer) Write(batch []Placed) ([]Written, error) {
 	byFile := map[string][]Placed{}
 	for _, p := range batch {
 		if err := w.Check(p); err != nil {
-			return err
+			return nil, err
 		}
 		byFile[p.File] = append(byFile[p.File], p)
 	}
@@ -48,7 +57,7 @@ func (w Writer) Write(batch []Placed) error {
 	}
 	sort.Strings(files)
 	if len(files) == 0 {
-		return nil
+		return nil, nil
 	}
 	log.Infof("writing %d labels to %d files in %s", len(batch), len(files), w.Dir)
 	defer log.Timed("writing labels to %s", w.Dir)()
@@ -56,15 +65,39 @@ func (w Writer) Write(batch []Placed) error {
 	// symlinked directory in it never leads a write elsewhere
 	root, err := openCorpus(w.Dir)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	defer root.Close()
+	var out []Written
 	for _, f := range files {
-		if err := w.writeFile(root, f, byFile[f]); err != nil {
-			return err
+		written, err := w.writeFile(root, f, byFile[f])
+		if err != nil {
+			return out, err
+		}
+		out = append(out, written...)
+	}
+	return out, nil
+}
+
+// carry is the label replacing prior: it keeps prior's firstIssued and notes (the new ones after
+// them, less any the same author already said, so a re-import adds nothing), and prior's evidence
+// when the new label brings none and makes the same call, since evidence for another verdict
+// cites rules that refuse it.
+func carry(prior, l Label) Label {
+	if prior.FirstIssued != "" {
+		l.FirstIssued = prior.FirstIssued
+	}
+	notes := slices.Clone(prior.Notes)
+	for _, n := range l.Notes {
+		if !slices.ContainsFunc(notes, func(o Note) bool { return o.Text == n.Text && o.Author == n.Author }) {
+			notes = append(notes, n)
 		}
 	}
-	return nil
+	l.Notes = notes
+	if len(l.Evidence) == 0 && l.Verdict == prior.Verdict {
+		l.Evidence = prior.Evidence
+	}
+	return l
 }
 
 func openCorpus(dir string) (*os.Root, error) {
@@ -202,12 +235,12 @@ func checkNotesAndTools(l Label) error {
 	return nil
 }
 
-func (w Writer) writeFile(root *os.Root, rel string, placed []Placed) error {
+func (w Writer) writeFile(root *os.Root, rel string, placed []Placed) ([]Written, error) {
 	target := filepath.FromSlash(rel)
 	f := &File{Schema: Version}
 	if data, err := root.ReadFile(target); err == nil {
 		if f, err = Parse(rel, data); err != nil {
-			return err
+			return nil, err
 		}
 		// what this writes is Version, so an older file is raised to it; a newer one keeps its own,
 		// since its unknown fields are carried through untouched
@@ -215,51 +248,69 @@ func (w Writer) writeFile(root *os.Root, rel string, placed []Placed) error {
 			f.Schema = Version
 		}
 	} else if !errors.Is(err, os.ErrNotExist) {
-		return err
+		return nil, err
 	}
 	byKey := map[Key]int{}
 	for i, l := range f.Labels {
 		byKey[l.Key()] = i
 	}
+	// a key the batch places twice reports, and carries forward, what the file held
+	var out []Written
+	priors := map[Key]*Label{}
 	for _, p := range placed {
 		if err := mergeSubject(rel, f, p.Subject); err != nil {
-			return err
+			return nil, err
 		}
-		l := p.Label
-		if i, ok := byKey[l.Key()]; ok {
-			if first := f.Labels[i].FirstIssued; first != "" {
-				l.FirstIssued = first
+		l, k := p.Label, p.Label.Key()
+		i, ok := byKey[k]
+		if _, seen := priors[k]; !seen {
+			var prior *Label
+			if ok {
+				held := f.Labels[i]
+				prior = &held
 			}
+			priors[k] = prior
+			out = append(out, Written{File: rel, Key: k, Prior: prior})
+		}
+		if prior := priors[k]; prior != nil {
+			l = carry(*prior, l)
+		}
+		if ok {
 			f.Labels[i] = l
 			continue
 		}
-		byKey[l.Key()] = len(f.Labels)
+		byKey[k] = len(f.Labels)
 		f.Labels = append(f.Labels, l)
 	}
 	sort.SliceStable(f.Labels, func(i, j int) bool { return f.Labels[i].Key().Less(f.Labels[j].Key()) })
 	data, err := Marshal(f)
 	if err != nil {
-		return err
+		return nil, err
 	}
-	return writeAtomic(root, target, data)
+	if err := writeAtomic(root, target, data); err != nil {
+		return nil, err
+	}
+	return out, nil
 }
 
-// FileKey names one label in a corpus: its corpus-relative file and its key there.
-type FileKey struct {
-	File string
-	Key  Key
-}
-
-// Remove drops labels by file and key, rewriting each file once and deleting one it leaves with no
-// labels. Every file is read and every key found before anything is written, so a key that is not
-// there removes nothing.
-func (w Writer) Remove(keys []FileKey) error {
-	byFile := map[string][]Key{}
-	for _, k := range keys {
+// Revert takes writes back: a key with no Prior is removed, and one with a Prior gets it back as
+// it was. Each file is rewritten once, and deleted when it is left with no labels. Every file is
+// read and every key found before anything is written, so a key that is not there reverts nothing.
+func (w Writer) Revert(written []Written) error {
+	byFile := map[string][]Written{}
+	for _, k := range written {
 		if loc, ok := Locate(k.File); !ok || !loc.IsLabelFile() {
 			return fmt.Errorf("%s is not a label file in the corpus layout", k.File)
 		}
-		byFile[k.File] = append(byFile[k.File], k.Key)
+		if p := k.Prior; p != nil {
+			if p.Key() != k.Key {
+				return fmt.Errorf("%s: the label to restore is %s, not %s", k.File, p.Key(), k.Key)
+			}
+			if err := CheckRequired(*p, nil); err != nil {
+				return fmt.Errorf("%s: the label to restore, %s: %w", k.File, k.Key, err)
+			}
+		}
+		byFile[k.File] = append(byFile[k.File], k)
 	}
 	if len(byFile) == 0 {
 		return nil
@@ -280,15 +331,19 @@ func (w Writer) Remove(keys []FileKey) error {
 			return err
 		}
 		for _, k := range ks {
-			i := slices.IndexFunc(f.Labels, func(l Label) bool { return l.Key() == k })
-			if i < 0 {
-				return fmt.Errorf("%s: no label %s", rel, k)
+			i := slices.IndexFunc(f.Labels, func(l Label) bool { return l.Key() == k.Key })
+			switch {
+			case i < 0:
+				return fmt.Errorf("%s: no label %s", rel, k.Key)
+			case k.Prior != nil:
+				f.Labels[i] = *k.Prior
+			default:
+				f.Labels = slices.Delete(f.Labels, i, i+1)
 			}
-			f.Labels = slices.Delete(f.Labels, i, i+1)
 		}
 		kept[rel] = f
 	}
-	log.Infof("removing %d labels from %d files in %s", len(keys), len(kept), w.Dir)
+	log.Infof("reverting %d labels in %d files in %s", len(written), len(kept), w.Dir)
 	for _, rel := range slices.Sorted(maps.Keys(kept)) {
 		f, target := kept[rel], filepath.FromSlash(rel)
 		if len(f.Labels) == 0 {

@@ -63,7 +63,7 @@ func Write(set *claims.Set, sub *runrecord.Subject, l claimsv1.Label, global boo
 	if err != nil {
 		return "", err
 	}
-	if err := w.Write([]claimsv1.Placed{placed}); err != nil {
+	if _, err := w.Write([]claimsv1.Placed{placed}); err != nil {
 		return "", err
 	}
 	return w.Dir + "/" + placed.File, nil

@@ -184,3 +184,30 @@ func TestClaimsAddStaysInsideTheSource(t *testing.T) {
 		t.Errorf("claims add wrote outside the claims source: %v", entries)
 	}
 }
+
+// importing over a label someone already made says so, since the vendor's statement replaces it
+func TestClaimsImportWarnsOnReplace(t *testing.T) {
+	dir := t.TempDir()
+	writeFile(t, filepath.Join(dir, "claims", claimsv1.VocabularyFile), `justifications:
+  fp: {fix-installed: Installed version has the fix, vulnerable_code_not_present: Vulnerable code is not in this package}
+  tp: {fix-newer: Fix is in a newer version than installed}
+  unclear: {not-assessed: Nobody has assessed this version}
+fact-sources: [openvex]
+vulnerability-namespaces: [CVE]
+`)
+	doc := fixture.Path("vex", "vendor.openvex.json")
+	imp := func(author string) string {
+		t.Helper()
+		stdout, stderr, code := yardstick(t, dir, "claims", "import", doc, "--to", "claims", "--author", author)
+		if code != 0 {
+			t.Fatalf("import by %s: %d %s", author, code, stderr)
+		}
+		return stdout
+	}
+	if out := imp("Will Murphy"); strings.Contains(out, "replaced") {
+		t.Errorf("expected nothing replaced on the first import, got %s", out)
+	}
+	if out := imp("Alex Goodman"); !strings.Contains(out, "replaced Will Murphy's fp label on CVE-2023-45853") {
+		t.Errorf("expected the second import to name what it replaced, got %s", out)
+	}
+}
