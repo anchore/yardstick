@@ -290,3 +290,22 @@ func TestUnmarkedDBDirectoryIsReplaced(t *testing.T) {
 		t.Error("expected the half-done directory gone")
 	}
 }
+
+// a DB URL pinned with @sha256: is imported with that checksum for grype to verify, and cached by
+// it rather than by the URL
+func TestURLWithAChecksum(t *testing.T) {
+	grype, calls := stub(t)
+	sum := strings.Repeat("ab", 32)
+	got, err := NewPreparer(install.NewResolver(), execute.Runner{}).Prepare(context.Background(), "candidate",
+		&gatefile.Setup{Grype: grype, DB: "https://example.invalid/vulnerability-db.tar.zst@sha256:" + sum})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.DB.Source != "https://example.invalid/vulnerability-db.tar.zst" || got.DB.Checksum != "sha256:"+sum ||
+		filepath.Base(got.DB.Dir) != "sha256-"+sum {
+		t.Errorf("expected the URL without its suffix, the checksum, and the DB cached by it, got %+v", got.DB)
+	}
+	if c := calls(); count(c, "db import https://example.invalid/vulnerability-db.tar.zst?checksum=sha256%3A"+sum) != 1 {
+		t.Errorf("expected grype to import the URL with the checksum to verify, got %v", c)
+	}
+}

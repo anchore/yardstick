@@ -157,6 +157,7 @@ var (
 	validName      = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._-]*$`)
 	remotePattern  = regexp.MustCompile(`^([a-z0-9.-]+\.[a-z]{2,}/[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+)(?:/([A-Za-z0-9_./-]+))?@([A-Za-z0-9._:-]+)$`)
 	platformFormat = regexp.MustCompile(`^[a-z0-9]+/[a-z0-9_]+(/[a-z0-9]+)?$`)
+	hex64          = regexp.MustCompile(`^[0-9a-f]{64}$`)
 )
 
 // LoadError is everything wrong with one gate file.
@@ -361,7 +362,11 @@ func setup(name string, top *yaml.Node, s *Setup, dir string, errs *problems) *S
 	switch {
 	case s.DB == "":
 		errs.addf("%s.db is required (latest, an archive path or URL, or dir:<path>); it has no default", name)
-	case s.DB == "latest", strings.HasPrefix(s.DB, "https://"), strings.HasPrefix(s.DB, "http://"):
+	case strings.HasPrefix(s.DB, "https://"), strings.HasPrefix(s.DB, "http://"):
+		if _, sum, ok := strings.Cut(s.DB, "@sha256:"); ok && !hex64.MatchString(sum) {
+			errs.addf("%s.db names a checksum that is not @sha256:<64 hex>, got %q", name, s.DB)
+		}
+	case s.DB == "latest":
 	case strings.HasPrefix(s.DB, "dir:"):
 		s.DB = "dir:" + resolve(dir, strings.TrimPrefix(s.DB, "dir:"))
 	default:

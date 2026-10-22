@@ -198,6 +198,11 @@ func (p *Preparer) resolveDB(ctx context.Context, grype install.Tool, s *gatefil
 		}
 		return DB{Source: dir, Dir: dir, Checksum: identity}, nil
 	case isURL(s.DB):
+		// grype checks an archive's checksum as it imports it, and the DB is then cached by content
+		if u, sum, ok := strings.Cut(s.DB, "@sha256:"); ok {
+			return DB{Source: u, Checksum: "sha256:" + sum}, nil
+		}
+		log.Warnf("DB %s has no @sha256:<checksum>, so it is imported unverified and cached by its URL, as if what it serves never changed", s.DB)
 		return DB{Source: s.DB}, nil
 	}
 	p.mu.Lock()

@@ -44,7 +44,7 @@ Relative paths anywhere in the file resolve against the file's directory.
 | key | what it is |
 |---|---|
 | `grype` | `grype@<version>`, `grype@latest`, or a path to a binary |
-| `db` | `latest` (what that grype would download), an archive path, an `https://` or `http://` archive URL, or `dir:<path>` for a DB directory. Required, with no default |
+| `db` | `latest` (what that grype would download), an archive path, an `https://` or `http://` archive URL, or `dir:<path>` for a DB directory. Required, with no default. Pin a URL with `@sha256:<checksum>` after it: grype verifies the archive on import and yardstick caches it by that checksum. A URL without one is imported unverified and cached by the URL, as if what it serves never changes, with a warning |
 | `config` | a grype config file. Without one, grype runs with an empty config, so no `.grype.yaml` around yardstick applies |
 | `env` | variables for grype. `GRYPE_DB_AUTO_UPDATE`, `GRYPE_DB_VALIDATE_AGE`, `GRYPE_DB_CACHE_DIR` and `SYFT_CHECK_FOR_APP_UPDATE` are refused, since yardstick pins the DB and update checks itself |
 

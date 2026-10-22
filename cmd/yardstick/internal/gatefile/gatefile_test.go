@@ -145,6 +145,7 @@ func TestLoadRefuses(t *testing.T) {
 		{"fractional count", swap("  - name: noNewFalseNegatives", "  - name: unlabeledChangesAtMost\n    params: {max: 1.5}"), "max must be a whole number"},
 		{"required param missing", swap("  - name: noNewFalseNegatives", "  - name: unlabeledChangesAtMost"), "needs max"},
 		{"param above maximum", swap("  - name: noNewFalseNegatives", "  - name: unlabeledPercentAtMost\n    params: {max: 120}"), "at most 100"},
+		{"db checksum not hex", swap("db: latest, config: quality.yaml}\nreference", "db: \"https://example.com/db.tar.zst@sha256:abc\", config: quality.yaml}\nreference"), "@sha256:<64 hex>"},
 		// undecided-policy
 		{"bad undecided", validGate + "undecided: maybe\n", "undecided must be fail or pass"},
 		// vulnerabilities
