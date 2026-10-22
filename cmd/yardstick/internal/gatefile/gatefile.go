@@ -492,6 +492,13 @@ func claims(listed []string, opts Options, dir string, errs *problems) []Source 
 	var out []Source
 	add := func(s, base, from string) {
 		if m := remotePattern.FindStringSubmatch(s); m != nil {
+			// owner, repo and ref go into API URLs and cache file names, where . and .. would climb
+			_, repo, _ := strings.Cut(m[1], "/")
+			owner, name, _ := strings.Cut(repo, "/")
+			if slices.ContainsFunc([]string{owner, name, m[3]}, func(seg string) bool { return strings.Trim(seg, ".") == "" }) {
+				errs.addf("claims source %q names an owner, repository or ref of only dots", s)
+				return
+			}
 			// the path becomes a path inside the repository's archive, so it is held to fs.ValidPath
 			if m[2] != "" && !fs.ValidPath(m[2]) {
 				errs.addf("claims source %q names the path %q, which is not a clean relative path", s, m[2])

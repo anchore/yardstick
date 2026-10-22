@@ -131,8 +131,8 @@ func openArchive(s gatefile.Source) (*Source, error) {
 	fail := func(err error) error {
 		return fmt.Errorf("claims source %s: commit %s: %w", s.Locator, commit, err)
 	}
-	// the commit is checked hex and the repository is the gate file's [A-Za-z0-9_.-] segments, so
-	// both are safe in a file name and a URL
+	// the commit is checked hex and the repository is the gate file's [A-Za-z0-9_.-] segments, none
+	// of them only dots, so both are safe in a file name and a URL
 	final := filepath.Join(cache.Dir("claims"), "github-"+strings.ReplaceAll(repo, "/", "-")+"-"+commit+".zip")
 	f, size, downloaded, err := openSnapshot(githubAPI+"/repos/"+repo+"/zipball/"+commit, final, "", []string{s.Locator, "commit " + commit})
 	if err != nil {

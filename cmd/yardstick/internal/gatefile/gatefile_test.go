@@ -351,7 +351,8 @@ func TestClaimsSources(t *testing.T) {
 	if err != nil || len(srcs) != 1 || *srcs[0].Remote != (Remote{Repository: "github.com/anchore/vunnel", Path: "tests/quality/claims", Ref: "main"}) {
 		t.Errorf("expected a path-qualified reference, got %+v %v", srcs, err)
 	}
-	for _, bad := range []string{"github.com/anchore/vunnel/../x@main", "github.com/anchore/vunnel/claims/@main", "nope@main"} {
+	for _, bad := range []string{"github.com/anchore/vunnel/../x@main", "github.com/anchore/vunnel/claims/@main", "nope@main",
+		"github.com/../x/p@main", "github.com/anchore/..@main", "github.com/anchore/vunnel@..", "github.com/./vunnel@main"} {
 		if _, err := Sources(nil, []string{bad}); err == nil || !strings.Contains(err.Error(), bad) {
 			t.Errorf("expected %s refused, got %v", bad, err)
 		}
