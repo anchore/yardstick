@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"sync"
 	"testing"
@@ -307,5 +308,33 @@ func TestURLWithAChecksum(t *testing.T) {
 	}
 	if c := calls(); count(c, "db import https://example.invalid/vulnerability-db.tar.zst?checksum=sha256%3A"+sum) != 1 {
 		t.Errorf("expected grype to import the URL with the checksum to verify, got %v", c)
+	}
+}
+
+// db: latest is listed with the setup's env and config, which can point grype at another listing,
+// and two setups share a listing only when they would ask the same thing
+func TestLatestFollowsTheSetupsEnvAndConfig(t *testing.T) {
+	grype, calls := stub(t)
+	ctx := context.Background()
+	cfg := filepath.Join(t.TempDir(), "grype.yaml")
+	if err := os.WriteFile(cfg, []byte("db:\n  update-url: https://example.invalid/listing.json\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	p := NewPreparer(install.NewResolver(), execute.Runner{})
+	for _, s := range []*gatefile.Setup{
+		{Grype: grype, DB: "latest"},
+		{Grype: grype, DB: "latest"},
+		{Grype: grype, DB: "latest", Env: map[string]string{"GRYPE_DB_UPDATE_URL": "https://example.invalid/listing.json"}},
+		{Grype: grype, DB: "latest", Config: cfg},
+	} {
+		if _, err := p.Prepare(ctx, "candidate", s); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if got := calls(); count(got, "db list") != 3 {
+		t.Errorf("expected one listing for the two alike setups and one each for the other two, got %v", got)
+	}
+	if got := configs(t); !slices.Contains(got, cfg) {
+		t.Errorf("expected a listing run with the setup's config %s, got %v", cfg, got)
 	}
 }

@@ -9,6 +9,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
+	"encoding/json"
 	"fmt"
 	"io"
 	"net/url"
@@ -56,7 +57,7 @@ type Preparer struct {
 	Run   execute.Runner
 
 	mu       sync.Mutex
-	latest   map[string]DB     // by grype binary digest: the DB schema follows the grype version
+	latest   map[string]DB     // by grype binary digest, env and config: what decides the listing
 	archives map[string]string // archive path to its checksum, so one archive is read once
 	dirs     map[string]string // dir: DB path to its identity, so one DB is hashed once
 }
@@ -85,7 +86,7 @@ func (p *Preparer) Prepare(ctx context.Context, name string, s *gatefile.Setup) 
 		}
 		out.Config = &File{Path: s.Config, SHA256: sum}
 	}
-	if out.DB, err = p.prepareDB(ctx, grype, s); err != nil {
+	if out.DB, err = p.prepareDB(ctx, grype, s, out.Config); err != nil {
 		return Prepared{}, fmt.Errorf("%s: unable to prepare DB %q with %s: %w", name, s.DB, grype.Spec, err)
 	}
 	return out, nil
@@ -93,9 +94,9 @@ func (p *Preparer) Prepare(ctx context.Context, name string, s *gatefile.Setup) 
 
 // prepareDB resolves the DB and imports it into a cache directory keyed by its identity, so
 // each distinct DB is downloaded and imported once.
-func (p *Preparer) prepareDB(ctx context.Context, grype install.Tool, s *gatefile.Setup) (DB, error) {
+func (p *Preparer) prepareDB(ctx context.Context, grype install.Tool, s *gatefile.Setup, cfg *File) (DB, error) {
 	task := bus.StartTask(event.ResolveDB, "%s for %s", s.DB, grype.Spec)
-	db, err := p.resolveDB(ctx, grype, s)
+	db, err := p.resolveDB(ctx, grype, s, cfg)
 	task.Done(err)
 	if err != nil {
 		return DB{}, err
@@ -183,10 +184,10 @@ func removeStaleImports(dir string) {
 	}
 }
 
-func (p *Preparer) resolveDB(ctx context.Context, grype install.Tool, s *gatefile.Setup) (DB, error) {
+func (p *Preparer) resolveDB(ctx context.Context, grype install.Tool, s *gatefile.Setup, cfg *File) (DB, error) {
 	switch {
 	case s.DB == "latest":
-		return p.latestDB(ctx, grype, s.Env)
+		return p.latestDB(ctx, grype, s.Env, cfg)
 	case strings.HasPrefix(s.DB, "dir:"):
 		dir := strings.TrimPrefix(s.DB, "dir:")
 		p.mu.Lock()
@@ -218,22 +219,34 @@ func (p *Preparer) resolveDB(ctx context.Context, grype install.Tool, s *gatefil
 	return DB{Source: s.DB, Checksum: "sha256:" + sum}, nil
 }
 
-// latestDB asks grype which DB it would download, once per grype binary per invocation, so two
-// setups on db: latest compare one DB even when a new one is published mid-run.
-func (p *Preparer) latestDB(ctx context.Context, grype install.Tool, env map[string]string) (DB, error) {
+// latestDB asks grype which DB it would download, with the setup's env and config (either can move
+// db.update-url), once per grype binary, env and config per invocation, so two setups on db: latest
+// that would ask the same thing compare one DB even when a new one is published mid-run.
+func (p *Preparer) latestDB(ctx context.Context, grype install.Tool, env map[string]string, cfg *File) (DB, error) {
+	cfgPath, cfgSum := "", ""
+	if cfg != nil {
+		cfgPath, cfgSum = cfg.Path, cfg.SHA256
+	}
+	k, _ := json.Marshal(struct {
+		Grype, Config string
+		Env           map[string]string
+	}{grype.SHA256, cfgSum, env})
+	key := string(k)
 	p.mu.Lock()
 	defer p.mu.Unlock()
-	if db, ok := p.latest[grype.SHA256]; ok {
+	if db, ok := p.latest[key]; ok {
 		log.Debugf("latest DB cache hit for %s: %s", grype.Spec, db.Checksum)
 		return db, nil
 	}
 	log.Infof("looking up the latest DB for %s", grype.Spec)
 	defer log.Timed("looking up the latest DB for %s", grype.Spec)()
-	cfg, err := execute.EmptyConfig()
-	if err != nil {
-		return DB{}, err
+	if cfgPath == "" {
+		var err error
+		if cfgPath, err = execute.EmptyConfig(); err != nil {
+			return DB{}, err
+		}
 	}
-	out, _, err := p.Run.Run(ctx, execute.Cmd{Bin: grype.Bin, Args: []string{"-c", cfg, "db", "list", "-o", "text"}, Env: env})
+	out, _, err := p.Run.Run(ctx, execute.Cmd{Bin: grype.Bin, Args: []string{"-c", cfgPath, "db", "list", "-o", "text"}, Env: env})
 	if err != nil {
 		return DB{}, err
 	}
@@ -242,7 +255,7 @@ func (p *Preparer) latestDB(ctx context.Context, grype install.Tool, env map[str
 		return DB{}, fmt.Errorf("unexpected `grype db list` output:\n%s", out)
 	}
 	db := DB{Source: fields["DB URL"], Checksum: fields["Checksum"]}
-	p.latest[grype.SHA256] = db
+	p.latest[key] = db
 	log.Debugf("latest DB for %s: %s (%s)", grype.Spec, db.Checksum, db.Source)
 	return db, nil
 }
