@@ -503,23 +503,41 @@ func (s *Server) handleGateList(w http.ResponseWriter, _ *http.Request) {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	out := GateList{Open: s.opts.Open, Gates: []GateListItem{}}
+	out := GateList{Open: s.opts.Open, Gates: []GateListItem{}, LabelSources: []string{}}
+	// a label several gates count is one label, as the workspace Labels tab lists it
+	distinct := map[string]bool{}
 	for _, e := range all {
 		v, err := s.view(e)
 		if err != nil {
-			out.Gates = append(out.Gates, GateListItem{RunSummary: RunSummary{ID: e.name, Created: e.rec.Created, Gate: e.gate.Path}, Error: err.Error()})
+			out.Gates = append(out.Gates, GateListItem{RunSummary: RunSummary{ID: e.name, Created: e.rec.Created, Gate: e.gate.Path}, Error: err.Error(), LabelSources: []string{}})
 			continue
 		}
 		if out.Open == "" {
 			out.Open = e.name // the gate scanned last that can be scored
 		}
 		// stale scans fail the gate, as yardstick score reports them
-		l := GateListItem{RunSummary: summarize(e, v), Changes: v.changes(), GateOutcome: analysis.Fail, GateNote: v.stale}
+		l := GateListItem{RunSummary: summarize(e, v), Changes: v.changes(), GateOutcome: analysis.Fail, GateNote: v.stale, LabelSources: []string{}}
 		if v.stale == "" {
 			l.GateOutcome = v.verdict.Outcome
 		}
+		for _, gl := range v.gateLabels(images(e, v)) {
+			l.Labels++
+			ref := "global"
+			if gl.Image != nil {
+				ref = gl.Image.Ref
+			}
+			distinct[strings.Join([]string{string(gl.Verdict), gl.Vulnerability, gl.Package.PURL, ref, gl.Source, gl.LastUpdated}, "|")] = true
+			for _, srcs := range []*[]string{&l.LabelSources, &out.LabelSources} {
+				if !slices.Contains(*srcs, gl.Source) {
+					*srcs = append(*srcs, gl.Source)
+				}
+			}
+		}
+		slices.Sort(l.LabelSources)
 		out.Gates = append(out.Gates, l)
 	}
+	out.Labels = len(distinct)
+	slices.Sort(out.LabelSources)
 	writeJSON(w, out)
 }
 
@@ -531,6 +549,10 @@ type GateListItem struct {
 	GateOutcome analysis.State `json:"gateOutcome,omitempty"`
 	GateNote    string         `json:"gateNote,omitempty"`
 	Error       string         `json:"error,omitempty"`
+	// Labels counts the labels the gate counts, as GET labels' total with no filter, and
+	// LabelSources names the claims sources they come from, sorted.
+	Labels       int      `json:"labels"`
+	LabelSources []string `json:"labelSources"`
 }
 
 // GateList is GET /api/gates: every gate scanned under the run, and the one to open first: the one
@@ -538,4 +560,9 @@ type GateListItem struct {
 type GateList struct {
 	Open  string         `json:"open"`
 	Gates []GateListItem `json:"gates"`
+	// Labels counts the labels across every gate, one counted by several gates once, and
+	// LabelSources names their claims sources, sorted: what the gates screen shows without
+	// reading every label.
+	Labels       int      `json:"labels"`
+	LabelSources []string `json:"labelSources"`
 }

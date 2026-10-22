@@ -495,3 +495,31 @@ func TestE2ERelabelUndo(t *testing.T) {
 		t.Errorf("expected the unclear label back as it was, got %+v", l)
 	}
 }
+
+// the gate list carries each gate's label count and sources, and the workspace's, matching what
+// reading every gate's labels gives, so the gates screen need not read them
+func TestE2EGateListCountsLabels(t *testing.T) {
+	srv, _, _, _ := e2eServer(t)
+	h := srv.Handler()
+	var list labelserver.GateList
+	get(t, h, "/api/gates", &list)
+	distinct, sources := map[string]bool{}, map[string]bool{}
+	for _, g := range list.Gates {
+		var labels labelserver.GateLabels
+		get(t, h, "/api/gates/"+g.ID+"/labels?limit=1000000", &labels)
+		if g.Labels != labels.Total || strings.Join(g.LabelSources, " ") != strings.Join(labels.Sources, " ") {
+			t.Errorf("gate %s: listed %d labels from %v, its labels say %d from %v", g.ID, g.Labels, g.LabelSources, labels.Total, labels.Sources)
+		}
+		for _, l := range labels.Labels {
+			ref := "global"
+			if l.Image != nil {
+				ref = l.Image.Ref
+			}
+			distinct[strings.Join([]string{string(l.Verdict), l.Vulnerability, l.Package.PURL, ref, l.Source, l.LastUpdated}, "|")] = true
+			sources[l.Source] = true
+		}
+	}
+	if list.Labels == 0 || list.Labels != len(distinct) || len(list.LabelSources) != len(sources) {
+		t.Errorf("expected %d labels from %d sources across gates, got %d from %v", len(distinct), len(sources), list.Labels, list.LabelSources)
+	}
+}
