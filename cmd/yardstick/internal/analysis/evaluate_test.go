@@ -427,6 +427,11 @@ func TestNoLabels(t *testing.T) {
 		if c.State != Fail || !strings.Contains(c.Subjects[0].Message, "no tp or fp label applies") {
 			t.Errorf("%s: expected a fail saying the subject has no labels, got %+v", c.Name, c)
 		}
+		// the failing subject still names the rows a label would move, and its bounds: the dropped
+		// match moves f1NotWorse and noNewFalseNegatives, and no fp can be new
+		if sc := c.Subjects[0]; c.Name != NoNewFalsePositives && (len(sc.Rows) != 1 || sc.Value.Worst == 0) {
+			t.Errorf("%s: expected the unlabeled rows and the worst case, got %+v", c.Name, sc)
+		}
 	}
 	if c := g.Checks[3]; c.State != Fail || !strings.Contains(c.Message, "no expectations") {
 		t.Errorf("expected the expectation check to fail with no expectations, got %+v", c)

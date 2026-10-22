@@ -398,11 +398,6 @@ func (e evaluator) subjectCheck(c gatefile.Check, s Subject) SubjectCheck {
 		sc.State, sc.Message = Pass, sameMatches
 		return sc
 	}
-	readsLabels := c.Name == F1NotWorse || c.Name == NoNewFalseNegatives || c.Name == NoNewFalsePositives
-	if readsLabels && !e.hasLabels(r) {
-		sc.State, sc.Message = Fail, "no tp or fp label applies to this subject"
-		return sc
-	}
 	var values [2]float64
 	for _, x := range []extreme{worstCase, bestCase} {
 		switch c.Name {
@@ -433,6 +428,11 @@ func (e evaluator) subjectCheck(c gatefile.Check, s Subject) SubjectCheck {
 		if sc.Value.Worst < c.Params[paramMin] {
 			sc.State = Fail
 		}
+	}
+	// a subject the setups disagree on that no label judges fails the checks reading labels, still
+	// with its bounds and the rows a label would move, so there is something to act on
+	if (c.Name == F1NotWorse || c.Name == NoNewFalseNegatives || c.Name == NoNewFalsePositives) && !e.hasLabels(r) {
+		sc.State, sc.Message = Fail, "no tp or fp label applies to this subject"
 	}
 	sc.FailsOn, sc.Rows = e.rows(c, r)
 	return sc
