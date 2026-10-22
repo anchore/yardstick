@@ -57,7 +57,7 @@ Relative paths anywhere in the file resolve against the file's directory.
 | `platform` | `os/arch[/variant]`, the default for every image subject |
 | `env` | variables for syft, with the same refused keys as a setup's |
 
-Without a `catalog:`, the `catalog.yaml` of the first claims source holding one is used.
+Without a `catalog:`, the `catalog.yaml` of the first claims source holding one is used. A claims source is data, possibly someone else's, so its catalog is held to more: `syft` must be `syft@<version>`, `env` may set only `SYFT_*` variables and none under `SYFT_LEGACYFILE`, `SYFT_OUTPUT`, `SYFT_FILE` or `SYFT_REGISTRY`, and its syft config may set only the cataloging keys (`catalogers`, `default-catalogers`, `select-catalogers`, `package`, `license`, `scope`, `parallelism`, `relationships`, `compliance`, `exclude`, `unknowns` and the ecosystem sections `cpp`, `dotnet`, `golang`, `java`, `javascript`, `linux-kernel`, `nix`, `python`). `yardstick collect sboms` in a corpus checkout holds its `catalog.yaml` to the same.
 
 ### `claims`
 

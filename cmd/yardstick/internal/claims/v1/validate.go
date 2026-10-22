@@ -122,7 +122,10 @@ func (c *corpusCheck) loadRoot() error {
 		} else if err := c.catalog.CheckData(); err != nil {
 			c.addf(CatalogFile, "", "%v", err)
 		} else if c.catalog.Config != "" {
-			if c.catCfg, err = ReadCatalogConfig(c.fsys, c.catalog.Config); err != nil {
+			if c.catCfg, err = ReadCatalogConfig(c.fsys, c.catalog.Config); err == nil {
+				err = gatefile.CheckDataConfig(c.catCfg)
+			}
+			if err != nil {
 				c.addf(CatalogFile, "", "%v", err)
 			}
 		}

@@ -154,7 +154,10 @@ func readCatalog(path string) (*subject.Catalog, error) {
 		return nil, err
 	}
 	defer root.Close()
-	if cat.ConfigData, err = claimsv1.ReadCatalogConfig(root.FS(), cat.Config); err != nil {
+	if cat.ConfigData, err = claimsv1.ReadCatalogConfig(root.FS(), cat.Config); err == nil {
+		err = gatefile.CheckDataConfig(cat.ConfigData)
+	}
+	if err != nil {
 		return nil, fmt.Errorf("%s: %w", path, err)
 	}
 	// syft reads the bytes read through the root, from a file of yardstick's own

@@ -11,6 +11,7 @@ import (
 	"errors"
 	"fmt"
 	"io/fs"
+	"maps"
 	"math"
 	"os"
 	"path/filepath"
@@ -461,6 +462,39 @@ func (c *Catalog) CheckData() error {
 	for _, k := range keys {
 		if !strings.HasPrefix(k, "SYFT_") {
 			return fmt.Errorf("env may set only SYFT_* variables, got %s", k)
+		}
+		for _, r := range dataRefusedEnv {
+			if k == r || strings.HasPrefix(k, r+"_") {
+				return fmt.Errorf("env may not set %s: it writes a file or reaches a registry as whoever runs yardstick", k)
+			}
+		}
+	}
+	return nil
+}
+
+// dataRefusedEnv are the syft variables a catalog from a claims source may not set, each with
+// everything below it: where syft writes, and the registry credentials and TLS settings it uses.
+var dataRefusedEnv = []string{"SYFT_LEGACYFILE", "SYFT_OUTPUT", "SYFT_FILE", "SYFT_REGISTRY"}
+
+// dataConfigKeys are the top-level syft config keys a catalog from a claims source may set: the
+// ones choosing catalogers and shaping the packages they find, from syft's options.Catalog. The rest
+// (legacyFile, output, registry, source, cache, ...) can write files or reach a registry as
+// whoever runs yardstick. syft reads keys without regard to case.
+var dataConfigKeys = []string{
+	"catalogers", "default-catalogers", "select-catalogers", "package", "license", "scope", "parallelism", "relationships",
+	"compliance", "exclude", "unknowns", "cpp", "dotnet", "golang", "java", "javascript", "linux-kernel", "nix", "python",
+}
+
+// CheckDataConfig refuses a syft config read from a claims source that sets a key outside
+// dataConfigKeys, as CheckData refuses its catalog's env.
+func CheckDataConfig(data []byte) error {
+	var top map[string]any
+	if err := yaml.Unmarshal(data, &top); err != nil {
+		return fmt.Errorf("config: %w", err)
+	}
+	for _, k := range slices.Sorted(maps.Keys(top)) {
+		if !slices.Contains(dataConfigKeys, strings.ToLower(k)) {
+			return fmt.Errorf("config may set only syft's cataloging keys (%s), got %s", strings.Join(dataConfigKeys, ", "), k)
 		}
 	}
 	return nil

@@ -307,6 +307,9 @@ func (r *Resolver) effectiveCatalog() (*Catalog, error) {
 			if c.ConfigData, err = src.ReadFile(filepath.ToSlash(c.Config)); err != nil {
 				return nil, fmt.Errorf("claims source %s: catalog config: %w", src.Locator, err)
 			}
+			if err := gatefile.CheckDataConfig(c.ConfigData); err != nil {
+				return nil, fmt.Errorf("claims source %s: %s: %w", src.Locator, claimsv1.CatalogFile, err)
+			}
 			// syft reads the config from a file of its own, keyed by content
 			c.Config = cache.Dir("catalog-config", digest(c.ConfigData)[len("sha256:"):]+".yaml")
 			if err := cache.WriteFile(c.Config, c.ConfigData); err != nil {

@@ -392,11 +392,15 @@ func TestSourceCatalogIsData(t *testing.T) {
 		{"syft by absolute path", "syft: /usr/local/bin/syft\n", "not a path to a binary"},
 		{"a loader variable", "syft: syft@v1.54.1\nenv: {LD_PRELOAD: /tmp/x.so}\n", "only SYFT_* variables, got LD_PRELOAD"},
 		{"a proxy variable", "syft: syft@v1.54.1\nenv: {SYFT_PARALLELISM: '2', HTTPS_PROXY: http://attacker:8080}\n", "got HTTPS_PROXY"},
+		{"an output file variable", "syft: syft@v1.54.1\nenv: {SYFT_LEGACYFILE: ~/.ssh/authorized_keys}\n", "may not set SYFT_LEGACYFILE"},
+		{"a registry variable", "syft: syft@v1.54.1\nenv: {SYFT_REGISTRY_INSECURE_SKIP_TLS_VERIFY: 'true'}\n", "may not set SYFT_REGISTRY_INSECURE_SKIP_TLS_VERIFY"},
+		{"an output file in the config", "syft: syft@v1.54.1\nconfig: syft.yaml\n", "got legacyFile"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Setenv("YARDSTICK_CACHE_DIR", t.TempDir())
 			dir := t.TempDir()
 			write(t, filepath.Join(dir, claimsv1.CatalogFile), []byte(tc.catalog))
+			write(t, filepath.Join(dir, "syft.yaml"), []byte("scope: all-layers\nlegacyFile: ~/.ssh/authorized_keys\n"))
 			b := &builder{}
 			_, err := (&Resolver{Sources: []*claims.Source{source(t, dir)}, Build: b.build}).Resolve(context.Background(), s)
 			if err == nil || !strings.Contains(err.Error(), "claims source "+dir) || !strings.Contains(err.Error(), tc.want) || b.calls != 0 {
