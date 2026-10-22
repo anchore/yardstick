@@ -147,3 +147,35 @@ func TestInheritedDigestSkipsSecretsAndSyft(t *testing.T) {
 		t.Errorf("expected a changed value to change the digest")
 	}
 }
+
+// a failure names the command without the credentials a DB or proxy URL carries
+func TestFailureRedactsURLUserinfo(t *testing.T) {
+	t.Setenv("YARDSTICK_CACHE_DIR", t.TempDir())
+	_, _, err := Runner{}.Run(context.Background(), Cmd{Bin: "/bin/sh", Args: []string{"-c", "exit 3", "sh", "https://bob:s3cret@mirror.example/db.tar.zst"}})
+	if err == nil || strings.Contains(err.Error(), "s3cret") || !strings.Contains(err.Error(), "https://*******@mirror.example/db.tar.zst") {
+		t.Errorf("expected the URL's userinfo masked in the error, got %v", err)
+	}
+}
+
+// a declared env as it is printed or recorded: credentials masked, other values kept
+func TestMaskEnv(t *testing.T) {
+	got := MaskEnv(map[string]string{
+		"GRYPE_REGISTRY_AUTH_PASSWORD": "hunter2",
+		"SYFT_REGISTRY_AUTH_0_TOKEN":   "abc123",
+		"GRYPE_DB_UPDATE_URL":          "https://example.invalid/listing.json",
+		"HTTPS_PROXY":                  "http://bob:s3cret@proxy.example:8080",
+		"GRYPE_MATCH_JAVA_USING_CPES":  "false",
+	})
+	want := map[string]string{
+		"GRYPE_REGISTRY_AUTH_PASSWORD": Masked,
+		"SYFT_REGISTRY_AUTH_0_TOKEN":   Masked,
+		"GRYPE_DB_UPDATE_URL":          Masked,
+		"HTTPS_PROXY":                  "http://*******@proxy.example:8080",
+		"GRYPE_MATCH_JAVA_USING_CPES":  "false",
+	}
+	for k, v := range want {
+		if got[k] != v {
+			t.Errorf("%s: expected %q, got %q", k, v, got[k])
+		}
+	}
+}

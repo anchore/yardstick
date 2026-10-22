@@ -9,7 +9,6 @@ import (
 	"fmt"
 	"maps"
 	"os"
-	"regexp"
 	"runtime"
 	"slices"
 	"sort"
@@ -63,12 +62,6 @@ func Scan(ctx context.Context, run execute.Runner, p setup.Prepared, sbom string
 	return out, redact(stderr, environ), len(doc.Matches), nil
 }
 
-// credentialVar is a variable that may hold a registry credential.
-var credentialVar = regexp.MustCompile(`^(GRYPE|SYFT)_REGISTRY_AUTH.*_(USERNAME|PASSWORD|TOKEN)$`)
-
-// urlUserinfo is the userinfo part of a URL, which can carry a credential (a proxy, a DB mirror).
-var urlUserinfo = regexp.MustCompile(`://[^/\s]*@`)
-
 // redact masks credentials in a tool log, which is kept in the run and the scan cache: the values
 // of credential variables in the environment, and userinfo in any URL. grype masks them in its own
 // config dump; this catches anything else.
@@ -76,16 +69,16 @@ func redact(log []byte, environ []string) []byte {
 	var secrets []string
 	for _, kv := range environ {
 		k, v, _ := strings.Cut(kv, "=")
-		if (credentialVar.MatchString(k) || slices.Contains(execute.SecretEnv, k)) && len(v) >= 3 {
+		if execute.Secret(k) && len(v) >= 3 {
 			secrets = append(secrets, v)
 		}
 	}
 	// longest first, so a secret that contains another is masked whole
 	slices.SortFunc(secrets, func(a, b string) int { return len(b) - len(a) })
 	for _, v := range secrets {
-		log = bytes.ReplaceAll(log, []byte(v), []byte("*******"))
+		log = bytes.ReplaceAll(log, []byte(v), []byte(execute.Masked))
 	}
-	return urlUserinfo.ReplaceAll(log, []byte("://*******@"))
+	return []byte(execute.RedactURLs(string(log)))
 }
 
 // gzipLog compresses a tool log, returning it with the sha256 of its text.

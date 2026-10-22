@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/anchore/yardstick/cmd/yardstick/internal/claims"
+	"github.com/anchore/yardstick/cmd/yardstick/internal/execute"
 	"github.com/anchore/yardstick/cmd/yardstick/internal/runrecord"
 	"github.com/anchore/yardstick/cmd/yardstick/internal/setup"
 	"github.com/anchore/yardstick/cmd/yardstick/internal/subject"
@@ -123,7 +124,7 @@ func inputs(p setup.Prepared) Inputs {
 	}
 	if len(p.Env) > 0 {
 		var kv []string
-		for k, v := range p.Env {
+		for k, v := range execute.MaskEnv(p.Env) {
 			kv = append(kv, k+"="+v)
 		}
 		sort.Strings(kv)

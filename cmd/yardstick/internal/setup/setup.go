@@ -36,6 +36,15 @@ type Prepared struct {
 	Env    map[string]string `json:"env,omitempty"`
 }
 
+// MarshalJSON writes the env with its credentials masked: a Prepared goes into the run record, which
+// a CI run uploads with its scans, and to the label UI.
+func (p Prepared) MarshalJSON() ([]byte, error) {
+	type plain Prepared
+	q := plain(p)
+	q.Env = execute.MaskEnv(p.Env)
+	return json.Marshal(q)
+}
+
 // DB is a resolved, pinned grype vulnerability DB.
 type DB struct {
 	Requested string `json:"requested"`          // as the gate file wrote it, e.g. latest

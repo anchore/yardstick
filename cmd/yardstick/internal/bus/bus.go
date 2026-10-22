@@ -12,6 +12,7 @@ import (
 	"github.com/wagoodman/go-partybus"
 
 	"github.com/anchore/yardstick/cmd/yardstick/internal/event"
+	"github.com/anchore/yardstick/cmd/yardstick/internal/execute"
 	"github.com/anchore/yardstick/cmd/yardstick/internal/gatefile"
 )
 
@@ -41,7 +42,7 @@ func GateStarted(g *gatefile.Gate) {
 
 func setup(name string, s *gatefile.Setup) event.Setup {
 	env := make([]string, 0, len(s.Env))
-	for k, v := range s.Env {
+	for k, v := range execute.MaskEnv(s.Env) {
 		env = append(env, k+"="+v)
 	}
 	sort.Strings(env)

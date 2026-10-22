@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"slices"
@@ -336,5 +337,21 @@ func TestLatestFollowsTheSetupsEnvAndConfig(t *testing.T) {
 	}
 	if got := configs(t); !slices.Contains(got, cfg) {
 		t.Errorf("expected a listing run with the setup's config %s, got %v", cfg, got)
+	}
+}
+
+// the run record and the label UI get a setup's env with its credentials masked; the setup itself
+// keeps them to scan with
+func TestPreparedJSONMasksCredentials(t *testing.T) {
+	p := Prepared{Env: map[string]string{"GRYPE_REGISTRY_AUTH_PASSWORD": "hunter2", "GRYPE_MATCH_JAVA_USING_CPES": "false"}}
+	data, err := json.Marshal(p)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(string(data), "hunter2") || !strings.Contains(string(data), `"GRYPE_MATCH_JAVA_USING_CPES":"false"`) {
+		t.Errorf("expected the password masked and the rest kept, got %s", data)
+	}
+	if p.Env["GRYPE_REGISTRY_AUTH_PASSWORD"] != "hunter2" {
+		t.Error("expected the setup's own env left as it was")
 	}
 }

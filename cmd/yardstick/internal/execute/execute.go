@@ -67,7 +67,7 @@ func (r Runner) Run(ctx context.Context, c Cmd) (stdout, stderr []byte, err erro
 	if err := os.MkdirAll(dir, 0o755); err != nil {
 		return nil, nil, fmt.Errorf("unable to create a working directory for tools: %w", err)
 	}
-	log.Debugf("exec: %s %s", c.Bin, strings.Join(c.Args, " "))
+	log.Debugf("exec: %s %s", c.Bin, RedactURLs(strings.Join(c.Args, " ")))
 	if len(c.Env) > 0 || c.DBDir != "" {
 		log.Debugf("exec env: declared keys %v, db dir %q, inherit caller env %v", sortedKeys(c.Env), c.DBDir, r.InheritEnv)
 	}
@@ -81,7 +81,7 @@ func (r Runner) Run(ctx context.Context, c Cmd) (stdout, stderr []byte, err erro
 	err = cmd.Run()
 	logResult(cmd, errOut.Bytes())
 	if err != nil {
-		return nil, errOut.Bytes(), fmt.Errorf("%s %s: %w\n%s", c.Bin, strings.Join(c.Args, " "), err, lastLines(withoutDebug(errOut.String()), stderrLines))
+		return nil, errOut.Bytes(), fmt.Errorf("%s %s: %w\n%s", c.Bin, RedactURLs(strings.Join(c.Args, " ")), err, lastLines(withoutDebug(errOut.String()), stderrLines))
 	}
 	return out.Bytes(), errOut.Bytes(), nil
 }
@@ -172,6 +172,41 @@ var SecretEnv = []string{
 	"GRYPE_REGISTRY_AUTH_TLS_CERT",  // path to a registry client certificate
 	"GRYPE_REGISTRY_AUTH_TLS_KEY",   // path to the registry client key
 	"GRYPE_DB_UPDATE_URL",           // a URL that can carry userinfo, and is never fetched while the DB is pinned
+}
+
+// Masked is what stands in for a credential wherever one would be printed or kept.
+const Masked = "*******"
+
+// credentialVar is a variable that may hold a registry credential.
+var credentialVar = regexp.MustCompile(`^(GRYPE|SYFT)_REGISTRY_AUTH.*_(USERNAME|PASSWORD|TOKEN)$`)
+
+// urlUserinfo is the userinfo part of a URL, which can carry a credential (a proxy, a DB mirror).
+var urlUserinfo = regexp.MustCompile(`://[^/\s]*@`)
+
+// Secret says whether a variable may hold a credential: a registry credential, or one of SecretEnv.
+func Secret(k string) bool {
+	return credentialVar.MatchString(k) || slices.Contains(SecretEnv, k)
+}
+
+// RedactURLs masks the userinfo of every URL in s.
+func RedactURLs(s string) string {
+	return urlUserinfo.ReplaceAllString(s, "://"+Masked+"@")
+}
+
+// MaskEnv is a declared env as it may be printed or recorded: a credential's value masked, and
+// any URL's userinfo in the others.
+func MaskEnv(env map[string]string) map[string]string {
+	if env == nil {
+		return nil
+	}
+	out := make(map[string]string, len(env))
+	for k, v := range env {
+		if Secret(k) {
+			v = Masked
+		}
+		out[k] = RedactURLs(v)
+	}
+	return out
 }
 
 // InheritedDigest is a sha256 over the caller's inherited GRYPE_* names and values, sorted by
