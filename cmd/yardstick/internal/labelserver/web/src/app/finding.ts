@@ -160,12 +160,21 @@ export function findingView(host: HTMLElement, r: FindingRoute, nav: Nav, signal
     // staying on the row: the screen refreshes in place, as after any write (main.ts)
     changed();
   }
+  // writing holds off a second write while one is in flight: a double click or a held Enter on
+  // Save, or a key pressed again, sends one
+  let writing = false;
   async function write(rows: string[], text: string, call: () => Promise<{ labels: LabelKey[] }>, how: "hint" | "hand" = "hint") {
-    let keys: LabelKey[];
-    try { keys = (await call()).labels; } catch (e) { toast((e as Error).message, true); return; }
-    // the reader left while it was written: say so with its Undo, and go nowhere
-    if (signal.aborted) { written(text, keys); changed(); return; }
-    await after(rows, text, how, keys);
+    if (writing) return;
+    writing = true;
+    try {
+      let keys: LabelKey[];
+      try { keys = (await call()).labels; } catch (e) { toast((e as Error).message, true); return; }
+      // the reader left while it was written: say so with its Undo, and go nowhere
+      if (signal.aborted) { written(text, keys); changed(); return; }
+      await after(rows, text, how, keys);
+    } finally {
+      writing = false;
+    }
   }
   const said = (v: claimsv1.Verdict) => `${labels[v].glyph} ${labels[v].word}`;
 
