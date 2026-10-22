@@ -299,16 +299,8 @@ func (w Writer) writeFile(root *os.Root, rel string, placed []Placed) ([]Written
 func (w Writer) Revert(written []Written) error {
 	byFile := map[string][]Written{}
 	for _, k := range written {
-		if loc, ok := Locate(k.File); !ok || !loc.IsLabelFile() {
-			return fmt.Errorf("%s is not a label file in the corpus layout", k.File)
-		}
-		if p := k.Prior; p != nil {
-			if p.Key() != k.Key {
-				return fmt.Errorf("%s: the label to restore is %s, not %s", k.File, p.Key(), k.Key)
-			}
-			if err := CheckRequired(*p, nil); err != nil {
-				return fmt.Errorf("%s: the label to restore, %s: %w", k.File, k.Key, err)
-			}
+		if err := checkRevert(k); err != nil {
+			return err
 		}
 		byFile[k.File] = append(byFile[k.File], k)
 	}
@@ -358,6 +350,23 @@ func (w Writer) Revert(written []Written) error {
 		}
 		if err := writeAtomic(root, target, data); err != nil {
 			return err
+		}
+	}
+	return nil
+}
+
+// checkRevert refuses a revert outside the corpus layout, or putting back a label that is not
+// the key's or not whole.
+func checkRevert(k Written) error {
+	if loc, ok := Locate(k.File); !ok || !loc.IsLabelFile() {
+		return fmt.Errorf("%s is not a label file in the corpus layout", k.File)
+	}
+	if p := k.Prior; p != nil {
+		if p.Key() != k.Key {
+			return fmt.Errorf("%s: the label to restore is %s, not %s", k.File, p.Key(), k.Key)
+		}
+		if err := CheckRequired(*p, nil); err != nil {
+			return fmt.Errorf("%s: the label to restore, %s: %w", k.File, k.Key, err)
 		}
 	}
 	return nil

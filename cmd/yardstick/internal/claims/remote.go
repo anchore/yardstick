@@ -368,7 +368,7 @@ func download(url, digest, dir, final string) error {
 	idle := time.AfterFunc(downloadIdle, cancel)
 	defer idle.Stop()
 	// the host is YARDSTICK_CLAIMS_URL, DefaultURL or githubAPI, and the path a checked digest or commit
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil) //nolint:gosec // see above
 	if err != nil {
 		return err
 	}
