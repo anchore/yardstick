@@ -177,7 +177,7 @@ jobs:
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 #v6.1.0
         with:
           path: .tmp/cli/cache
-          key: cli-${{ runner.os }}-grype-v0.100.0-v0.120.1-claims-32064318e375ca3a87ee642bfececd00d701c4de-${{ env.CLI_CACHE_BUSTER }}
+          key: cli-${{ runner.os }}-grype-v0.100.0-v0.120.1-claims-dc0289a3a409265fb2c37d3526ec94385998cfcb-${{ env.CLI_CACHE_BUSTER }}
 
       - name: Run CLI tests
         run: make cli

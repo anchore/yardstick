@@ -20,7 +20,7 @@ import (
 
 // claimsPin is the published anchore/claims snapshot every scenario reads its labels from, ahead of
 // the workspace's own claims/ where the tests write theirs.
-const claimsPin = "github.com/anchore/claims@32064318e375ca3a87ee642bfececd00d701c4de"
+const claimsPin = "github.com/anchore/claims@dc0289a3a409265fb2c37d3526ec94385998cfcb"
 
 // bin is the yardstick binary under test: YARDSTICK_BINARY_LOCATION when set (a snapshot build in
 // CI), else built once from this checkout.

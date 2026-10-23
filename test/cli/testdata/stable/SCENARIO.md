@@ -9,7 +9,7 @@ Both grype versions report the same matches on a deb and an apk image, so the ga
   - ubuntu 18.10: CVE-2016-2781 (coreutils), CVE-2018-20482 (tar), CVE-2019-9169 (libc-bin, libc6)
   - NVD: CVE-2016-9840 and CVE-2016-9841 (zlib), CVE-2018-0732 (libcrypto1.0, libssl1.0). The vunnel alpine data has no 3.2, so grype matches alpine 3.2 by CPE
   - NVD and `secureos:rolling`: CVE-2025-15281 and CVE-2026-95818 on glibc-2.42, which the corpus doesn't label
-- labels: `github.com/anchore/claims@32064318e375ca3a87ee642bfececd00d701c4de`, then the workspace's `claims/`. The corpus labels all 8 ubuntu and alpine matches tp
+- labels: `github.com/anchore/claims@dc0289a3a409265fb2c37d3526ec94385998cfcb`, then the workspace's `claims/`. The corpus labels all 8 ubuntu and alpine matches tp
 
 Every gate here also runs the implicit `matchesAtLeast` (min 1), which counts both setups' matches on each subject. It passes in every run below, so the tables leave it out.
 
