@@ -70,6 +70,9 @@ trusted-publishing = "always"
 exclude-newer = "1 week"
 # certifi carries CA bundle updates; take them as soon as they ship
 exclude-newer-package = { certifi = false }
+# Floor: versions below this trust compromised eMudhra intermediates.
+# https://github.com/advisories/GHSA-6q48-6c7w-9gw2
+constraint-dependencies = ["certifi>=2026.10.19"]
 
 [[tool.uv.index]]
 explicit = true
