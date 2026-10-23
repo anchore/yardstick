@@ -18,7 +18,7 @@ const web = "cmd/yardstick/internal/labelserver/web"
 // webDeps installs the UI's npm packages and generates its wire types: what both tsc and the
 // bundler need before they run
 func webDeps() {
-	Run(bun(), run.Args("install", "--frozen-lockfile"), run.InDir(web))
+	Run("bun install --frozen-lockfile", run.InDir(web))
 	if file.Exists(web + "/tygo.yaml") {
 		Run("tygo generate --config " + web + "/tygo.yaml")
 		unionEnums(web + "/src/gen")
@@ -58,7 +58,7 @@ func main() {
 			Description:  "run the label UI's unit tests with bun test",
 			Dependencies: Deps("generate"),
 			RunsOn:       Deps("unit"),
-			Run:          func() { Run(bun(), run.Args("test"), run.InDir(web)) },
+			Run:          func() { Run("bun test", run.InDir(web)) },
 		},
 
 		// yardstick-specific tasks not covered by go-make built-ins
@@ -68,8 +68,8 @@ func main() {
 			Description: "build the label UI into labelserver/assets/dist: bun install, tygo, tsc (the UI and its e2e tests), then esbuild",
 			Run: func() {
 				webDeps()
-				Run(tsc(), run.Args("--noEmit", "-p", web))
-				Run(tsc(), run.Args("--noEmit", "-p", web+"/e2e"))
+				Run("tsc --noEmit -p", run.Args(web))
+				Run("tsc --noEmit -p", run.Args(web+"/e2e"))
 				Run("go run ./" + web + "/build")
 			},
 		},

@@ -20,3 +20,30 @@ tools:
     method: go-install
     with:
       module: github.com/gzuidhof/tygo
+
+  # override go-make's binny pin: 0.14 is the first to install bun (x64 assets) and tsc (keep-archive-files)
+  - name: binny
+    version:
+      want: v0.14.0
+    method: github-release
+    with:
+      repo: anchore/binny
+
+  # runs the label UI's install, unit tests and Playwright (Taskfile.yaml runs it as .tool/bun)
+  - name: bun
+    version:
+      want: bun-v1.4.3
+    method: github-release
+    with:
+      repo: oven-sh/bun
+      # skip the baseline, profile, musl and android builds
+      assets: '^bun-[a-z]+-[a-z0-9]+\.zip$'
+
+  # tsc 7 is native but reads lib/*.d.ts from beside itself, so the whole archive is kept
+  - name: tsc
+    version:
+      want: v7.0.2
+    method: github-release
+    with:
+      repo: microsoft/TypeScript
+      keep-archive-files: true

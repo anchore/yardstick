@@ -149,7 +149,7 @@ func (r *Resolver) Install(ctx context.Context, s Spec) (Tool, error) {
 	// binny reinstalls over a binary whose digest changed; yardstick refuses it instead, since
 	// something rewrote a cached tool
 	var mismatch *binny.ErrDigestMismatch
-	if err := tool.Check(store, s.Name, s.Version, verify); errors.As(err, &mismatch) {
+	if err := tool.Check(store, t, s.Version, verify); errors.As(err, &mismatch) {
 		return Tool{}, fmt.Errorf("%s: the cached binary no longer matches the digest recorded when it was installed (%s); remove %s to reinstall it", s, mismatch.Actual, store.Root())
 	}
 	log.Infof("installing %s", s)

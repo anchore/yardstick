@@ -4,6 +4,7 @@ import (
 	"os"
 
 	. "github.com/anchore/go-make"
+	"github.com/anchore/go-make/binny"
 	"github.com/anchore/go-make/lang"
 	"github.com/anchore/go-make/run"
 	"github.com/anchore/go-make/shell"
@@ -42,7 +43,7 @@ func devIn(dir string) {
 			return err
 		},
 		func() error {
-			_, err := run.Command(tsc(), run.Args("--noEmit", "--watch", "--preserveWatchOutput", "-p", web), run.Stdout(os.Stdout))
+			_, err := run.Command(binny.ManagedToolPath("tsc"), run.Args("--noEmit", "--watch", "--preserveWatchOutput", "-p", web), run.Stdout(os.Stdout))
 			return err
 		},
 	)
