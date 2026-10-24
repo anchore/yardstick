@@ -1,0 +1,4 @@
+# grype v0.115.0 flipped this default to false. Setting it back restores the stdlib CPE matches.
+match:
+  golang:
+    always-use-cpe-for-stdlib: true

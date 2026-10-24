@@ -1,0 +1,24 @@
+auto-generate: true
+extractions:
+    epss:
+        - CVE-2016-2781
+        - CVE-2018-20482
+        - CVE-2019-9169
+        - CVE-2016-9840
+        - CVE-2016-9841
+        - CVE-2018-0732
+        - CVE-2025-15281
+        - CVE-2026-95818
+    nvd:
+        - CVE-2016-9840
+        - CVE-2016-9841
+        - CVE-2018-0732
+        - CVE-2025-15281
+        - CVE-2026-95818
+    secureos:
+        - secureos:rolling/CVE-2025-15281
+        - secureos:rolling/CVE-2026-95818
+    ubuntu:
+        - ubuntu:18.10/CVE-2016-2781
+        - ubuntu:18.10/CVE-2018-20482
+        - ubuntu:18.10/CVE-2019-9169

@@ -2,7 +2,6 @@ name: "Release"
 
 permissions: {}
 
-# there should never be two releases in progress at the same time
 concurrency:
   group: release
   cancel-in-progress: false
@@ -13,93 +12,95 @@ on:
       version:
         description: tag the latest commit on main with the given version (prefixed with v)
         required: true
+      skip-checks:
+        description: skip the check-gate (release even if checks haven't passed on main)
+        type: boolean
+        default: false
+        required: false
 
 jobs:
   version-available:
-    uses: anchore/workflows/.github/workflows/check-version-available.yaml@7212994dc8fc3a53fe9c8e766ab5b4ddd16ea3d4 # v0.8.0
     permissions:
-      contents: read # for the latest tags
+      contents: read # required for the reusable workflow to check out the repo and verify the version
+    uses: anchore/workflows/.github/workflows/check-version-available.yaml@7212994dc8fc3a53fe9c8e766ab5b4ddd16ea3d4 # v0.8.0
     with:
       version: ${{ github.event.inputs.version }}
 
   check-gate:
+    if: ${{ !inputs.skip-checks }}
     permissions:
+      contents: read # required for the reusable workflow to check out the repo
       checks: read # required for getting the status of specific check names
-    uses: anchore/workflows/.github/workflows/check-gate.yaml@b0c30a80409130d329aaa356fd64a34d8c0b3375 # v0.7.2
+    uses: anchore/workflows/.github/workflows/check-gate.yaml@7212994dc8fc3a53fe9c8e766ab5b4ddd16ea3d4 # v0.8.0
     with:
       # these are checks that should be run on pull-request and merges to main.
       # we do NOT want to kick off a release if these have not been verified on main.
       # Please see the validations.yaml workflow for the names that should be used here.
-      checks: '["validations"]'
+      checks: '["Build snapshot artifacts", "Static analysis", "Unit tests"]'
 
-  tag:
+  release:
     needs: [check-gate, version-available]
-    runs-on: ubuntu-22.04
-    permissions:
-      contents: write
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 #v7.0.1
-        with:
-          # in order to properly resolve the version from git
-          fetch-depth: 0
-          persist-credentials: true
-
-      - name: Tag release
-        env:
-          VERSION_INPUT: ${{ github.event.inputs.version }}
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          git config --global user.name "anchoreci"
-          git config --global user.email "anchoreci@users.noreply.github.com"
-          git tag "$VERSION_INPUT"
-          git push origin --tags
-
-  release-pypi:
-    needs:
-      - tag
-    runs-on: ubuntu-22.04
+    # run even when check-gate is skipped, but never when version-available
+    # failed/was skipped, nor when check-gate failed or was cancelled. note:
+    # always() disables the implicit success() gate on ALL needs, so the
+    # version-available requirement must be re-asserted explicitly here.
+    if: >-
+      ${{ always()
+          && needs.version-available.result == 'success'
+          && !contains(fromJSON('["failure", "cancelled"]'), needs.check-gate.result) }}
     environment: release
+    runs-on: ubuntu-24.04
     permissions:
-      contents: read
-      # required to authenticate with PyPI via OIDC token
-      id-token: write
+      contents: write # required for creating the GitHub release and pushing the version tag
+      packages: write # required for publishing release artifacts to GitHub packages
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 #v7.0.1
         with:
-          # in order to properly resolve the version from git
           fetch-depth: 0
+          # the tag goes out with TAG_TOKEN (go-make overrides any persisted header for that push), and
+          # the release with GITHUB_TOKEN from the env, so no token is left in .git/config
           persist-credentials: false
 
       - name: Bootstrap environment
-        uses: ./.github/actions/bootstrap
+        uses: anchore/go-make/.github/actions/setup@abf41688f36f2cbec13105747abbe8e60f5c56ca # v0.9.3
 
-      # note: authentication is via the OIDC token
-      - name: Publish to PyPI
-        run: make ci-publish-pypi
-
-  release-github:
-    needs:
-      - tag
-    runs-on: ubuntu-22.04
-    permissions:
-      contents: write
-      packages: write
-      issues: read
-      pull-requests: read
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 #v7.0.1
-        with:
-          # in order to properly resolve the version from git
-          fetch-depth: 0
-          persist-credentials: false
-
-      - name: Bootstrap environment
-        uses: ./.github/actions/bootstrap
-
-      - name: Create github release
+      - name: Build & publish release artifacts
+        run: make ci-release
         env:
-          VERSION_INPUT: ${{ github.event.inputs.version }}
+          # for pushing tags (does not inherit workflow permissions)
+          TAG_TOKEN: ${{ secrets.TAG_TOKEN }}
+          RELEASE_VERSION: ${{ github.event.inputs.version }}
+          # for mac signing and notarization...
+          QUILL_SIGN_P12: ${{ secrets.ANCHORE_APPLE_DEVELOPER_ID_CERT_CHAIN }}
+          QUILL_SIGN_PASSWORD: ${{ secrets.ANCHORE_APPLE_DEVELOPER_ID_CERT_PASS }}
+          QUILL_NOTARY_ISSUER: ${{ secrets.APPLE_NOTARY_ISSUER }}
+          QUILL_NOTARY_KEY_ID: ${{ secrets.APPLE_NOTARY_KEY_ID }}
+          QUILL_NOTARY_KEY: ${{ secrets.APPLE_NOTARY_KEY }}
+          # for creating the release (requires write access to packages and content)
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          make changelog
-          gh release create "$VERSION_INPUT" -F CHANGELOG.md -t "$VERSION_INPUT"
+
+      - uses: anchore/sbom-action@66cbf4bc1f1c0d2edc94016e65bc221b6bb0ad6c #v0.24.3
+        with:
+          artifact-name: sbom.spdx.json
+
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 #v7.0.2
+        with:
+          name: artifacts
+          path: dist/**/*
+
+  release-install-script:
+    needs: [release]
+    if: ${{ needs.release.result == 'success' }}
+    permissions:
+      contents: read # required for the reusable workflow to check out the repo and publish the install script
+    uses: anchore/workflows/.github/workflows/release-install-script.yaml@7212994dc8fc3a53fe9c8e766ab5b4ddd16ea3d4 # v0.8.0
+    with:
+      tag: ${{ github.event.inputs.version }}
+    secrets:
+      # needed for r2...
+      R2_INSTALL_ACCESS_KEY_ID: ${{ secrets.OSS_R2_INSTALL_ACCESS_KEY_ID }}
+      R2_INSTALL_SECRET_ACCESS_KEY: ${{ secrets.OSS_R2_INSTALL_SECRET_ACCESS_KEY }}
+      R2_ENDPOINT: ${{ secrets.TOOLBOX_CLOUDFLARE_R2_ENDPOINT }}
+      # needed for s3...
+      S3_INSTALL_AWS_ACCESS_KEY_ID: ${{ secrets.TOOLBOX_AWS_ACCESS_KEY_ID }}
+      S3_INSTALL_AWS_SECRET_ACCESS_KEY: ${{ secrets.TOOLBOX_AWS_SECRET_ACCESS_KEY }}

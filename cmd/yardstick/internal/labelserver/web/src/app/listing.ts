@@ -1,0 +1,191 @@
+// listing.ts is the list screens' logic: one finding row shape for every findings table, the filter
+// chips and their counts, paging, the gate list's image strip, and labels across gates. Pure: no
+// DOM; the screens draw it.
+import type { CheckFindings, CrossFinding, Effect as WireEffect, GateLabel, HintKind, ImageRef, ResearchSummary, RowVerdict, State, StateRow, Tally, agentstore, claimsv1 } from "../gen/wire";
+import { inFlight } from "../shared/agent";
+import { open, pkgOf, srcPkg } from "../shared/rows";
+import { openOf } from "./images";
+import type { Filters, VerdictFilter } from "./route";
+import { filterRows, sortRows } from "./table";
+
+// FHint is a row's pending agent suggestion: its own proposal, or a cause (package hint) listing it
+export interface FHint { verdict: claimsv1.Verdict; confidence?: agentstore.Confidence; kind: HintKind; cause?: string }
+
+// Effect is the server's, or "" where no check counts the row
+export type Effect = WireEffect | "";
+
+// FRow is one finding as every findings table shows it
+export interface FRow {
+  id: string;             // the row id, or a made-up key for an unmet expectation no match pairs
+  row?: string;           // absent for that expectation, which has no finding page
+  label: RowVerdict;
+  vuln: string;
+  pkg: string;
+  version: string;
+  purl: string;
+  src: string;            // the source package, which the scan map groups by
+  image: ImageRef;
+  change: string;         // added, dropped, both or neither
+  hint: FHint | null;
+  effect: Effect;
+  research?: ResearchSummary;  // the newest research job on the row
+  researched?: boolean;        // research finished on it, whatever it left
+  shares?: string[];           // the sibling rows a research job on it covers
+}
+
+// effectRank orders findings the way the server's check findings are (gateapi.go effectRank):
+// decides, could-move, counted, then none
+export const effectRank = (e: Effect) => ["decides", "could-move", "counted", ""].indexOf(e);
+
+export const isOpen = (r: FRow) => open(r.label);
+
+// gateRows are a gate's changed matches (one setup reports them) from its /state, by effect like a
+// check's table, then in report order, so "next" (the first open row) is the first row j walks to
+export function gateRows(st: State): FRow[] {
+  const out: FRow[] = [];
+  st.subjects.forEach((s, si) => {
+    const info = st.scans.subjects[si];
+    const image: ImageRef = { name: s.name, slug: s.slug, ref: info?.ref ?? s.name };
+    for (const r of s.rows) {
+      if (r.inCandidate === r.inReference) continue;
+      const p = pkgOf(r.package.ref), label = r.verdict, openRow = open(label);
+      const cause = openRow ? st.causes.find((c) => c.pending.includes(r.id)) : undefined;
+      const hint: FHint | null = openRow && r.hint?.status === "pending" ? { verdict: r.hint.verdict, confidence: r.hint.confidence, kind: "proposal" }
+        : cause ? { verdict: cause.verdict, confidence: cause.confidence, kind: "cause", cause: cause.id } : null;
+      out.push({
+        id: r.id, row: r.id, label, vuln: r.vulnerability, pkg: p.name, version: p.version, purl: r.package.ref, src: srcPkg(r), image,
+        change: r.inCandidate ? "added" : "dropped", hint,
+        effect: r.effect ?? "", // the server's, as the check findings say it
+        research: r.research, researched: !!r.researched, shares: r.researchShares ?? [],
+      });
+    }
+  });
+  return sortRows(out, (r) => effectRank(r.effect));
+}
+
+// checkRows are a check's findings from its findings API, with the research on each row from the
+// gate's state when given
+export function checkRows(f: CheckFindings, st?: State): FRow[] {
+  const byId = new Map<string, StateRow>(st?.subjects.flatMap((s) => s.rows.map((r) => [r.id, r] as const)) ?? []);
+  return f.findings.map((x) => {
+    const s = x.row ? byId.get(x.row) : undefined;
+    return {
+      id: x.row || `${x.image.slug}|${x.package.purl}|${x.vulnerability}`, row: x.row, label: x.label?.verdict ?? "unlabeled",
+      vuln: x.vulnerability, pkg: x.package.name || pkgOf(x.package.purl).name, version: x.package.version || pkgOf(x.package.purl).version,
+      purl: x.package.purl ?? "", src: x.package.name, image: x.image, change: x.direction,
+      hint: x.hint ? { verdict: x.hint.verdict, confidence: x.hint.confidence, kind: x.hint.kind } : null,
+      effect: x.effect,
+      research: s?.research, researched: !!s?.researched, shares: s?.researchShares ?? [],
+    };
+  });
+}
+
+// rowText is what the search box matches a finding against
+export const rowText = (r: FRow) => `${r.vuln} ${r.pkg} ${r.version} ${r.purl} ${r.src} ${r.image.name}`;
+
+// ---------- filter chips ----------
+
+// researching is the chip shown only while some row in view has a research job on it, so it isn't
+// in chips, whose counts are always shown
+export type Chip = VerdictFilter | "all" | "hint" | "researching";
+export const chips = ["all", "unlabeled", "tp", "fp", "unclear", "hint"] as const satisfies Chip[];
+// chipGroups are the chips as rendered: one button group per kind of filter, the label states
+// together and the agent's (Has hint, then Researching when it shows) together
+export const chipGroups: (typeof chips)[number][][] = [["all"], ["unlabeled", "tp", "fp", "unclear"], ["hint"]];
+export const chipWords: Record<Chip, string> = { all: "All", unlabeled: "Unlabeled", tp: "TP", fp: "FP", unclear: "Unclear", hint: "Has hint", researching: "Researching" };
+
+export const chipOf = (f: Filters): Chip => (f.hint === "yes" ? "hint" : f.hint === "researching" ? "researching" : f.verdict ?? "all");
+export const chipFilters = (c: Chip): Partial<Filters> =>
+  c === "hint" || c === "researching" ? { hint: c === "hint" ? "yes" : c, verdict: undefined } : { verdict: c === "all" ? undefined : c, hint: undefined };
+export const inChip = (r: FRow, c: Chip) => c === "all" || (c === "hint" ? !!r.hint : c === "researching" ? inFlight(r.research) : r.label === c);
+
+// chipCounts are each chip's count over rows, which the caller has already scoped to the image and
+// the search, so the counts follow them
+export function chipCounts(rows: FRow[]): Record<(typeof chips)[number], number> {
+  const n = Object.fromEntries(chips.map((c) => [c, 0])) as Record<(typeof chips)[number], number>;
+  for (const r of rows) for (const c of chips) if (inChip(r, c)) n[c]++;
+  return n;
+}
+
+// scopedRows are the rows a findings table's image, package and search filters leave, in its
+// order, which its chips count; image is the URL's image when the gate has it, else null
+export const scopedRows = (rows: FRow[], f: Filters, image: string | null) =>
+  filterRows(rows.filter((x) => (!image || x.image.slug === image) && (!f.pkg || x.src === f.pkg || x.pkg === f.pkg)), f.q ?? "", rowText);
+
+// shownRows are the rows a findings table shows under the URL's filters, in its order. The finding
+// page's j and k walk these same rows, so this is the one place a findings filter is decided.
+export const shownRows = (rows: FRow[], f: Filters, image: string | null) => scopedRows(rows, f, image).filter((x) => inChip(x, chipOf(f)));
+
+// nextOpen is the first unlabeled (or unclear) row with a finding page, preferring one whose label
+// can still move a check; on a list in effect order that is its first open row
+export const nextOpen = (rows: FRow[]) =>
+  rows.find((r) => r.row && isOpen(r) && (r.effect === "could-move" || r.effect === "decides")) ?? rows.find((r) => r.row && isOpen(r));
+
+// ---------- paging ----------
+
+export const pageSize = 50;
+
+export interface PageInfo { page: number; pages: number; offset: number; from: number; to: number }
+
+// pageInfo places a 1-based page in total rows, clamped to the last page
+export function pageInfo(total: number, page = 1, size = pageSize): PageInfo {
+  const pages = Math.max(1, Math.ceil(total / size)), p = Math.min(Math.max(1, page), pages), offset = (p - 1) * size;
+  return { page: p, pages, offset, from: total ? offset + 1 : 0, to: Math.min(total, offset + size) };
+}
+
+// ---------- the gate list ----------
+
+// square is an image's square in a gate's strip: open changes, changes all judged, or none
+export const square = (t: Tally | undefined) => (!t?.total ? "none" : openOf(t) ? "open" : "chg");
+
+// sumTally adds tallies up
+export function sumTally(ts: Tally[]): Tally {
+  const s: Tally = { tp: 0, fp: 0, unclear: 0, hinted: 0, open: 0, total: 0 };
+  for (const t of ts) for (const k of Object.keys(s) as (keyof Tally)[]) s[k] += t[k];
+  return s;
+}
+
+// shortSource is a claims locator as people say it: a repository and its ref, or a directory's
+// name, not the absolute path a local corpus has
+export function shortSource(s: string): string {
+  const t = s.replace(/^[a-z+]+:\/\//, "").replace(/[/\\]+$/, "");
+  const [path, ref] = t.split(/@(?=[^/]*$)/);
+  const base = path.split(/[/\\]/).pop() || path;
+  return ref ? `${base}@${ref}` : base;
+}
+
+// ---------- labels across gates ----------
+
+export interface WideLabel extends GateLabel { gates: string[]; gate: string }
+
+// mergeLabels lists every gate's labels once: a label about an image (or a global one) counts in
+// each gate that scans it, and is the same label in each. gate is the first gate holding it, where
+// its row opens.
+export function mergeLabels(byGate: { gate: string; labels: GateLabel[] }[]): WideLabel[] {
+  const by = new Map<string, WideLabel>();
+  for (const { gate, labels } of byGate) {
+    for (const l of labels) {
+      const k = [l.verdict, l.vulnerability, l.package.purl, l.image?.ref ?? "global", l.source, l.lastUpdated].join("|");
+      const have = by.get(k);
+      if (have) {
+        have.gates.push(gate);
+        if (!have.row && l.row) Object.assign(have, { row: l.row, gate });
+      } else by.set(k, { ...l, gates: [gate], gate });
+    }
+  }
+  return [...by.values()].sort((a, b) => b.lastUpdated.localeCompare(a.lastUpdated));
+}
+
+// labelText is what the search box matches a label against
+export const labelText = (l: GateLabel) => `${l.vulnerability} ${l.package.name} ${l.package.purl} ${l.justification ?? ""} ${l.author} ${l.image?.name ?? "global"}`;
+
+// crossByGate are the cross-gate findings' rows to act on, one per finding, by the gate that writes it
+export function crossByGate(fs: CrossFinding[]): Map<string, string[]> {
+  const out = new Map<string, string[]>();
+  for (const f of fs) {
+    const a = f.in[0];
+    if (!a) continue;
+    out.set(a.gate, [...(out.get(a.gate) ?? []), a.row]);
+  }
+  return out;
+}

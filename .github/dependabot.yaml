@@ -1,0 +1,55 @@
+# Dependabot configuration
+
+version: 2
+
+updates:
+
+  - package-ecosystem: gomod
+    directories:
+      - "/"
+      - "/.make"
+    cooldown:
+      default-days: 7
+    schedule:
+      interval: "weekly"
+      day: "friday"
+    open-pull-requests-limit: 10
+    labels:
+      - "dependencies"
+    ignore:
+      # go-make module and action refs are bumped together by automation
+      - dependency-name: "github.com/anchore/go-make"
+
+  # make e2e installs the chromium build @playwright/test names, so bumping it is the whole update
+  - package-ecosystem: bun
+    directory: "/cmd/yardstick/internal/labelserver/web"
+    cooldown:
+      default-days: 7
+    schedule:
+      interval: "weekly"
+      day: "friday"
+    open-pull-requests-limit: 10
+    labels:
+      - "dependencies"
+    groups:
+      playwright:
+        patterns:
+          - "@playwright/*"
+          - "playwright"
+          - "playwright-core"
+
+  - package-ecosystem: "github-actions"
+    directories:
+      - "/"
+      - "/.github/actions/*"
+    cooldown:
+      default-days: 7
+    schedule:
+      interval: "weekly"
+      day: "friday"
+    open-pull-requests-limit: 10
+    labels:
+      - "dependencies"
+    ignore:
+      # go-make module and action refs are bumped together by automation
+      - dependency-name: "anchore/go-make/*"

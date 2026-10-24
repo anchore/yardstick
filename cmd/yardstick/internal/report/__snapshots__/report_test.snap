@@ -1,0 +1,1213 @@
+
+[TestRenderers/table - 1]
+gate rpm-coverage (gates/rpm-coverage.yaml), scanned 2026-10-14T10:00:00Z
+  candidate: grype@v0.120.1, DB sha256:30d8bcd3, config none, env GRYPE_MATCH_RPM_USING_CPES=true
+  reference: grype@v0.120.1, DB sha256:30d8bcd3, config none, env none
+  varied: env (none -> GRYPE_MATCH_RPM_USING_CPES=true); held: grype, DB, config
+  claims: github.com/anchore/delta-prototype@main at sha256:7df20f57, commit 77aa0000
+  built: the SBOM of rpm, with syft 1.54.1
+gate rpm-cpes (gates/rpm-cpes.yaml), scanned 2026-10-14T10:00:00Z
+  candidate: grype@v0.120.1, DB sha256:30d8bcd3, config none, env GRYPE_MATCH_RPM_USING_CPES=true
+  reference: grype@v0.120.1, DB sha256:30d8bcd3, config none, env none
+  varied: env (none -> GRYPE_MATCH_RPM_USING_CPES=true); held: grype, DB, config
+  claims: github.com/anchore/delta-prototype@main at sha256:7df20f57, commit 77aa0000
+  built: the SBOM of rpm, with syft 1.54.1
+GATE          CHECK                   SUBJECT  STATE  WORST  BEST   THRESHOLD  NOTE
+rpm-coverage  unlabeledPercentAtMost  rpm      pass   99.59  99.59  100
+rpm-coverage  matchesAtLeast          rpm      pass   941    941    1
+rpm-cpes      noNewFalsePositives     rpm      fail   34     1      0
+rpm-cpes      unlabeledChangesAtMost  rpm      fail   33     33     0
+rpm-cpes      noNewFalseNegatives     rpm      pass   0      0      0
+rpm-cpes      matchesAtLeast          rpm      pass   941    941    1
+FAILED 1 of 2 gates
+
+---
+
+[TestRenderers/json - 1]
+{
+  "gates": [
+    {
+      "name": "rpm-coverage",
+      "path": "gates/rpm-coverage.yaml",
+      "outcome": "pass",
+      "undecided": "fail",
+      "passed": true,
+      "header": {
+        "scanned": "2026-10-14T10:00:00Z",
+        "setups": {
+          "candidate": {
+            "grype": "grype@v0.120.1",
+            "db": "sha256:30d8bcd3",
+            "config": "none",
+            "env": "GRYPE_MATCH_RPM_USING_CPES=true"
+          },
+          "reference": {
+            "grype": "grype@v0.120.1",
+            "db": "sha256:30d8bcd3",
+            "config": "none",
+            "env": "none"
+          }
+        },
+        "varied": [
+          {
+            "input": "env",
+            "candidate": "GRYPE_MATCH_RPM_USING_CPES=true",
+            "reference": "none"
+          }
+        ],
+        "held": [
+          "grype",
+          "DB",
+          "config"
+        ],
+        "claims": [
+          {
+            "locator": "github.com/anchore/delta-prototype@main",
+            "snapshot": "sha256:7df20f57",
+            "commit": "77aa0000"
+          }
+        ],
+        "built": [
+          {
+            "subject": "rpm",
+            "syft": "1.54.1"
+          }
+        ]
+      },
+      "checks": [
+        {
+          "name": "unlabeledPercentAtMost",
+          "scope": "subject",
+          "params": {
+            "max": 100
+          },
+          "threshold": 100,
+          "value": {
+            "worst": 66.66666666666667,
+            "best": 66.66666666666667
+          },
+          "state": "pass",
+          "subjects": [
+            {
+              "subject": "rpm",
+              "value": {
+                "worst": 66.66666666666667,
+                "best": 66.66666666666667
+              },
+              "state": "pass",
+              "rows": [
+                "23b571ac428a16f5/CVE-2026-45447",
+                "3cfe7d6a1df21d77/CVE-2023-48795",
+                "567043d2df9a8814/CVE-2026-45447",
+                "d1af74f18abd1619/CVE-2026-45447"
+              ]
+            }
+          ]
+        },
+        {
+          "name": "matchesAtLeast",
+          "scope": "subject",
+          "params": {
+            "min": 1
+          },
+          "threshold": 1,
+          "value": {
+            "worst": 9,
+            "best": 9
+          },
+          "state": "pass",
+          "subjects": [
+            {
+              "subject": "rpm",
+              "value": {
+                "worst": 9,
+                "best": 9
+              },
+              "state": "pass"
+            }
+          ]
+        }
+      ],
+      "effects": [
+        {
+          "subject": "rpm",
+          "match": "3cfe7d6a1df21d77/CVE-2023-48795",
+          "states": {
+            "fp": {
+              "matchesAtLeast": "pass",
+              "unlabeledPercentAtMost": "pass"
+            },
+            "tp": {
+              "matchesAtLeast": "pass",
+              "unlabeledPercentAtMost": "pass"
+            }
+          },
+          "outcome": {
+            "fp": "pass",
+            "tp": "pass"
+          }
+        }
+      ],
+      "subjects": [
+        {
+          "name": "rpm",
+          "counts": {
+            "candidate": {
+              "tp": 1,
+              "fp": 1,
+              "unlabeled": 4,
+              "tpLabels": 4,
+              "tpLabelsPaired": 1,
+              "precision": 0.5,
+              "recall": 0.25,
+              "f1": 0.3333333333333333
+            },
+            "reference": {
+              "tp": 0,
+              "fp": 0,
+              "unlabeled": 3,
+              "tpLabels": 4,
+              "tpLabelsPaired": 0,
+              "precision": 1,
+              "recall": 0,
+              "f1": 0
+            }
+          },
+          "matches": [
+            {
+              "id": "70ae640f02b8d6c2/CVE-2020-12762",
+              "row": "f814f0cbe06b4529",
+              "vulnerability": "CVE-2020-12762",
+              "group": "CVE-2020-12762",
+              "aliases": [
+                "CVE-2020-12762"
+              ],
+              "package": "pkg:rpm/rocky/json-c@0.14-11.el9?arch=aarch64&distro=rocky-9.8&upstream=json-c-0.14-11.el9.src.rpm",
+              "sourcePackage": "json-c",
+              "matchType": "nvd:cpe cpe-match",
+              "matcher": "rpm-matcher",
+              "location": "/var/lib/rpm/rpmdb.sqlite",
+              "inCandidate": true,
+              "inReference": false,
+              "verdict": "fp",
+              "label": {
+                "package": "pkg:rpm/rocky/json-c",
+                "vulnerability": "CVE-2020-12762",
+                "verdict": "fp",
+                "file": "rpm.json",
+                "sources": [
+                  "claims: fp"
+                ]
+              },
+              "direction": "introduced",
+              "candidate": {
+                "severity": "High",
+                "namespace": "nvd:cpe",
+                "dataSource": "https://nvd.nist.gov/vuln/detail/CVE-2020-12762",
+                "fixState": "fixed",
+                "fixVersions": [
+                  "0.15-20200726"
+                ],
+                "constraints": [
+                  "< 0.15-20200726 (unknown)"
+                ],
+                "matchTypes": [
+                  "cpe-match"
+                ],
+                "matchers": [
+                  "rpm-matcher"
+                ],
+                "cpes": [
+                  "cpe:2.3:a:json-c:json-c:0.14-11.el9:*:*:*:*:*:*:*"
+                ],
+                "distro": "rockylinux 9.8"
+              }
+            },
+            {
+              "id": "3cfe7d6a1df21d77/CVE-2023-48795",
+              "row": "fa213c1dd49542ec",
+              "vulnerability": "CVE-2023-48795",
+              "group": "CVE-2023-48795",
+              "aliases": [
+                "CVE-2023-48795"
+              ],
+              "package": "pkg:rpm/rocky/libssh@0.10.4-18.el9?arch=aarch64&distro=rocky-9.8&upstream=libssh-0.10.4-18.el9.src.rpm",
+              "sourcePackage": "libssh",
+              "matchType": "nvd:cpe cpe-match",
+              "matcher": "rpm-matcher",
+              "location": "/var/lib/rpm/rpmdb.sqlite",
+              "inCandidate": true,
+              "inReference": false,
+              "direction": "review",
+              "candidate": {
+                "severity": "Medium",
+                "namespace": "nvd:cpe",
+                "dataSource": "https://nvd.nist.gov/vuln/detail/CVE-2023-48795",
+                "fixState": "fixed",
+                "fixVersions": [
+                  "0.10.6"
+                ],
+                "constraints": [
+                  "< 0.10.6 (unknown)"
+                ],
+                "matchTypes": [
+                  "cpe-match"
+                ],
+                "matchers": [
+                  "rpm-matcher"
+                ],
+                "cpes": [
+                  "cpe:2.3:a:libssh:libssh:0.10.4-18.el9:*:*:*:*:*:*:*"
+                ],
+                "distro": "rockylinux 9.8"
+              }
+            },
+            {
+              "id": "567043d2df9a8814/CVE-2026-45447",
+              "row": "08364b1c2c762a9d",
+              "vulnerability": "CVE-2026-45447",
+              "group": "CVE-2026-45447",
+              "aliases": [
+                "CVE-2026-45447"
+              ],
+              "package": "pkg:rpm/rocky/openssl@3.5.5-2.el9_8?arch=aarch64&distro=rocky-9.8&epoch=1&upstream=openssl-3.5.5-2.el9_8.src.rpm",
+              "sourcePackage": "openssl",
+              "matchType": "nvd:cpe cpe-match",
+              "matcher": "rpm-matcher",
+              "location": "/var/lib/rpm/rpmdb.sqlite",
+              "inCandidate": true,
+              "inReference": true,
+              "candidate": {
+                "severity": "High",
+                "namespace": "nvd:cpe",
+                "dataSource": "https://nvd.nist.gov/vuln/detail/CVE-2026-45447",
+                "fixState": "fixed",
+                "fixVersions": [
+                  "1.0.2zq",
+                  "1.1.1zh",
+                  "3.0.21",
+                  "3.4.6",
+                  "3.5.7",
+                  "3.6.3",
+                  "4.0.1"
+                ],
+                "constraints": [
+                  ">= 1.0.2, < 1.0.2zq||>= 1.1.1, < 1.1.1zh||>= 3.0.0, < 3.0.21||>= 3.4.0, < 3.4.6||>= 3.5.0, < 3.5.7||>= 3.6.0, < 3.6.3||>= 4.0.0, < 4.0.1 (unknown)"
+                ],
+                "matchTypes": [
+                  "cpe-match"
+                ],
+                "matchers": [
+                  "rpm-matcher"
+                ],
+                "cpes": [
+                  "cpe:2.3:a:openssl:openssl:1\\:3.5.5-2.el9_8:*:*:*:*:*:*:*"
+                ],
+                "distro": "rockylinux 9.8"
+              },
+              "reference": {
+                "severity": "High",
+                "namespace": "redhat:distro:redhat:9",
+                "dataSource": "https://access.redhat.com/security/cve/CVE-2026-45447",
+                "fixState": "fixed",
+                "fixVersions": [
+                  "1:3.5.5-4.el9_8"
+                ],
+                "constraints": [
+                  "< 1:3.5.5-4.el9_8 (rpm)"
+                ],
+                "matchTypes": [
+                  "exact-direct-match"
+                ],
+                "matchers": [
+                  "rpm-matcher"
+                ],
+                "distro": "rockylinux 9.8",
+                "relatedRecords": [
+                  {
+                    "id": "CVE-2026-45447",
+                    "namespace": "nvd:cpe",
+                    "dataSource": "https://nvd.nist.gov/vuln/detail/CVE-2026-45447"
+                  }
+                ]
+              }
+            },
+            {
+              "id": "d1af74f18abd1619/CVE-2026-45447",
+              "row": "2bb0de47deeb100c",
+              "vulnerability": "CVE-2026-45447",
+              "group": "CVE-2026-45447",
+              "aliases": [
+                "CVE-2026-45447"
+              ],
+              "package": "pkg:rpm/rocky/openssl-fips-provider@3.5.5-2.el9_8?arch=aarch64&distro=rocky-9.8&epoch=1&upstream=openssl-3.5.5-2.el9_8.src.rpm",
+              "sourcePackage": "openssl",
+              "matchType": "redhat:distro:redhat:9 exact-indirect-match",
+              "matcher": "rpm-matcher",
+              "location": "/var/lib/rpm/rpmdb.sqlite",
+              "inCandidate": true,
+              "inReference": true,
+              "candidate": {
+                "severity": "High",
+                "namespace": "redhat:distro:redhat:9",
+                "dataSource": "https://access.redhat.com/security/cve/CVE-2026-45447",
+                "fixState": "fixed",
+                "fixVersions": [
+                  "1:3.5.5-4.el9_8"
+                ],
+                "constraints": [
+                  "< 1:3.5.5-4.el9_8 (rpm)"
+                ],
+                "matchTypes": [
+                  "exact-indirect-match"
+                ],
+                "matchers": [
+                  "rpm-matcher"
+                ],
+                "upstreams": [
+                  "openssl"
+                ],
+                "distro": "rockylinux 9.8",
+                "relatedRecords": [
+                  {
+                    "id": "CVE-2026-45447",
+                    "namespace": "nvd:cpe",
+                    "dataSource": "https://nvd.nist.gov/vuln/detail/CVE-2026-45447"
+                  }
+                ]
+              },
+              "reference": {
+                "severity": "High",
+                "namespace": "redhat:distro:redhat:9",
+                "dataSource": "https://access.redhat.com/security/cve/CVE-2026-45447",
+                "fixState": "fixed",
+                "fixVersions": [
+                  "1:3.5.5-4.el9_8"
+                ],
+                "constraints": [
+                  "< 1:3.5.5-4.el9_8 (rpm)"
+                ],
+                "matchTypes": [
+                  "exact-indirect-match"
+                ],
+                "matchers": [
+                  "rpm-matcher"
+                ],
+                "upstreams": [
+                  "openssl"
+                ],
+                "distro": "rockylinux 9.8",
+                "relatedRecords": [
+                  {
+                    "id": "CVE-2026-45447",
+                    "namespace": "nvd:cpe",
+                    "dataSource": "https://nvd.nist.gov/vuln/detail/CVE-2026-45447"
+                  }
+                ]
+              }
+            },
+            {
+              "id": "23b571ac428a16f5/CVE-2026-45447",
+              "row": "029b33ef8855468f",
+              "vulnerability": "CVE-2026-45447",
+              "group": "CVE-2026-45447",
+              "aliases": [
+                "CVE-2026-45447"
+              ],
+              "package": "pkg:rpm/rocky/openssl-libs@3.5.5-2.el9_8?arch=aarch64&distro=rocky-9.8&epoch=1&upstream=openssl-3.5.5-2.el9_8.src.rpm",
+              "sourcePackage": "openssl",
+              "matchType": "redhat:distro:redhat:9 exact-indirect-match",
+              "matcher": "rpm-matcher",
+              "location": "/var/lib/rpm/rpmdb.sqlite",
+              "inCandidate": true,
+              "inReference": true,
+              "candidate": {
+                "severity": "High",
+                "namespace": "redhat:distro:redhat:9",
+                "dataSource": "https://access.redhat.com/security/cve/CVE-2026-45447",
+                "fixState": "fixed",
+                "fixVersions": [
+                  "1:3.5.5-4.el9_8"
+                ],
+                "constraints": [
+                  "< 1:3.5.5-4.el9_8 (rpm)"
+                ],
+                "matchTypes": [
+                  "exact-indirect-match"
+                ],
+                "matchers": [
+                  "rpm-matcher"
+                ],
+                "upstreams": [
+                  "openssl"
+                ],
+                "distro": "rockylinux 9.8",
+                "relatedRecords": [
+                  {
+                    "id": "CVE-2026-45447",
+                    "namespace": "nvd:cpe",
+                    "dataSource": "https://nvd.nist.gov/vuln/detail/CVE-2026-45447"
+                  }
+                ]
+              },
+              "reference": {
+                "severity": "High",
+                "namespace": "redhat:distro:redhat:9",
+                "dataSource": "https://access.redhat.com/security/cve/CVE-2026-45447",
+                "fixState": "fixed",
+                "fixVersions": [
+                  "1:3.5.5-4.el9_8"
+                ],
+                "constraints": [
+                  "< 1:3.5.5-4.el9_8 (rpm)"
+                ],
+                "matchTypes": [
+                  "exact-indirect-match"
+                ],
+                "matchers": [
+                  "rpm-matcher"
+                ],
+                "upstreams": [
+                  "openssl"
+                ],
+                "distro": "rockylinux 9.8",
+                "relatedRecords": [
+                  {
+                    "id": "CVE-2026-45447",
+                    "namespace": "nvd:cpe",
+                    "dataSource": "https://nvd.nist.gov/vuln/detail/CVE-2026-45447"
+                  }
+                ]
+              }
+            },
+            {
+              "id": "0c0dcde3bb91d5dd/CVE-2018-25032",
+              "row": "4637da4ef00906b3",
+              "vulnerability": "CVE-2018-25032",
+              "group": "CVE-2018-25032",
+              "aliases": [
+                "CVE-2018-25032"
+              ],
+              "package": "pkg:rpm/rocky/zlib@1.2.11-40.el9?arch=aarch64&distro=rocky-9.8&upstream=zlib-1.2.11-40.el9.src.rpm",
+              "sourcePackage": "zlib",
+              "matchType": "nvd:cpe cpe-match",
+              "matcher": "rpm-matcher",
+              "location": "/var/lib/rpm/rpmdb.sqlite",
+              "inCandidate": true,
+              "inReference": false,
+              "verdict": "tp",
+              "label": {
+                "package": "pkg:rpm/rocky/zlib",
+                "vulnerability": "CVE-2018-25032",
+                "verdict": "tp",
+                "file": "rpm.json",
+                "sources": [
+                  "claims: tp"
+                ]
+              },
+              "direction": "fixed",
+              "candidate": {
+                "severity": "High",
+                "namespace": "nvd:cpe",
+                "dataSource": "https://nvd.nist.gov/vuln/detail/CVE-2018-25032",
+                "fixState": "fixed",
+                "fixVersions": [
+                  "1.2.12"
+                ],
+                "constraints": [
+                  ">= 1.2.2.2, < 1.2.12 (unknown)"
+                ],
+                "matchTypes": [
+                  "cpe-match"
+                ],
+                "matchers": [
+                  "rpm-matcher"
+                ],
+                "cpes": [
+                  "cpe:2.3:a:zlib:zlib:1.2.11-40.el9:*:*:*:*:*:*:*"
+                ],
+                "distro": "rockylinux 9.8"
+              }
+            }
+          ],
+          "misses": [
+            {
+              "label": {
+                "package": "pkg:rpm/rocky/openssl-libs@3.5.5-2.el9_8",
+                "vulnerability": "CVE-2026-45447",
+                "verdict": "tp",
+                "file": "rpm.json",
+                "sources": [
+                  "claims: tp"
+                ]
+              },
+              "inReference": false,
+              "cause": "NEAR MISS",
+              "where": "the label or the scanner's purl",
+              "nearMiss": [
+                {
+                  "field": "version",
+                  "match": "23b571ac428a16f5/CVE-2026-45447",
+                  "package": "pkg:rpm/rocky/openssl-libs@3.5.5-2.el9_8?arch=aarch64&distro=rocky-9.8&epoch=1&upstream=openssl-3.5.5-2.el9_8.src.rpm"
+                }
+              ]
+            },
+            {
+              "label": {
+                "package": "pkg:rpm/rocky/not-installed@1.0",
+                "vulnerability": "CVE-2024-0001",
+                "verdict": "tp",
+                "file": "rpm.json",
+                "sources": [
+                  "claims: tp"
+                ]
+              },
+              "inReference": false,
+              "cause": "MISSING PACKAGE",
+              "where": "syft or the SBOM"
+            },
+            {
+              "label": {
+                "package": "pkg:rpm/rocky/bash",
+                "vulnerability": "CVE-2024-0002",
+                "verdict": "tp",
+                "file": "rpm.json",
+                "sources": [
+                  "claims: tp"
+                ]
+              },
+              "inReference": false,
+              "cause": "MATCHING FAILURE",
+              "where": "the matcher or the DB"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "rpm-cpes",
+      "path": "gates/rpm-cpes.yaml",
+      "outcome": "fail",
+      "undecided": "fail",
+      "passed": false,
+      "header": {
+        "scanned": "2026-10-14T10:00:00Z",
+        "setups": {
+          "candidate": {
+            "grype": "grype@v0.120.1",
+            "db": "sha256:30d8bcd3",
+            "config": "none",
+            "env": "GRYPE_MATCH_RPM_USING_CPES=true"
+          },
+          "reference": {
+            "grype": "grype@v0.120.1",
+            "db": "sha256:30d8bcd3",
+            "config": "none",
+            "env": "none"
+          }
+        },
+        "varied": [
+          {
+            "input": "env",
+            "candidate": "GRYPE_MATCH_RPM_USING_CPES=true",
+            "reference": "none"
+          }
+        ],
+        "held": [
+          "grype",
+          "DB",
+          "config"
+        ],
+        "claims": [
+          {
+            "locator": "github.com/anchore/delta-prototype@main",
+            "snapshot": "sha256:7df20f57",
+            "commit": "77aa0000"
+          }
+        ],
+        "built": [
+          {
+            "subject": "rpm",
+            "syft": "1.54.1"
+          }
+        ]
+      },
+      "checks": [
+        {
+          "name": "noNewFalsePositives",
+          "scope": "subject",
+          "params": {
+            "max": 0
+          },
+          "threshold": 0,
+          "value": {
+            "worst": 2,
+            "best": 1
+          },
+          "state": "fail",
+          "failsOn": [
+            "f814f0cbe06b4529"
+          ],
+          "subjects": [
+            {
+              "subject": "rpm",
+              "value": {
+                "worst": 2,
+                "best": 1
+              },
+              "state": "fail",
+              "failsOn": [
+                "70ae640f02b8d6c2/CVE-2020-12762"
+              ],
+              "rows": [
+                "3cfe7d6a1df21d77/CVE-2023-48795"
+              ]
+            }
+          ]
+        },
+        {
+          "name": "unlabeledChangesAtMost",
+          "scope": "subject",
+          "params": {
+            "max": 0
+          },
+          "threshold": 0,
+          "value": {
+            "worst": 1,
+            "best": 1
+          },
+          "state": "fail",
+          "subjects": [
+            {
+              "subject": "rpm",
+              "value": {
+                "worst": 1,
+                "best": 1
+              },
+              "state": "fail",
+              "rows": [
+                "3cfe7d6a1df21d77/CVE-2023-48795"
+              ]
+            }
+          ]
+        },
+        {
+          "name": "noNewFalseNegatives",
+          "scope": "subject",
+          "params": {
+            "max": 0
+          },
+          "threshold": 0,
+          "value": {
+            "worst": 0,
+            "best": 0
+          },
+          "state": "pass",
+          "subjects": [
+            {
+              "subject": "rpm",
+              "value": {
+                "worst": 0,
+                "best": 0
+              },
+              "state": "pass"
+            }
+          ]
+        },
+        {
+          "name": "matchesAtLeast",
+          "scope": "subject",
+          "params": {
+            "min": 1
+          },
+          "threshold": 1,
+          "value": {
+            "worst": 9,
+            "best": 9
+          },
+          "state": "pass",
+          "subjects": [
+            {
+              "subject": "rpm",
+              "value": {
+                "worst": 9,
+                "best": 9
+              },
+              "state": "pass"
+            }
+          ]
+        }
+      ],
+      "effects": [
+        {
+          "subject": "rpm",
+          "match": "3cfe7d6a1df21d77/CVE-2023-48795",
+          "narrows": [
+            "unlabeledChangesAtMost"
+          ],
+          "states": {
+            "fp": {
+              "matchesAtLeast": "pass",
+              "noNewFalseNegatives": "pass",
+              "noNewFalsePositives": "fail",
+              "unlabeledChangesAtMost": "pass"
+            },
+            "tp": {
+              "matchesAtLeast": "pass",
+              "noNewFalseNegatives": "pass",
+              "noNewFalsePositives": "fail",
+              "unlabeledChangesAtMost": "pass"
+            }
+          },
+          "outcome": {
+            "fp": "fail",
+            "tp": "fail"
+          }
+        }
+      ],
+      "subjects": [
+        {
+          "name": "rpm",
+          "counts": {
+            "candidate": {
+              "tp": 1,
+              "fp": 1,
+              "unlabeled": 4,
+              "tpLabels": 4,
+              "tpLabelsPaired": 1,
+              "precision": 0.5,
+              "recall": 0.25,
+              "f1": 0.3333333333333333
+            },
+            "reference": {
+              "tp": 0,
+              "fp": 0,
+              "unlabeled": 3,
+              "tpLabels": 4,
+              "tpLabelsPaired": 0,
+              "precision": 1,
+              "recall": 0,
+              "f1": 0
+            }
+          },
+          "matches": [
+            {
+              "id": "70ae640f02b8d6c2/CVE-2020-12762",
+              "row": "f814f0cbe06b4529",
+              "vulnerability": "CVE-2020-12762",
+              "group": "CVE-2020-12762",
+              "aliases": [
+                "CVE-2020-12762"
+              ],
+              "package": "pkg:rpm/rocky/json-c@0.14-11.el9?arch=aarch64&distro=rocky-9.8&upstream=json-c-0.14-11.el9.src.rpm",
+              "sourcePackage": "json-c",
+              "matchType": "nvd:cpe cpe-match",
+              "matcher": "rpm-matcher",
+              "location": "/var/lib/rpm/rpmdb.sqlite",
+              "inCandidate": true,
+              "inReference": false,
+              "verdict": "fp",
+              "label": {
+                "package": "pkg:rpm/rocky/json-c",
+                "vulnerability": "CVE-2020-12762",
+                "verdict": "fp",
+                "file": "rpm.json",
+                "sources": [
+                  "claims: fp"
+                ]
+              },
+              "direction": "introduced",
+              "candidate": {
+                "severity": "High",
+                "namespace": "nvd:cpe",
+                "dataSource": "https://nvd.nist.gov/vuln/detail/CVE-2020-12762",
+                "fixState": "fixed",
+                "fixVersions": [
+                  "0.15-20200726"
+                ],
+                "constraints": [
+                  "< 0.15-20200726 (unknown)"
+                ],
+                "matchTypes": [
+                  "cpe-match"
+                ],
+                "matchers": [
+                  "rpm-matcher"
+                ],
+                "cpes": [
+                  "cpe:2.3:a:json-c:json-c:0.14-11.el9:*:*:*:*:*:*:*"
+                ],
+                "distro": "rockylinux 9.8"
+              }
+            },
+            {
+              "id": "3cfe7d6a1df21d77/CVE-2023-48795",
+              "row": "fa213c1dd49542ec",
+              "vulnerability": "CVE-2023-48795",
+              "group": "CVE-2023-48795",
+              "aliases": [
+                "CVE-2023-48795"
+              ],
+              "package": "pkg:rpm/rocky/libssh@0.10.4-18.el9?arch=aarch64&distro=rocky-9.8&upstream=libssh-0.10.4-18.el9.src.rpm",
+              "sourcePackage": "libssh",
+              "matchType": "nvd:cpe cpe-match",
+              "matcher": "rpm-matcher",
+              "location": "/var/lib/rpm/rpmdb.sqlite",
+              "inCandidate": true,
+              "inReference": false,
+              "direction": "review",
+              "candidate": {
+                "severity": "Medium",
+                "namespace": "nvd:cpe",
+                "dataSource": "https://nvd.nist.gov/vuln/detail/CVE-2023-48795",
+                "fixState": "fixed",
+                "fixVersions": [
+                  "0.10.6"
+                ],
+                "constraints": [
+                  "< 0.10.6 (unknown)"
+                ],
+                "matchTypes": [
+                  "cpe-match"
+                ],
+                "matchers": [
+                  "rpm-matcher"
+                ],
+                "cpes": [
+                  "cpe:2.3:a:libssh:libssh:0.10.4-18.el9:*:*:*:*:*:*:*"
+                ],
+                "distro": "rockylinux 9.8"
+              }
+            },
+            {
+              "id": "567043d2df9a8814/CVE-2026-45447",
+              "row": "08364b1c2c762a9d",
+              "vulnerability": "CVE-2026-45447",
+              "group": "CVE-2026-45447",
+              "aliases": [
+                "CVE-2026-45447"
+              ],
+              "package": "pkg:rpm/rocky/openssl@3.5.5-2.el9_8?arch=aarch64&distro=rocky-9.8&epoch=1&upstream=openssl-3.5.5-2.el9_8.src.rpm",
+              "sourcePackage": "openssl",
+              "matchType": "nvd:cpe cpe-match",
+              "matcher": "rpm-matcher",
+              "location": "/var/lib/rpm/rpmdb.sqlite",
+              "inCandidate": true,
+              "inReference": true,
+              "candidate": {
+                "severity": "High",
+                "namespace": "nvd:cpe",
+                "dataSource": "https://nvd.nist.gov/vuln/detail/CVE-2026-45447",
+                "fixState": "fixed",
+                "fixVersions": [
+                  "1.0.2zq",
+                  "1.1.1zh",
+                  "3.0.21",
+                  "3.4.6",
+                  "3.5.7",
+                  "3.6.3",
+                  "4.0.1"
+                ],
+                "constraints": [
+                  ">= 1.0.2, < 1.0.2zq||>= 1.1.1, < 1.1.1zh||>= 3.0.0, < 3.0.21||>= 3.4.0, < 3.4.6||>= 3.5.0, < 3.5.7||>= 3.6.0, < 3.6.3||>= 4.0.0, < 4.0.1 (unknown)"
+                ],
+                "matchTypes": [
+                  "cpe-match"
+                ],
+                "matchers": [
+                  "rpm-matcher"
+                ],
+                "cpes": [
+                  "cpe:2.3:a:openssl:openssl:1\\:3.5.5-2.el9_8:*:*:*:*:*:*:*"
+                ],
+                "distro": "rockylinux 9.8"
+              },
+              "reference": {
+                "severity": "High",
+                "namespace": "redhat:distro:redhat:9",
+                "dataSource": "https://access.redhat.com/security/cve/CVE-2026-45447",
+                "fixState": "fixed",
+                "fixVersions": [
+                  "1:3.5.5-4.el9_8"
+                ],
+                "constraints": [
+                  "< 1:3.5.5-4.el9_8 (rpm)"
+                ],
+                "matchTypes": [
+                  "exact-direct-match"
+                ],
+                "matchers": [
+                  "rpm-matcher"
+                ],
+                "distro": "rockylinux 9.8",
+                "relatedRecords": [
+                  {
+                    "id": "CVE-2026-45447",
+                    "namespace": "nvd:cpe",
+                    "dataSource": "https://nvd.nist.gov/vuln/detail/CVE-2026-45447"
+                  }
+                ]
+              }
+            },
+            {
+              "id": "d1af74f18abd1619/CVE-2026-45447",
+              "row": "2bb0de47deeb100c",
+              "vulnerability": "CVE-2026-45447",
+              "group": "CVE-2026-45447",
+              "aliases": [
+                "CVE-2026-45447"
+              ],
+              "package": "pkg:rpm/rocky/openssl-fips-provider@3.5.5-2.el9_8?arch=aarch64&distro=rocky-9.8&epoch=1&upstream=openssl-3.5.5-2.el9_8.src.rpm",
+              "sourcePackage": "openssl",
+              "matchType": "redhat:distro:redhat:9 exact-indirect-match",
+              "matcher": "rpm-matcher",
+              "location": "/var/lib/rpm/rpmdb.sqlite",
+              "inCandidate": true,
+              "inReference": true,
+              "candidate": {
+                "severity": "High",
+                "namespace": "redhat:distro:redhat:9",
+                "dataSource": "https://access.redhat.com/security/cve/CVE-2026-45447",
+                "fixState": "fixed",
+                "fixVersions": [
+                  "1:3.5.5-4.el9_8"
+                ],
+                "constraints": [
+                  "< 1:3.5.5-4.el9_8 (rpm)"
+                ],
+                "matchTypes": [
+                  "exact-indirect-match"
+                ],
+                "matchers": [
+                  "rpm-matcher"
+                ],
+                "upstreams": [
+                  "openssl"
+                ],
+                "distro": "rockylinux 9.8",
+                "relatedRecords": [
+                  {
+                    "id": "CVE-2026-45447",
+                    "namespace": "nvd:cpe",
+                    "dataSource": "https://nvd.nist.gov/vuln/detail/CVE-2026-45447"
+                  }
+                ]
+              },
+              "reference": {
+                "severity": "High",
+                "namespace": "redhat:distro:redhat:9",
+                "dataSource": "https://access.redhat.com/security/cve/CVE-2026-45447",
+                "fixState": "fixed",
+                "fixVersions": [
+                  "1:3.5.5-4.el9_8"
+                ],
+                "constraints": [
+                  "< 1:3.5.5-4.el9_8 (rpm)"
+                ],
+                "matchTypes": [
+                  "exact-indirect-match"
+                ],
+                "matchers": [
+                  "rpm-matcher"
+                ],
+                "upstreams": [
+                  "openssl"
+                ],
+                "distro": "rockylinux 9.8",
+                "relatedRecords": [
+                  {
+                    "id": "CVE-2026-45447",
+                    "namespace": "nvd:cpe",
+                    "dataSource": "https://nvd.nist.gov/vuln/detail/CVE-2026-45447"
+                  }
+                ]
+              }
+            },
+            {
+              "id": "23b571ac428a16f5/CVE-2026-45447",
+              "row": "029b33ef8855468f",
+              "vulnerability": "CVE-2026-45447",
+              "group": "CVE-2026-45447",
+              "aliases": [
+                "CVE-2026-45447"
+              ],
+              "package": "pkg:rpm/rocky/openssl-libs@3.5.5-2.el9_8?arch=aarch64&distro=rocky-9.8&epoch=1&upstream=openssl-3.5.5-2.el9_8.src.rpm",
+              "sourcePackage": "openssl",
+              "matchType": "redhat:distro:redhat:9 exact-indirect-match",
+              "matcher": "rpm-matcher",
+              "location": "/var/lib/rpm/rpmdb.sqlite",
+              "inCandidate": true,
+              "inReference": true,
+              "candidate": {
+                "severity": "High",
+                "namespace": "redhat:distro:redhat:9",
+                "dataSource": "https://access.redhat.com/security/cve/CVE-2026-45447",
+                "fixState": "fixed",
+                "fixVersions": [
+                  "1:3.5.5-4.el9_8"
+                ],
+                "constraints": [
+                  "< 1:3.5.5-4.el9_8 (rpm)"
+                ],
+                "matchTypes": [
+                  "exact-indirect-match"
+                ],
+                "matchers": [
+                  "rpm-matcher"
+                ],
+                "upstreams": [
+                  "openssl"
+                ],
+                "distro": "rockylinux 9.8",
+                "relatedRecords": [
+                  {
+                    "id": "CVE-2026-45447",
+                    "namespace": "nvd:cpe",
+                    "dataSource": "https://nvd.nist.gov/vuln/detail/CVE-2026-45447"
+                  }
+                ]
+              },
+              "reference": {
+                "severity": "High",
+                "namespace": "redhat:distro:redhat:9",
+                "dataSource": "https://access.redhat.com/security/cve/CVE-2026-45447",
+                "fixState": "fixed",
+                "fixVersions": [
+                  "1:3.5.5-4.el9_8"
+                ],
+                "constraints": [
+                  "< 1:3.5.5-4.el9_8 (rpm)"
+                ],
+                "matchTypes": [
+                  "exact-indirect-match"
+                ],
+                "matchers": [
+                  "rpm-matcher"
+                ],
+                "upstreams": [
+                  "openssl"
+                ],
+                "distro": "rockylinux 9.8",
+                "relatedRecords": [
+                  {
+                    "id": "CVE-2026-45447",
+                    "namespace": "nvd:cpe",
+                    "dataSource": "https://nvd.nist.gov/vuln/detail/CVE-2026-45447"
+                  }
+                ]
+              }
+            },
+            {
+              "id": "0c0dcde3bb91d5dd/CVE-2018-25032",
+              "row": "4637da4ef00906b3",
+              "vulnerability": "CVE-2018-25032",
+              "group": "CVE-2018-25032",
+              "aliases": [
+                "CVE-2018-25032"
+              ],
+              "package": "pkg:rpm/rocky/zlib@1.2.11-40.el9?arch=aarch64&distro=rocky-9.8&upstream=zlib-1.2.11-40.el9.src.rpm",
+              "sourcePackage": "zlib",
+              "matchType": "nvd:cpe cpe-match",
+              "matcher": "rpm-matcher",
+              "location": "/var/lib/rpm/rpmdb.sqlite",
+              "inCandidate": true,
+              "inReference": false,
+              "verdict": "tp",
+              "label": {
+                "package": "pkg:rpm/rocky/zlib",
+                "vulnerability": "CVE-2018-25032",
+                "verdict": "tp",
+                "file": "rpm.json",
+                "sources": [
+                  "claims: tp"
+                ]
+              },
+              "direction": "fixed",
+              "candidate": {
+                "severity": "High",
+                "namespace": "nvd:cpe",
+                "dataSource": "https://nvd.nist.gov/vuln/detail/CVE-2018-25032",
+                "fixState": "fixed",
+                "fixVersions": [
+                  "1.2.12"
+                ],
+                "constraints": [
+                  ">= 1.2.2.2, < 1.2.12 (unknown)"
+                ],
+                "matchTypes": [
+                  "cpe-match"
+                ],
+                "matchers": [
+                  "rpm-matcher"
+                ],
+                "cpes": [
+                  "cpe:2.3:a:zlib:zlib:1.2.11-40.el9:*:*:*:*:*:*:*"
+                ],
+                "distro": "rockylinux 9.8"
+              }
+            }
+          ],
+          "misses": [
+            {
+              "label": {
+                "package": "pkg:rpm/rocky/openssl-libs@3.5.5-2.el9_8",
+                "vulnerability": "CVE-2026-45447",
+                "verdict": "tp",
+                "file": "rpm.json",
+                "sources": [
+                  "claims: tp"
+                ]
+              },
+              "inReference": false,
+              "cause": "NEAR MISS",
+              "where": "the label or the scanner's purl",
+              "nearMiss": [
+                {
+                  "field": "version",
+                  "match": "23b571ac428a16f5/CVE-2026-45447",
+                  "package": "pkg:rpm/rocky/openssl-libs@3.5.5-2.el9_8?arch=aarch64&distro=rocky-9.8&epoch=1&upstream=openssl-3.5.5-2.el9_8.src.rpm"
+                }
+              ]
+            },
+            {
+              "label": {
+                "package": "pkg:rpm/rocky/not-installed@1.0",
+                "vulnerability": "CVE-2024-0001",
+                "verdict": "tp",
+                "file": "rpm.json",
+                "sources": [
+                  "claims: tp"
+                ]
+              },
+              "inReference": false,
+              "cause": "MISSING PACKAGE",
+              "where": "syft or the SBOM"
+            },
+            {
+              "label": {
+                "package": "pkg:rpm/rocky/bash",
+                "vulnerability": "CVE-2024-0002",
+                "verdict": "tp",
+                "file": "rpm.json",
+                "sources": [
+                  "claims: tp"
+                ]
+              },
+              "inReference": false,
+              "cause": "MATCHING FAILURE",
+              "where": "the matcher or the DB"
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "summary": {
+    "total": 2,
+    "failed": 1,
+    "line": "FAILED 1 of 2 gates",
+    "exitCode": 1
+  }
+}
+
+---

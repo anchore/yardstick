@@ -1,0 +1,7 @@
+[install]
+# only versions published at least a week ago, matching binny's and Dependabot's 7-day cooldown
+minimumReleaseAge = 604800
+
+[test]
+# unit tests only: the Playwright specs under e2e/ run through make e2e
+root = "./src"

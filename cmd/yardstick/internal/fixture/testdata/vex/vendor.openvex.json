@@ -1,0 +1,84 @@
+{
+  "@context": "https://openvex.dev/ns/v0.2.0",
+  "@id": "https://openvex.dev/docs/public/vex-facc74bab7ecee9998215051670c41c5aedffe0b435674eac22ac7466ac9a19d",
+  "author": "Example Vendor",
+  "version": 5,
+  "statements": [
+    {
+      "vulnerability": {
+        "name": "CVE-2023-45853"
+      },
+      "products": [
+        {
+          "@id": "pkg:oci/yardstick-fixture-deb@sha256%3A617d48dd2601779266746a9a382bfb9f3fee2744fba698733b320366f41718b0?repository_url=docker.io/anchore/yardstick-fixture-deb",
+          "subcomponents": [
+            {
+              "@id": "pkg:deb/debian/zlib1g@1:1.2.13.dfsg-1?arch=arm64\u0026distro=debian-12"
+            }
+          ]
+        }
+      ],
+      "status": "not_affected",
+      "justification": "vulnerable_code_not_present",
+      "timestamp": "2026-10-14T10:00:00Z"
+    },
+    {
+      "vulnerability": {
+        "name": "CVE-2024-0727"
+      },
+      "products": [
+        {
+          "@id": "pkg:rpm/rocky/openssl-libs@3.5.5-2.el9_8?arch=aarch64\u0026distro=rocky-9.8\u0026epoch=1"
+        }
+      ],
+      "status": "fixed",
+      "timestamp": "2026-10-14T10:00:00Z"
+    },
+    {
+      "vulnerability": {
+        "name": "CVE-2023-4911"
+      },
+      "products": [
+        {
+          "@id": "pkg:oci/yardstick-fixture-deb@sha256%3A617d48dd2601779266746a9a382bfb9f3fee2744fba698733b320366f41718b0?repository_url=docker.io/anchore/yardstick-fixture-deb"
+        }
+      ],
+      "status": "affected",
+      "action_statement": "upgrade libc6",
+      "action_statement_timestamp": "2026-10-14T10:00:00Z",
+      "timestamp": "2026-10-14T10:00:00Z"
+    },
+    {
+      "vulnerability": {
+        "name": "CVE-2023-50495"
+      },
+      "products": [
+        {
+          "@id": "pkg:oci/yardstick-fixture-deb@sha256%3A617d48dd2601779266746a9a382bfb9f3fee2744fba698733b320366f41718b0?repository_url=docker.io/anchore/yardstick-fixture-deb",
+          "subcomponents": [
+            {
+              "@id": "pkg:deb/debian/ncurses-base@6.4-4?arch=all\u0026distro=debian-12"
+            }
+          ]
+        }
+      ],
+      "status": "under_investigation",
+      "timestamp": "2026-10-14T10:00:00Z"
+    },
+    {
+      "vulnerability": {
+        "name": "CVE-2023-38545"
+      },
+      "products": [
+        {
+          "@id": "https://example.com/products/appliance"
+        }
+      ],
+      "status": "not_affected",
+      "justification": "component_not_present",
+      "timestamp": "2026-10-14T10:00:00Z"
+    }
+  ],
+  "timestamp": "2026-10-14T10:00:00Z",
+  "last_updated": "2026-10-14T10:00:00Z"
+}
