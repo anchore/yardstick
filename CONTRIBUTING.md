@@ -2,11 +2,13 @@
 
 If you are looking to contribute to this project and want to open a GitHub pull request ("PR"), there are a few guidelines of what we are looking for in patches. Make sure you go through this document and ensure that your code proposal is aligned.
 
-For development instructions see the [DEVELOPING.md](DEVELOPING.md)
+## Fork the repo
+
+You should fork the yardstick repo using the "Fork" button at the top right of the yardstick GitHub [site](https://github.com/anchore/yardstick/). You will be doing your development in your fork, then submit a pull request to yardstick. There are many resources how to use GitHub effectively, we will not cover those here.
 
 ## Adding a feature or fix
 
-If you look at the [list of yardstick issues](https://github.com/anchore/yardstick/issues) there are plenty of bugs and feature requests.
+If you look at the yardstick [Issue](https://github.com/anchore/yardstick/issues) there are plenty of bugs and feature requests. Maybe look at the [good first issue](https://github.com/anchore/yardstick/issues?q=is%3Aopen+is%3Aissue+label%3A%22good+first+issue%22) list if you're not sure where to start.
 
 ## Commit guidelines
 
@@ -20,7 +22,7 @@ Rather than try to follow a strict guide on what is or is not best, we try to be
 
 ### Commit title and description
 
-Remember that the message you leave for a commit is for the reviewer in the present, and for someone (maybe you) changing something in the future. Please make sure the title and description used is easy to understand and explains what was done. Jokes and clever comments generally don't age well in commit messages, try to stick to the facts please.
+Remember that the message you leave for a commit is for the reviewer in the present, and for someone (maybe you) changing something in the future. Please make sure the title and description used is easy to understand and explains what was done. Jokes and clever comments generally don't age well in commit messages. Try to stick to the facts surrounding the problem or request.
 
 ## Sign off your work
 
@@ -85,16 +87,13 @@ Date:   Mon Aug 1 11:27:13 2020 -0400
 
 ## Test your changes
 
-This project has a `Makefile` which includes many helpers running both unit and integration tests. You can run `make help` to see all the options. Although PRs will have automatic checks for these, it is useful to run them locally, ensuring they pass before submitting changes.
+This project has a `Makefile` which includes many helpers running both unit and integration tests. You can run `make help` to see all the options. Although PRs will have automatic checks for these, it is useful to run them locally, ensuring they pass before submitting changes. Helper tools are installed on-demand into `.tool/` the first time a task that needs them is run, so no separate bootstrap step is required:
 
-You can run the static analysis and tests:
-
-```bash
-$ make
-
-# same as
-make static-analysis unit cli
+```text
+$ make test
 ```
+
+You can also run `make all` to run a more extensive test suite, but there is additional configuration that will be needed for those tests to run correctly. We will not cover the extra steps here.
 
 ## Pull Request
 

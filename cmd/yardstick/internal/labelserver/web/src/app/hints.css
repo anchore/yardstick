@@ -1,0 +1,87 @@
+/* hints.css is hint review and its ways in: the gates page's work banner and hint column, the image
+   rail's per-image hint actions, and the /ui/hints review page with its impact panel. On Basecoat's
+   variables and app.css's tokens, no utility classes. */
+
+.caps { font-size: 11.5px; text-transform: uppercase; letter-spacing: .08em; color: var(--muted-foreground); font-weight: 600; }
+.arrow { color: var(--faint); }
+.foot { margin: 0; font-size: 12px; color: var(--muted-foreground); }
+.foot:empty { display: none; }
+.flag { font-size: 12px; color: var(--und); white-space: nowrap; }
+.flag::before { content: "▲ "; font-size: 9px; }
+
+/* ---------- the gates page's work banner ---------- */
+
+.work { display: grid; grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr); border: 1px solid var(--border); border-radius: 12px; overflow: hidden; background: var(--card); box-shadow: 0 1px 2px rgba(0, 0, 0, .04); }
+.work > div { padding: 16px 24px; display: grid; gap: 8px; align-content: start; }
+.work > div + div { border-left: 1px solid var(--border); background: var(--muted); }
+.bigs { display: flex; flex-wrap: wrap; gap: 32px; }
+.big b { display: block; font-size: 28px; font-weight: 600; font-variant-numeric: tabular-nums; line-height: 1.1; }
+.big span { font-size: 12.5px; color: var(--muted-foreground); }
+.workstack { display: flex; height: 8px; border-radius: 4px; overflow: hidden; gap: 1px; background: var(--muted); }
+.workstack i, .work .legend span::before { display: block; height: 100%; }
+.workstack .hinted, .work .legend .hinted::before { background: repeating-linear-gradient(135deg, var(--hint) 0 2px, transparent 2px 4px); }
+.workstack .you, .work .legend .you::before { background: var(--und); }
+.work .legend { display: flex; flex-wrap: wrap; gap: 4px 16px; font-size: 12px; color: var(--muted-foreground); }
+.work .legend span::before { content: ""; display: inline-block; width: 9px; height: 9px; border-radius: 2px; margin-right: 6px; vertical-align: -1px; }
+.work .acts { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
+.outc { display: grid; gap: 8px; }
+.outc .r { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; font-size: 13.5px; }
+
+/* the gate list gets a column for what hints do */
+.gatelist .lrow { grid-template-columns: 96px minmax(0, 1fr) 180px 130px 210px 16px; }
+
+/* ---------- the image rail's hint actions ---------- */
+
+.rail-hints { display: flex; justify-content: flex-end; padding: 0 12px 8px; }
+.im-act { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; padding: 0 12px 8px 40px; font-size: 12px; }
+.im-act .btn { height: 26px; margin-left: auto; }
+
+/* ---------- the review page ---------- */
+
+.lowtoggle { display: inline-flex; gap: 8px; align-items: center; font-size: 13px; font-weight: 500; }
+.review { display: grid; grid-template-columns: minmax(0, 1fr) 340px; gap: 24px; align-items: start; }
+.hgroups { display: grid; gap: 16px; min-width: 0; }
+.hgrp { border: 1px solid var(--border); border-radius: 10px; overflow: hidden; background: var(--card); }
+.hgrp > header { display: flex; flex-wrap: wrap; gap: 8px 12px; align-items: center; padding: 10px 16px; background: var(--muted); border-bottom: 1px solid var(--border); }
+.hgrp > header .t { font-weight: 600; font-size: 13.5px; }
+.hgrp > header .s { color: var(--muted-foreground); font-size: 12.5px; }
+.hrow { display: grid; grid-template-columns: 24px minmax(0, 1.2fr) minmax(0, 1fr) minmax(0, 1.2fr); gap: 12px; align-items: start; padding: 12px 16px; border-top: 1px solid var(--border); cursor: pointer; }
+.hrow:first-of-type { border-top: 0; }
+.hrow:hover { background: color-mix(in oklab, var(--muted) 45%, transparent); }
+.hrow > input { margin-top: 3px; }
+.hrow .what, .hrow .says, .hrow .fx { display: grid; gap: 4px; min-width: 0; align-content: start; }
+.hrow .v { font-weight: 600; font-size: 13.5px; overflow-wrap: anywhere; }
+.hrow .pk { font-family: var(--font-mono); font-size: 12px; color: var(--muted-foreground); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.hrow .by { font-size: 12px; color: var(--muted-foreground); }
+.hrow .why { font-size: 13px; }
+.hrow .conf { font-family: var(--font-mono); font-size: 11px; color: var(--muted-foreground); letter-spacing: 1px; }
+.hrow .fx { font-size: 12.5px; }
+.hrow .fx .could-move, .hrow .fx .flag { white-space: normal; }
+
+.impact { position: sticky; top: 8px; border: 1px solid var(--border); border-radius: 12px; padding: 16px; display: grid; gap: 16px; background: var(--card); box-shadow: 0 1px 2px rgba(0, 0, 0, .04); }
+.impact h2 { margin: 0; font-size: 12px; text-transform: uppercase; letter-spacing: .07em; color: var(--muted-foreground); font-weight: 600; }
+.igs { display: grid; gap: 16px; }
+.ig { display: grid; gap: 8px; }
+.igs .ig + .ig, .impact > .ig { padding-top: 16px; border-top: 1px solid var(--border); }
+.ig .gname { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; font-weight: 600; font-size: 14px; }
+.ig .ck { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px; font-size: 12.5px; color: var(--muted-foreground); }
+.ig .ck .cn { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sw.pass { color: var(--pass); } .sw.fail { color: var(--fail); } .sw.undecided { color: var(--und); }
+.left { display: grid; gap: 8px; font-size: 13px; }
+.left .it { display: grid; gap: 0; }
+.impact > .btn { justify-content: center; }
+
+@media (max-width: 1100px) {
+  .review { grid-template-columns: minmax(0, 1fr); }
+  .impact { position: static; }
+  .hrow { grid-template-columns: 24px minmax(0, 1fr); }
+  .hrow .says, .hrow .fx { grid-column: 2; }
+}
+@media (max-width: 960px) {
+  .gatelist .lrow { grid-template-columns: 88px minmax(0, 1fr) 140px 16px; }
+  .gatelist .lrow > [data-testid="gate-work"] { display: none; }
+}
+@media (max-width: 760px) {
+  .work { grid-template-columns: minmax(0, 1fr); }
+  .work > div + div { border-left: 0; border-top: 1px solid var(--border); }
+}

@@ -1,150 +1,99 @@
-CHANGELOG.md
-VERSION
-.tmp/
+# local development tailoring
+go.work
+go.work.sum
 .tool-versions
 .mise.toml
-.tool
-
-.idea/
-.vscode/
-scratch/
-/.yardstick/
-/.yardstick*
-/results/
-/.yardstick.profiles.yaml
-/.yardstick.yaml
-/.grype.yaml
-
-# Byte-compiled / optimized / DLL files
-__pycache__/
-*.py[cod]
-*$py.class
-
-# C extensions
-*.so
-
-# Distribution / packaging
-.Python
-build/
-develop-eggs/
-dist/
-downloads/
-eggs/
-.eggs/
-lib/
-lib64/
-parts/
-sdist/
-var/
-wheels/
-pip-wheel-metadata/
-share/python-wheels/
-*.egg-info/
-.installed.cfg
-*.egg
-MANIFEST
-
-# PyInstaller
-#  Usually these files are written by a python script from a template
-#  before PyInstaller builds the exe, so as to inject date/other infos into it.
-*.manifest
-*.spec
-
-# Installer logs
-pip-log.txt
-pip-delete-this-directory.txt
-
-# Unit test / coverage reports
-htmlcov/
-.tox/
-.nox/
-.coverage
-.coverage.*
-.cache
-nosetests.xml
-coverage.xml
-*.cover
-*.py,cover
-.hypothesis/
-.pytest_cache/
-
-# Translations
-*.mo
-*.pot
-
-# Django stuff:
-*.log
-local_settings.py
-db.sqlite3
-db.sqlite3-journal
-
-# Flask stuff:
-instance/
-.webassets-cache
-
-# Scrapy stuff:
-.scrapy
-
-# Sphinx documentation
-docs/_build/
-
-# PyBuilder
-target/
-
-# Jupyter Notebook
-.ipynb_checkpoints
-
-# IPython
-profile_default/
-ipython_config.py
-
-# pyenv
-.python-version
-
-# pipenv
-#   According to pypa/pipenv#598, it is recommended to include Pipfile.lock in version control.
-#   However, in case of collaboration, if having platform-specific dependencies or dependencies
-#   having no cross-platform support, pipenv may install dependencies that don't work, or not
-#   install all needed dependencies.
-#Pipfile.lock
-
-# PEP 582; used by e.g. github.com/David-OConnor/pyflow
-__pypackages__/
-
-# Celery stuff
-celerybeat-schedule
-celerybeat.pid
-
-# SageMath parsed files
-*.sage.py
-
-# Environments
+mise.toml
 .env
-.venv
-env/
-venv/
-ENV/
-env.bak/
-venv.bak/
+.conductor
 
-# Spyder project settings
-.spyderproject
-.spyproject
+# tool and bin directories
+.tmp/
+bin/
+/bin
+/.bin
+/build
+.tool/
+/test/results
+/dist
+/snapshot
+/.tool
+/.task
+/specs
+cmd/yardstick/yardstick
+generate
 
-# Rope project settings
-.ropeproject
+# changelog generation
+/CHANGELOG.md
+/VERSION
 
-# mkdocs documentation
-/site
+# IDE configuration
+.vscode/
+.idea/
+.server/
+.history/
 
-# mypy
-.mypy_cache/
-.dmypy.json
-dmypy.json
+# test related
+*.fingerprint
+/test/results
+coverage.txt
+*.log
+
+# probable archives
+.images
+*.tar
+*.jar
+*.war
+*.ear
+*.jpi
+*.hpi
+*.zip
+*.iml
+
+# Binaries for programs and plugins
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+
+# Test binary, build with `go test -c`
+*.test
+
+# Output of the go coverage tool, specifically when used with LiteIDE
+*.out
 
 # macOS Finder metadata
 .DS_STORE
 
-# Pyre type checker
-.pyre/
-tests/cli/db.tar.zst
+*.profile
+
+# attestation
+cosign.key
+cosign.pub
+
+# Byte-compiled object files for python
+__pycache__/
+*.py[cod]
+*$py.class
+
+# yardstick's scans and run records, per gate, in the directory it runs from
+/.yardstick
+
+# the scratch claims directory .yardstick.yaml writes new labels to
+/claims
+
+# the label UI's build output, npm packages and generated wire types (make generate)
+/cmd/yardstick/internal/labelserver/assets/dist/
+/cmd/yardstick/internal/labelserver/web/node_modules/
+/cmd/yardstick/internal/labelserver/web/src/gen/
+
+# the label UI's Playwright results and report (make e2e)
+/cmd/yardstick/internal/labelserver/web/test-results/
+/cmd/yardstick/internal/labelserver/web/playwright-report/
+
+# stray `go build` output from the main packages, which lands in whatever directory it ran from
+/yardstick
+/seed
+/cmd/yardstick/internal/seed
+/cmd/yardstick/internal/testkit/seed/seed

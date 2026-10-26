@@ -1,0 +1,25 @@
+# grype-upgrade, with both setups told to keep matching the Go stdlib by CPE
+schema: v1
+candidate: {grype: grype@v0.120.1, db: latest, config: ../grype/stdlib-cpe.yaml}
+reference: {grype: grype@v0.100.0, db: latest, config: ../grype/stdlib-cpe.yaml}
+subjects:
+  - oci:cgr.dev/chainguard/wolfi-base@sha256:be3834598c3c4b76ace6a866edcbbe1fa18086f9ee238b57769e4d230cd7d507
+  - oci:ghcr.io/anchore/test-images/java:56d52bc@sha256:10008791acbc5866de04108746a02a0c4029ce3a4400a9b3dad45d7f2245f9da
+  - oci:ghcr.io/anchore/test-images/grype-quality-ruby:d89207b@sha256:1a5a5f870924e88a6f0f2b8089cf276ef0a79b5244a052cdfe4a47bb9e5a2c10
+  - oci:ghcr.io/anchore/test-images/vulnerabilities-alpine-3.6:d5be50d@sha256:58637f273108e3e9eb4df4d73f7b6b1da303cbbf64f65e65fb7762482f2de63d
+  - oci:ghcr.io/anchore/test-images/grype-quality-golang:d89207b@sha256:7536ee345532f674ec9e448e3768db4e546c48220ba2b6ec9bc9cfbfb3b7b74a
+  - oci:ghcr.io/anchore/test-images/vulnerabilities-package-name-normalization:984794b@sha256:92f1981518e92bf3712ff95cf342f7f4d5fc83fb93a30a36d7d1204e64342199
+  - oci:ghcr.io/anchore/test-images/grype-quality-java:d89207b@sha256:b3534fc2e37943136d5b54e3a58b55d4ccd4363d926cf7aa5bf55a524cf8275b
+  - oci:ghcr.io/anchore/test-images/grype-quality-node:d89207b@sha256:f56164678054e5eb59ab838367373a49df723b324617b1ba6de775749d7f91d4
+  - oci:docker.io/library/alpine@sha256:ddac200f3ebc9902fb8cfcd599f41feb2151f1118929da21bcef57dc276975f9
+  - oci:docker.io/library/ubuntu@sha256:c95b7b93ccd48c3bfd97f8cac6d5ca8053ced584c9e8e6431861ca30b0d73114
+  - oci:gcr.io/distroless/python3-debian11@sha256:69ae7f133d33faab720af28e78fb45707b623bcbc94ae02a07c633bf053f4b40
+  - oci:ghcr.io/chainguard-images/scanner-test@sha256:59bddc101fba0c45d5c093575c6bc5bfee7f0e46ff127e6bb4e5acaaafb525f9
+  - oci:mcr.microsoft.com/cbl-mariner/base/core@sha256:51101e635f56032d5afd3fb56d66c7b93b34d5a39ddac01695d62b94473cc34e
+  - oci:registry.replicated.com/library/grype-test@sha256:3339bcd874d21fa3ca5bd20636e793c0c33bd71ace3a18a9a3b3d147b91dd000
+checks:
+  - name: f1NotWorse
+  - name: noNewFalseNegatives
+  - name: noNewFalsePositives
+  - name: unlabeledChangesAtMost
+    params: {max: 0}

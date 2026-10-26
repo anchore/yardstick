@@ -16,5 +16,5 @@ assignees: ''
 **Anything else we need to know?**:
 
 **Environment**:
-- Output of `yardstick version`:
+- Output of `version` command:
 - OS (e.g: `cat /etc/os-release` or similar):

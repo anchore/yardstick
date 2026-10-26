@@ -1,0 +1,77 @@
+/* lists.css is the list screens' layout (gates, gate, check): row lists, the gate list's image
+   strip, the scan map, and the bits of the findings and labels tables app.css leaves out. On
+   Basecoat's variables and app.css's tokens, no utility classes. */
+
+.screen { display: grid; gap: 16px; min-width: 0; }
+.placeholder.error { color: var(--fail); border-color: var(--fail); }
+
+/* ---------- row lists: gates and checks, one per row, the whole row a link ---------- */
+
+.lrows { border: 1px solid var(--border); border-radius: 10px; overflow: hidden; background: var(--card); box-shadow: 0 1px 2px rgba(0, 0, 0, .04); }
+.lrow { display: grid; grid-template-columns: 96px minmax(0, 1fr) 220px 170px 16px; gap: 16px; align-items: center; min-height: 60px; padding: 8px 16px; border-top: 1px solid var(--border); color: var(--foreground); text-decoration: none; }
+.lrow:first-child { border-top: 0; }
+.lrow:hover { background: color-mix(in oklab, var(--muted) 55%, transparent); }
+.lrow:focus-visible { outline: 2px solid var(--ring); outline-offset: -2px; }
+.lrow > .badge { justify-self: start; }
+.lname { min-width: 0; }
+.lname .name { font-weight: 600; font-size: 15px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.lname .desc { color: var(--muted-foreground); font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.lnum { font-size: 13.5px; font-variant-numeric: tabular-nums; text-align: right; white-space: nowrap; }
+.lnum small, .lstrip small { display: block; }
+.lstrip { min-width: 0; }
+.lstrip small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.chev { color: var(--faint); font-size: 18px; text-align: right; }
+.lrow.check .meter { width: 100%; }
+
+/* one square per image: open changes, every change judged, or no changes */
+.squares { display: flex; flex-wrap: wrap; gap: 3px; max-width: 160px; margin-bottom: 4px; }
+.sq { display: block; width: 8px; height: 8px; border-radius: 2px; }
+.sq.open { background: var(--und); }
+.sq.chg { background: var(--pass); }
+.sq.none { background: var(--border); }
+
+/* ---------- table extras ---------- */
+
+.filters .help { margin: 0; font-size: 13px; color: var(--muted-foreground); }
+.filters .select { width: auto; height: 32px; font-size: 13px; }
+.bulk .select { width: auto; height: 30px; font-size: 13px; background: transparent; color: inherit; border-color: color-mix(in oklab, currentColor 45%, transparent); }
+.bulk .select option { color: var(--foreground); background: var(--background); }
+/* the lists' tables hold eight columns beside the rail at 1440: tighter cells, shorter truncation */
+.screen .dt .table th, .screen .dt .table td { padding-inline: 10px; }
+.screen .dt .trunc { max-width: 200px; }
+.dt .table tr.cursor td { background: color-mix(in oklab, var(--muted) 70%, transparent); }
+.dt .table tr.cursor td:first-child { box-shadow: inset 2px 0 0 var(--foreground); }
+.dt-foot a { color: var(--foreground); }
+.gates { display: inline-flex; gap: 4px; }
+.gchip { font-size: 12px; padding: 0 6px; border: 1px solid var(--border); border-radius: 6px; white-space: nowrap; }
+.gchip .o { color: var(--muted-foreground); }
+.titlerow .meter { width: 200px; }
+/* history's since control and its in-page confirm before removing more than one label */
+.filters .since-time { width: auto; height: 32px; font-size: 13px; }
+.confirm { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; padding: 8px 16px; border: 1px solid var(--fail); border-radius: 10px; background: color-mix(in oklab, var(--fail) 8%, var(--card)); font-size: 13.5px; }
+
+/* ---------- the scan map ---------- */
+
+.scanmap { border: 1px solid var(--border); border-radius: 10px; padding: 12px; background: var(--card); }
+.scanmap-in { display: grid; gap: 12px; }
+.tree { width: 100%; height: auto; display: block; }
+.tree .dirbg { fill: var(--muted); opacity: .5; }
+.tree .dir { fill: var(--muted-foreground); font-size: 12px; font-weight: 700; }
+.tree .reason { fill: none; stroke: var(--border); }
+.tree .reason-head { fill: var(--muted); }
+.tree .block { cursor: pointer; }
+.tree .blk { fill: var(--card); stroke: var(--border); }
+.tree .block:hover .blk { stroke: var(--foreground); stroke-width: 2; }
+.tree .bar-track { fill: var(--muted); pointer-events: none; }
+.tree .fill-tp { fill: var(--tp); } .tree .fill-fp { fill: var(--fp); } .tree .fill-unclear { fill: var(--unc); }
+.tree .fill-hint { fill: url(#hatchmap); color: var(--hint); }
+.tree .hatch { stroke: var(--hint); stroke-width: 2; }
+.tree [class^="fill-"] { pointer-events: none; }
+.tree .ttl { fill: var(--foreground); font-size: 12px; font-weight: 600; pointer-events: none; }
+.tree .sub { fill: var(--muted-foreground); font-size: 11px; pointer-events: none; }
+
+
+@media (max-width: 960px) {
+  .lrow { grid-template-columns: 88px minmax(0, 1fr) 140px 16px; }
+  .lrow > .lstrip, .lrow > .meter { display: none; }
+}

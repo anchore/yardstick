@@ -1,39 +1,222 @@
 name: "Validations"
+
+# a newer push to the same PR or ref makes an in-progress run moot
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 on:
   workflow_dispatch:
-  pull_request:
   push:
     branches:
       - main
+  pull_request:
 
 permissions: {}
 
 jobs:
 
-  # note: changing the job name requires a quality gate reference change in .github/workflows/release.yaml
-  validations:
-    runs-on: ubuntu-24.04
+  Static-Analysis:
+    # Note: changing this job name requires making the same update in the .github/workflows/release.yaml pipeline
+    name: "Static analysis"
+    # runs-on.com instances in our AWS, the same shape syft tests on
+    #   spot enabled: ok to interrupt non-production workloads
+    #   tmpfs omitted: it RAM-backs /home/runner and /tmp, starving the -race links of memory
+    #   s3-cache omitted: PR runs are untrusted and must not write to the shared cache backend
+    #   that the trusted release workflow reads from (cache poisoning)
+    runs-on: &test-runner "runs-on=${{ github.run_id }}/cpu=4+8/ram=16+32/family=m6+m7+m8+c6+c7+c8/spot=price-capacity-optimized/volume=100gb"
     permissions:
       contents: read
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 #v7.0.1
         with:
           persist-credentials: false
 
       - name: Bootstrap environment
-        uses: ./.github/actions/bootstrap
+        uses: anchore/go-make/.github/actions/setup@abf41688f36f2cbec13105747abbe8e60f5c56ca # v0.9.3
 
       - name: Run static analysis
         run: make static-analysis
 
-      - name: Run unit tests
-        run: make unit
+  Unit-Test:
+    # Note: changing this job name requires making the same update in the .github/workflows/release.yaml pipeline
+    name: "Unit tests"
+    runs-on: ubuntu-latest
+    needs: [Unit-Test-Go, Unit-Test-TS]
+    # a skipped job satisfies a required check, so this job must always run and fail explicitly
+    # unless every dependency succeeded
+    if: ${{ always() }}
+    permissions: {}
+    steps:
+      - name: Require all unit test jobs to succeed
+        env:
+          NEEDS: ${{ toJSON(needs) }}
+        run: |
+          echo "$NEEDS" | jq -e 'length > 0 and all(.[]; .result == "success")' > /dev/null || {
+            echo "$NEEDS" | jq -r 'to_entries[] | "\(.key): \(.value.result)"'
+            exit 1
+          }
+          echo All unit tests passed!
 
-      - name: Run integration tests
-        run: make integration
+  Unit-Test-Go:
+    name: "Unit tests (Go)"
+    runs-on: *test-runner
+    permissions:
+      contents: read
+    env:
+      # canopy runs go test underneath, enforcing the coverage threshold itself
+      GOMAKE_TEST_RUNNER: canopy
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 #v7.0.1
+        with:
+          persist-credentials: false
 
-      - name: Build test
-        run: make build
+      - name: Bootstrap environment
+        uses: anchore/go-make/.github/actions/setup@abf41688f36f2cbec13105747abbe8e60f5c56ca # v0.9.3
+        with:
+          # race and coverage builds share nothing with the other jobs' builds
+          cache-key-prefix: "unit-go"
+
+      # bun's install cache, keyed on the lockfile (hashFiles is empty until bun.lock exists, which still yields a valid key)
+      - name: Cache bun installs
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 #v6.1.0
+        with:
+          path: ~/.bun/install/cache
+          key: bun-${{ runner.os }}-${{ hashFiles('cmd/yardstick/internal/labelserver/web/bun.lock') }}
+          restore-keys: |
+            bun-${{ runner.os }}-
+
+      - name: Run Go unit tests
+        run: make unit:go
+
+  Unit-Test-TS:
+    name: "Unit tests (TS)"
+    runs-on: *test-runner
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 #v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Bootstrap environment
+        uses: anchore/go-make/.github/actions/setup@abf41688f36f2cbec13105747abbe8e60f5c56ca # v0.9.3
+        with:
+          # generate is the only go here, so this job's build cache is too thin to be the saved one
+          cache-save: "false"
+
+      # bun's install cache, keyed on the lockfile (hashFiles is empty until bun.lock exists, which still yields a valid key)
+      - name: Cache bun installs
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 #v6.1.0
+        with:
+          path: ~/.bun/install/cache
+          key: bun-${{ runner.os }}-${{ hashFiles('cmd/yardstick/internal/labelserver/web/bun.lock') }}
+          restore-keys: |
+            bun-${{ runner.os }}-
+
+      - name: Run TS unit tests
+        run: make unit:ts
+
+  E2E-Test:
+    name: "E2E tests"
+    runs-on: *test-runner
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 #v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Bootstrap environment
+        uses: anchore/go-make/.github/actions/setup@abf41688f36f2cbec13105747abbe8e60f5c56ca # v0.9.3
+
+      # bun's install cache, keyed on the lockfile (hashFiles is empty until bun.lock exists, which still yields a valid key)
+      - name: Cache bun installs
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 #v6.1.0
+        with:
+          path: ~/.bun/install/cache
+          key: bun-${{ runner.os }}-${{ hashFiles('cmd/yardstick/internal/labelserver/web/bun.lock') }}
+          restore-keys: |
+            bun-${{ runner.os }}-
+
+      # Playwright runs on the pinned bun, which installs chromium and its system packages (CI is set)
+      - name: Run e2e tests
+        run: make e2e
+        env:
+          FORCE_COLOR: "1"
+
+      - name: Upload Playwright traces and report
+        if: failure()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 #v7.0.2
+        with:
+          name: playwright-results
+          path: |
+            cmd/yardstick/internal/labelserver/web/test-results/
+            cmd/yardstick/internal/labelserver/web/playwright-report/
+          if-no-files-found: ignore
+
+  CLI-Test:
+    name: "CLI tests"
+    runs-on: *test-runner
+    permissions:
+      contents: read
+    env:
+      # bump to drop the cached grype releases, claims snapshot and SBOMs
+      CLI_CACHE_BUSTER: "1"
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 #v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Bootstrap environment
+        uses: anchore/go-make/.github/actions/setup@abf41688f36f2cbec13105747abbe8e60f5c56ca # v0.9.3
+
+      # the key is test/cli's pins: the two grype releases its gates install and the claims snapshot
+      # (claimsPin in test/cli/utils_test.go). The DB is built per run and never cached.
+      - name: Cache grype releases, claims and SBOMs
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 #v6.1.0
+        with:
+          path: .tmp/cli/cache
+          key: cli-${{ runner.os }}-grype-v0.100.0-v0.120.1-claims-dc0289a3a409265fb2c37d3526ec94385998cfcb-${{ env.CLI_CACHE_BUSTER }}
 
       - name: Run CLI tests
         run: make cli
+
+  Build-Snapshot-Artifacts:
+    # Note: changing this job name requires making the same update in the .github/workflows/release.yaml pipeline
+    name: "Build snapshot artifacts"
+    # runs-on.com compute instances for goreleaser's parallel builds, as syft builds on
+    #   spot disabled: reliability for build workflows (used for releases too)
+    #   tmpfs omitted: a RAM-backed dist/ competes with the build's memory peak and OOMs
+    #   s3-cache omitted: see Static analysis
+    #   volume: the default 40GB root fills during the multi-arch build; the provisioned
+    #   throughput and iops above gp3's baseline cost about a cent a run
+    runs-on: "runs-on=${{ github.run_id }}/cpu=16+32/ram=32+128/family=c5+c6+c7+c8/spot=false/volume=120gb:gp3:500mbs:4000iops"
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 #v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Bootstrap environment
+        uses: anchore/go-make/.github/actions/setup@abf41688f36f2cbec13105747abbe8e60f5c56ca # v0.9.3
+        with:
+          # why have another build cache key? We don't want unit/integration/etc test build caches to replace
+          # the snapshot build cache, which includes builds for all OSs and architectures. As long as this key is
+          # unique from the build-cache-key-prefix in other CI jobs, we should be fine.
+          #
+          # note: ideally this value should match what is used in release (just to help with build times).
+          cache-key-prefix: "snapshot"
+
+      # bun's install cache, keyed on the lockfile (hashFiles is empty until bun.lock exists, which still yields a valid key)
+      - name: Cache bun installs
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 #v6.1.0
+        with:
+          path: ~/.bun/install/cache
+          key: bun-${{ runner.os }}-${{ hashFiles('cmd/yardstick/internal/labelserver/web/bun.lock') }}
+          restore-keys: |
+            bun-${{ runner.os }}-
+
+      - name: Build snapshot artifacts
+        run: make snapshot

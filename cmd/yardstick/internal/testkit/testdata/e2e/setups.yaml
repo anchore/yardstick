@@ -1,0 +1,25 @@
+# what each stub grype leaves out of the fixture grype output (v0.120.1), as "<vulnerability> <package name>" per image.
+# a setup leaving a match out while the other reports it is a change: the candidate leaving it out is "dropped",
+# the reference leaving it out is "added"
+candidate-a:
+  deb:
+    - CVE-2005-2541 tar
+    - CVE-2026-18508 tar
+    - CVE-2026-5704 tar
+    - CVE-2011-3389 libgnutls30
+reference-a:
+  deb:
+    - CVE-2026-3184 libblkid1
+    - CVE-2026-3184 libmount1
+    - CVE-2026-3184 mount
+    - CVE-2026-3184 util-linux
+  java:
+    - GHSA-jfh8-c2jp-5v3q log4j-core
+    - GHSA-vc5p-v9hr-52mj log4j-core
+candidate-b:
+  deb:
+    - CVE-2005-2541 tar
+    - CVE-2026-41992 gzip
+  npm:
+    - GHSA-67hx-6x53-jw92 @babel/traverse
+reference-b: {}

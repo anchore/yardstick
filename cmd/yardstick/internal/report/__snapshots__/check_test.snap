@@ -1,0 +1,923 @@
+
+[TestCheckLayout/default - 1]
+rpm-coverage  gates/rpm-coverage.yaml, scanned 2026-10-14 10:00Z
+  varied   env  none (reference) -> GRYPE_MATCH_RPM_USING_CPES=true (candidate)
+  held     grype v0.120.1, DB sha256:30d8bcd3, config none
+  claims   github.com/anchore/delta-prototype@main at sha256:7df20f57, commit 77aa0000
+  built    rpm with syft 1.54.1
+
+rpm-cpes  gates/rpm-cpes.yaml, scanned 2026-10-14 10:00Z
+  varied   env  none (reference) -> GRYPE_MATCH_RPM_USING_CPES=true (candidate)
+  held     grype v0.120.1, DB sha256:30d8bcd3, config none
+  claims   github.com/anchore/delta-prototype@main at sha256:7df20f57, commit 77aa0000
+  built    rpm with syft 1.54.1
+
+FAIL gate rpm-cpes  2 checks fail, 2 pass
+
+FAIL noNewFalsePositives  max 0      worst subject 1..34 fp added
+  FAIL       1..34     rpm
+    1 fp, added by the candidate
+      CVE-2020-12762 on pkg:rpm/rocky/json-c@0.14-11.el9
+      nvd:cpe cpe-match
+    1 unlabeled, added by the candidate
+      CVE-2022-37434 on pkg:rpm/rocky/zlib@1.2.11-40.el9
+      nvd:cpe cpe-match; the gate fails however one is labeled
+    14 unlabeled, added by the candidate
+      14 CVEs on pkg:rpm/rocky/libssh@0.10.4-18.el9
+      nvd:cpe cpe-match; the gate fails however one is labeled
+    1 unlabeled, added by the candidate
+      CVE-2026-31790 on pkg:rpm/rocky/openssl@3.5.5-2.el9_8
+      nvd:cpe cpe-match; the gate fails however one is labeled
+    11 unlabeled, added by the candidate
+      11 CVEs on pkg:rpm/rocky/libarchive@3.5.3-9.el9_7
+      nvd:cpe cpe-match; the gate fails however one is labeled
+    4 unlabeled, added by the candidate
+      CVE-2021-3521, CVE-2021-35937, CVE-2021-35938, CVE-2021-35939
+      on pkg:rpm/rocky/rpm@4.16.1.3-40.el9
+      nvd:cpe cpe-match; the gate fails however one is labeled
+    2 unlabeled, added by the candidate
+      CVE-2024-56171, CVE-2025-24928 on pkg:rpm/rocky/libxml2@2.9.13-14.el9_7
+      nvd:cpe cpe-match; the gate fails however one is labeled
+
+FAIL unlabeledChangesAtMost  max 0   worst subject 33..33 unlabeled
+  FAIL       33..33    rpm
+    1 unlabeled, added  same rows as noNewFalsePositives
+    14 unlabeled, added  same rows as noNewFalsePositives
+    1 unlabeled, added  same rows as noNewFalsePositives
+    11 unlabeled, added  same rows as noNewFalsePositives
+    4 unlabeled, added  same rows as noNewFalsePositives
+    2 unlabeled, added  same rows as noNewFalsePositives
+
+PASS gate rpm-coverage  2 checks pass
+
+FAILED 1 of 2 gates
+
+---
+
+[TestCheckLayout/details_passing - 1]
+rpm-coverage  gates/rpm-coverage.yaml, scanned 2026-10-14 10:00Z
+  varied   env  none (reference) -> GRYPE_MATCH_RPM_USING_CPES=true (candidate)
+  held     grype v0.120.1, DB sha256:30d8bcd3, config none
+  claims   github.com/anchore/delta-prototype@main at sha256:7df20f57, commit 77aa0000
+  built    rpm with syft 1.54.1
+
+rpm-cpes  gates/rpm-cpes.yaml, scanned 2026-10-14 10:00Z
+  varied   env  none (reference) -> GRYPE_MATCH_RPM_USING_CPES=true (candidate)
+  held     grype v0.120.1, DB sha256:30d8bcd3, config none
+  claims   github.com/anchore/delta-prototype@main at sha256:7df20f57, commit 77aa0000
+  built    rpm with syft 1.54.1
+
+FAIL gate rpm-cpes  2 checks fail, 2 pass
+
+FAIL noNewFalsePositives  max 0      worst subject 1..34 fp added
+  FAIL       1..34     rpm
+    1 fp, added by the candidate
+      CVE-2020-12762 on pkg:rpm/rocky/json-c@0.14-11.el9
+      nvd:cpe cpe-match
+    1 unlabeled, added by the candidate
+      CVE-2022-37434 on pkg:rpm/rocky/zlib@1.2.11-40.el9
+      nvd:cpe cpe-match; the gate fails however one is labeled
+    14 unlabeled, added by the candidate
+      14 CVEs on pkg:rpm/rocky/libssh@0.10.4-18.el9
+      nvd:cpe cpe-match; the gate fails however one is labeled
+    1 unlabeled, added by the candidate
+      CVE-2026-31790 on pkg:rpm/rocky/openssl@3.5.5-2.el9_8
+      nvd:cpe cpe-match; the gate fails however one is labeled
+    11 unlabeled, added by the candidate
+      11 CVEs on pkg:rpm/rocky/libarchive@3.5.3-9.el9_7
+      nvd:cpe cpe-match; the gate fails however one is labeled
+    4 unlabeled, added by the candidate
+      CVE-2021-3521, CVE-2021-35937, CVE-2021-35938, CVE-2021-35939
+      on pkg:rpm/rocky/rpm@4.16.1.3-40.el9
+      nvd:cpe cpe-match; the gate fails however one is labeled
+    2 unlabeled, added by the candidate
+      CVE-2024-56171, CVE-2025-24928 on pkg:rpm/rocky/libxml2@2.9.13-14.el9_7
+      nvd:cpe cpe-match; the gate fails however one is labeled
+
+FAIL unlabeledChangesAtMost  max 0   worst subject 33..33 unlabeled
+  FAIL       33..33    rpm
+    1 unlabeled, added  same rows as noNewFalsePositives
+    14 unlabeled, added  same rows as noNewFalsePositives
+    1 unlabeled, added  same rows as noNewFalsePositives
+    11 unlabeled, added  same rows as noNewFalsePositives
+    4 unlabeled, added  same rows as noNewFalsePositives
+    2 unlabeled, added  same rows as noNewFalsePositives
+
+PASS noNewFalseNegatives  max 0      worst subject 0..0 tp dropped
+  1 subject passes
+
+PASS matchesAtLeast  min 1           worst subject 941..941 matches
+  1 subject passes
+
+PASS gate rpm-coverage  2 checks pass
+
+PASS unlabeledPercentAtMost  max 100   worst subject 99.59..99.59 percent unlabeled
+  1 subject passes
+
+PASS matchesAtLeast  min 1             worst subject 941..941 matches
+  1 subject passes
+
+FAILED 1 of 2 gates
+
+---
+
+[TestCheckLayout/details_rows - 1]
+rpm-coverage  gates/rpm-coverage.yaml, scanned 2026-10-14 10:00Z
+  varied   env  none (reference) -> GRYPE_MATCH_RPM_USING_CPES=true (candidate)
+  held     grype v0.120.1, DB sha256:30d8bcd3, config none
+  claims   github.com/anchore/delta-prototype@main at sha256:7df20f57, commit 77aa0000
+  built    rpm with syft 1.54.1
+
+rpm-cpes  gates/rpm-cpes.yaml, scanned 2026-10-14 10:00Z
+  varied   env  none (reference) -> GRYPE_MATCH_RPM_USING_CPES=true (candidate)
+  held     grype v0.120.1, DB sha256:30d8bcd3, config none
+  claims   github.com/anchore/delta-prototype@main at sha256:7df20f57, commit 77aa0000
+  built    rpm with syft 1.54.1
+
+FAIL gate rpm-cpes  2 checks fail, 2 pass
+
+FAIL noNewFalsePositives  max 0      worst subject 1..34 fp added
+  FAIL       1..34     rpm
+    1 fp, added by the candidate
+      CVE-2020-12762 on pkg:rpm/rocky/json-c@0.14-11.el9
+      nvd:cpe cpe-match
+      CVE-2020-12762   json-c@0.14-11.el9   /var/lib/rpm/rpmdb.sqlite
+      labels: rpm.json
+    1 unlabeled, added by the candidate
+      CVE-2022-37434 on pkg:rpm/rocky/zlib@1.2.11-40.el9
+      nvd:cpe cpe-match; the gate fails however one is labeled
+      CVE-2022-37434   zlib@1.2.11-40.el9   /var/lib/rpm/rpmdb.sqlite
+    14 unlabeled, added by the candidate
+      14 CVEs on pkg:rpm/rocky/libssh@0.10.4-18.el9
+      nvd:cpe cpe-match; the gate fails however one is labeled
+      CVE-2023-48795   libssh@0.10.4-18.el9   /var/lib/rpm/rpmdb.sqlite
+      CVE-2023-6004    libssh@0.10.4-18.el9   /var/lib/rpm/rpmdb.sqlite
+      CVE-2023-6918    libssh@0.10.4-18.el9   /var/lib/rpm/rpmdb.sqlite
+      CVE-2025-14821   libssh@0.10.4-18.el9   /var/lib/rpm/rpmdb.sqlite
+      CVE-2025-5318    libssh@0.10.4-18.el9   /var/lib/rpm/rpmdb.sqlite
+      CVE-2025-5351    libssh@0.10.4-18.el9   /var/lib/rpm/rpmdb.sqlite
+      CVE-2025-5987    libssh@0.10.4-18.el9   /var/lib/rpm/rpmdb.sqlite
+      CVE-2025-8114    libssh@0.10.4-18.el9   /var/lib/rpm/rpmdb.sqlite
+      CVE-2026-0964    libssh@0.10.4-18.el9   /var/lib/rpm/rpmdb.sqlite
+      CVE-2026-0965    libssh@0.10.4-18.el9   /var/lib/rpm/rpmdb.sqlite
+      CVE-2026-0966    libssh@0.10.4-18.el9   /var/lib/rpm/rpmdb.sqlite
+      CVE-2026-0967    libssh@0.10.4-18.el9   /var/lib/rpm/rpmdb.sqlite
+      CVE-2026-0968    libssh@0.10.4-18.el9   /var/lib/rpm/rpmdb.sqlite
+      CVE-2026-59851   libssh@0.10.4-18.el9   /var/lib/rpm/rpmdb.sqlite
+    1 unlabeled, added by the candidate
+      CVE-2026-31790 on pkg:rpm/rocky/openssl@3.5.5-2.el9_8
+      nvd:cpe cpe-match; the gate fails however one is labeled
+      CVE-2026-31790   openssl@3.5.5-2.el9_8   /var/lib/rpm/rpmdb.sqlite
+    11 unlabeled, added by the candidate
+      11 CVEs on pkg:rpm/rocky/libarchive@3.5.3-9.el9_7
+      nvd:cpe cpe-match; the gate fails however one is labeled
+      CVE-2022-36227   libarchive@3.5.3-9.el9_7   /var/lib/rpm/rpmdb.sqlite
+      CVE-2024-20697   libarchive@3.5.3-9.el9_7   /var/lib/rpm/rpmdb.sqlite
+      CVE-2024-26256   libarchive@3.5.3-9.el9_7   /var/lib/rpm/rpmdb.sqlite
+      CVE-2024-48615   libarchive@3.5.3-9.el9_7   /var/lib/rpm/rpmdb.sqlite
+      CVE-2024-48957   libarchive@3.5.3-9.el9_7   /var/lib/rpm/rpmdb.sqlite
+      CVE-2024-48958   libarchive@3.5.3-9.el9_7   /var/lib/rpm/rpmdb.sqlite
+      CVE-2024-57970   libarchive@3.5.3-9.el9_7   /var/lib/rpm/rpmdb.sqlite
+      CVE-2025-25724   libarchive@3.5.3-9.el9_7   /var/lib/rpm/rpmdb.sqlite
+      CVE-2025-5914    libarchive@3.5.3-9.el9_7   /var/lib/rpm/rpmdb.sqlite
+      CVE-2026-4424    libarchive@3.5.3-9.el9_7   /var/lib/rpm/rpmdb.sqlite
+      CVE-2026-5121    libarchive@3.5.3-9.el9_7   /var/lib/rpm/rpmdb.sqlite
+    4 unlabeled, added by the candidate
+      CVE-2021-3521, CVE-2021-35937, CVE-2021-35938, CVE-2021-35939
+      on pkg:rpm/rocky/rpm@4.16.1.3-40.el9
+      nvd:cpe cpe-match; the gate fails however one is labeled
+      CVE-2021-3521    rpm@4.16.1.3-40.el9   /var/lib/rpm/rpmdb.sqlite
+      CVE-2021-35937   rpm@4.16.1.3-40.el9   /var/lib/rpm/rpmdb.sqlite
+      CVE-2021-35938   rpm@4.16.1.3-40.el9   /var/lib/rpm/rpmdb.sqlite
+      CVE-2021-35939   rpm@4.16.1.3-40.el9   /var/lib/rpm/rpmdb.sqlite
+    2 unlabeled, added by the candidate
+      CVE-2024-56171, CVE-2025-24928 on pkg:rpm/rocky/libxml2@2.9.13-14.el9_7
+      nvd:cpe cpe-match; the gate fails however one is labeled
+      CVE-2024-56171   libxml2@2.9.13-14.el9_7   /var/lib/rpm/rpmdb.sqlite
+      CVE-2025-24928   libxml2@2.9.13-14.el9_7   /var/lib/rpm/rpmdb.sqlite
+
+FAIL unlabeledChangesAtMost  max 0   worst subject 33..33 unlabeled
+  FAIL       33..33    rpm
+    1 unlabeled, added  same rows as noNewFalsePositives
+    14 unlabeled, added  same rows as noNewFalsePositives
+    1 unlabeled, added  same rows as noNewFalsePositives
+    11 unlabeled, added  same rows as noNewFalsePositives
+    4 unlabeled, added  same rows as noNewFalsePositives
+    2 unlabeled, added  same rows as noNewFalsePositives
+
+PASS noNewFalseNegatives  max 0      worst subject 0..0 tp dropped
+  1 subject passes
+  PASS       0..0      rpm
+
+PASS matchesAtLeast  min 1           worst subject 941..941 matches
+  1 subject passes
+  PASS       941..941  rpm
+
+PASS gate rpm-coverage  2 checks pass
+
+PASS unlabeledPercentAtMost  max 100   worst subject 99.59..99.59 percent unlabeled
+  1 subject passes
+  PASS       99.59..99.59  rpm
+    3 unlabeled
+      CVE-2026-13595, CVE-2026-27456, CVE-2026-53613
+      on pkg:rpm/rocky/util-linux-core@2.37.4-25.el9
+      redhat:distro:redhat:9 exact-indirect-match
+      CVE-2026-13595   util-linux-core@2.37.4-25.el9   /var/lib/rpm/rpmdb.sqlite
+      CVE-2026-27456   util-linux-core@2.37.4-25.el9   /var/lib/rpm/rpmdb.sqlite
+      CVE-2026-53613   util-linux-core@2.37.4-25.el9   /var/lib/rpm/rpmdb.sqlite
+    3 unlabeled
+      CVE-2026-15059, CVE-2026-29111, CVE-2026-4105
+      on pkg:rpm/rocky/systemd-libs@252-67.el9.rocky.0.1
+      redhat:distro:redhat:9 exact-indirect-match
+      CVE-2026-15059   systemd-libs@252-67.el9.rocky.0.1   /var/lib/rpm/rpmdb.sqlite
+      CVE-2026-29111   systemd-libs@252-67.el9.rocky.0.1   /var/lib/rpm/rpmdb.sqlite
+      CVE-2026-4105    systemd-libs@252-67.el9.rocky.0.1   /var/lib/rpm/rpmdb.sqlite
+    1 unlabeled
+      CVE-2026-34743 on pkg:rpm/rocky/xz-libs@5.2.5-8.el9_0
+      redhat:distro:redhat:9 exact-indirect-match
+      CVE-2026-34743   xz-libs@5.2.5-8.el9_0   /var/lib/rpm/rpmdb.sqlite
+    1 unlabeled
+      CVE-2026-13757 on pkg:rpm/rocky/p11-kit@0.26.2-1.el9
+      redhat:distro:redhat:9 exact-direct-match
+      CVE-2026-13757   p11-kit@0.26.2-1.el9   /var/lib/rpm/rpmdb.sqlite
+    1 unlabeled
+      CVE-2022-37434 on pkg:rpm/rocky/zlib@1.2.11-40.el9
+      nvd:cpe cpe-match; the gate passes however one is labeled
+      CVE-2022-37434   zlib@1.2.11-40.el9   /var/lib/rpm/rpmdb.sqlite
+    1 unlabeled
+      CVE-2026-27171 on pkg:rpm/rocky/zlib@1.2.11-40.el9
+      redhat:distro:redhat:9 exact-direct-match
+      CVE-2026-27171   zlib@1.2.11-40.el9   /var/lib/rpm/rpmdb.sqlite
+    7 unlabeled
+      7 CVEs on pkg:rpm/rocky/rpm-libs@4.16.1.3-40.el9
+      redhat:distro:redhat:9 exact-indirect-match
+      CVE-2026-103242   rpm-libs@4.16.1.3-40.el9   /var/lib/rpm/rpmdb.sqlite
+      CVE-2026-44605    rpm-libs@4.16.1.3-40.el9   /var/lib/rpm/rpmdb.sqlite
+      CVE-2026-78367    rpm-libs@4.16.1.3-40.el9   /var/lib/rpm/rpmdb.sqlite
+      CVE-2026-84837    rpm-libs@4.16.1.3-40.el9   /var/lib/rpm/rpmdb.sqlite
+      CVE-2026-95519    rpm-libs@4.16.1.3-40.el9   /var/lib/rpm/rpmdb.sqlite
+      CVE-2026-95520    rpm-libs@4.16.1.3-40.el9   /var/lib/rpm/rpmdb.sqlite
+      CVE-2026-95521    rpm-libs@4.16.1.3-40.el9   /var/lib/rpm/rpmdb.sqlite
+    4 unlabeled
+      CVE-2023-4156, CVE-2026-40467, CVE-2026-40468, CVE-2026-40553
+      on pkg:rpm/rocky/gawk@5.1.0-6.el9
+      redhat:distro:redhat:9 exact-direct-match
+      CVE-2023-4156    gawk@5.1.0-6.el9   /var/lib/rpm/rpmdb.sqlite
+      CVE-2026-40467   gawk@5.1.0-6.el9   /var/lib/rpm/rpmdb.sqlite
+      CVE-2026-40468   gawk@5.1.0-6.el9   /var/lib/rpm/rpmdb.sqlite
+      CVE-2026-40553   gawk@5.1.0-6.el9   /var/lib/rpm/rpmdb.sqlite
+    2 unlabeled
+      CVE-2026-54369, CVE-2026-54370 on pkg:rpm/rocky/libacl@2.3.1-4.el9
+      redhat:distro:redhat:9 exact-indirect-match
+      CVE-2026-54369   libacl@2.3.1-4.el9   /var/lib/rpm/rpmdb.sqlite
+      CVE-2026-54370   libacl@2.3.1-4.el9   /var/lib/rpm/rpmdb.sqlite
+    3 unlabeled
+      CVE-2026-13595, CVE-2026-27456, CVE-2026-53613
+      on pkg:rpm/rocky/libsmartcols@2.37.4-25.el9
+      redhat:distro:redhat:9 exact-indirect-match
+      CVE-2026-13595   libsmartcols@2.37.4-25.el9   /var/lib/rpm/rpmdb.sqlite
+      CVE-2026-27456   libsmartcols@2.37.4-25.el9   /var/lib/rpm/rpmdb.sqlite
+      CVE-2026-53613   libsmartcols@2.37.4-25.el9   /var/lib/rpm/rpmdb.sqlite
+    48 unlabeled
+      48 CVEs on pkg:rpm/rocky/openssl-libs@3.5.5-2.el9_8
+      redhat:distro:redhat:9 exact-indirect-match
+      CVE-2024-13176   openssl-libs@3.5.5-2.el9_8   /var/lib/rpm/rpmdb.sqlite
+      CVE-2024-41996   openssl-libs@3.5.5-2.el9_8   /var/lib/rpm/rpmdb.sqlite
+      CVE-2025-9232    openssl-libs@3.5.5-2.el9_8   /var/lib/rpm/rpmdb.sqlite
+      CVE-2026-14456   openssl-libs@3.5.5-2.el9_8   /var/lib/rpm/rpmdb.sqlite
+      CVE-2026-14457   openssl-libs@3.5.5-2.el9_8   /var/lib/rpm/rpmdb.sqlite
+      CVE-2026-18798   openssl-libs@3.5.5-2.el9_8   /var/lib/rpm/rpmdb.sqlite
+      CVE-2026-2673    openssl-libs@3.5.5-2.el9_8   /var/lib/rpm/rpmdb.sqlite
+      CVE-2026-28387   openssl-libs@3.5.5-2.el9_8   /var/lib/rpm/rpmdb.sqlite
+      CVE-2026-28388   openssl-libs@3.5.5-2.el9_8   /var/lib/rpm/rpmdb.sqlite
+      CVE-2026-28389   openssl-libs@3.5.5-2.el9_8   /var/lib/rpm/rpmdb.sqlite
+      CVE-2026-28390   openssl-libs@3.5.5-2.el9_8   /var/lib/rpm/rpmdb.sqlite
+      CVE-2026-31789   openssl-libs@3.5.5-2.el9_8   /var/lib/rpm/rpmdb.sqlite
+      CVE-2026-34180   openssl-libs@3.5.5-2.el9_8   /var/lib/rpm/rpmdb.sqlite
+      CVE-2026-34181   openssl-libs@3.5.5-2.el9_8   /var/lib/rpm/rpmdb.sqlite
+      CVE-2026-34182   openssl-libs@3.5.5-2.el9_8   /var/lib/rpm/rpmdb.sqlite
+      CVE-2026-34183   openssl-libs@3.5.5-2.el9_8   /var/lib/rpm/rpmdb.sqlite
+      CVE-2026-35189   openssl-libs@3.5.5-2.el9_8   /var/lib/rpm/rpmdb.sqlite
+      CVE-2026-35191   openssl-libs@3.5.5-2.el9_8   /var/lib/rpm/rpmdb.sqlite
+      CVE-2026-42764   openssl-libs@3.5.5-2.el9_8   /var/lib/rpm/rpmdb.sqlite
+      CVE-2026-42765   openssl-libs@3.5.5-2.el9_8   /var/lib/rpm/rpmdb.sqlite
+      CVE-2026-42766   openssl-libs@3.5.5-2.el9_8   /var/lib/rpm/rpmdb.sqlite
+      CVE-2026-42767   openssl-libs@3.5.5-2.el9_8   /var/lib/rpm/rpmdb.sqlite
+      CVE-2026-42768   openssl-libs@3.5.5-2.el9_8   /var/lib/rpm/rpmdb.sqlite
+      CVE-2026-42769   openssl-libs@3.5.5-2.el9_8   /var/lib/rpm/rpmdb.sqlite
+      CVE-2026-42770   openssl-libs@3.5.5-2.el9_8   /var/lib/rpm/rpmdb.sqlite
+      CVE-2026-42772   openssl-libs@3.5.5-2.el9_8   /var/lib/rpm/rpmdb.sqlite
+      CVE-2026-45445   openssl-libs@3.5.5-2.el9_8   /var/lib/rpm/rpmdb.sqlite
+      CVE-2026-45446   openssl-libs@3.5.5-2.el9_8   /var/lib/rpm/rpmdb.sqlite
+      CVE-2026-45447   openssl-libs@3.5.5-2.el9_8   /var/lib/rpm/rpmdb.sqlite
+      CVE-2026-54872   openssl-libs@3.5.5-2.el9_8   /var/lib/rpm/rpmdb.sqlite
+      CVE-2026-54873   openssl-libs@3.5.5-2.el9_8   /var/lib/rpm/rpmdb.sqlite
+      CVE-2026-54874   openssl-libs@3.5.5-2.el9_8   /var/lib/rpm/rpmdb.sqlite
+      CVE-2026-54875   openssl-libs@3.5.5-2.el9_8   /var/lib/rpm/rpmdb.sqlite
+      CVE-2026-63072   openssl-libs@3.5.5-2.el9_8   /var/lib/rpm/rpmdb.sqlite
+      CVE-2026-63073   openssl-libs@3.5.5-2.el9_8   /var/lib/rpm/rpmdb.sqlite
+      CVE-2026-63074   openssl-libs@3.5.5-2.el9_8   /var/lib/rpm/rpmdb.sqlite
+      CVE-2026-63075   openssl-libs@3.5.5-2.el9_8   /var/lib/rpm/rpmdb.sqlite
+      CVE-2026-63076   openssl-libs@3.5.5-2.el9_8   /var/lib/rpm/rpmdb.sqlite
+      CVE-2026-72897   openssl-libs@3.5.5-2.el9_8   /var/lib/rpm/rpmdb.sqlite
+      CVE-2026-7383    openssl-libs@3.5.5-2.el9_8   /var/lib/rpm/rpmdb.sqlite
+      CVE-2026-75803   openssl-libs@3.5.5-2.el9_8   /var/lib/rpm/rpmdb.sqlite
+      CVE-2026-75804   openssl-libs@3.5.5-2.el9_8   /var/lib/rpm/rpmdb.sqlite
+      CVE-2026-75805   openssl-libs@3.5.5-2.el9_8   /var/lib/rpm/rpmdb.sqlite
+      CVE-2026-75806   openssl-libs@3.5.5-2.el9_8   /var/lib/rpm/rpmdb.sqlite
+      CVE-2026-77696   openssl-libs@3.5.5-2.el9_8   /var/lib/rpm/rpmdb.sqlite
+      CVE-2026-84782   openssl-libs@3.5.5-2.el9_8   /var/lib/rpm/rpmdb.sqlite
+      CVE-2026-84784   openssl-libs@3.5.5-2.el9_8   /var/lib/rpm/rpmdb.sqlite
+      CVE-2026-9076    openssl-libs@3.5.5-2.el9_8   /var/lib/rpm/rpmdb.sqlite
+    6 unlabeled
+      6 CVEs on pkg:rpm/rocky/gnupg2@2.3.3-5.el9_7
+      redhat:distro:redhat:9 exact-direct-match
+      CVE-2022-3219     gnupg2@2.3.3-5.el9_7   /var/lib/rpm/rpmdb.sqlite
+      CVE-2025-30258    gnupg2@2.3.3-5.el9_7   /var/lib/rpm/rpmdb.sqlite
+      CVE-2025-68972    gnupg2@2.3.3-5.el9_7   /var/lib/rpm/rpmdb.sqlite
+      CVE-2026-105712   gnupg2@2.3.3-5.el9_7   /var/lib/rpm/rpmdb.sqlite
+      CVE-2026-24883    gnupg2@2.3.3-5.el9_7   /var/lib/rpm/rpmdb.sqlite
+      CVE-2026-57062    gnupg2@2.3.3-5.el9_7   /var/lib/rpm/rpmdb.sqlite
+    3 unlabeled
+      CVE-2026-107708, CVE-2026-107778, CVE-2026-11850
+      on pkg:rpm/rocky/krb5-libs@1.21.1-10.el9_8
+      redhat:distro:redhat:9 exact-indirect-match
+      CVE-2026-107708   krb5-libs@1.21.1-10.el9_8   /var/lib/rpm/rpmdb.sqlite
+      CVE-2026-107778   krb5-libs@1.21.1-10.el9_8   /var/lib/rpm/rpmdb.sqlite
+      CVE-2026-11850    krb5-libs@1.21.1-10.el9_8   /var/lib/rpm/rpmdb.sqlite
+    3 unlabeled
+      CVE-2026-18739, CVE-2026-18743, CVE-2026-18839
+      on pkg:rpm/rocky/popt@1.18-8.el9
+      redhat:distro:redhat:9 exact-direct-match
+      CVE-2026-18739   popt@1.18-8.el9   /var/lib/rpm/rpmdb.sqlite
+      CVE-2026-18743   popt@1.18-8.el9   /var/lib/rpm/rpmdb.sqlite
+      CVE-2026-18839   popt@1.18-8.el9   /var/lib/rpm/rpmdb.sqlite
+    4 unlabeled
+      CVE-2026-48864, CVE-2026-82327, CVE-2026-9149, CVE-2026-9150
+      on pkg:rpm/rocky/libsolv@0.7.24-4.el9
+      redhat:distro:redhat:9 exact-direct-match
+      CVE-2026-48864   libsolv@0.7.24-4.el9   /var/lib/rpm/rpmdb.sqlite
+      CVE-2026-82327   libsolv@0.7.24-4.el9   /var/lib/rpm/rpmdb.sqlite
+      CVE-2026-9149    libsolv@0.7.24-4.el9   /var/lib/rpm/rpmdb.sqlite
+      CVE-2026-9150    libsolv@0.7.24-4.el9   /var/lib/rpm/rpmdb.sqlite
+    8 unlabeled
+      8 CVEs on pkg:rpm/rocky/pcre2-syntax@10.40-6.el9
+      redhat:distro:redhat:9 exact-indirect-match
+      CVE-2022-41409    pcre2-syntax@10.40-6.el9   /var/lib/rpm/rpmdb.sqlite
+      CVE-2026-103111   pcre2-syntax@10.40-6.el9   /var/lib/rpm/rpmdb.sqlite
+      CVE-2026-86145    pcre2-syntax@10.40-6.el9   /var/lib/rpm/rpmdb.sqlite
+      CVE-2026-89156    pcre2-syntax@10.40-6.el9   /var/lib/rpm/rpmdb.sqlite
+      CVE-2026-89157    pcre2-syntax@10.40-6.el9   /var/lib/rpm/rpmdb.sqlite
+      CVE-2026-89158    pcre2-syntax@10.40-6.el9   /var/lib/rpm/rpmdb.sqlite
+      CVE-2026-89160    pcre2-syntax@10.40-6.el9   /var/lib/rpm/rpmdb.sqlite
+      CVE-2026-89161    pcre2-syntax@10.40-6.el9   /var/lib/rpm/rpmdb.sqlite
+    14 unlabeled
+      14 CVEs on pkg:rpm/rocky/libssh@0.10.4-18.el9
+      nvd:cpe cpe-match; the gate passes however one is labeled
+      CVE-2023-48795   libssh@0.10.4-18.el9   /var/lib/rpm/rpmdb.sqlite
+      CVE-2023-6004    libssh@0.10.4-18.el9   /var/lib/rpm/rpmdb.sqlite
+      CVE-2023-6918    libssh@0.10.4-18.el9   /var/lib/rpm/rpmdb.sqlite
+      CVE-2025-14821   libssh@0.10.4-18.el9   /var/lib/rpm/rpmdb.sqlite
+      CVE-2025-5318    libssh@0.10.4-18.el9   /var/lib/rpm/rpmdb.sqlite
+      CVE-2025-5351    libssh@0.10.4-18.el9   /var/lib/rpm/rpmdb.sqlite
+      CVE-2025-5987    libssh@0.10.4-18.el9   /var/lib/rpm/rpmdb.sqlite
+      CVE-2025-8114    libssh@0.10.4-18.el9   /var/lib/rpm/rpmdb.sqlite
+      CVE-2026-0964    libssh@0.10.4-18.el9   /var/lib/rpm/rpmdb.sqlite
+      CVE-2026-0965    libssh@0.10.4-18.el9   /var/lib/rpm/rpmdb.sqlite
+      CVE-2026-0966    libssh@0.10.4-18.el9   /var/lib/rpm/rpmdb.sqlite
+      CVE-2026-0967    libssh@0.10.4-18.el9   /var/lib/rpm/rpmdb.sqlite
+      CVE-2026-0968    libssh@0.10.4-18.el9   /var/lib/rpm/rpmdb.sqlite
+      CVE-2026-59851   libssh@0.10.4-18.el9   /var/lib/rpm/rpmdb.sqlite
+    6 unlabeled
+      6 CVEs on pkg:rpm/rocky/libssh@0.10.4-18.el9
+      nvd:cpe cpe-match
+      CVE-2025-5372    libssh@0.10.4-18.el9   /var/lib/rpm/rpmdb.sqlite
+      CVE-2026-3731    libssh@0.10.4-18.el9   /var/lib/rpm/rpmdb.sqlite
+      CVE-2026-59843   libssh@0.10.4-18.el9   /var/lib/rpm/rpmdb.sqlite
+      CVE-2026-59845   libssh@0.10.4-18.el9   /var/lib/rpm/rpmdb.sqlite
+      CVE-2026-59847   libssh@0.10.4-18.el9   /var/lib/rpm/rpmdb.sqlite
+      CVE-2026-59850   libssh@0.10.4-18.el9   /var/lib/rpm/rpmdb.sqlite
+    3 unlabeled
+      CVE-2026-59844, CVE-2026-59846, CVE-2026-59848
+      on pkg:rpm/rocky/libssh@0.10.4-18.el9
+      redhat:distro:redhat:9 exact-direct-match
+      CVE-2026-59844   libssh@0.10.4-18.el9   /var/lib/rpm/rpmdb.sqlite
+      CVE-2026-59846   libssh@0.10.4-18.el9   /var/lib/rpm/rpmdb.sqlite
+      CVE-2026-59848   libssh@0.10.4-18.el9   /var/lib/rpm/rpmdb.sqlite
+    3 unlabeled
+      CVE-2026-13595, CVE-2026-27456, CVE-2026-53613
+      on pkg:rpm/rocky/libblkid@2.37.4-25.el9
+      redhat:distro:redhat:9 exact-indirect-match
+      CVE-2026-13595   libblkid@2.37.4-25.el9   /var/lib/rpm/rpmdb.sqlite
+      CVE-2026-27456   libblkid@2.37.4-25.el9   /var/lib/rpm/rpmdb.sqlite
+      CVE-2026-53613   libblkid@2.37.4-25.el9   /var/lib/rpm/rpmdb.sqlite
+    8 unlabeled
+      8 CVEs on pkg:rpm/rocky/pcre2@10.40-6.el9
+      redhat:distro:redhat:9 exact-direct-match
+      CVE-2022-41409    pcre2@10.40-6.el9   /var/lib/rpm/rpmdb.sqlite
+      CVE-2026-103111   pcre2@10.40-6.el9   /var/lib/rpm/rpmdb.sqlite
+      CVE-2026-86145    pcre2@10.40-6.el9   /var/lib/rpm/rpmdb.sqlite
+      CVE-2026-89156    pcre2@10.40-6.el9   /var/lib/rpm/rpmdb.sqlite
+      CVE-2026-89157    pcre2@10.40-6.el9   /var/lib/rpm/rpmdb.sqlite
+      CVE-2026-89158    pcre2@10.40-6.el9   /var/lib/rpm/rpmdb.sqlite
+      CVE-2026-89160    pcre2@10.40-6.el9   /var/lib/rpm/rpmdb.sqlite
+      CVE-2026-89161    pcre2@10.40-6.el9   /var/lib/rpm/rpmdb.sqlite
+    5 unlabeled
+      5 CVEs on pkg:rpm/rocky/sqlite-libs@3.34.1-9.el9_7
+      redhat:distro:redhat:9 exact-indirect-match
+      CVE-2024-0232    sqlite-libs@3.34.1-9.el9_7   /var/lib/rpm/rpmdb.sqlite
+      CVE-2025-70873   sqlite-libs@3.34.1-9.el9_7   /var/lib/rpm/rpmdb.sqlite
+      CVE-2026-11822   sqlite-libs@3.34.1-9.el9_7   /var/lib/rpm/rpmdb.sqlite
+      CVE-2026-11824   sqlite-libs@3.34.1-9.el9_7   /var/lib/rpm/rpmdb.sqlite
+      CVE-2026-50812   sqlite-libs@3.34.1-9.el9_7   /var/lib/rpm/rpmdb.sqlite
+    2 unlabeled
+      CVE-2026-41989, CVE-2026-41990 on pkg:rpm/rocky/libgcrypt@1.10.0-11.el9
+      redhat:distro:redhat:9 exact-direct-match
+      CVE-2026-41989   libgcrypt@1.10.0-11.el9   /var/lib/rpm/rpmdb.sqlite
+      CVE-2026-41990   libgcrypt@1.10.0-11.el9   /var/lib/rpm/rpmdb.sqlite
+    1 unlabeled
+      CVE-2026-42250 on pkg:rpm/rocky/bzip2-libs@1.0.8-11.el9
+      redhat:distro:redhat:9 exact-indirect-match
+      CVE-2026-42250   bzip2-libs@1.0.8-11.el9   /var/lib/rpm/rpmdb.sqlite
+    3 unlabeled
+      CVE-2025-5278, CVE-2026-56391, CVE-2026-56392
+      on pkg:rpm/rocky/coreutils-single@8.32-40.el9
+      redhat:distro:redhat:9 exact-indirect-match
+      CVE-2025-5278    coreutils-single@8.32-40.el9   /var/lib/rpm/rpmdb.sqlite
+      CVE-2026-56391   coreutils-single@8.32-40.el9   /var/lib/rpm/rpmdb.sqlite
+      CVE-2026-56392   coreutils-single@8.32-40.el9   /var/lib/rpm/rpmdb.sqlite
+    14 unlabeled
+      14 CVEs on pkg:rpm/rocky/openssl@3.5.5-2.el9_8
+      redhat:distro:redhat:9 exact-direct-match
+      CVE-2024-13176   openssl@3.5.5-2.el9_8   /var/lib/rpm/rpmdb.sqlite
+      CVE-2024-41996   openssl@3.5.5-2.el9_8   /var/lib/rpm/rpmdb.sqlite
+      CVE-2025-9232    openssl@3.5.5-2.el9_8   /var/lib/rpm/rpmdb.sqlite
+      CVE-2026-14456   openssl@3.5.5-2.el9_8   /var/lib/rpm/rpmdb.sqlite
+      CVE-2026-35191   openssl@3.5.5-2.el9_8   /var/lib/rpm/rpmdb.sqlite
+      CVE-2026-42765   openssl@3.5.5-2.el9_8   /var/lib/rpm/rpmdb.sqlite
+      CVE-2026-42768   openssl@3.5.5-2.el9_8   /var/lib/rpm/rpmdb.sqlite
+      CVE-2026-42770   openssl@3.5.5-2.el9_8   /var/lib/rpm/rpmdb.sqlite
+      CVE-2026-54872   openssl@3.5.5-2.el9_8   /var/lib/rpm/rpmdb.sqlite
+      CVE-2026-54875   openssl@3.5.5-2.el9_8   /var/lib/rpm/rpmdb.sqlite
+      CVE-2026-75804   openssl@3.5.5-2.el9_8   /var/lib/rpm/rpmdb.sqlite
+      CVE-2026-75805   openssl@3.5.5-2.el9_8   /var/lib/rpm/rpmdb.sqlite
+      CVE-2026-75806   openssl@3.5.5-2.el9_8   /var/lib/rpm/rpmdb.sqlite
+      CVE-2026-77696   openssl@3.5.5-2.el9_8   /var/lib/rpm/rpmdb.sqlite
+    34 unlabeled
+      34 CVEs on pkg:rpm/rocky/openssl@3.5.5-2.el9_8
+      nvd:cpe cpe-match
+      CVE-2026-14457   openssl@3.5.5-2.el9_8   /var/lib/rpm/rpmdb.sqlite
+      CVE-2026-18798   openssl@3.5.5-2.el9_8   /var/lib/rpm/rpmdb.sqlite
+      CVE-2026-2673    openssl@3.5.5-2.el9_8   /var/lib/rpm/rpmdb.sqlite
+      CVE-2026-28387   openssl@3.5.5-2.el9_8   /var/lib/rpm/rpmdb.sqlite
+      CVE-2026-28388   openssl@3.5.5-2.el9_8   /var/lib/rpm/rpmdb.sqlite
+      CVE-2026-28389   openssl@3.5.5-2.el9_8   /var/lib/rpm/rpmdb.sqlite
+      CVE-2026-28390   openssl@3.5.5-2.el9_8   /var/lib/rpm/rpmdb.sqlite
+      CVE-2026-31789   openssl@3.5.5-2.el9_8   /var/lib/rpm/rpmdb.sqlite
+      CVE-2026-34180   openssl@3.5.5-2.el9_8   /var/lib/rpm/rpmdb.sqlite
+      CVE-2026-34181   openssl@3.5.5-2.el9_8   /var/lib/rpm/rpmdb.sqlite
+      CVE-2026-34182   openssl@3.5.5-2.el9_8   /var/lib/rpm/rpmdb.sqlite
+      CVE-2026-34183   openssl@3.5.5-2.el9_8   /var/lib/rpm/rpmdb.sqlite
+      CVE-2026-35189   openssl@3.5.5-2.el9_8   /var/lib/rpm/rpmdb.sqlite
+      CVE-2026-42764   openssl@3.5.5-2.el9_8   /var/lib/rpm/rpmdb.sqlite
+      CVE-2026-42766   openssl@3.5.5-2.el9_8   /var/lib/rpm/rpmdb.sqlite
+      CVE-2026-42767   openssl@3.5.5-2.el9_8   /var/lib/rpm/rpmdb.sqlite
+      CVE-2026-42769   openssl@3.5.5-2.el9_8   /var/lib/rpm/rpmdb.sqlite
+      CVE-2026-42772   openssl@3.5.5-2.el9_8   /var/lib/rpm/rpmdb.sqlite
+      CVE-2026-45445   openssl@3.5.5-2.el9_8   /var/lib/rpm/rpmdb.sqlite
+      CVE-2026-45446   openssl@3.5.5-2.el9_8   /var/lib/rpm/rpmdb.sqlite
+      CVE-2026-45447   openssl@3.5.5-2.el9_8   /var/lib/rpm/rpmdb.sqlite
+      CVE-2026-54873   openssl@3.5.5-2.el9_8   /var/lib/rpm/rpmdb.sqlite
+      CVE-2026-54874   openssl@3.5.5-2.el9_8   /var/lib/rpm/rpmdb.sqlite
+      CVE-2026-63072   openssl@3.5.5-2.el9_8   /var/lib/rpm/rpmdb.sqlite
+      CVE-2026-63073   openssl@3.5.5-2.el9_8   /var/lib/rpm/rpmdb.sqlite
+      CVE-2026-63074   openssl@3.5.5-2.el9_8   /var/lib/rpm/rpmdb.sqlite
+      CVE-2026-63075   openssl@3.5.5-2.el9_8   /var/lib/rpm/rpmdb.sqlite
+      CVE-2026-63076   openssl@3.5.5-2.el9_8   /var/lib/rpm/rpmdb.sqlite
+      CVE-2026-72897   openssl@3.5.5-2.el9_8   /var/lib/rpm/rpmdb.sqlite
+      CVE-2026-7383    openssl@3.5.5-2.el9_8   /var/lib/rpm/rpmdb.sqlite
+      CVE-2026-75803   openssl@3.5.5-2.el9_8   /var/lib/rpm/rpmdb.sqlite
+      CVE-2026-84782   openssl@3.5.5-2.el9_8   /var/lib/rpm/rpmdb.sqlite
+      CVE-2026-84784   openssl@3.5.5-2.el9_8   /var/lib/rpm/rpmdb.sqlite
+      CVE-2026-9076    openssl@3.5.5-2.el9_8   /var/lib/rpm/rpmdb.sqlite
+    1 unlabeled
+      CVE-2026-31790 on pkg:rpm/rocky/openssl@3.5.5-2.el9_8
+      nvd:cpe cpe-match; the gate passes however one is labeled
+      CVE-2026-31790   openssl@3.5.5-2.el9_8   /var/lib/rpm/rpmdb.sqlite
+    1 unlabeled
+      CVE-2026-58055 on pkg:rpm/rocky/libnghttp2@1.43.0-6.el9_7.1
+      redhat:distro:redhat:9 exact-indirect-match
+      CVE-2026-58055   libnghttp2@1.43.0-6.el9_7.1   /var/lib/rpm/rpmdb.sqlite
+    4 unlabeled
+      CVE-2021-46195, CVE-2022-27943, CVE-2026-102010, CVE-2026-95619
+      on pkg:rpm/rocky/libstdc%2B%2B@11.5.0-14.el9
+      redhat:distro:redhat:9 exact-indirect-match
+      CVE-2021-46195    libstdc%2B%2B@11.5.0-14.el9   /var/lib/rpm/rpmdb.sqlite
+      CVE-2022-27943    libstdc%2B%2B@11.5.0-14.el9   /var/lib/rpm/rpmdb.sqlite
+      CVE-2026-102010   libstdc%2B%2B@11.5.0-14.el9   /var/lib/rpm/rpmdb.sqlite
+      CVE-2026-95619    libstdc%2B%2B@11.5.0-14.el9   /var/lib/rpm/rpmdb.sqlite
+    29 unlabeled
+      29 CVEs on pkg:rpm/rocky/curl@7.76.1-40.el9
+      redhat:distro:redhat:9 exact-direct-match
+      CVE-2024-11053   curl@7.76.1-40.el9   /var/lib/rpm/rpmdb.sqlite
+      CVE-2024-7264    curl@7.76.1-40.el9   /var/lib/rpm/rpmdb.sqlite
+      CVE-2024-9681    curl@7.76.1-40.el9   /var/lib/rpm/rpmdb.sqlite
+      CVE-2025-13034   curl@7.76.1-40.el9   /var/lib/rpm/rpmdb.sqlite
+      CVE-2025-14017   curl@7.76.1-40.el9   /var/lib/rpm/rpmdb.sqlite
+      CVE-2025-14524   curl@7.76.1-40.el9   /var/lib/rpm/rpmdb.sqlite
+      CVE-2025-15079   curl@7.76.1-40.el9   /var/lib/rpm/rpmdb.sqlite
+      CVE-2025-15224   curl@7.76.1-40.el9   /var/lib/rpm/rpmdb.sqlite
+      CVE-2026-11856   curl@7.76.1-40.el9   /var/lib/rpm/rpmdb.sqlite
+      CVE-2026-18924   curl@7.76.1-40.el9   /var/lib/rpm/rpmdb.sqlite
+      CVE-2026-1965    curl@7.76.1-40.el9   /var/lib/rpm/rpmdb.sqlite
+      CVE-2026-19931   curl@7.76.1-40.el9   /var/lib/rpm/rpmdb.sqlite
+      CVE-2026-3783    curl@7.76.1-40.el9   /var/lib/rpm/rpmdb.sqlite
+      CVE-2026-3784    curl@7.76.1-40.el9   /var/lib/rpm/rpmdb.sqlite
+      CVE-2026-4873    curl@7.76.1-40.el9   /var/lib/rpm/rpmdb.sqlite
+      CVE-2026-5545    curl@7.76.1-40.el9   /var/lib/rpm/rpmdb.sqlite
+      CVE-2026-5773    curl@7.76.1-40.el9   /var/lib/rpm/rpmdb.sqlite
+      CVE-2026-6253    curl@7.76.1-40.el9   /var/lib/rpm/rpmdb.sqlite
+      CVE-2026-6276    curl@7.76.1-40.el9   /var/lib/rpm/rpmdb.sqlite
+      CVE-2026-6429    curl@7.76.1-40.el9   /var/lib/rpm/rpmdb.sqlite
+      CVE-2026-7168    curl@7.76.1-40.el9   /var/lib/rpm/rpmdb.sqlite
+      CVE-2026-80230   curl@7.76.1-40.el9   /var/lib/rpm/rpmdb.sqlite
+      CVE-2026-82209   curl@7.76.1-40.el9   /var/lib/rpm/rpmdb.sqlite
+      CVE-2026-8286    curl@7.76.1-40.el9   /var/lib/rpm/rpmdb.sqlite
+      CVE-2026-8458    curl@7.76.1-40.el9   /var/lib/rpm/rpmdb.sqlite
+      CVE-2026-8924    curl@7.76.1-40.el9   /var/lib/rpm/rpmdb.sqlite
+      CVE-2026-8927    curl@7.76.1-40.el9   /var/lib/rpm/rpmdb.sqlite
+      CVE-2026-8932    curl@7.76.1-40.el9   /var/lib/rpm/rpmdb.sqlite
+      CVE-2026-9547    curl@7.76.1-40.el9   /var/lib/rpm/rpmdb.sqlite
+    3 unlabeled
+      CVE-2026-13595, CVE-2026-27456, CVE-2026-53613
+      on pkg:rpm/rocky/libfdisk@2.37.4-25.el9
+      redhat:distro:redhat:9 exact-indirect-match
+      CVE-2026-13595   libfdisk@2.37.4-25.el9   /var/lib/rpm/rpmdb.sqlite
+      CVE-2026-27456   libfdisk@2.37.4-25.el9   /var/lib/rpm/rpmdb.sqlite
+      CVE-2026-53613   libfdisk@2.37.4-25.el9   /var/lib/rpm/rpmdb.sqlite
+    3 unlabeled
+      CVE-2026-13595, CVE-2026-27456, CVE-2026-53613
+      on pkg:rpm/rocky/util-linux@2.37.4-25.el9
+      redhat:distro:redhat:9 exact-direct-match
+      CVE-2026-13595   util-linux@2.37.4-25.el9   /var/lib/rpm/rpmdb.sqlite
+      CVE-2026-27456   util-linux@2.37.4-25.el9   /var/lib/rpm/rpmdb.sqlite
+      CVE-2026-53613   util-linux@2.37.4-25.el9   /var/lib/rpm/rpmdb.sqlite
+    9 unlabeled
+      9 CVEs on pkg:rpm/rocky/libssh-config@0.10.4-18.el9
+      redhat:distro:redhat:9 exact-indirect-match
+      CVE-2025-5372    libssh-config@0.10.4-18.el9   /var/lib/rpm/rpmdb.sqlite
+      CVE-2026-3731    libssh-config@0.10.4-18.el9   /var/lib/rpm/rpmdb.sqlite
+      CVE-2026-59843   libssh-config@0.10.4-18.el9   /var/lib/rpm/rpmdb.sqlite
+      CVE-2026-59844   libssh-config@0.10.4-18.el9   /var/lib/rpm/rpmdb.sqlite
+      CVE-2026-59845   libssh-config@0.10.4-18.el9   /var/lib/rpm/rpmdb.sqlite
+      CVE-2026-59846   libssh-config@0.10.4-18.el9   /var/lib/rpm/rpmdb.sqlite
+      CVE-2026-59847   libssh-config@0.10.4-18.el9   /var/lib/rpm/rpmdb.sqlite
+      CVE-2026-59848   libssh-config@0.10.4-18.el9   /var/lib/rpm/rpmdb.sqlite
+      CVE-2026-59850   libssh-config@0.10.4-18.el9   /var/lib/rpm/rpmdb.sqlite
+    1 unlabeled
+      CVE-2023-50495 on pkg:rpm/rocky/ncurses-libs@6.2-12.20210508.el9
+      redhat:distro:redhat:9 exact-indirect-match
+      CVE-2023-50495   ncurses-libs@6.2-12.20210508.el9   /var/lib/rpm/rpmdb.sqlite
+    1 unlabeled
+      CVE-2026-13757 on pkg:rpm/rocky/p11-kit-trust@0.26.2-1.el9
+      redhat:distro:redhat:9 exact-indirect-match
+      CVE-2026-13757   p11-kit-trust@0.26.2-1.el9   /var/lib/rpm/rpmdb.sqlite
+    11 unlabeled
+      11 CVEs on pkg:rpm/rocky/libarchive@3.5.3-9.el9_7
+      nvd:cpe cpe-match; the gate passes however one is labeled
+      CVE-2022-36227   libarchive@3.5.3-9.el9_7   /var/lib/rpm/rpmdb.sqlite
+      CVE-2024-20697   libarchive@3.5.3-9.el9_7   /var/lib/rpm/rpmdb.sqlite
+      CVE-2024-26256   libarchive@3.5.3-9.el9_7   /var/lib/rpm/rpmdb.sqlite
+      CVE-2024-48615   libarchive@3.5.3-9.el9_7   /var/lib/rpm/rpmdb.sqlite
+      CVE-2024-48957   libarchive@3.5.3-9.el9_7   /var/lib/rpm/rpmdb.sqlite
+      CVE-2024-48958   libarchive@3.5.3-9.el9_7   /var/lib/rpm/rpmdb.sqlite
+      CVE-2024-57970   libarchive@3.5.3-9.el9_7   /var/lib/rpm/rpmdb.sqlite
+      CVE-2025-25724   libarchive@3.5.3-9.el9_7   /var/lib/rpm/rpmdb.sqlite
+      CVE-2025-5914    libarchive@3.5.3-9.el9_7   /var/lib/rpm/rpmdb.sqlite
+      CVE-2026-4424    libarchive@3.5.3-9.el9_7   /var/lib/rpm/rpmdb.sqlite
+      CVE-2026-5121    libarchive@3.5.3-9.el9_7   /var/lib/rpm/rpmdb.sqlite
+    6 unlabeled
+      6 CVEs on pkg:rpm/rocky/libarchive@3.5.3-9.el9_7
+      redhat:distro:redhat:9 exact-direct-match
+      CVE-2023-30571   libarchive@3.5.3-9.el9_7   /var/lib/rpm/rpmdb.sqlite
+      CVE-2025-60753   libarchive@3.5.3-9.el9_7   /var/lib/rpm/rpmdb.sqlite
+      CVE-2026-14164   libarchive@3.5.3-9.el9_7   /var/lib/rpm/rpmdb.sqlite
+      CVE-2026-15028   libarchive@3.5.3-9.el9_7   /var/lib/rpm/rpmdb.sqlite
+      CVE-2026-4426    libarchive@3.5.3-9.el9_7   /var/lib/rpm/rpmdb.sqlite
+      CVE-2026-5745    libarchive@3.5.3-9.el9_7   /var/lib/rpm/rpmdb.sqlite
+    5 unlabeled
+      5 CVEs on pkg:rpm/rocky/libarchive@3.5.3-9.el9_7
+      nvd:cpe cpe-match
+      CVE-2025-1632   libarchive@3.5.3-9.el9_7   /var/lib/rpm/rpmdb.sqlite
+      CVE-2025-5915   libarchive@3.5.3-9.el9_7   /var/lib/rpm/rpmdb.sqlite
+      CVE-2025-5916   libarchive@3.5.3-9.el9_7   /var/lib/rpm/rpmdb.sqlite
+      CVE-2025-5917   libarchive@3.5.3-9.el9_7   /var/lib/rpm/rpmdb.sqlite
+      CVE-2025-5918   libarchive@3.5.3-9.el9_7   /var/lib/rpm/rpmdb.sqlite
+    1 unlabeled
+      CVE-2023-50495 on pkg:rpm/rocky/ncurses-base@6.2-12.20210508.el9
+      redhat:distro:redhat:9 exact-indirect-match
+      CVE-2023-50495   ncurses-base@6.2-12.20210508.el9   /var/lib/rpm/rpmdb.sqlite
+    4 unlabeled
+      CVE-2021-46195, CVE-2022-27943, CVE-2026-102010, CVE-2026-95619
+      on pkg:rpm/rocky/libgcc@11.5.0-14.el9
+      redhat:distro:redhat:9 exact-indirect-match
+      CVE-2021-46195    libgcc@11.5.0-14.el9   /var/lib/rpm/rpmdb.sqlite
+      CVE-2022-27943    libgcc@11.5.0-14.el9   /var/lib/rpm/rpmdb.sqlite
+      CVE-2026-102010   libgcc@11.5.0-14.el9   /var/lib/rpm/rpmdb.sqlite
+      CVE-2026-95619    libgcc@11.5.0-14.el9   /var/lib/rpm/rpmdb.sqlite
+    16 unlabeled
+      16 CVEs on pkg:rpm/rocky/gnutls@3.8.10-3.el9
+      redhat:distro:redhat:9 exact-direct-match
+      CVE-2026-33845   gnutls@3.8.10-3.el9   /var/lib/rpm/rpmdb.sqlite
+      CVE-2026-33846   gnutls@3.8.10-3.el9   /var/lib/rpm/rpmdb.sqlite
+      CVE-2026-3832    gnutls@3.8.10-3.el9   /var/lib/rpm/rpmdb.sqlite
+      CVE-2026-3833    gnutls@3.8.10-3.el9   /var/lib/rpm/rpmdb.sqlite
+      CVE-2026-42009   gnutls@3.8.10-3.el9   /var/lib/rpm/rpmdb.sqlite
+      CVE-2026-42010   gnutls@3.8.10-3.el9   /var/lib/rpm/rpmdb.sqlite
+      CVE-2026-42011   gnutls@3.8.10-3.el9   /var/lib/rpm/rpmdb.sqlite
+      CVE-2026-42012   gnutls@3.8.10-3.el9   /var/lib/rpm/rpmdb.sqlite
+      CVE-2026-42013   gnutls@3.8.10-3.el9   /var/lib/rpm/rpmdb.sqlite
+      CVE-2026-42014   gnutls@3.8.10-3.el9   /var/lib/rpm/rpmdb.sqlite
+      CVE-2026-42015   gnutls@3.8.10-3.el9   /var/lib/rpm/rpmdb.sqlite
+      CVE-2026-5260    gnutls@3.8.10-3.el9   /var/lib/rpm/rpmdb.sqlite
+      CVE-2026-5419    gnutls@3.8.10-3.el9   /var/lib/rpm/rpmdb.sqlite
+      CVE-2026-67693   gnutls@3.8.10-3.el9   /var/lib/rpm/rpmdb.sqlite
+      CVE-2026-88647   gnutls@3.8.10-3.el9   /var/lib/rpm/rpmdb.sqlite
+      CVE-2026-88648   gnutls@3.8.10-3.el9   /var/lib/rpm/rpmdb.sqlite
+    2 unlabeled
+      CVE-2026-41991, CVE-2026-41992 on pkg:rpm/rocky/gzip@1.12-1.el9
+      redhat:distro:redhat:9 exact-direct-match
+      CVE-2026-41991   gzip@1.12-1.el9   /var/lib/rpm/rpmdb.sqlite
+      CVE-2026-41992   gzip@1.12-1.el9   /var/lib/rpm/rpmdb.sqlite
+    4 unlabeled
+      CVE-2021-3521, CVE-2021-35937, CVE-2021-35938, CVE-2021-35939
+      on pkg:rpm/rocky/rpm@4.16.1.3-40.el9
+      nvd:cpe cpe-match; the gate passes however one is labeled
+      CVE-2021-3521    rpm@4.16.1.3-40.el9   /var/lib/rpm/rpmdb.sqlite
+      CVE-2021-35937   rpm@4.16.1.3-40.el9   /var/lib/rpm/rpmdb.sqlite
+      CVE-2021-35938   rpm@4.16.1.3-40.el9   /var/lib/rpm/rpmdb.sqlite
+      CVE-2021-35939   rpm@4.16.1.3-40.el9   /var/lib/rpm/rpmdb.sqlite
+    7 unlabeled
+      7 CVEs on pkg:rpm/rocky/rpm@4.16.1.3-40.el9
+      redhat:distro:redhat:9 exact-direct-match
+      CVE-2026-103242   rpm@4.16.1.3-40.el9   /var/lib/rpm/rpmdb.sqlite
+      CVE-2026-44605    rpm@4.16.1.3-40.el9   /var/lib/rpm/rpmdb.sqlite
+      CVE-2026-78367    rpm@4.16.1.3-40.el9   /var/lib/rpm/rpmdb.sqlite
+      CVE-2026-84837    rpm@4.16.1.3-40.el9   /var/lib/rpm/rpmdb.sqlite
+      CVE-2026-95519    rpm@4.16.1.3-40.el9   /var/lib/rpm/rpmdb.sqlite
+      CVE-2026-95520    rpm@4.16.1.3-40.el9   /var/lib/rpm/rpmdb.sqlite
+      CVE-2026-95521    rpm@4.16.1.3-40.el9   /var/lib/rpm/rpmdb.sqlite
+    1 unlabeled
+      CVE-2026-12610 on pkg:rpm/rocky/pam@1.5.1-28.el9
+      redhat:distro:redhat:9 exact-direct-match
+      CVE-2026-12610   pam@1.5.1-28.el9   /var/lib/rpm/rpmdb.sqlite
+    17 unlabeled
+      17 CVEs on pkg:rpm/rocky/glib2@2.68.4-19.el9_8.1
+      redhat:distro:redhat:9 exact-direct-match
+      CVE-2023-32636   glib2@2.68.4-19.el9_8.1   /var/lib/rpm/rpmdb.sqlite
+      CVE-2025-3360    glib2@2.68.4-19.el9_8.1   /var/lib/rpm/rpmdb.sqlite
+      CVE-2025-7039    glib2@2.68.4-19.el9_8.1   /var/lib/rpm/rpmdb.sqlite
+      CVE-2026-0988    glib2@2.68.4-19.el9_8.1   /var/lib/rpm/rpmdb.sqlite
+      CVE-2026-1484    glib2@2.68.4-19.el9_8.1   /var/lib/rpm/rpmdb.sqlite
+      CVE-2026-1485    glib2@2.68.4-19.el9_8.1   /var/lib/rpm/rpmdb.sqlite
+      CVE-2026-1489    glib2@2.68.4-19.el9_8.1   /var/lib/rpm/rpmdb.sqlite
+      CVE-2026-15588   glib2@2.68.4-19.el9_8.1   /var/lib/rpm/rpmdb.sqlite
+      CVE-2026-16118   glib2@2.68.4-19.el9_8.1   /var/lib/rpm/rpmdb.sqlite
+      CVE-2026-58010   glib2@2.68.4-19.el9_8.1   /var/lib/rpm/rpmdb.sqlite
+      CVE-2026-58011   glib2@2.68.4-19.el9_8.1   /var/lib/rpm/rpmdb.sqlite
+      CVE-2026-58012   glib2@2.68.4-19.el9_8.1   /var/lib/rpm/rpmdb.sqlite
+      CVE-2026-58013   glib2@2.68.4-19.el9_8.1   /var/lib/rpm/rpmdb.sqlite
+      CVE-2026-58014   glib2@2.68.4-19.el9_8.1   /var/lib/rpm/rpmdb.sqlite
+      CVE-2026-58015   glib2@2.68.4-19.el9_8.1   /var/lib/rpm/rpmdb.sqlite
+      CVE-2026-58016   glib2@2.68.4-19.el9_8.1   /var/lib/rpm/rpmdb.sqlite
+      CVE-2026-86469   glib2@2.68.4-19.el9_8.1   /var/lib/rpm/rpmdb.sqlite
+    1 unlabeled
+      CVE-2026-5958 on pkg:rpm/rocky/sed@4.8-10.el9_8
+      redhat:distro:redhat:9 exact-direct-match
+      CVE-2026-5958   sed@4.8-10.el9_8   /var/lib/rpm/rpmdb.sqlite
+    3 unlabeled
+      CVE-2026-13595, CVE-2026-27456, CVE-2026-53613
+      on pkg:rpm/rocky/libuuid@2.37.4-25.el9
+      redhat:distro:redhat:9 exact-indirect-match
+      CVE-2026-13595   libuuid@2.37.4-25.el9   /var/lib/rpm/rpmdb.sqlite
+      CVE-2026-27456   libuuid@2.37.4-25.el9   /var/lib/rpm/rpmdb.sqlite
+      CVE-2026-53613   libuuid@2.37.4-25.el9   /var/lib/rpm/rpmdb.sqlite
+    1 unlabeled
+      CVE-2026-54371 on pkg:rpm/rocky/libattr@2.5.1-3.el9
+      redhat:distro:redhat:9 exact-indirect-match
+      CVE-2026-54371   libattr@2.5.1-3.el9   /var/lib/rpm/rpmdb.sqlite
+    18 unlabeled
+      18 CVEs on pkg:rpm/rocky/glibc-minimal-langpack@2.34-266.el9_8
+      redhat:distro:redhat:9 exact-indirect-match
+      CVE-2026-18374   glibc-minimal-langpack@2.34-266.el9_8   /var/lib/rpm/rpmdb.sqlite
+      CVE-2026-19542   glibc-minimal-langpack@2.34-266.el9_8   /var/lib/rpm/rpmdb.sqlite
+      CVE-2026-4046    glibc-minimal-langpack@2.34-266.el9_8   /var/lib/rpm/rpmdb.sqlite
+      CVE-2026-4437    glibc-minimal-langpack@2.34-266.el9_8   /var/lib/rpm/rpmdb.sqlite
+      CVE-2026-4438    glibc-minimal-langpack@2.34-266.el9_8   /var/lib/rpm/rpmdb.sqlite
+      CVE-2026-5435    glibc-minimal-langpack@2.34-266.el9_8   /var/lib/rpm/rpmdb.sqlite
+      CVE-2026-5450    glibc-minimal-langpack@2.34-266.el9_8   /var/lib/rpm/rpmdb.sqlite
+      CVE-2026-5928    glibc-minimal-langpack@2.34-266.el9_8   /var/lib/rpm/rpmdb.sqlite
+      CVE-2026-6238    glibc-minimal-langpack@2.34-266.el9_8   /var/lib/rpm/rpmdb.sqlite
+      CVE-2026-6368    glibc-minimal-langpack@2.34-266.el9_8   /var/lib/rpm/rpmdb.sqlite
+      CVE-2026-6791    glibc-minimal-langpack@2.34-266.el9_8   /var/lib/rpm/rpmdb.sqlite
+      CVE-2026-77117   glibc-minimal-langpack@2.34-266.el9_8   /var/lib/rpm/rpmdb.sqlite
+      CVE-2026-80489   glibc-minimal-langpack@2.34-266.el9_8   /var/lib/rpm/rpmdb.sqlite
+      CVE-2026-8674    glibc-minimal-langpack@2.34-266.el9_8   /var/lib/rpm/rpmdb.sqlite
+      CVE-2026-86805   glibc-minimal-langpack@2.34-266.el9_8   /var/lib/rpm/rpmdb.sqlite
+      CVE-2026-89092   glibc-minimal-langpack@2.34-266.el9_8   /var/lib/rpm/rpmdb.sqlite
+      CVE-2026-95818   glibc-minimal-langpack@2.34-266.el9_8   /var/lib/rpm/rpmdb.sqlite
+      CVE-2026-97399   glibc-minimal-langpack@2.34-266.el9_8   /var/lib/rpm/rpmdb.sqlite
+    29 unlabeled
+      29 CVEs on pkg:rpm/rocky/libcurl@7.76.1-40.el9
+      redhat:distro:redhat:9 exact-indirect-match
+      CVE-2024-11053   libcurl@7.76.1-40.el9   /var/lib/rpm/rpmdb.sqlite
+      CVE-2024-7264    libcurl@7.76.1-40.el9   /var/lib/rpm/rpmdb.sqlite
+      CVE-2024-9681    libcurl@7.76.1-40.el9   /var/lib/rpm/rpmdb.sqlite
+      CVE-2025-13034   libcurl@7.76.1-40.el9   /var/lib/rpm/rpmdb.sqlite
+      CVE-2025-14017   libcurl@7.76.1-40.el9   /var/lib/rpm/rpmdb.sqlite
+      CVE-2025-14524   libcurl@7.76.1-40.el9   /var/lib/rpm/rpmdb.sqlite
+      CVE-2025-15079   libcurl@7.76.1-40.el9   /var/lib/rpm/rpmdb.sqlite
+      CVE-2025-15224   libcurl@7.76.1-40.el9   /var/lib/rpm/rpmdb.sqlite
+      CVE-2026-11856   libcurl@7.76.1-40.el9   /var/lib/rpm/rpmdb.sqlite
+      CVE-2026-18924   libcurl@7.76.1-40.el9   /var/lib/rpm/rpmdb.sqlite
+      CVE-2026-1965    libcurl@7.76.1-40.el9   /var/lib/rpm/rpmdb.sqlite
+      CVE-2026-19931   libcurl@7.76.1-40.el9   /var/lib/rpm/rpmdb.sqlite
+      CVE-2026-3783    libcurl@7.76.1-40.el9   /var/lib/rpm/rpmdb.sqlite
+      CVE-2026-3784    libcurl@7.76.1-40.el9   /var/lib/rpm/rpmdb.sqlite
+      CVE-2026-4873    libcurl@7.76.1-40.el9   /var/lib/rpm/rpmdb.sqlite
+      CVE-2026-5545    libcurl@7.76.1-40.el9   /var/lib/rpm/rpmdb.sqlite
+      CVE-2026-5773    libcurl@7.76.1-40.el9   /var/lib/rpm/rpmdb.sqlite
+      CVE-2026-6253    libcurl@7.76.1-40.el9   /var/lib/rpm/rpmdb.sqlite
+      CVE-2026-6276    libcurl@7.76.1-40.el9   /var/lib/rpm/rpmdb.sqlite
+      CVE-2026-6429    libcurl@7.76.1-40.el9   /var/lib/rpm/rpmdb.sqlite
+      CVE-2026-7168    libcurl@7.76.1-40.el9   /var/lib/rpm/rpmdb.sqlite
+      CVE-2026-80230   libcurl@7.76.1-40.el9   /var/lib/rpm/rpmdb.sqlite
+      CVE-2026-82209   libcurl@7.76.1-40.el9   /var/lib/rpm/rpmdb.sqlite
+      CVE-2026-8286    libcurl@7.76.1-40.el9   /var/lib/rpm/rpmdb.sqlite
+      CVE-2026-8458    libcurl@7.76.1-40.el9   /var/lib/rpm/rpmdb.sqlite
+      CVE-2026-8924    libcurl@7.76.1-40.el9   /var/lib/rpm/rpmdb.sqlite
+      CVE-2026-8927    libcurl@7.76.1-40.el9   /var/lib/rpm/rpmdb.sqlite
+      CVE-2026-8932    libcurl@7.76.1-40.el9   /var/lib/rpm/rpmdb.sqlite
+      CVE-2026-9547    libcurl@7.76.1-40.el9   /var/lib/rpm/rpmdb.sqlite
+    48 unlabeled
+      48 CVEs on pkg:rpm/rocky/openssl-fips-provider@3.5.5-2.el9_8
+      redhat:distro:redhat:9 exact-indirect-match
+      CVE-2024-13176   openssl-fips-provider@3.5.5-2.el9_8   /var/lib/rpm/rpmdb.sqlite
+      CVE-2024-41996   openssl-fips-provider@3.5.5-2.el9_8   /var/lib/rpm/rpmdb.sqlite
+      CVE-2025-9232    openssl-fips-provider@3.5.5-2.el9_8   /var/lib/rpm/rpmdb.sqlite
+      CVE-2026-14456   openssl-fips-provider@3.5.5-2.el9_8   /var/lib/rpm/rpmdb.sqlite
+      CVE-2026-14457   openssl-fips-provider@3.5.5-2.el9_8   /var/lib/rpm/rpmdb.sqlite
+      CVE-2026-18798   openssl-fips-provider@3.5.5-2.el9_8   /var/lib/rpm/rpmdb.sqlite
+      CVE-2026-2673    openssl-fips-provider@3.5.5-2.el9_8   /var/lib/rpm/rpmdb.sqlite
+      CVE-2026-28387   openssl-fips-provider@3.5.5-2.el9_8   /var/lib/rpm/rpmdb.sqlite
+      CVE-2026-28388   openssl-fips-provider@3.5.5-2.el9_8   /var/lib/rpm/rpmdb.sqlite
+      CVE-2026-28389   openssl-fips-provider@3.5.5-2.el9_8   /var/lib/rpm/rpmdb.sqlite
+      CVE-2026-28390   openssl-fips-provider@3.5.5-2.el9_8   /var/lib/rpm/rpmdb.sqlite
+      CVE-2026-31789   openssl-fips-provider@3.5.5-2.el9_8   /var/lib/rpm/rpmdb.sqlite
+      CVE-2026-34180   openssl-fips-provider@3.5.5-2.el9_8   /var/lib/rpm/rpmdb.sqlite
+      CVE-2026-34181   openssl-fips-provider@3.5.5-2.el9_8   /var/lib/rpm/rpmdb.sqlite
+      CVE-2026-34182   openssl-fips-provider@3.5.5-2.el9_8   /var/lib/rpm/rpmdb.sqlite
+      CVE-2026-34183   openssl-fips-provider@3.5.5-2.el9_8   /var/lib/rpm/rpmdb.sqlite
+      CVE-2026-35189   openssl-fips-provider@3.5.5-2.el9_8   /var/lib/rpm/rpmdb.sqlite
+      CVE-2026-35191   openssl-fips-provider@3.5.5-2.el9_8   /var/lib/rpm/rpmdb.sqlite
+      CVE-2026-42764   openssl-fips-provider@3.5.5-2.el9_8   /var/lib/rpm/rpmdb.sqlite
+      CVE-2026-42765   openssl-fips-provider@3.5.5-2.el9_8   /var/lib/rpm/rpmdb.sqlite
+      CVE-2026-42766   openssl-fips-provider@3.5.5-2.el9_8   /var/lib/rpm/rpmdb.sqlite
+      CVE-2026-42767   openssl-fips-provider@3.5.5-2.el9_8   /var/lib/rpm/rpmdb.sqlite
+      CVE-2026-42768   openssl-fips-provider@3.5.5-2.el9_8   /var/lib/rpm/rpmdb.sqlite
+      CVE-2026-42769   openssl-fips-provider@3.5.5-2.el9_8   /var/lib/rpm/rpmdb.sqlite
+      CVE-2026-42770   openssl-fips-provider@3.5.5-2.el9_8   /var/lib/rpm/rpmdb.sqlite
+      CVE-2026-42772   openssl-fips-provider@3.5.5-2.el9_8   /var/lib/rpm/rpmdb.sqlite
+      CVE-2026-45445   openssl-fips-provider@3.5.5-2.el9_8   /var/lib/rpm/rpmdb.sqlite
+      CVE-2026-45446   openssl-fips-provider@3.5.5-2.el9_8   /var/lib/rpm/rpmdb.sqlite
+      CVE-2026-45447   openssl-fips-provider@3.5.5-2.el9_8   /var/lib/rpm/rpmdb.sqlite
+      CVE-2026-54872   openssl-fips-provider@3.5.5-2.el9_8   /var/lib/rpm/rpmdb.sqlite
+      CVE-2026-54873   openssl-fips-provider@3.5.5-2.el9_8   /var/lib/rpm/rpmdb.sqlite
+      CVE-2026-54874   openssl-fips-provider@3.5.5-2.el9_8   /var/lib/rpm/rpmdb.sqlite
+      CVE-2026-54875   openssl-fips-provider@3.5.5-2.el9_8   /var/lib/rpm/rpmdb.sqlite
+      CVE-2026-63072   openssl-fips-provider@3.5.5-2.el9_8   /var/lib/rpm/rpmdb.sqlite
+      CVE-2026-63073   openssl-fips-provider@3.5.5-2.el9_8   /var/lib/rpm/rpmdb.sqlite
+      CVE-2026-63074   openssl-fips-provider@3.5.5-2.el9_8   /var/lib/rpm/rpmdb.sqlite
+      CVE-2026-63075   openssl-fips-provider@3.5.5-2.el9_8   /var/lib/rpm/rpmdb.sqlite
+      CVE-2026-63076   openssl-fips-provider@3.5.5-2.el9_8   /var/lib/rpm/rpmdb.sqlite
+      CVE-2026-72897   openssl-fips-provider@3.5.5-2.el9_8   /var/lib/rpm/rpmdb.sqlite
+      CVE-2026-7383    openssl-fips-provider@3.5.5-2.el9_8   /var/lib/rpm/rpmdb.sqlite
+      CVE-2026-75803   openssl-fips-provider@3.5.5-2.el9_8   /var/lib/rpm/rpmdb.sqlite
+      CVE-2026-75804   openssl-fips-provider@3.5.5-2.el9_8   /var/lib/rpm/rpmdb.sqlite
+      CVE-2026-75805   openssl-fips-provider@3.5.5-2.el9_8   /var/lib/rpm/rpmdb.sqlite
+      CVE-2026-75806   openssl-fips-provider@3.5.5-2.el9_8   /var/lib/rpm/rpmdb.sqlite
+      CVE-2026-77696   openssl-fips-provider@3.5.5-2.el9_8   /var/lib/rpm/rpmdb.sqlite
+      CVE-2026-84782   openssl-fips-provider@3.5.5-2.el9_8   /var/lib/rpm/rpmdb.sqlite
+      CVE-2026-84784   openssl-fips-provider@3.5.5-2.el9_8   /var/lib/rpm/rpmdb.sqlite
+      CVE-2026-9076    openssl-fips-provider@3.5.5-2.el9_8   /var/lib/rpm/rpmdb.sqlite
+    1 unlabeled
+      CVE-2025-13151 on pkg:rpm/rocky/libtasn1@4.16.0-9.el9
+      redhat:distro:redhat:9 exact-direct-match
+      CVE-2025-13151   libtasn1@4.16.0-9.el9   /var/lib/rpm/rpmdb.sqlite
+    1 unlabeled
+      CVE-2026-107161 on pkg:rpm/rocky/cyrus-sasl-lib@2.1.27-22.el9_7
+      redhat:distro:redhat:9 exact-indirect-match
+      CVE-2026-107161   cyrus-sasl-lib@2.1.27-22.el9_7   /var/lib/rpm/rpmdb.sqlite
+    15 unlabeled
+      15 CVEs on pkg:rpm/rocky/libxml2@2.9.13-14.el9_7
+      redhat:distro:redhat:9 exact-direct-match
+      CVE-2023-45322   libxml2@2.9.13-14.el9_7   /var/lib/rpm/rpmdb.sqlite
+      CVE-2024-34459   libxml2@2.9.13-14.el9_7   /var/lib/rpm/rpmdb.sqlite
+      CVE-2025-6170    libxml2@2.9.13-14.el9_7   /var/lib/rpm/rpmdb.sqlite
+      CVE-2026-0989    libxml2@2.9.13-14.el9_7   /var/lib/rpm/rpmdb.sqlite
+      CVE-2026-0990    libxml2@2.9.13-14.el9_7   /var/lib/rpm/rpmdb.sqlite
+      CVE-2026-0992    libxml2@2.9.13-14.el9_7   /var/lib/rpm/rpmdb.sqlite
+      CVE-2026-11979   libxml2@2.9.13-14.el9_7   /var/lib/rpm/rpmdb.sqlite
+      CVE-2026-1757    libxml2@2.9.13-14.el9_7   /var/lib/rpm/rpmdb.sqlite
+      CVE-2026-6653    libxml2@2.9.13-14.el9_7   /var/lib/rpm/rpmdb.sqlite
+      CVE-2026-74860   libxml2@2.9.13-14.el9_7   /var/lib/rpm/rpmdb.sqlite
+      CVE-2026-86138   libxml2@2.9.13-14.el9_7   /var/lib/rpm/rpmdb.sqlite
+      CVE-2026-86140   libxml2@2.9.13-14.el9_7   /var/lib/rpm/rpmdb.sqlite
+      CVE-2026-86142   libxml2@2.9.13-14.el9_7   /var/lib/rpm/rpmdb.sqlite
+      CVE-2026-86143   libxml2@2.9.13-14.el9_7   /var/lib/rpm/rpmdb.sqlite
+      CVE-2026-86144   libxml2@2.9.13-14.el9_7   /var/lib/rpm/rpmdb.sqlite
+    2 unlabeled
+      CVE-2024-56171, CVE-2025-24928 on pkg:rpm/rocky/libxml2@2.9.13-14.el9_7
+      nvd:cpe cpe-match; the gate passes however one is labeled
+      CVE-2024-56171   libxml2@2.9.13-14.el9_7   /var/lib/rpm/rpmdb.sqlite
+      CVE-2025-24928   libxml2@2.9.13-14.el9_7   /var/lib/rpm/rpmdb.sqlite
+    1 unlabeled
+      CVE-2025-27113 on pkg:rpm/rocky/libxml2@2.9.13-14.el9_7
+      nvd:cpe cpe-match
+      CVE-2025-27113   libxml2@2.9.13-14.el9_7   /var/lib/rpm/rpmdb.sqlite
+    3 unlabeled
+      CVE-2026-13595, CVE-2026-27456, CVE-2026-53613
+      on pkg:rpm/rocky/libmount@2.37.4-25.el9
+      redhat:distro:redhat:9 exact-indirect-match
+      CVE-2026-13595   libmount@2.37.4-25.el9   /var/lib/rpm/rpmdb.sqlite
+      CVE-2026-27456   libmount@2.37.4-25.el9   /var/lib/rpm/rpmdb.sqlite
+      CVE-2026-53613   libmount@2.37.4-25.el9   /var/lib/rpm/rpmdb.sqlite
+    18 unlabeled
+      18 CVEs on pkg:rpm/rocky/glibc@2.34-266.el9_8
+      redhat:distro:redhat:9 exact-direct-match
+      CVE-2026-18374   glibc@2.34-266.el9_8   /var/lib/rpm/rpmdb.sqlite
+      CVE-2026-19542   glibc@2.34-266.el9_8   /var/lib/rpm/rpmdb.sqlite
+      CVE-2026-4046    glibc@2.34-266.el9_8   /var/lib/rpm/rpmdb.sqlite
+      CVE-2026-4437    glibc@2.34-266.el9_8   /var/lib/rpm/rpmdb.sqlite
+      CVE-2026-4438    glibc@2.34-266.el9_8   /var/lib/rpm/rpmdb.sqlite
+      CVE-2026-5435    glibc@2.34-266.el9_8   /var/lib/rpm/rpmdb.sqlite
+      CVE-2026-5450    glibc@2.34-266.el9_8   /var/lib/rpm/rpmdb.sqlite
+      CVE-2026-5928    glibc@2.34-266.el9_8   /var/lib/rpm/rpmdb.sqlite
+      CVE-2026-6238    glibc@2.34-266.el9_8   /var/lib/rpm/rpmdb.sqlite
+      CVE-2026-6368    glibc@2.34-266.el9_8   /var/lib/rpm/rpmdb.sqlite
+      CVE-2026-6791    glibc@2.34-266.el9_8   /var/lib/rpm/rpmdb.sqlite
+      CVE-2026-77117   glibc@2.34-266.el9_8   /var/lib/rpm/rpmdb.sqlite
+      CVE-2026-80489   glibc@2.34-266.el9_8   /var/lib/rpm/rpmdb.sqlite
+      CVE-2026-8674    glibc@2.34-266.el9_8   /var/lib/rpm/rpmdb.sqlite
+      CVE-2026-86805   glibc@2.34-266.el9_8   /var/lib/rpm/rpmdb.sqlite
+      CVE-2026-89092   glibc@2.34-266.el9_8   /var/lib/rpm/rpmdb.sqlite
+      CVE-2026-95818   glibc@2.34-266.el9_8   /var/lib/rpm/rpmdb.sqlite
+      CVE-2026-97399   glibc@2.34-266.el9_8   /var/lib/rpm/rpmdb.sqlite
+    1 unlabeled
+      CVE-2026-4878 on pkg:rpm/rocky/libcap@2.48-10.el9_7.1
+      nvd:cpe cpe-match
+      CVE-2026-4878   libcap@2.48-10.el9_7.1   /var/lib/rpm/rpmdb.sqlite
+    18 unlabeled
+      18 CVEs on pkg:rpm/rocky/glibc-common@2.34-266.el9_8
+      redhat:distro:redhat:9 exact-indirect-match
+      CVE-2026-18374   glibc-common@2.34-266.el9_8   /var/lib/rpm/rpmdb.sqlite
+      CVE-2026-19542   glibc-common@2.34-266.el9_8   /var/lib/rpm/rpmdb.sqlite
+      CVE-2026-4046    glibc-common@2.34-266.el9_8   /var/lib/rpm/rpmdb.sqlite
+      CVE-2026-4437    glibc-common@2.34-266.el9_8   /var/lib/rpm/rpmdb.sqlite
+      CVE-2026-4438    glibc-common@2.34-266.el9_8   /var/lib/rpm/rpmdb.sqlite
+      CVE-2026-5435    glibc-common@2.34-266.el9_8   /var/lib/rpm/rpmdb.sqlite
+      CVE-2026-5450    glibc-common@2.34-266.el9_8   /var/lib/rpm/rpmdb.sqlite
+      CVE-2026-5928    glibc-common@2.34-266.el9_8   /var/lib/rpm/rpmdb.sqlite
+      CVE-2026-6238    glibc-common@2.34-266.el9_8   /var/lib/rpm/rpmdb.sqlite
+      CVE-2026-6368    glibc-common@2.34-266.el9_8   /var/lib/rpm/rpmdb.sqlite
+      CVE-2026-6791    glibc-common@2.34-266.el9_8   /var/lib/rpm/rpmdb.sqlite
+      CVE-2026-77117   glibc-common@2.34-266.el9_8   /var/lib/rpm/rpmdb.sqlite
+      CVE-2026-80489   glibc-common@2.34-266.el9_8   /var/lib/rpm/rpmdb.sqlite
+      CVE-2026-8674    glibc-common@2.34-266.el9_8   /var/lib/rpm/rpmdb.sqlite
+      CVE-2026-86805   glibc-common@2.34-266.el9_8   /var/lib/rpm/rpmdb.sqlite
+      CVE-2026-89092   glibc-common@2.34-266.el9_8   /var/lib/rpm/rpmdb.sqlite
+      CVE-2026-95818   glibc-common@2.34-266.el9_8   /var/lib/rpm/rpmdb.sqlite
+      CVE-2026-97399   glibc-common@2.34-266.el9_8   /var/lib/rpm/rpmdb.sqlite
+    8 unlabeled
+      8 CVEs on pkg:rpm/rocky/libevent@2.1.12-8.el9_4
+      redhat:distro:redhat:9 exact-direct-match
+      CVE-2026-63379   libevent@2.1.12-8.el9_4   /var/lib/rpm/rpmdb.sqlite
+      CVE-2026-63381   libevent@2.1.12-8.el9_4   /var/lib/rpm/rpmdb.sqlite
+      CVE-2026-63382   libevent@2.1.12-8.el9_4   /var/lib/rpm/rpmdb.sqlite
+      CVE-2026-63383   libevent@2.1.12-8.el9_4   /var/lib/rpm/rpmdb.sqlite
+      CVE-2026-63384   libevent@2.1.12-8.el9_4   /var/lib/rpm/rpmdb.sqlite
+      CVE-2026-63385   libevent@2.1.12-8.el9_4   /var/lib/rpm/rpmdb.sqlite
+      CVE-2026-63387   libevent@2.1.12-8.el9_4   /var/lib/rpm/rpmdb.sqlite
+      CVE-2026-63388   libevent@2.1.12-8.el9_4   /var/lib/rpm/rpmdb.sqlite
+    1 unlabeled
+      CVE-2026-22185 on pkg:rpm/rocky/openldap@2.6.8-4.el9.0.1
+      redhat:distro:redhat:9 exact-direct-match
+      CVE-2026-22185   openldap@2.6.8-4.el9.0.1   /var/lib/rpm/rpmdb.sqlite
+
+PASS matchesAtLeast  min 1             worst subject 941..941 matches
+  1 subject passes
+  PASS       941..941      rpm
+
+FAILED 1 of 2 gates
+
+---

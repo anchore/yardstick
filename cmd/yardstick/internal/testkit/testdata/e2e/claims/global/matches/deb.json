@@ -1,0 +1,21 @@
+{
+  "schema": "1.0.0",
+  "labels": [
+    {
+      "package": "pkg:deb/debian/libgnutls30",
+      "vulnerability": "CVE-2011-3389",
+      "verdict": "fp",
+      "justification": "fix-installed",
+      "author": "e2e",
+      "notes": [
+        {
+          "text": "the BEAST attack, mitigated in every gnutls this distro ships",
+          "author": "e2e",
+          "at": "2026-10-19T22:24:43Z"
+        }
+      ],
+      "firstIssued": "2026-10-19T22:24:43Z",
+      "lastUpdated": "2026-10-19T22:24:43Z"
+    }
+  ]
+}

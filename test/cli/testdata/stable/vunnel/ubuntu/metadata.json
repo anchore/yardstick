@@ -1,0 +1,20 @@
+{
+  "provider": "ubuntu",
+  "version": 3,
+  "processor": "vunnel@0.63.1.post49+15c107c",
+  "schema": {
+    "version": "1.0.3",
+    "url": "https://raw.githubusercontent.com/anchore/vunnel/main/schema/provider-workspace-state/schema-1.0.3.json"
+  },
+  "urls": [
+    "https://security-metadata.canonical.com/osv/osv-all.tar.xz",
+    "https://security-metadata.canonical.com/vex/vex-all.tar.xz"
+  ],
+  "timestamp": "2026-10-13T00:39:00Z",
+  "listing": {
+    "path": "results/listing.xxh64",
+    "digest": "5f477ee9f3bb6f84",
+    "algorithm": "xxh64"
+  },
+  "store": "flat-file"
+}

@@ -1,0 +1,13 @@
+# a deb and an apk image where both grype versions report the same thing: expected to pass
+schema: v1
+candidate: {grype: grype@v0.120.1, db: dir:../db}
+reference: {grype: grype@v0.100.0, db: dir:../db}
+subjects:
+  - oci:docker.io/library/ubuntu@sha256:c95b7b93ccd48c3bfd97f8cac6d5ca8053ced584c9e8e6431861ca30b0d73114
+  - oci:docker.io/library/alpine@sha256:ddac200f3ebc9902fb8cfcd599f41feb2151f1118929da21bcef57dc276975f9
+checks:
+  - name: f1NotWorse
+  - name: noNewFalseNegatives
+  - name: noNewFalsePositives
+  - name: unlabeledChangesAtMost
+    params: {max: 0}
