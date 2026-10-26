@@ -214,6 +214,22 @@ func TestPrecisionCountsMatchesRecallCountsLabels(t *testing.T) {
 	}
 }
 
+// a subject fp label deciding over a global tp label leaves the tp label nothing to satisfy, so
+// the candidate adding that match costs precision and gains no recall
+func TestOverriddenTPLabelIsNoUnit(t *testing.T) {
+	overridden := label(log4j, "CVE-2021-45046", claimsv1.TP)
+	overridden.Global = true
+	java := pairOne(t, "java", "java", grype(t, "java"), without(grype(t, "java"), "GHSA-7rjr-3q55-vv33", "log4j-core"),
+		overridden, label(log4j, "CVE-2021-45046", claimsv1.FP), label(log4j, "CVE-2021-44228", claimsv1.TP))
+	st := evaluator{}.stats(java.Result, gatefile.Candidate, worstCase)
+	if st.FP != 2 || st.Labels != 1 || st.Satisfied != 1 {
+		t.Errorf("expected the 2 fp matches and only CVE-2021-44228 as a tp label, got %+v", st)
+	}
+	if c := evaluate([]gatefile.Check{check(F1NotWorse, nil)}, java).Checks[0]; c.State != Fail {
+		t.Errorf("expected f1NotWorse to fail on the added fp, got %s", c.State)
+	}
+}
+
 func TestUnlabeledMeans(t *testing.T) {
 	const ncurses = "pkg:deb/debian/ncurses-base@6.4-4"
 	deb := pairOne(t, "deb", "deb", grype(t, "deb"), grype(t, "deb"),
