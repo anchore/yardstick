@@ -16,6 +16,8 @@ import (
 var bin string
 
 func TestMain(m *testing.M) {
+	// assertions read plain text, even where CI (GITHUB_ACTIONS) would color it
+	_ = os.Setenv("NO_COLOR", "1")
 	dir, err := os.MkdirTemp("", "yardstick-e2e-")
 	if err != nil {
 		panic(err)

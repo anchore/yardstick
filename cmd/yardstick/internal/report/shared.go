@@ -7,6 +7,11 @@ import (
 	"fmt"
 	"io"
 	"math"
+	"net/url"
+	"os"
+	"path"
+	"path/filepath"
+	"regexp"
 	"slices"
 	"sort"
 	"strconv"
@@ -269,7 +274,7 @@ func (s *Subject) missOn(pkg, vuln string) *Miss {
 //	  claims   ./claims at 71b8ca1211c7
 func writeRunHeader(w io.Writer, g Gate, st styles) {
 	h := g.Header
-	fmt.Fprintln(w, st.id(g.Name)+"  "+st.dim(g.Path+", scanned "+scanned(h.Scanned)))
+	fmt.Fprintln(w, st.id(g.Name)+"  "+st.dim(localPath(g.Path)+", scanned "+scanned(h.Scanned)))
 	// a label prints on the first of its lines only, padded before it is styled
 	lines := func(label string, paint paint, texts ...string) {
 		for i, t := range texts {
@@ -284,7 +289,7 @@ func writeRunHeader(w io.Writer, g Gate, st styles) {
 	switch {
 	case h.OneSetup:
 		lines("setup", plain, "one setup scanned, so nothing is compared: "+fmt.Sprintf("grype %s, DB %s, config %s, env %s",
-			shortInput(cand.Grype), shortInput(cand.DB), cand.Config, cand.Env))
+			shortInput(cand.Grype), shortInput(cand.DB), shortInput(cand.Config), cand.Env))
 	case len(h.Varied) > 0:
 		var varied []string
 		for _, v := range h.Varied {
@@ -303,9 +308,9 @@ func writeRunHeader(w io.Writer, g Gate, st styles) {
 	}
 	var sources []string
 	for _, c := range h.Claims {
-		s := c.Locator + " at " + shortInput(c.Snapshot)
+		s := shortInput(c.Locator) + " at " + shortInput(c.Snapshot)
 		if c.Commit != "" {
-			s += ", commit " + c.Commit
+			s += ", commit " + c.Commit[:min(len(c.Commit), 12)]
 		}
 		sources = append(sources, st.dim(s))
 	}
@@ -326,8 +331,26 @@ func writeRunHeader(w io.Writer, g Gate, st styles) {
 	if len(h.InheritedEnv) > 0 {
 		lines("env", plain, "inherited "+strings.Join(h.InheritedEnv, ", "))
 	}
-	for _, warn := range g.Warnings {
-		lines("warning", st.undecided, warn)
+	writeWarnings(g.Warnings, lines, st)
+}
+
+// writeWarnings prints a subject's warnings under its name once, each subject cut short as the
+// layouts name it, so a subject with many warnings does not repeat a full image reference on each.
+func writeWarnings(warnings []string, lines func(string, paint, ...string), st styles) {
+	var under string
+	for _, warn := range warnings {
+		warn = fullImageRef.ReplaceAllStringFunc(warn, subjectName)
+		name, rest, ok := strings.Cut(strings.TrimPrefix(warn, "subject "), ": ")
+		if !strings.HasPrefix(warn, "subject ") || !ok || strings.Contains(name, " ") {
+			under = ""
+			lines("warning", st.undecided, warn)
+			continue
+		}
+		if name != under {
+			lines("warning", st.undecided, "subject "+st.id(name))
+			under = name
+		}
+		lines("", func(s string) string { return s }, "  "+rest)
 	}
 }
 
@@ -340,15 +363,38 @@ func scanned(t string) string {
 	return at.UTC().Format("2006-01-02 15:04Z")
 }
 
-// shortInput is a header value as the layouts print it: a grype version without its name, and a
-// digest cut to 12 hex characters.
+// shortInput is a header value as the layouts print it: a grype version without its name, a
+// digest cut to 12 hex characters, a URL by its file name and a path relative to the working
+// directory, e.g. ".tool/grype (0126677ec379)". json carries each whole.
 func shortInput(v string) string {
 	v = strings.TrimPrefix(v, "grype@")
 	if hex, ok := strings.CutPrefix(v, "sha256:"); ok && len(hex) > 12 {
 		return hex[:12]
 	}
-	return v
+	if p, sum, ok := strings.Cut(v, " (sha256:"); ok {
+		return localPath(p) + " (" + shortInput("sha256:"+strings.TrimSuffix(sum, ")")) + ")"
+	}
+	if u, err := url.Parse(v); err == nil && u.Host != "" && path.Base(u.Path) != "/" {
+		return path.Base(u.Path)
+	}
+	return localPath(v)
 }
+
+// localPath is an absolute path relative to the working directory, when it is under it.
+func localPath(p string) string {
+	if !filepath.IsAbs(p) {
+		return p
+	}
+	if wd, err := os.Getwd(); err == nil {
+		if rel, err := filepath.Rel(wd, p); err == nil && rel != ".." && !strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
+			return rel
+		}
+	}
+	return p
+}
+
+// fullImageRef finds a subject named whole in free text, as warnings name it.
+var fullImageRef = regexp.MustCompile(`oci:\S+@sha256:[0-9a-f]{64}`)
 
 // subjectName is how the layouts name a subject: no scheme, no registry host, and a digest cut to
 // 12 hex characters, e.g.

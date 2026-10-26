@@ -171,23 +171,30 @@ func TestCancellingAQueuedJobNeverRunsIt(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	for deadline := time.Now().Add(5 * time.Second); status(t, r, "first").Status != Running && time.Now().Before(deadline); {
-		time.Sleep(20 * time.Millisecond)
+	// either job may win the only slot: each waits for it in its own goroutine
+	running, queued := "first", "second"
+	for deadline := time.Now().Add(5 * time.Second); time.Now().Before(deadline); time.Sleep(20 * time.Millisecond) {
+		if status(t, r, "second").Status == Running {
+			running, queued = "second", "first"
+		}
+		if status(t, r, running).Status == Running {
+			break
+		}
 	}
-	if j := status(t, r, "second"); j.Status != Queued {
-		t.Fatalf("expected the second job to wait for the only slot, got %s", j.Status)
+	if j := status(t, r, queued); j.Status != Queued {
+		t.Fatalf("expected %s to wait for the only slot, got %s", queued, j.Status)
 	}
-	if err := r.Cancel("second"); err != nil {
+	if err := r.Cancel(queued); err != nil {
 		t.Fatal(err)
 	}
-	if err := r.Cancel("first"); err != nil {
+	if err := r.Cancel(running); err != nil {
 		t.Fatal(err)
 	}
 	r.Wait()
-	if _, err := os.Stat(filepath.Join(store, "ran-second")); err == nil {
+	if _, err := os.Stat(filepath.Join(store, "ran-"+queued)); err == nil {
 		t.Error("the cancelled queued job ran its command")
 	}
-	if j := status(t, r, "second"); j.Status != Cancelled || !j.Started.IsZero() {
+	if j := status(t, r, queued); j.Status != Cancelled || !j.Started.IsZero() {
 		t.Errorf("expected the queued job cancelled without starting, got %+v", j)
 	}
 	if Cancelled.Active() {
