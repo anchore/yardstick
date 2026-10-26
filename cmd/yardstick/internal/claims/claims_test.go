@@ -1,6 +1,7 @@
 package claims
 
 import (
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -112,6 +113,7 @@ func conformance(t *testing.T, open opener) {
 	t.Run("reads limited to the gate's subjects", func(t *testing.T) { readsLimited(t, open) })
 	t.Run("a subject with no labels", func(t *testing.T) { noLabels(t, open) })
 	t.Run("format major", func(t *testing.T) { formatMajor(t, open) })
+	t.Run("a key twice in one file", func(t *testing.T) { twiceInFile(t, open) })
 	t.Run("union across sources", func(t *testing.T) { union(t, open) })
 	t.Run("sources that disagree", func(t *testing.T) { disagree(t, open) })
 	t.Run("snapshot identity", func(t *testing.T) { snapshot(t, open) })
@@ -180,12 +182,35 @@ func formatMajor(t *testing.T, open opener) {
 	root := newCorpus(t, at(corpus.TypeFile(dir, "deb"), label(libudv, "CVE-2020-13776", claimsv1.FP)))
 	p := filepath.Join(root, filepath.FromSlash(corpus.TypeFile(dir, "deb")))
 	data, _ := os.ReadFile(p)
-	if err := os.WriteFile(p, []byte(strings.Replace(string(data), `"schema": "1.0.0"`, `"schema": "2.0.0"`, 1)), 0o600); err != nil {
+	if err := os.WriteFile(p, []byte(strings.Replace(string(data), `"schema": "`+claimsv1.Version+`"`, `"schema": "2.0.0"`, 1)), 0o600); err != nil {
 		t.Fatal(err)
 	}
 	_, err := setOf(t, open(t, root)).Read(Subject{Name: "test-image", Dir: dir, Types: []string{"deb"}})
 	if err == nil || !strings.Contains(err.Error(), "deb.json") || !strings.Contains(err.Error(), `"2.0.0"`) || !strings.Contains(err.Error(), "reads v1") {
 		t.Errorf("expected the file, its major and v1 named, got %v", err)
+	}
+}
+
+// a file listing one key twice is refused, as claims validate refuses it, rather than the later label winning
+func twiceInFile(t *testing.T, open opener) {
+	root := newCorpus(t, at(corpus.TypeFile(dir, "deb"), label(libudv, "CVE-2020-13776", claimsv1.FP)))
+	p := filepath.Join(root, filepath.FromSlash(corpus.TypeFile(dir, "deb")))
+	var f claimsv1.File
+	data, _ := os.ReadFile(p)
+	if err := json.Unmarshal(data, &f); err != nil {
+		t.Fatal(err)
+	}
+	f.Labels = append(f.Labels, label(libudv, "CVE-2020-13776", claimsv1.TP))
+	data, err := claimsv1.Marshal(&f)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(p, data, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	_, err = setOf(t, open(t, root)).Read(Subject{Name: "test-image", Dir: dir, Types: []string{"deb"}})
+	if err == nil || !strings.Contains(err.Error(), "deb.json") || !strings.Contains(err.Error(), "listed twice") {
+		t.Errorf("expected the file and the twice-listed key named, got %v", err)
 	}
 }
 
