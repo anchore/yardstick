@@ -2,6 +2,8 @@ package report
 
 import (
 	"bytes"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -14,7 +16,11 @@ func TestRunHeaderLayout(t *testing.T) {
 	g, _ := rpmGate(t)
 	g.Header.Frozen = []string{"oci:docker.io/anchore/test_images@sha256:7536ee345532f674ec9e448e3768db4e546c48220ba2b6ec9bc9cfbfb3b7b74a"}
 	g.Header.InheritedEnv = []string{"GRYPE_DB_AUTO_UPDATE"}
-	g.Warnings = []string{"cbl-mariner/base/core@51101e635f56: its label files record linux/arm64, and this run catalogs linux/amd64"}
+	full := "oci:ghcr.io/anchore/test-images/vulnerabilities-amazonlinux-2@sha256:cf742eca189b02902a0a7926ac3fbb423e799937bf4358b0d2acc6cc36ab82aa"
+	g.Warnings = []string{"cbl-mariner/base/core@51101e635f56: its label files record linux/arm64, and this run catalogs linux/amd64",
+		"subject " + full + ": ALAS2-2021-1653 on curl@7.61.1-12.amzn2.0.2 addresses 2 CVEs (CVE-2021-22876, CVE-2021-22898); it pairs a label on any of them",
+		"subject " + full + ": ALAS2-2021-1653 on libcurl@7.61.1-12.amzn2.0.2 addresses 2 CVEs (CVE-2021-22876, CVE-2021-22898); it pairs a label on any of them",
+		"subject " + full + " is frozen: building its SBOM failed"}
 	one := g
 	one.Header.OneSetup, one.Header.Varied, one.Header.Held = true, nil, nil
 	for name, g := range map[string]Gate{"two setups": g, "one setup": one} {
@@ -40,6 +46,18 @@ func TestLayoutHelpers(t *testing.T) {
 	} {
 		if got := subjectName(in); got != want {
 			t.Errorf("subjectName(%q) = %q, want %q", in, got, want)
+		}
+	}
+	wd, _ := os.Getwd()
+	for in, want := range map[string]string{
+		"https://grype.anchore.io/databases/v6/vulnerability-db_v6.1.4.tar.zst":                                         "vulnerability-db_v6.1.4.tar.zst",
+		filepath.Join(wd, ".tool/grype") + " (sha256:0126677ec379af744ddbee686e61378b7062b5890a7f5d7d56c5e3084043d2a0)": ".tool/grype (0126677ec379)",
+		"/elsewhere/grype":        "/elsewhere/grype",
+		"grype@v0.120.1":          "v0.120.1",
+		"sha256:2f1597f25b50aaaa": "2f1597f25b50",
+	} {
+		if got := shortInput(in); got != want {
+			t.Errorf("shortInput(%q) = %q, want %q", in, got, want)
 		}
 	}
 	if got := span(analysis.Value{Worst: 73, Best: 3}); got != "3..73" {

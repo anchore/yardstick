@@ -389,6 +389,26 @@ func TestColorIsOnlyStyle(t *testing.T) {
 	if Colorable(&stdout) {
 		t.Error("expected no color for a writer that is not a terminal")
 	}
+	// a pipe is plain, but GitHub Actions renders color from one, and NO_COLOR always wins
+	_, pipe, err := os.Pipe()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer pipe.Close()
+	for _, env := range []string{"GITHUB_ACTIONS", "FORCE_COLOR", "CLICOLOR_FORCE", "NO_COLOR"} {
+		t.Setenv(env, "")
+	}
+	if Colorable(pipe) {
+		t.Error("expected no color for a pipe")
+	}
+	t.Setenv("GITHUB_ACTIONS", "true")
+	if !Colorable(pipe) {
+		t.Error("expected color in GitHub Actions")
+	}
+	t.Setenv("NO_COLOR", "1")
+	if Colorable(pipe) {
+		t.Error("expected NO_COLOR to turn color off")
+	}
 }
 
 // every row carries its matcher and the file its package was found in, so the same log4j-core in

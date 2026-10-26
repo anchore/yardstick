@@ -11,11 +11,23 @@ import (
 	"github.com/anchore/yardstick/cmd/yardstick/internal/analysis"
 )
 
-// Colorable says whether a report written to w is colored: w is a terminal and NO_COLOR is unset.
-// Files and pipes stay plain.
+// Colorable says whether a report written to w is colored. NO_COLOR turns color off, and
+// FORCE_COLOR or CLICOLOR_FORCE turn it on. Otherwise a terminal is colored, and so is a GitHub
+// Actions log, which renders ANSI color though stdout is a pipe there. Other pipes stay plain.
 func Colorable(w io.Writer) bool {
 	f, ok := w.(interface{ Fd() uintptr })
-	return ok && os.Getenv("NO_COLOR") == "" && term.IsTerminal(int(f.Fd()))
+	switch {
+	case !ok || os.Getenv("NO_COLOR") != "":
+		return false
+	case forced("FORCE_COLOR") || forced("CLICOLOR_FORCE") || os.Getenv("GITHUB_ACTIONS") == "true":
+		return true
+	}
+	return term.IsTerminal(int(f.Fd()))
+}
+
+func forced(env string) bool {
+	v := os.Getenv(env)
+	return v != "" && v != "0" && v != "false"
 }
 
 type paint func(string) string

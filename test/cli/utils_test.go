@@ -144,7 +144,8 @@ func (w *workspace) yardstick(t *testing.T, args []string, traits ...traitAssert
 	t.Helper()
 	cmd := exec.Command(bin, args...)
 	cmd.Dir = w.dir
-	cmd.Env = append(os.Environ(), "YARDSTICK_CACHE_DIR="+cacheDir())
+	// assertions read plain text, even where CI would color it
+	cmd.Env = append(os.Environ(), "YARDSTICK_CACHE_DIR="+cacheDir(), "NO_COLOR=1")
 	var stdout, stderr bytes.Buffer
 	cmd.Stdout, cmd.Stderr = &stdout, &stderr
 	rc := 0

@@ -8,6 +8,10 @@ rpm-cpes  gates/rpm-cpes.yaml, scanned 2026-10-14 10:00Z
   frozen   anchore/test_images@7536ee345532 can no longer be pulled; its SBOM from a claims source was scanned
   env      inherited GRYPE_DB_AUTO_UPDATE
   warning  cbl-mariner/base/core@51101e635f56: its label files record linux/arm64, and this run catalogs linux/amd64
+  warning  subject anchore/test-images/vulnerabilities-amazonlinux-2@cf742eca189b
+             ALAS2-2021-1653 on curl@7.61.1-12.amzn2.0.2 addresses 2 CVEs (CVE-2021-22876, CVE-2021-22898); it pairs a label on any of them
+             ALAS2-2021-1653 on libcurl@7.61.1-12.amzn2.0.2 addresses 2 CVEs (CVE-2021-22876, CVE-2021-22898); it pairs a label on any of them
+  warning  subject anchore/test-images/vulnerabilities-amazonlinux-2@cf742eca189b is frozen: building its SBOM failed
 
 ---
 
@@ -19,5 +23,9 @@ rpm-cpes  gates/rpm-cpes.yaml, scanned 2026-10-14 10:00Z
   frozen   anchore/test_images@7536ee345532 can no longer be pulled; its SBOM from a claims source was scanned
   env      inherited GRYPE_DB_AUTO_UPDATE
   warning  cbl-mariner/base/core@51101e635f56: its label files record linux/arm64, and this run catalogs linux/amd64
+  warning  subject anchore/test-images/vulnerabilities-amazonlinux-2@cf742eca189b
+             ALAS2-2021-1653 on curl@7.61.1-12.amzn2.0.2 addresses 2 CVEs (CVE-2021-22876, CVE-2021-22898); it pairs a label on any of them
+             ALAS2-2021-1653 on libcurl@7.61.1-12.amzn2.0.2 addresses 2 CVEs (CVE-2021-22876, CVE-2021-22898); it pairs a label on any of them
+  warning  subject anchore/test-images/vulnerabilities-amazonlinux-2@cf742eca189b is frozen: building its SBOM failed
 
 ---
