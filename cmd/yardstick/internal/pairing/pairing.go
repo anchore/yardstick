@@ -1,7 +1,7 @@
 // Package pairing binds labels to a subject and pairs them with what each setup reported. A label
 // pairs a match when their vulnerabilities share an alias group and every field the label's purl
 // states equals the match package's. A label on an advisory id pairs only a match grype reported
-// under exactly that id, and decides it over labels on the CVEs the advisory names. Candidate and reference matches are one match when they are
+// under exactly that id or one of the label's aliases, and decides it over labels on the CVEs the advisory names. Candidate and reference matches are one match when they are
 // on the same package and alias group. The gate's vulnerabilities filter is the one thing to
 // configure: what it drops is never paired.
 package pairing
@@ -182,7 +182,7 @@ func (r *Result) log(name string) {
 func (r *Result) bind(s Subject) {
 	noPackage := 0
 	for _, l := range s.Labels {
-		if !r.keepsLabel(l.Vulnerability) {
+		if !r.keepsLabel(l) {
 			r.dropped++
 			continue
 		}
@@ -373,8 +373,20 @@ func (r *Result) pair(m *Match) {
 // pairs says whether a label, stating fields f, pairs a match.
 func (r *Result) pairs(b *Bound, f purl.Fields, m *Match) bool {
 	if r.aliases.advisory(b.Vulnerability) {
-		// an advisory has no alias group: its label pairs a match reporting exactly that id
-		return slices.Contains(m.reported, b.Vulnerability) && f.Matches(m.pkg)
+		// an advisory has no alias group: its label pairs a match reporting exactly that id, or
+		// exactly one of its aliases (the CVE --by-cve reports it as)
+		if !f.Matches(m.pkg) {
+			return false
+		}
+		if slices.Contains(m.reported, b.Vulnerability) {
+			return true
+		}
+		for _, a := range b.Aliases {
+			if slices.Contains(m.reported, a) {
+				return true
+			}
+		}
+		return false
 	}
 	g := r.aliases.Group(b.Vulnerability)
 	shared := false

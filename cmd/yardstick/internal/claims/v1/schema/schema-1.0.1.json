@@ -1,0 +1,212 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "anchore.io/schema/yardstick/claims/matches/1.0.1/label-file",
+  "title": "yardstick label file, format 1.0.1",
+  "description": "One subject's labels for one package type, at <subject>/matches/<type>.json, where <subject> is pkg/oci/<registry>/<repository>/sha256-<hex>/ for an image or sbom/sha256-<hex>/ for an SBOM document, and <type> is the package type of the labels' packages. Two other kinds of file share this shape: <subject>/matches/image.json holds labels that name no package, and global/matches/<type>.json holds labels for every subject and has no subject. A label is one person's call on whether a scanner reporting one vulnerability on one package is right. Unknown fields are allowed, so an additive change never breaks an older reader; a label's own unknown fields survive a rewrite by an older yardstick, and unknown fields anywhere else do not. Justifications, fact sources, rules and vulnerability namespaces are not listed here: they are the corpus's vocabulary, in its vocabulary.yaml, and grow without a schema change.",
+  "type": "object",
+  "required": ["schema", "labels"],
+  "properties": {
+    "schema": {
+      "description": "The version of this format the file is written in, as SchemaVer MODEL.REVISION.ADDITION. A reader reads any version of its own MODEL; the corpus's publish.yaml names the MODEL (format: v1 for 1.x.y).",
+      "type": "string",
+      "pattern": "^1\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)$",
+      "examples": ["1.0.1"]
+    },
+    "subject": {
+      "description": "What the file's labels are about, which must be the subject its directory names. Required outside global/, and absent in global/matches/ files.",
+      "$ref": "#/$defs/subject"
+    },
+    "labels": {
+      "description": "The labels, sorted by package then vulnerability (package-less first), with at most one label per package and vulnerability.",
+      "type": "array",
+      "items": {"$ref": "#/$defs/label"}
+    }
+  },
+  "$defs": {
+    "digest": {
+      "description": "A sha256 digest of some bytes, as sha256:<64 lowercase hex>.",
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "subject": {
+      "description": "An image by digest, or an SBOM document by the digest of its bytes. Exactly one of image and sbom is set.",
+      "type": "object",
+      "properties": {
+        "image": {
+          "description": "The image reference, pinned by digest: <registry>/<repository>[:tag]@sha256:<digest>.",
+          "type": "string",
+          "pattern": "@sha256:[0-9a-f]{64}$",
+          "examples": ["docker.io/anchore/test_images@sha256:f0f8e8ee94f8b5d9364f21ceffd50b7db7e19b1938271295eff8229b3cf56db2"]
+        },
+        "sbom": {
+          "description": "The digest of the SBOM document's bytes, for a subject that is a document rather than an image. Its directory is sbom/sha256-<hex>/.",
+          "$ref": "#/$defs/digest"
+        },
+        "platform": {
+          "description": "The platform the image was cataloged for, as os/arch[/variant]. Required when image's digest is an index rather than a single manifest.",
+          "type": "string",
+          "pattern": "^[a-z0-9]+/[a-z0-9_]+(/[a-z0-9]+)?$",
+          "examples": ["linux/amd64", "linux/arm64/v8"]
+        }
+      },
+      "oneOf": [{"required": ["image"]}, {"required": ["sbom"]}]
+    },
+    "label": {
+      "description": "One call on one match: whether a scanner reporting vulnerability on package for this subject is right. A label is about the match, in CycloneDX's false_positive sense rather than VEX's not_affected.",
+      "type": "object",
+      "required": ["vulnerability", "verdict", "author", "firstIssued", "lastUpdated"],
+      "properties": {
+        "package": {
+          "description": "The package as a purl. The label pairs a match when every field this purl states equals the match package's, so a field it leaves out, such as the version or a qualifier, matches anything. Required in type files and global/ files; a global label applies only on a subject whose SBOM has a package it matches. Absent in image.json, where the label pairs every match of its vulnerability on the subject whatever the package, and does not apply on a subject that filters its packages.",
+          "type": "string",
+          "pattern": "^pkg:[a-z0-9.+-]+/",
+          "examples": ["pkg:deb/ubuntu/libudev1@245.4-4ubuntu3.16?distro=ubuntu-20.04"]
+        },
+        "vulnerability": {
+          "description": "The vulnerability id. It pairs a match whose vulnerability shares an alias group with it, so a CVE label pairs a match reported under a GHSA that aliases it. Its namespace, the part before the first -, must be listed in vocabulary.yaml's vulnerability-namespaces or advisory-ids. An id in an advisory namespace (advisory-ids, such as ELSA or ALAS2) judges the match grype reported under exactly that id: it never joins an alias group, pairs no match reported under a CVE the advisory names unless aliases lists it, and on its own match decides over labels on those CVEs.",
+          "type": "string",
+          "minLength": 1,
+          "examples": ["CVE-2020-13776", "GHSA-jfh8-c2jp-5v3q", "ELSA-2022-9359"]
+        },
+        "aliases": {
+          "description": "Only on a label whose vulnerability is an advisory: the ids grype may report that advisory's match under instead, such as the CVE grype's --by-cve reports it as (the first CVE the advisory names in grype's DB). The label then also pairs a match reported under exactly one of these ids, on its package, and decides it as it would its own. Each must be in vocabulary.yaml's vulnerability-namespaces.",
+          "type": "array",
+          "items": {"type": "string", "minLength": 1},
+          "examples": [["CVE-2020-1971"]]
+        },
+        "verdict": {
+          "description": "The call. tp: the match is right, the vulnerability affects the package. fp: the match is wrong. unclear: someone looked and could not decide; a match with only unclear labels scores as unlabeled.",
+          "enum": ["tp", "fp", "unclear"]
+        },
+        "justification": {
+          "description": "Why the verdict, as one of the values vocabulary.yaml lists under justifications.<verdict>. Required for fp and unclear, optional for tp.",
+          "type": "string",
+          "minLength": 1,
+          "examples": ["fix-installed", "vulnerable_code_not_present", "fix-newer", "sources-disagree"]
+        },
+        "author": {
+          "description": "The person who made the call. Whoever reviewed it is in the pull request that added it.",
+          "type": "string",
+          "minLength": 1
+        },
+        "evidence": {
+          "description": "What the call rests on: each entry is one or more facts, the policy rule they satisfy if any, and what they mean for this call.",
+          "type": "array",
+          "items": {"$ref": "#/$defs/evidence"}
+        },
+        "notes": {
+          "description": "What people said about the label and when, such as the conclusion tying the evidence together or what still needs checking. A migration writes notes on a person's behalf.",
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["text", "author", "at"],
+            "properties": {
+              "text": {"description": "What was said.", "type": "string", "minLength": 1},
+              "author": {"description": "Who said it.", "type": "string", "minLength": 1},
+              "at": {"description": "When it was said, as an RFC 3339 time.", "type": "string", "format": "date-time"}
+            }
+          }
+        },
+        "seenIn": {
+          "description": "What the label was written against: the SBOM scanned and the tools that cataloged and matched it. Context for a reader judging whether the call is still current; pairing does not read it.",
+          "type": "object",
+          "properties": {
+            "sbom": {
+              "description": "The digest of the SBOM the match was seen in.",
+              "$ref": "#/$defs/digest"
+            },
+            "tools": {
+              "description": "The tools, by name and version. yardstick records syft, grype and grype-db, with the DB's checksum as grype-db's version; labels from elsewhere may name other tools.",
+              "type": "array",
+              "items": {
+                "type": "object",
+                "required": ["name", "version"],
+                "properties": {
+                  "name": {"description": "The tool.", "type": "string", "minLength": 1, "examples": ["syft", "grype", "grype-db"]},
+                  "version": {"description": "Its version, or for grype-db the DB's checksum.", "type": "string", "minLength": 1, "examples": ["v1.54.1"]}
+                }
+              }
+            }
+          }
+        },
+        "firstIssued": {
+          "description": "When the call was first made, as an RFC 3339 time. Replacing a label keeps it. A published snapshot carries no git history, so a label carries its own dates.",
+          "type": "string",
+          "format": "date-time"
+        },
+        "lastUpdated": {
+          "description": "When the label last changed, as an RFC 3339 time.",
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "if": {"properties": {"verdict": {"enum": ["fp", "unclear"]}}},
+      "then": {"required": ["justification"]}
+    },
+    "evidence": {
+      "description": "One piece of evidence: the raw facts, the labeling policy rule they satisfy if any, and what they mean for this call.",
+      "type": "object",
+      "required": ["facts"],
+      "properties": {
+        "rule": {
+          "description": "The labeling policy rule these facts satisfy, as a key of vocabulary.yaml's rules. The rule names the verdict it supports, which must be the label's unless the rule supports any.",
+          "type": "string",
+          "minLength": 1,
+          "examples": ["cna/rejected", "sbom/code-not-in-binary"]
+        },
+        "facts": {
+          "description": "The raw observations, at least one.",
+          "type": "array",
+          "minItems": 1,
+          "items": {"$ref": "#/$defs/fact"}
+        },
+        "interpretation": {
+          "description": "What the facts mean for this call, in plain words.",
+          "type": "string",
+          "minLength": 1,
+          "examples": ["Ubuntu fixed it in 245.4-4ubuntu3.2, and the installed 245.4-4ubuntu3.16 is later"]
+        }
+      }
+    },
+    "fact": {
+      "description": "A raw observation someone can check again: in source, the record about these things had field set to value, when observed.",
+      "type": "object",
+      "required": ["source", "about", "field", "value", "observedAt"],
+      "properties": {
+        "source": {
+          "description": "Where it was observed, as a value listed in vocabulary.yaml's fact-sources.",
+          "type": "string",
+          "minLength": 1,
+          "examples": ["ubuntu-cve-tracker", "nvd", "sbom"]
+        },
+        "url": {
+          "description": "Where to look at it again, when the source has an address for it.",
+          "type": "string",
+          "minLength": 1
+        },
+        "about": {
+          "description": "Which record in the source, as the key-value pairs that identify it there, such as vulnerability, package and release.",
+          "type": "object",
+          "additionalProperties": {"type": "string"},
+          "examples": [{"vulnerability": "CVE-2020-13776", "package": "systemd", "release": "focal"}]
+        },
+        "field": {
+          "description": "The field of that record that was read.",
+          "type": "string",
+          "minLength": 1,
+          "examples": ["status", "fixed", "sourcePackage"]
+        },
+        "value": {
+          "description": "What the field said.",
+          "type": "string",
+          "examples": ["released (245.4-4ubuntu3.2)"]
+        },
+        "observedAt": {
+          "description": "When it was read, as an RFC 3339 time. Sources change, so a fact holds as of this time.",
+          "type": "string",
+          "format": "date-time"
+        }
+      }
+    }
+  }
+}

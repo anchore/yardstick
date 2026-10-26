@@ -330,6 +330,28 @@ func TestAdvisoryLabels(t *testing.T) {
 			t.Errorf("expected the advisory label to pair only the reference's advisory-keyed match")
 		}
 	})
+	t.Run("pairs the CVE --by-cve reports it as when aliased", func(t *testing.T) {
+		candidate := ol()
+		for i, m := range candidate.Matches {
+			if m.Vulnerability.ID == "ELSA-2022-9359" && m.Artifact.Name == "expat" {
+				candidate.Matches[i].Vulnerability.ID = "CVE-2022-25235"
+				candidate.Matches[i].RelatedVulnerabilities = []models.VulnerabilityMetadata{{ID: "ELSA-2022-9359"}}
+			}
+		}
+		aliased := label(expat, "ELSA-2022-9359", claimsv1.FP)
+		aliased.Aliases = []string{"CVE-2022-25235"}
+		r := pairScans(t, sbom, candidate, ol(), aliased)
+		if b := bound(t, r, "ELSA-2022-9359"); !b.PairedIn(gatefile.Candidate) || !b.PairedIn(gatefile.Reference) {
+			t.Errorf("expected the aliased label to pair the candidate's CVE-keyed match and the reference's advisory")
+		}
+		if m := find(t, r, "CVE-2022-25235", "expat"); m.Verdict != claimsv1.FP {
+			t.Errorf("expected the CVE-keyed match to take the advisory's fp, got %q", m.Verdict)
+		}
+		// an alias pairs only what is reported under exactly it, never another advisory naming it
+		if m := find(t, r, "ELSA-2022-9962", "expat"); len(m.Paired) != 0 {
+			t.Errorf("expected another advisory unpaired, paired %d", len(m.Paired))
+		}
+	})
 	t.Run("decides over labels on its CVEs", func(t *testing.T) {
 		for _, tc := range []struct {
 			name   string
@@ -432,6 +454,19 @@ func TestIDYear(t *testing.T) {
 		if got := idYear(id); got != want {
 			t.Errorf("%s: expected %d, got %d", id, want, got)
 		}
+	}
+}
+
+// an advisory label is kept by its alias's year, so it stays with the CVE match it pairs under --by-cve
+func TestAliasYear(t *testing.T) {
+	r := &Result{aliases: NewAliases(isAdvisory), filter: &gatefile.Vulnerabilities{MaxYear: 2021}, years: map[string]int{}}
+	l := label("pkg:rpm/ol/openssl", "ELSA-2022-9137", claimsv1.TP)
+	if r.keepsLabel(l) {
+		t.Errorf("expected a 2022 advisory with no alias dropped by maxYear 2021")
+	}
+	l.Aliases = []string{"CVE-2021-3711"}
+	if !r.keepsLabel(l) {
+		t.Errorf("expected a 2022 advisory aliased to a 2021 CVE kept by maxYear 2021")
 	}
 }
 

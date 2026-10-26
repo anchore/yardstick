@@ -29,7 +29,7 @@ import (
 //
 // a MODEL bump is a new package beside this one, not an edit to it. A new vocabulary value is
 // no bump at all, since the vocabulary is the corpus's data.
-const Version = "1.0.0"
+const Version = "1.0.1"
 
 // Major is Version's MODEL as the corpus names it: the format in its publish.yaml, and the
 // claims/matches/latest-<major>.json pointer a remote source reads.
@@ -63,8 +63,11 @@ type Subject struct {
 
 // Label is one call on one match.
 type Label struct {
-	Package       string     `json:"package,omitempty"` // a purl; a field it does not state matches anything
-	Vulnerability string     `json:"vulnerability"`
+	Package       string `json:"package,omitempty"` // a purl; a field it does not state matches anything
+	Vulnerability string `json:"vulnerability"`
+	// Aliases are the ids grype may report an advisory label's match under instead, such as the
+	// CVE --by-cve reports it as; only an advisory label carries them.
+	Aliases       []string   `json:"aliases,omitempty"`
 	Verdict       Verdict    `json:"verdict"`
 	Justification string     `json:"justification,omitempty"`
 	Author        string     `json:"author"`
@@ -184,7 +187,7 @@ func (k Key) String() string {
 // labelFields is Label without its methods, for encoding/json.
 type labelFields Label
 
-var knownLabelKeys = []string{"package", "vulnerability", "verdict", "justification", "author", "evidence", "notes", "seenIn", "firstIssued", "lastUpdated"}
+var knownLabelKeys = []string{"package", "vulnerability", "aliases", "verdict", "justification", "author", "evidence", "notes", "seenIn", "firstIssued", "lastUpdated"}
 
 func (l *Label) UnmarshalJSON(data []byte) error {
 	var f labelFields
