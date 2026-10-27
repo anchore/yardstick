@@ -8,7 +8,7 @@ tools:
   # analysis fires under v2.11.4 in code that lints clean under v2.12.2.
   - name: golangci-lint
     version:
-      want: v2.14.0
+      want: v2.15.0
     method: github-release
     with:
       repo: golangci/golangci-lint
@@ -24,7 +24,7 @@ tools:
   # override go-make's binny pin: 0.14 is the first to install bun (x64 assets) and tsc (keep-archive-files)
   - name: binny
     version:
-      want: v0.14.0
+      want: v0.13.4
     method: github-release
     with:
       repo: anchore/binny
