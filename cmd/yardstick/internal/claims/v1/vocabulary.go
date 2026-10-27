@@ -113,6 +113,23 @@ func (v *Vocabulary) CheckVulnerability(id string) error {
 	return nil
 }
 
+// CheckAliases refuses aliases on a label that is not on an advisory, and an alias that is not a
+// disclosure id: an alias is what grype reports the advisory's match under, such as its CVE.
+func (v *Vocabulary) CheckAliases(l Label) error {
+	if len(l.Aliases) == 0 {
+		return nil
+	}
+	if !v.IsAdvisory(l.Vulnerability) {
+		return fmt.Errorf("aliases: only a label on an advisory carries them, and %s is not one", l.Vulnerability)
+	}
+	for _, a := range l.Aliases {
+		if v.IsAdvisory(a) || !slices.Contains(v.Namespaces, Namespace(a)) {
+			return fmt.Errorf("alias %s: namespace %q is not in vulnerability-namespaces in %s", a, Namespace(a), VocabularyFile)
+		}
+	}
+	return nil
+}
+
 // CheckLabel refuses a label with any of Problems, naming the first.
 func (v *Vocabulary) CheckLabel(l Label) error {
 	if problems := v.Problems(l, ""); len(problems) > 0 {

@@ -266,6 +266,9 @@ func (c *corpusCheck) labels(p string, loc Location, labels []claimsv1.Label) {
 			if err := c.vocab.CheckVulnerability(l.Vulnerability); err != nil {
 				c.addf(p, key, "%v", err)
 			}
+			if err := c.vocab.CheckAliases(l); err != nil {
+				c.addf(p, key, "%v", err)
+			}
 			if err := c.vocab.CheckLabel(l); err != nil {
 				c.addf(p, key, "%v", err)
 			}

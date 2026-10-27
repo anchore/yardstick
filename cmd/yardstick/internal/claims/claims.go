@@ -298,7 +298,9 @@ func (s *Set) Read(sub Subject) (*Labels, error) {
 			if f.Subject != nil && f.Subject.Platform != "" {
 				platforms[f.Subject.Platform] = true
 			}
-			add(out, byKey, src, p, f)
+			if err := add(out, byKey, src, p, f); err != nil {
+				return nil, err
+			}
 		}
 	}
 	for p := range platforms {
@@ -345,10 +347,16 @@ func (s *Source) readLabels(p string) (*claimsv1.File, error) {
 
 // add takes one file's labels into the union: a key new to the union is added, and a key already
 // there takes this source's label, since sources are read in order and the last one wins, while
-// recording its verdict beside the others. The same verdict twice counts once.
-func add(out *Labels, byKey map[scopedKey]int, src *Source, p string, f *claimsv1.File) {
+// recording its verdict beside the others. The same verdict twice counts once. A key listed twice
+// in one file is refused, as claims validate refuses it, rather than letting the later one win.
+func add(out *Labels, byKey map[scopedKey]int, src *Source, p string, f *claimsv1.File) error {
 	global := strings.HasPrefix(p, "global/")
+	inFile := map[claimsv1.Key]bool{}
 	for _, l := range f.Labels {
+		if inFile[l.Key()] {
+			return fmt.Errorf("claims source %s: %s: %s is listed twice; a file holds one label per package and vulnerability", src.Locator, p, l.Key())
+		}
+		inFile[l.Key()] = true
 		k := scopedKey{global: global, Key: l.Key()}
 		held := SourceVerdict{Source: src.Locator, Verdict: l.Verdict}
 		if i, seen := byKey[k]; seen {
@@ -359,6 +367,7 @@ func add(out *Labels, byKey map[scopedKey]int, src *Source, p string, f *claimsv
 		byKey[k] = len(out.Labels)
 		out.Labels = append(out.Labels, Label{Label: l, Global: global, File: p, Held: []SourceVerdict{held}})
 	}
+	return nil
 }
 
 func disagreement(subject string, l Label) string {

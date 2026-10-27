@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/anchore/grype/grype/presenter/models"
+	"github.com/anchore/yardstick/cmd/yardstick/internal/claims"
 )
 
 // keeps says whether the gate's vulnerabilities filter keeps a reported match: its namespace is
@@ -21,9 +22,18 @@ func (r *Result) keeps(gm models.Match) bool {
 	return f.MaxYear == 0 || matchYear(gm) <= f.MaxYear
 }
 
-// keepsLabel says whether the filter keeps a label: its year, from its id or else from the CVE in
-// its alias group some setup reported, is no later than the max year or unknown.
-func (r *Result) keepsLabel(id string) bool {
+// keepsLabel says whether the filter keeps a label: the year of its id or of any of its aliases,
+// so an advisory label stays with the CVE match it pairs under --by-cve.
+func (r *Result) keepsLabel(l claims.Label) bool {
+	if r.keepsID(l.Vulnerability) {
+		return true
+	}
+	return slices.ContainsFunc(l.Aliases, r.keepsID)
+}
+
+// keepsID says whether an id's year, from the id or else from the CVE in its alias group some
+// setup reported, is no later than the max year or unknown.
+func (r *Result) keepsID(id string) bool {
 	if r.filter == nil || r.filter.MaxYear == 0 {
 		return true
 	}

@@ -12,7 +12,7 @@ import (
 // schema is the JSON Schema of a label file at Version. Like syft's, a published schema file is
 // never edited: a new version is a new schema-<version>.json beside it.
 //
-//go:embed schema/schema-1.0.0.json
+//go:embed schema/schema-1.0.1.json
 var schema []byte
 
 var compiled = sync.OnceValues(func() (*jsonschema.Schema, error) {

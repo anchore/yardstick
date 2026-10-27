@@ -314,8 +314,8 @@ type unit struct {
 func (e evaluator) units(r *pairing.Result, x extreme) []unit {
 	var out []unit
 	for _, b := range r.Labels {
-		if b.Verdict == claimsv1.TP {
-			out = append(out, unit{cand: b.PairedIn(gatefile.Candidate), ref: b.PairedIn(gatefile.Reference), matches: b.Matches})
+		if u, ok := e.tpUnit(b); ok {
+			out = append(out, u)
 		}
 	}
 	for _, m := range r.Matches {
@@ -324,6 +324,26 @@ func (e evaluator) units(r *pairing.Result, x extreme) []unit {
 		}
 	}
 	return out
+}
+
+// tpUnit is a tp label as a unit. A match a label or hypothesis calls fp, such as one a subject
+// fp label decides over a global tp label, satisfies no tp label, and a tp label whose every match
+// is called fp is overridden and no unit at all. An unlabeled match the case alone calls fp still
+// satisfies it, as before.
+func (e evaluator) tpUnit(b *pairing.Bound) (unit, bool) {
+	if b.Verdict != claimsv1.TP {
+		return unit{}, false
+	}
+	var u unit
+	for _, m := range b.Matches {
+		if e.verdict(m, asLabeled) == claimsv1.FP {
+			continue
+		}
+		u.matches = append(u.matches, m)
+		u.cand = u.cand || m.In(gatefile.Candidate)
+		u.ref = u.ref || m.In(gatefile.Reference)
+	}
+	return u, len(b.Matches) == 0 || len(u.matches) > 0
 }
 
 // pairedBy says whether a label of the verdict pairs the match.
@@ -585,7 +605,9 @@ func (e evaluator) expectations(x extreme) []Expectation {
 	var out []Expectation
 	for _, s := range e.subjects {
 		for _, b := range s.Result.Labels {
-			if b.Verdict == claimsv1.TP || b.Verdict == claimsv1.FP {
+			if u, ok := e.tpUnit(b); ok {
+				out = append(out, expectation(s.Name, b.Package, b.Vulnerability, b.Verdict, u.cand, u.ref))
+			} else if b.Verdict == claimsv1.FP {
 				out = append(out, expectation(s.Name, b.Package, b.Vulnerability, b.Verdict, b.PairedIn(gatefile.Candidate), b.PairedIn(gatefile.Reference)))
 			}
 		}

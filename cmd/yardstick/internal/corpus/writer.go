@@ -86,7 +86,7 @@ func (w Writer) Write(batch []Placed) ([]Written, error) {
 // carry is the label replacing prior: it keeps prior's firstIssued and notes (the new ones after
 // them, less any the same author already said, so a re-import adds nothing), and prior's evidence
 // when the new label brings none and makes the same call, since evidence for another verdict
-// cites rules that refuse it.
+// cites rules that refuse it. It keeps prior's aliases when the new label names none.
 func carry(prior, l claimsv1.Label) claimsv1.Label {
 	if prior.FirstIssued != "" {
 		l.FirstIssued = prior.FirstIssued
@@ -100,6 +100,11 @@ func carry(prior, l claimsv1.Label) claimsv1.Label {
 	l.Notes = notes
 	if len(l.Evidence) == 0 && l.Verdict == prior.Verdict {
 		l.Evidence = prior.Evidence
+	}
+	// aliases say what grype reports the advisory as, not anything about the call, so a new call
+	// that names none keeps them
+	if len(l.Aliases) == 0 {
+		l.Aliases = prior.Aliases
 	}
 	return l
 }
@@ -129,6 +134,9 @@ func (w Writer) Check(p Placed) (err error) {
 		return fmt.Errorf("%s: no %s to check the justification and fact sources against", where, claimsv1.VocabularyFile)
 	}
 	if err := w.Vocab.CheckVulnerability(p.Label.Vulnerability); err != nil {
+		return fmt.Errorf("%s: %w", where, err)
+	}
+	if err := w.Vocab.CheckAliases(p.Label); err != nil {
 		return fmt.Errorf("%s: %w", where, err)
 	}
 	if err := w.Vocab.CheckLabel(p.Label); err != nil {

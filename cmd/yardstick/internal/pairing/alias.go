@@ -44,10 +44,14 @@ func (a *Aliases) AddScan(doc *models.Document) {
 	}
 }
 
-// AddLabels adds each label's id as a group of its own until a scan relates it.
+// AddLabels adds each label's id, and each of its aliases, as a group of its own until a scan
+// relates it.
 func (a *Aliases) AddLabels(ls []claims.Label) {
 	for _, l := range ls {
 		a.add(l.Vulnerability)
+		for _, id := range l.Aliases {
+			a.add(id)
+		}
 	}
 }
 

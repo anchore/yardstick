@@ -82,7 +82,7 @@ func write(t *testing.T, path, content string) {
 // format-major-check: a newer major is refused naming the major this yardstick reads
 func TestFormatMajor(t *testing.T) {
 	_, err := Parse("deb.json", []byte(`{"schema": "2.0.0", "labels": []}`))
-	if err == nil || !strings.Contains(err.Error(), `"2.0.0"`) || !strings.Contains(err.Error(), "reads v1 (1.0.0)") {
+	if err == nil || !strings.Contains(err.Error(), `"2.0.0"`) || !strings.Contains(err.Error(), "reads v1 ("+Version+")") {
 		t.Errorf("expected 2.0.0 refused naming v1, got %v", err)
 	}
 	// the MODEL alone, as publish.yaml spells it, is not a file's version
@@ -181,5 +181,25 @@ func TestSchemaDescribesEveryKey(t *testing.T) {
 	walk("$", doc)
 	for name, def := range doc["$defs"].(map[string]any) {
 		walk("$defs."+name, def.(map[string]any))
+	}
+}
+
+// aliases are only on an advisory label, and only name disclosures
+func TestCheckAliases(t *testing.T) {
+	v := &Vocabulary{AdvisoryIDs: []string{"ELSA"}, Namespaces: []string{"CVE"}}
+	for _, tc := range []struct {
+		vuln    string
+		aliases []string
+		ok      bool
+	}{
+		{"ELSA-2021-9137", nil, true},
+		{"ELSA-2021-9137", []string{"CVE-2020-1971"}, true},
+		{"CVE-2020-1971", []string{"CVE-2020-1972"}, false},
+		{"ELSA-2021-9137", []string{"ELSA-2021-9138"}, false},
+		{"ELSA-2021-9137", []string{"XYZ-1"}, false},
+	} {
+		if err := v.CheckAliases(Label{Vulnerability: tc.vuln, Aliases: tc.aliases}); (err == nil) != tc.ok {
+			t.Errorf("%s with aliases %v: expected ok=%v, got %v", tc.vuln, tc.aliases, tc.ok, err)
+		}
 	}
 }

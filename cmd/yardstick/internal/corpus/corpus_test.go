@@ -159,7 +159,7 @@ func TestAdditiveChanges(t *testing.T) {
 	newer := strings.Replace(read(t, file), `"author": "Will Murphy",`, `"author": "Will Murphy", "reviewedBy": "Alex Goodman",`, 1)
 	newer = strings.Replace(newer, `"justification": "fix-installed"`, `"justification": "binary-stripped"`, 1)
 	// a later ADDITION of the same MODEL is read, unlike syft refusing anything newer than itself
-	newer = strings.Replace(newer, `"schema": "1.0.0"`, `"schema": "1.3.0"`, 1)
+	newer = strings.Replace(newer, `"schema": "`+claimsv1.Version+`"`, `"schema": "1.3.0"`, 1)
 	write(t, file, newer)
 	f, err := claimsv1.Parse("deb.json", []byte(newer))
 	if err != nil {
@@ -647,7 +647,7 @@ func TestValidateCorpus(t *testing.T) {
 			// the SBOM's manifest is another digest than the directory's: the directory's is an index
 			edit(debDir+"/"+ImageSBOMFile, `"manifestDigest":"`+debDigest, `"manifestDigest":"sha256:`+strings.Repeat("0", 64))(t, dir)
 		}, debFile, "", "subject.platform must say which platform"},
-		{"a schema v2 file", edit(debFile, `"schema": "1.0.0"`, `"schema": "2.0.0"`), debFile, "", "reads v1"},
+		{"a schema v2 file", edit(debFile, `"schema": "`+claimsv1.Version+`"`, `"schema": "2.0.0"`), debFile, "", "reads v1"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -764,5 +764,16 @@ func TestWriteSchema(t *testing.T) {
 	write(t, filepath.Join(dir, claimsv1.SchemaFile), `{}`)
 	if _, _, err := WriteSchema(dir); err == nil || !strings.Contains(err.Error(), "never edited") {
 		t.Errorf("expected a different published schema refused, got %v", err)
+	}
+}
+
+// relabeling an advisory keeps the CVE grype reports it as
+func TestCarryKeepsAliases(t *testing.T) {
+	prior := claimsv1.Label{Vulnerability: "ELSA-2021-9137", Aliases: []string{"CVE-2020-1971"}, Verdict: claimsv1.TP}
+	if got := carry(prior, claimsv1.Label{Vulnerability: "ELSA-2021-9137", Verdict: claimsv1.FP}); !slices.Equal(got.Aliases, prior.Aliases) {
+		t.Errorf("expected the aliases kept, got %v", got.Aliases)
+	}
+	if got := carry(prior, claimsv1.Label{Vulnerability: "ELSA-2021-9137", Aliases: []string{"CVE-2020-1972"}}); !slices.Equal(got.Aliases, []string{"CVE-2020-1972"}) {
+		t.Errorf("expected the new aliases to win, got %v", got.Aliases)
 	}
 }
