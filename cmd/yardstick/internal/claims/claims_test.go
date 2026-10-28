@@ -415,3 +415,17 @@ func TestMissingSourceCreatedOnWrite(t *testing.T) {
 		t.Error(err)
 	}
 }
+
+// a namespace is added in the writable source's vocabulary.yaml; a set whose last source is remote
+// has none to add it in
+func TestVocabularyPath(t *testing.T) {
+	local := &Source{Locator: "claims", Kind: Corpus, Dir: "claims"}
+	if got := (&Set{Sources: []*Source{{Kind: Remote}, local}}).VocabularyPath(); got != filepath.Join("claims", claimsv1.VocabularyFile) {
+		t.Errorf("expected the local last source's vocabulary.yaml, got %q", got)
+	}
+	for _, s := range []*Set{{}, {Sources: []*Source{local, {Kind: Remote}}}} {
+		if got := s.VocabularyPath(); got != "" {
+			t.Errorf("expected no writable vocabulary.yaml, got %q", got)
+		}
+	}
+}

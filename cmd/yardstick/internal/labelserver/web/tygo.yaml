@@ -96,6 +96,7 @@ packages:
       export type ResearchGroupName = "change" | "none";
       export type ResearchFrom = "table" | "finding";
       export type LabelScope = "subject" | "anywhere";
+      export type VocabularyList = "vulnerability-namespaces" | "advisory-ids";
   - path: github.com/anchore/yardstick/cmd/yardstick/internal/report
     output_path: cmd/yardstick/internal/labelserver/web/src/gen/report.ts
     frontmatter: |

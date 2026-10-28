@@ -106,6 +106,11 @@
 //	research/jobs             ← every research.Job record, newest first; position from the order
 //	                            this runner queued the ones it holds; summary is research/batch's
 //	                            math over the active jobs and the batches they are in
+//	POST research (both)      ← refused with an UnlistedNamespace (code unlisted-namespace) when a
+//	                            job's vulnerability is in a namespace its gate's vocabulary lacks:
+//	                            Vocabulary.CheckScanned over the gate's rows
+//	state.unlisted            ← the same, for each namespace of the gate's open rows
+//	POST vocabulary/namespace ← claimsv1.AddToList on the writable source's vocabulary.yaml
 package labelserver
 
 import (
@@ -231,6 +236,7 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("POST "+g+"/preview", s.handlePreview)
 	mux.HandleFunc("POST "+g+"/research", s.authorized(s.handleResearch))
 	mux.HandleFunc("POST "+g+"/research/cancel", s.authorized(s.handleCancelResearch))
+	mux.HandleFunc("POST "+g+"/vocabulary/namespace", s.authorized(s.handleAddNamespace))
 	mux.HandleFunc("POST /api/research", s.authorized(s.handleResearchQueue))
 	mux.HandleFunc("GET /api/research/batch", s.handleResearchBatch)
 	mux.HandleFunc("GET /api/research/jobs", s.handleResearchJobs)

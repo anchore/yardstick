@@ -11,6 +11,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"reflect"
 	"slices"
 	"strings"
 	"testing"
@@ -230,44 +231,140 @@ func TestE2EResearchQueue(t *testing.T) {
 }
 
 // research on a vulnerability whose namespace the vocabulary lacks is refused before any job is
-// queued, since proposing its call would be refused after the whole run
-func TestE2EResearchRefusesUnlistedNamespace(t *testing.T) {
+// queued, since proposing its call would be refused after the whole run; the refusal and the
+// gate's state say which list to add it to, and adding it there lets the same request start
+func TestE2EUnlistedNamespace(t *testing.T) {
 	srv, dir, tools, bin := e2eServer(t)
 	h, token := srv.Handler(), srv.Token()
+	const babel = "24160b879ac36bf5" // GHSA-67hx-6x53-jw92, open in deb-npm
 	vocab := filepath.Join(dir, "claims", claimsv1.VocabularyFile)
 	b, err := os.ReadFile(vocab)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(vocab, []byte(strings.Replace(string(b), "vulnerability-namespaces: [CVE, GHSA]", "vulnerability-namespaces: [OSV]", 1)), 0o600); err != nil {
+	// a comment, to see an add keep it
+	edited := "# the e2e corpus's categories\n" + strings.Replace(string(b), "vulnerability-namespaces: [CVE, GHSA]", "vulnerability-namespaces: [CVE]", 1)
+	if err := os.WriteFile(vocab, []byte(edited), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	body, _ := json.Marshal(map[string]any{"rows": []string{"24160b879ac36bf5"}})
-	req := httptest.NewRequest(http.MethodPost, "/api/research", bytes.NewReader(body))
-	req.Header.Set(labelserver.TokenHeader, token)
-	rec := httptest.NewRecorder()
-	h.ServeHTTP(rec, req)
-	// the refusal judges the list from the scan: the GHSA names one CVE, so it is a disclosure namespace
-	// in the writable source's vocabulary.yaml, as the set resolved it (a temp dir may be a symlink)
-	real, err := filepath.EvalSymlinks(vocab)
-	if err != nil {
-		t.Fatal(err)
+	send := func(path string, body any) *httptest.ResponseRecorder {
+		t.Helper()
+		data, _ := json.Marshal(body)
+		req := httptest.NewRequest(http.MethodPost, path, bytes.NewReader(data))
+		req.Header.Set(labelserver.TokenHeader, token)
+		rec := httptest.NewRecorder()
+		h.ServeHTTP(rec, req)
+		return rec
 	}
-	want := "This gate's scan has 1 GHSA id; each names exactly 1 vulnerability (e.g. GHSA-67hx-6x53-jw92 → CVE-2023-45133), so add it to vulnerability-namespaces in " + real + "."
-	if rec.Code != http.StatusBadRequest || !strings.Contains(rec.Body.String(), want) {
-		t.Errorf("POST /api/research on an unlisted namespace: %d %s", rec.Code, rec.Body)
+	// the GHSA names one CVE, so the scan suggests a disclosure namespace, in the writable
+	// source's vocabulary.yaml, named relative to the workspace
+	want := labelserver.UnlistedNamespace{Gate: "deb-npm", ID: "GHSA-67hx-6x53-jw92", Namespace: "GHSA", Suggest: claimsv1.ListDisclosure, Checked: 1,
+		Example: &labelserver.NamespaceExample{ID: "GHSA-67hx-6x53-jw92", Names: []string{"CVE-2023-45133"}}, File: filepath.Join("claims", claimsv1.VocabularyFile)}
+	text := "This gate's scan has 1 GHSA id; each names exactly 1 vulnerability (e.g. GHSA-67hx-6x53-jw92 → CVE-2023-45133), so add it to vulnerability-namespaces in claims/vocabulary.yaml."
+	var st labelserver.State
+	get(t, h, "/api/gates/deb-npm/state", &st)
+	if len(st.Unlisted) != 1 || !reflect.DeepEqual(st.Unlisted[0], want) {
+		t.Errorf("deb-npm's unlisted namespaces: %+v", st.Unlisted)
+	}
+	// both ways to start research refuse it with that, as JSON the UI recognizes
+	for _, path := range []string{"/api/research", "/api/gates/deb-npm/research"} {
+		rec := send(path, map[string]any{"rows": []string{babel}})
+		var got labelserver.UnlistedNamespace
+		_ = json.Unmarshal(rec.Body.Bytes(), &got)
+		if rec.Code != http.StatusBadRequest || got.Code != "unlisted-namespace" || !strings.Contains(got.Error, text) {
+			t.Errorf("POST %s on an unlisted namespace: %d %s", path, rec.Code, rec.Body)
+		}
+		got.Code, got.Error = "", ""
+		if !reflect.DeepEqual(got, want) {
+			t.Errorf("POST %s's refusal: %+v", path, got)
+		}
 	}
 	var jl labelserver.ResearchJobs
 	get(t, h, "/api/research/jobs", &jl)
 	if len(jl.Jobs) != 0 {
 		t.Errorf("a refused request queued jobs: %+v", jl.Jobs)
 	}
-	// propose refuses the call the same way
+	// propose refuses the call the same way, naming the file as the set resolved it
+	real, err := filepath.EvalSymlinks(vocab)
+	if err != nil {
+		t.Fatal(err)
+	}
 	cmd := exec.Command(bin, "claims", "agent", "propose", "--gate", "deb-npm")
 	cmd.Dir, cmd.Env = dir, append(os.Environ(), "YARDSTICK_CACHE_DIR="+filepath.Join(tools, "cache"))
 	cmd.Stdin = strings.NewReader(`{"row":"24160b879ac36bf5","verdict":"unclear","justification":"not-assessed","author":{"skill":"triage-deltas","model":"e2e"}}`)
-	if out, err := cmd.CombinedOutput(); err == nil || !strings.Contains(string(out), want) {
+	if out, err := cmd.CombinedOutput(); err == nil || !strings.Contains(string(out), strings.Replace(text, "claims/vocabulary.yaml", real, 1)) {
 		t.Errorf("propose on an unlisted namespace: %v\n%s", err, out)
+	}
+
+	// a namespace listed as both kinds is refused, and so is a name no id could have
+	add := "/api/gates/deb-npm/vocabulary/namespace"
+	for _, bad := range []struct{ ns, list, want string }{
+		{"ELSA", claimsv1.ListDisclosure, `advisory-ids "ELSA" already covers it`},
+		{"CVE", claimsv1.ListAdvisory, "it is in vulnerability-namespaces"},
+		{"GH-SA", claimsv1.ListDisclosure, "namespace must be"},
+		{"GHSA", "rules", "list must be"},
+	} {
+		if rec := send(add, map[string]string{"namespace": bad.ns, "list": bad.list}); rec.Code != http.StatusBadRequest || !strings.Contains(rec.Body.String(), bad.want) {
+			t.Errorf("adding %s to %s: %d %s", bad.ns, bad.list, rec.Code, rec.Body)
+		}
+	}
+	noToken := httptest.NewRecorder()
+	h.ServeHTTP(noToken, httptest.NewRequest(http.MethodPost, add, strings.NewReader(`{"namespace":"GHSA","list":"vulnerability-namespaces"}`)))
+	if noToken.Code != http.StatusForbidden {
+		t.Errorf("expected an add without the token refused, got %d", noToken.Code)
+	}
+
+	// adding it edits the file in place, its comment and order kept; again is no change
+	added := func(rec *httptest.ResponseRecorder) labelserver.AddNamespaceResponse {
+		t.Helper()
+		var out labelserver.AddNamespaceResponse
+		if rec.Code != http.StatusOK || json.Unmarshal(rec.Body.Bytes(), &out) != nil {
+			t.Fatalf("add: %d %s", rec.Code, rec.Body)
+		}
+		return out
+	}
+	if got := added(send(add, map[string]string{"namespace": "GHSA", "list": claimsv1.ListDisclosure})); got != (labelserver.AddNamespaceResponse{File: want.File, Added: true}) {
+		t.Errorf("adding GHSA: %+v", got)
+	}
+	after, err := os.ReadFile(vocab)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(after) != strings.Replace(edited, "vulnerability-namespaces: [CVE]", "vulnerability-namespaces: [CVE, GHSA]", 1) {
+		t.Errorf("vocabulary.yaml after the add:\n%s", after)
+	}
+	if got := added(send(add, map[string]string{"namespace": "GHSA", "list": claimsv1.ListDisclosure})); got.Added || got.Created {
+		t.Errorf("adding GHSA again: %+v", got)
+	}
+	// the very next requests read it: nothing unlisted, and the refused request starts
+	st = labelserver.State{}
+	get(t, h, "/api/gates/deb-npm/state", &st)
+	if len(st.Unlisted) != 0 {
+		t.Errorf("unlisted after the add: %+v", st.Unlisted)
+	}
+	var started labelserver.ResearchQueueResponse
+	if code := post(t, h, token, "/api/research", map[string]any{"rows": []string{babel}}, &started); code != http.StatusOK || len(started.Jobs) != 1 {
+		t.Errorf("research after the add: %d %+v", code, started)
+	}
+	batch(t, h)
+
+	// a writable source with no vocabulary.yaml gets one, holding only what was added
+	gate := filepath.Join(dir, "gates", "deb-java.yaml")
+	g, err := os.ReadFile(gate)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Mkdir(filepath.Join(dir, "overlay"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(gate, []byte(strings.Replace(string(g), "claims: [../claims]", "claims: [../claims, ../overlay]", 1)), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if got := added(send("/api/gates/deb-java/vocabulary/namespace", map[string]string{"namespace": "CLEANSTART", "list": claimsv1.ListDisclosure})); got != (labelserver.AddNamespaceResponse{File: filepath.Join("overlay", claimsv1.VocabularyFile), Created: true, Added: true}) {
+		t.Errorf("adding to the overlay: %+v", got)
+	}
+	if data, _ := os.ReadFile(filepath.Join(dir, "overlay", claimsv1.VocabularyFile)); string(data) != "vulnerability-namespaces: [CLEANSTART]\n" {
+		t.Errorf("the overlay's vocabulary.yaml:\n%s", data)
 	}
 }
 

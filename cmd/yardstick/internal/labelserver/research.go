@@ -271,6 +271,9 @@ func (s *Server) handleResearch(w http.ResponseWriter, req *http.Request) {
 	for i := range requests {
 		requests[i].Gate, requests[i].Source, requests[i].From = e.name, research.FromLabelUI, body.From
 	}
+	if !checkNamespaces(w, map[string]*view{e.name: v}, requests) {
+		return
+	}
 	if out.Batch, out.Jobs, err = s.start(requests, asked > 1); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return

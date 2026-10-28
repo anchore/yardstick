@@ -306,3 +306,73 @@ func TestCheckAliases(t *testing.T) {
 		}
 	}
 }
+
+// adding a namespace edits vocabulary.yaml in place: comments, order and styles kept, the list
+// made when missing, the file made when empty, a namespace already listed left alone
+func TestAddToList(t *testing.T) {
+	const in = `# the corpus's categories
+justifications:
+  fp: {fix-installed: Installed version has the fix}
+# advisories pair only their own id
+advisory-ids: ["ALAS*", ELSA]
+vulnerability-namespaces:
+  - CVE # disclosures
+  - GHSA
+`
+	for name, tc := range map[string]struct{ in, ns, list, want string }{
+		"block list": {in, "CLEANSTART", ListDisclosure, `# the corpus's categories
+justifications:
+  fp: {fix-installed: Installed version has the fix}
+# advisories pair only their own id
+advisory-ids: ["ALAS*", ELSA]
+vulnerability-namespaces:
+  - CVE # disclosures
+  - GHSA
+  - CLEANSTART
+`},
+		"flow list": {in, "IC", ListAdvisory, `# the corpus's categories
+justifications:
+  fp: {fix-installed: Installed version has the fix}
+# advisories pair only their own id
+advisory-ids: ["ALAS*", ELSA, IC]
+vulnerability-namespaces:
+  - CVE # disclosures
+  - GHSA
+`},
+		"already listed": {in, "GHSA", ListDisclosure, in},
+		"no list":        {"fact-sources: [nvd]\n", "CLEANSTART", ListDisclosure, "fact-sources: [nvd]\nvulnerability-namespaces: [CLEANSTART]\n"},
+		"empty list":     {"vulnerability-namespaces:\n", "CLEANSTART", ListDisclosure, "vulnerability-namespaces: [CLEANSTART]\n"},
+		"no file":        {"", "CLEANSTART", ListDisclosure, "vulnerability-namespaces: [CLEANSTART]\n"},
+	} {
+		got, err := AddToList([]byte(tc.in), tc.ns, tc.list)
+		if err != nil || string(got) != tc.want {
+			t.Errorf("%s: %v\ngot:\n%s\nwant:\n%s", name, err, got, tc.want)
+		}
+	}
+	if _, err := AddToList([]byte("vulnerability-namespaces: CVE\n"), "GO", ListDisclosure); err == nil {
+		t.Error("expected a list that isn't one refused")
+	}
+}
+
+// a namespace is added to one list only, and a namespace already on it is no change
+func TestCheckAdd(t *testing.T) {
+	v := &Vocabulary{AdvisoryIDs: []string{"ALAS*", "ELSA"}, Namespaces: []string{"CVE"}}
+	for _, tc := range []struct {
+		ns, list string
+		already  bool
+		err      string
+	}{
+		{"CLEANSTART", ListDisclosure, false, ""},
+		{"CLEANSTART", ListAdvisory, false, ""},
+		{"CVE", ListDisclosure, true, ""},
+		{"ELSA", ListAdvisory, true, ""},
+		{"ALAS2023", ListDisclosure, false, `advisory-ids "ALAS*" already covers it`},
+		{"CVE", ListAdvisory, false, "it is in vulnerability-namespaces"},
+		{"CLEANSTART", "rules", false, "list must be"},
+	} {
+		already, err := v.CheckAdd(tc.ns, tc.list)
+		if already != tc.already || (err == nil) != (tc.err == "") || (err != nil && !strings.Contains(err.Error(), tc.err)) {
+			t.Errorf("%s to %s: got %v %v, want %v %q", tc.ns, tc.list, already, err, tc.already, tc.err)
+		}
+	}
+}

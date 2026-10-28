@@ -57,7 +57,10 @@ type State struct {
 	Candidate  *setup.Prepared `json:"candidate,omitempty"`
 	Reference  *setup.Prepared `json:"reference,omitempty"`
 	Vocabulary *Vocabulary     `json:"vocabulary,omitempty"`
-	Warnings   []string        `json:"warnings,omitempty"`
+	// Unlisted are the namespaces of open rows the vocabulary lacks, which research and labels on
+	// them need added first.
+	Unlisted []UnlistedNamespace `json:"unlisted,omitempty"`
+	Warnings []string            `json:"warnings,omitempty"`
 	// OutdatedLookups says the computed reasons read DB lookups an older yardstick made, and how
 	// to redo them; empty when they are current.
 	OutdatedLookups string `json:"outdatedLookups,omitempty"`
@@ -297,7 +300,7 @@ func (s *Server) handleState(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 	st := State{Scans: summarize(e, v), Author: s.opts.Author, Gate: v.gateStatus(e), Vocabulary: vocabOf(v.vocab), Warnings: v.verdict.Warnings, OutdatedLookups: v.paired.OutdatedLookups,
-		Causes: v.stateCauses(), Explanations: v.stateExplanations()}
+		Causes: v.stateCauses(), Explanations: v.stateExplanations(), Unlisted: v.unlisted(e.name)}
 	if s.opts.Research != nil {
 		a := s.opts.ResearchAvailability
 		st.Research = &a

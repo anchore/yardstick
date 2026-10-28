@@ -12,6 +12,7 @@ import (
 
 	"github.com/anchore/yardstick/cmd/yardstick/internal/agentstore"
 	"github.com/anchore/yardstick/cmd/yardstick/internal/analysis"
+	claimsv1 "github.com/anchore/yardstick/cmd/yardstick/internal/claims/v1"
 	"github.com/anchore/yardstick/cmd/yardstick/internal/report"
 )
 
@@ -93,6 +94,7 @@ func TestWireUnions(t *testing.T) {
 		"ResearchGroupName": {researchChange, researchNone},
 		"ResearchFrom":      {FromTable, FromFinding},
 		"LabelScope":        {scopeSubject, scopeAnywhere},
+		"VocabularyList":    {claimsv1.ListDisclosure, claimsv1.ListAdvisory},
 		"ReasonKind":        agentstore.ReasonKinds,
 	} {
 		want = slices.Sorted(slices.Values(want))

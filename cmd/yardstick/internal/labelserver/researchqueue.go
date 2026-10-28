@@ -173,15 +173,10 @@ func (s *Server) handleResearchQueue(w http.ResponseWriter, req *http.Request) {
 	}
 	reqs := make([]research.Request, 0, len(start))
 	for _, p := range start {
-		// proposing would refuse a vulnerability the gate's vocabulary has no namespace for, after
-		// the whole run; refuse it before any job is queued, saying which list its ids belong on
-		if v := b.views[p.req.Gate]; v != nil && v.vocab != nil {
-			if err := v.vocab.CheckScanned(p.req.Vulnerability, v.set.VocabularyPath(), v.related()); err != nil {
-				http.Error(w, err.Error(), http.StatusBadRequest)
-				return
-			}
-		}
 		reqs = append(reqs, p.req)
+	}
+	if !checkNamespaces(w, b.views, reqs) {
+		return
 	}
 	if out.Batch, out.Jobs, err = s.start(reqs, true); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)

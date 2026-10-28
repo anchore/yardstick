@@ -1,6 +1,8 @@
 package v1
 
 import (
+	"bytes"
+	"cmp"
 	"errors"
 	"fmt"
 	"io/fs"
@@ -193,59 +195,129 @@ func (v *Vocabulary) CheckVulnerability(id string) error {
 	return v.CheckScanned(id, "", nil)
 }
 
-// CheckScanned is CheckVulnerability, its refusal judging which list the namespace belongs on from a
-// scan's ids in it: an id naming at most one vulnerability is a disclosure, one naming several is
-// an advisory. related is each id the scan reported, with the ids reported beside it; file is the
-// vocabulary.yaml to add the namespace in, empty for an additional-claims one.
+// The two lists a namespace may be on.
+const (
+	ListDisclosure = "vulnerability-namespaces"
+	ListAdvisory   = "advisory-ids"
+)
+
+// Unlisted is the refusal of an id whose namespace is on neither list, with which list a scan's ids
+// in the namespace suggest: an id naming at most one vulnerability is a disclosure, one naming
+// several is an advisory.
+type Unlisted struct {
+	ID, Namespace string
+	// File is the vocabulary.yaml to add the namespace in, empty for an additional-claims one.
+	File string
+	// Suggest is ListDisclosure or ListAdvisory, empty when the scan had no id in the namespace.
+	Suggest string
+	// Checked counts the scan's ids in the namespace, Several those naming more than one
+	// vulnerability and Unnamed those naming none.
+	Checked, Several, Unnamed int
+	// Example is one id that shows the suggestion, and Names the vulnerabilities it names.
+	Example string
+	Names   []string
+}
+
+func (u *Unlisted) Error() string {
+	file := cmp.Or(u.File, "an additional-claims "+VocabularyFile)
+	head := fmt.Sprintf("vulnerability %s: namespace %q is not in any claims source's %s", u.ID, u.Namespace, VocabularyFile)
+	if u.Suggest == "" {
+		return fmt.Sprintf("%s; add it to %s in %s if each of its ids names one vulnerability, "+
+			"or to %s if an id can name several (as an ELSA names several CVEs)", head, ListDisclosure, file, ListAdvisory)
+	}
+	count := fmt.Sprintf("This gate's scan has %d %s id", u.Checked, u.Namespace)
+	if u.Checked > 1 {
+		count += "s"
+	}
+	example := u.Example + " names none"
+	if len(u.Names) > 0 {
+		example = u.Example + " → " + strings.Join(u.Names, ", ")
+	}
+	if u.Suggest == ListAdvisory {
+		verb := "name"
+		if u.Several == 1 {
+			verb = "names"
+		}
+		return fmt.Sprintf("%s. %s; %d %s several vulnerabilities (e.g. %s), so add it to %s in %s. "+
+			"(An id naming exactly one vulnerability would belong in %s.)", head, count, u.Several, verb, example, ListAdvisory, file, ListDisclosure)
+	}
+	each := "each names exactly 1 vulnerability"
+	if u.Unnamed > 0 {
+		each = "none names more than 1 vulnerability"
+	}
+	return fmt.Sprintf("%s. %s; %s (e.g. %s), so add it to %s in %s. "+
+		"(An id naming several CVEs would belong in %s.)", head, count, each, example, ListDisclosure, file, ListAdvisory)
+}
+
+// CheckScanned is CheckVulnerability, refusing with an *Unlisted that judges which list the
+// namespace belongs on from a scan's ids in it. related is each id the scan reported, with the ids
+// reported beside it; file is the vocabulary.yaml to add the namespace in, empty for an
+// additional-claims one.
 func (v *Vocabulary) CheckScanned(id, file string, related map[string][]string) error {
 	ns := Namespace(id)
 	if v.IsAdvisory(id) || slices.Contains(v.Namespaces, ns) {
 		return nil
 	}
-	if file == "" {
-		file = "an additional-claims " + VocabularyFile
-	}
-	head := fmt.Sprintf("vulnerability %s: namespace %q is not in any claims source's %s", id, ns, VocabularyFile)
-	var ids, several []string
+	u := &Unlisted{ID: id, Namespace: ns, File: file}
+	var one, several []string
 	for _, x := range slices.Sorted(maps.Keys(related)) {
-		if Namespace(x) == ns {
-			ids = append(ids, x)
-			if len(names(x, related[x])) > 1 {
-				several = append(several, x)
+		if Namespace(x) != ns {
+			continue
+		}
+		u.Checked++
+		switch n := len(names(x, related[x])); {
+		case n > 1:
+			several = append(several, x)
+		case n == 1:
+			one = append(one, x)
+		default:
+			u.Unnamed++
+		}
+		if u.Example == "" {
+			u.Example = x
+		}
+	}
+	u.Several = len(several)
+	switch {
+	case u.Checked == 0:
+	case len(several) > 0:
+		u.Suggest, u.Example = ListAdvisory, several[0]
+	default:
+		u.Suggest = ListDisclosure
+		if len(one) > 0 {
+			u.Example = one[0]
+		}
+	}
+	if u.Example != "" {
+		u.Names = names(u.Example, related[u.Example])
+	}
+	return u
+}
+
+// CheckAdd says whether adding a namespace to a list keeps the vocabulary sound: already when it
+// is on that list, an error when it would be listed as both kinds.
+func (v *Vocabulary) CheckAdd(ns, list string) (already bool, err error) {
+	switch list {
+	case ListDisclosure:
+		if slices.Contains(v.Namespaces, ns) {
+			return true, nil
+		}
+		for _, p := range v.AdvisoryIDs {
+			if ok, _ := path.Match(p, ns); ok {
+				return false, fmt.Errorf("namespace %q can't be added to %s: %s %q already covers it", ns, ListDisclosure, ListAdvisory, p)
 			}
 		}
-	}
-	if len(ids) == 0 {
-		return fmt.Errorf("%s; add it to vulnerability-namespaces in %s if each of its ids names one vulnerability, "+
-			"or to advisory-ids if an id can name several (as an ELSA names several CVEs)", head, file)
-	}
-	example := func(x string) string {
-		if n := names(x, related[x]); len(n) > 0 {
-			return x + " → " + strings.Join(n, ", ")
+	case ListAdvisory:
+		if slices.Contains(v.AdvisoryIDs, ns) {
+			return true, nil
 		}
-		return x + " names none"
-	}
-	count := fmt.Sprintf("This gate's scan has %d %s id", len(ids), ns)
-	if len(ids) > 1 {
-		count += "s"
-	}
-	if len(several) > 0 {
-		verb := "name"
-		if len(several) == 1 {
-			verb = "names"
+		if slices.Contains(v.Namespaces, ns) {
+			return false, fmt.Errorf("namespace %q can't be added to %s: it is in %s", ns, ListAdvisory, ListDisclosure)
 		}
-		return fmt.Errorf("%s. %s; %d %s several vulnerabilities (e.g. %s), so add it to advisory-ids in %s. "+
-			"(An id naming exactly one vulnerability would belong in vulnerability-namespaces.)", head, count, len(several), verb, example(several[0]), file)
+	default:
+		return false, fmt.Errorf("list must be %s or %s, got %q", ListDisclosure, ListAdvisory, list)
 	}
-	each, ex := "none names more than 1 vulnerability", ids[0]
-	if !slices.ContainsFunc(ids, func(x string) bool { return len(names(x, related[x])) == 0 }) {
-		each = "each names exactly 1 vulnerability"
-	}
-	if i := slices.IndexFunc(ids, func(x string) bool { return len(names(x, related[x])) == 1 }); i >= 0 {
-		ex = ids[i]
-	}
-	return fmt.Errorf("%s. %s; %s (e.g. %s), so add it to vulnerability-namespaces in %s. "+
-		"(An id naming several CVEs would belong in advisory-ids.)", head, count, each, example(ex), file)
+	return false, nil
 }
 
 // names is the distinct vulnerabilities an id's related ids name. Ids in its own namespace are its
@@ -360,4 +432,48 @@ func (v *Vocabulary) Allowed(verdict Verdict) []string {
 	}
 	sort.Strings(out)
 	return out
+}
+
+// AddToList is a vocabulary.yaml with a namespace appended to one of its lists, the list added when
+// the file has none; data may be empty, for a file not yet written. The file is edited as a YAML
+// tree, so its comments, key order and styles stay as they were.
+func AddToList(data []byte, ns, list string) ([]byte, error) {
+	var doc yaml.Node
+	if err := yaml.Unmarshal(data, &doc); err != nil {
+		return nil, fmt.Errorf("%s: %w", VocabularyFile, err)
+	}
+	if doc.Kind == 0 {
+		doc = yaml.Node{Kind: yaml.DocumentNode, Content: []*yaml.Node{{Kind: yaml.MappingNode}}}
+	}
+	root := doc.Content[0]
+	if root.Kind != yaml.MappingNode {
+		return nil, fmt.Errorf("%s is not a mapping", VocabularyFile)
+	}
+	item := &yaml.Node{Kind: yaml.ScalarNode, Tag: "!!str", Value: ns}
+	var seq *yaml.Node
+	for i := 0; i+1 < len(root.Content); i += 2 {
+		if root.Content[i].Value == list {
+			seq = root.Content[i+1]
+		}
+	}
+	switch {
+	case seq == nil:
+		root.Content = append(root.Content, &yaml.Node{Kind: yaml.ScalarNode, Tag: "!!str", Value: list},
+			&yaml.Node{Kind: yaml.SequenceNode, Tag: "!!seq", Style: yaml.FlowStyle, Content: []*yaml.Node{item}})
+	case seq.Kind == yaml.SequenceNode:
+		if !slices.ContainsFunc(seq.Content, func(n *yaml.Node) bool { return n.Value == ns }) {
+			seq.Content = append(seq.Content, item)
+		}
+	case seq.Tag == "!!null":
+		*seq = yaml.Node{Kind: yaml.SequenceNode, Tag: "!!seq", Style: yaml.FlowStyle, Content: []*yaml.Node{item}}
+	default:
+		return nil, fmt.Errorf("%s in %s is not a list", list, VocabularyFile)
+	}
+	var out bytes.Buffer
+	enc := yaml.NewEncoder(&out)
+	enc.SetIndent(2)
+	if err := enc.Encode(&doc); err != nil {
+		return nil, err
+	}
+	return out.Bytes(), enc.Close()
 }
