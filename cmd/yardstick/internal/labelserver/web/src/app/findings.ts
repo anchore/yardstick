@@ -11,6 +11,7 @@ import { outcome as outcomeOf, outcomeRank } from "../shared/rows";
 import { columnHelp as help, labels as words } from "../shared/words";
 import { acceptHints, labelOptions, labelRows } from "./data";
 import { chipCounts, chipFilters, chipGroups, chipOf, chipWords, effectRank, inChip, isOpen, scopedRows, shownRows, type FRow } from "./listing";
+import { orFix } from "./namespace";
 import { bulkResearch, cellFor, follow, started, type Research } from "./researchtable";
 import { withFilters, type Route } from "./route";
 import type { Nav } from "./shell";
@@ -69,7 +70,8 @@ export function findingsList(o: FindingsOptions): FindingsList {
   // start researches rows through the gate, from a table, and shows them queued in place
   async function start(ids: string[]) {
     try {
-      const res = await api.research(o.gate, ids, "table");
+      const res = await orFix(() => api.research(o.gate, ids, "table"));
+      if (!res) return false;
       started(res.queued, res.skipped);
     } catch (e) {
       toast((e as Error).message, true);

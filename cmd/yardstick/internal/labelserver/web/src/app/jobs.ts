@@ -14,6 +14,7 @@ import { busy, kick, latest, onJobs } from "./activity";
 import { gateState } from "./data";
 import { hintsHref } from "./hintsdata";
 import { failed, loading } from "./lists";
+import { orFix } from "./namespace";
 import { started, tick } from "./researchtable";
 import { costWords, fromWords, jobGroups, liveLog, modelWords, money, newHints, stateWords, timeWords } from "./researchwords";
 import { formatRoute, type Route } from "./route";
@@ -177,8 +178,8 @@ export function jobsView(host: HTMLElement, r: Extract<Route, { level: "jobs" }>
   // retry starts a failed or cancelled job's rows again, from where it was first started
   async function retry(x: ResearchJob) {
     try {
-      const res = await api.research(x.gate!, x.rows, x.from === "finding" ? "finding" : "table");
-      started(res.queued, res.skipped);
+      const res = await orFix(() => api.research(x.gate!, x.rows, x.from === "finding" ? "finding" : "table"));
+      if (res) started(res.queued, res.skipped);
     } catch (e) {
       toast((e as Error).message, true);
     }

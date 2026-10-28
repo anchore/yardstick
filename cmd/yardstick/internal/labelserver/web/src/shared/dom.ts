@@ -68,13 +68,22 @@ export function must<T extends HTMLElement = HTMLElement>(s: string): T {
   return n;
 }
 
+// toastLine is about how much text one line of a toast holds; a longer one stays until dismissed
+export const toastLine = 90;
+// sticky says a toast stays until dismissed: more than a line takes longer to read than any timer gives
+export const sticky = (msg: string) => msg.length > toastLine;
+
 let toastTimer: ReturnType<typeof setTimeout> | undefined;
-// an action (a write's Undo) is a button in the toast, which then stays up long enough to reach it
+// an action (a write's Undo) is a button in the toast, which then stays up long enough to reach it;
+// a toast longer than a line stays until its close button
 export function toast(msg: string, error = false, action?: { text: string; run: () => void }) {
   const t = $("#toast");
   if (!t) return;
+  const stays = sticky(msg);
   fill(t, msg, action && el("button", { type: "button", class: "toast-action", "data-testid": "toast-action",
-    onclick: () => { t.hidden = true; action.run(); } }, action.text));
+    onclick: () => { t.hidden = true; action.run(); } }, action.text),
+  stays && el("button", { type: "button", class: "toast-close", "aria-label": "Dismiss", "data-testid": "toast-close", onclick: () => (t.hidden = true) }, "×"));
   t.className = `toast${error ? " error" : ""}`; t.hidden = false;
-  clearTimeout(toastTimer); toastTimer = setTimeout(() => (t.hidden = true), action ? 10000 : error ? 6000 : 2500);
+  clearTimeout(toastTimer);
+  if (!stays) toastTimer = setTimeout(() => (t.hidden = true), action ? 10000 : error ? 6000 : 2500);
 }

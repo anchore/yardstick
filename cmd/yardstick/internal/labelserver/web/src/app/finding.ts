@@ -15,6 +15,7 @@ import { changed, forget, writeFailed, written } from "./data";
 import { loadFinding, type FindingData } from "./finding-data";
 import { effect, mutedReason, pendingCause, seenWith, shortSource } from "./finding-words";
 import { labelPanel, type Draft, type LabelPanel } from "./labelpanel";
+import { orFix } from "./namespace";
 import type { GateLines } from "./queuewords";
 import { nextOpen, position, type Item } from "./neighbors";
 import { formatRoute, type Route } from "./route";
@@ -220,7 +221,10 @@ export function findingView(host: HTMLElement, r: FindingRoute, nav: Nav, signal
     if (!d) return;
     const off = d.state.research && !d.state.research.available ? d.state.research : null;
     if (off) return toast(`research disabled: ${off.reason}${off.command ? `; run ${off.command}` : ""}`, true);
-    try { await api.research(r.gate, [d.row.id], "finding"); } catch (e) { return toast((e as Error).message, true); }
+    const row = d.row.id;
+    try {
+      if (!(await orFix(() => api.research(r.gate, [row], "finding")))) return;
+    } catch (e) { return toast((e as Error).message, true); }
     toast("research started; what it finds arrives as an agent hint");
     void kick();
     forget();

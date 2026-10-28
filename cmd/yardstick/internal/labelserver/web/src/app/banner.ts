@@ -16,6 +16,7 @@ import { aloneWords, hintedRows, hintsHref, inScope, previewLabels, waitWords, w
 import { openOf } from "./images";
 import { formatRoute } from "./route";
 import { gateRows, isOpen, sumTally } from "./listing";
+import { unlistedAlert } from "./namespace";
 import { active, batchWords, estimate, finishedWords, leadWords, money, summary } from "./researchwords";
 import { kbd, status, verdict } from "./ui";
 
@@ -26,6 +27,8 @@ const poll = 2000;
 
 export interface Work {
   el: HTMLElement;
+  // notice says which open rows' namespaces the claims vocabulary lacks, above the banner
+  notice: HTMLElement;
   // cell is a gate row's hint column, filled once the hints are in
   cell(gate: string): HTMLElement;
   // refresh reads the open work again after a write, over the numbers already shown
@@ -53,6 +56,12 @@ export function workBanner(list: GateList, signal: AbortSignal): Work {
     el("div", {}, caps, bigs, bar, legend, acts),
     el("div", {}, rcaps, outcomes, foot));
   const cells = new Map(gates.map((g) => [g.id, el("div", { class: "lnum", "data-testid": "gate-work" })]));
+  const notice = el("div", { "data-testid": "work-unlisted" });
+  // unlisted is every gate's open rows' namespaces the vocabulary lacks, before research is refused on them
+  const unlisted = async () => {
+    const all = await Promise.all(gates.map((g) => gateState(g.id).then((st) => st.unlisted ?? [], () => [])));
+    if (!signal.aborted) fill(notice, unlistedAlert(all.flat(), gates.length > 1));
+  };
 
   // stack fills the bar, and the legend with only the segments the bar has
   const stack = (segs: [string, number, string][]) => {
@@ -213,11 +222,13 @@ export function workBanner(list: GateList, signal: AbortSignal): Work {
 
   const failed = (e: unknown) => fill(outcomes, el("span", { class: "muted" }, `Couldn't preview the hints: ${(e as Error).message}`));
   load().catch(failed);
+  void unlisted();
 
   return {
     el: banner,
+    notice,
     cell: (gate) => cells.get(gate) ?? el("div", { class: "lnum" }),
-    refresh(next) { gates = next.gates.filter((g) => !g.error); load().catch(failed); },
+    refresh(next) { gates = next.gates.filter((g) => !g.error); load().catch(failed); void unlisted(); },
   };
 }
 

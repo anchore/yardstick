@@ -16,6 +16,7 @@ import { effectCell } from "./findings";
 import { jobsToggle } from "./jobs";
 import { effectRank } from "./listing";
 import { failed, loading } from "./lists";
+import { orFix } from "./namespace";
 import { queueFor } from "./queuelist";
 import { formatRoute, withFilters, type Route } from "./route";
 import { renderShell, type Nav, type View } from "./shell";
@@ -199,7 +200,8 @@ export function researchView(host: HTMLElement, r: ResearchRoute, nav: Nav, sign
       if (!ids.length) return;
       start.disabled = true;
       try {
-        const res = await api.startResearch({ scope, rows: ids, limit: cap > 0 ? cap : undefined, model: model.value });
+        const res = await orFix(() => api.startResearch({ scope, rows: ids, limit: cap > 0 ? cap : undefined, model: model.value }));
+        if (!res) { start.disabled = false; return; }
         toast(res.jobs?.length ? `✦ ${plural(res.jobs.length, "research job")} started; the gates page shows their progress` : "nothing left to research");
         void kick();
       } catch (e) {
