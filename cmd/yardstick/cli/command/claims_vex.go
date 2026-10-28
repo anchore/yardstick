@@ -50,7 +50,7 @@ skipped and listed.`,
 				return err
 			}
 			defer to.Close()
-			vocab, err := claimsv1.FindVocabulary(to.FS())
+			vocab, err := claimsv1.FindVocabulary(claimsv1.NamedFS{Name: cfg.To, FS: to.FS()})
 			if err != nil {
 				return err
 			}

@@ -73,16 +73,98 @@ func LoadVocabulary(fsys fs.FS) (*Vocabulary, error) {
 	return &v, nil
 }
 
-// FindVocabulary is the vocabulary labels are written against: the writable source's, else that
-// of the first source that has one.
-func FindVocabulary(writable fs.FS, sources ...fs.FS) (*Vocabulary, error) {
-	for _, fsys := range append([]fs.FS{writable}, sources...) {
-		v, err := LoadVocabulary(fsys)
-		if err != nil || v != nil {
-			return v, err
+// NamedFS is a claims source's files, and the name a vocabulary merge error gives it.
+type NamedFS struct {
+	Name string
+	FS   fs.FS
+}
+
+// FindVocabulary is the vocabulary labels are written against: every source's vocabulary.yaml
+// merged (MergeVocabularies), an error when none has one.
+func FindVocabulary(sources ...NamedFS) (*Vocabulary, error) {
+	v, err := MergeVocabularies(sources...)
+	if err == nil && v == nil {
+		err = errors.New("no claims source has a " + VocabularyFile + ", so no justification or fact source can be checked")
+	}
+	return v, err
+}
+
+// MergeVocabularies merges the vocabulary.yaml of each source that has one, in order; nil when none
+// has one. A source adds to the lists and to the justifications and rules, so a provider's own
+// claims can list its namespace before the published corpus does. A justification or rule two
+// sources define differently is an error naming both, as is a namespace listed as both kinds.
+func MergeVocabularies(sources ...NamedFS) (*Vocabulary, error) {
+	var out *Vocabulary
+	// from is the source that first listed each list entry or map key, for the errors
+	from := map[string]string{}
+	for _, s := range sources {
+		v, err := LoadVocabulary(s.FS)
+		if err != nil {
+			return nil, fmt.Errorf("claims source %s: %w", s.Name, err)
+		}
+		if v == nil {
+			continue
+		}
+		if out == nil {
+			out = &Vocabulary{Justifications: map[Verdict]map[string]string{}, Rules: map[string]Rule{}}
+		}
+		if err := out.merge(s.Name, v, from); err != nil {
+			return nil, err
 		}
 	}
-	return nil, errors.New("no claims source has a " + VocabularyFile + ", so no justification or fact source can be checked")
+	if out == nil {
+		return nil, nil
+	}
+	// a disclosure namespace an advisory pattern covers would pair as both kinds
+	for _, ns := range out.Namespaces {
+		for _, p := range out.AdvisoryIDs {
+			if ok, _ := path.Match(p, ns); ok {
+				return nil, fmt.Errorf("namespace %q is in vulnerability-namespaces (%s) and matches advisory-ids %q (%s) in %s; list it as one kind",
+					ns, from["namespace "+ns], p, from["advisory "+p], VocabularyFile)
+			}
+		}
+	}
+	return out, nil
+}
+
+// merge adds o, from the named source, to v.
+func (v *Vocabulary) merge(source string, o *Vocabulary, from map[string]string) error {
+	union := func(list []string, add []string, kind string) []string {
+		for _, x := range add {
+			if !slices.Contains(list, x) {
+				list = append(list, x)
+				from[kind+" "+x] = source
+			}
+		}
+		return list
+	}
+	v.FactSources = union(v.FactSources, o.FactSources, "fact-source")
+	v.AdvisoryIDs = union(v.AdvisoryIDs, o.AdvisoryIDs, "advisory")
+	v.Namespaces = union(v.Namespaces, o.Namespaces, "namespace")
+	for _, verdict := range slices.Sorted(maps.Keys(o.Justifications)) {
+		if v.Justifications[verdict] == nil {
+			v.Justifications[verdict] = map[string]string{}
+		}
+		for _, j := range slices.Sorted(maps.Keys(o.Justifications[verdict])) {
+			desc, key := o.Justifications[verdict][j], fmt.Sprintf("justification %s/%s", verdict, j)
+			if had, ok := v.Justifications[verdict][j]; ok && had != desc {
+				return fmt.Errorf("justification %q under %s is %q in %s and %q in %s, each in its %s", j, verdict, had, from[key], desc, source, VocabularyFile)
+			}
+			if _, ok := v.Justifications[verdict][j]; !ok {
+				v.Justifications[verdict][j], from[key] = desc, source
+			}
+		}
+	}
+	for _, name := range slices.Sorted(maps.Keys(o.Rules)) {
+		r, key := o.Rules[name], "rule "+name
+		if had, ok := v.Rules[name]; ok && had != r {
+			return fmt.Errorf("rule %q is defined differently in %s and %s, each in its %s", name, from[key], source, VocabularyFile)
+		}
+		if _, ok := v.Rules[name]; !ok {
+			v.Rules[name], from[key] = r, source
+		}
+	}
+	return nil
 }
 
 // Namespace is a vulnerability id's namespace: what comes before the first '-'.

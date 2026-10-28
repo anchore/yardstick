@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 )
@@ -94,19 +95,67 @@ func TestFormatMajor(t *testing.T) {
 func TestFindVocabulary(t *testing.T) {
 	published, local := t.TempDir(), t.TempDir()
 	write(t, filepath.Join(published, VocabularyFile), vocabYAML)
-	v, err := FindVocabulary(os.DirFS(local), os.DirFS(published), os.DirFS(local))
-	if err != nil || v == nil || len(v.FactSources) != 3 {
-		t.Fatalf("expected the published vocabulary when the writable source has none, got %+v %v", v, err)
+	sources := func() []NamedFS {
+		return []NamedFS{{Name: "anchore/claims", FS: os.DirFS(published)}, {Name: "additional-claims", FS: os.DirFS(local)}}
 	}
-	write(t, filepath.Join(local, VocabularyFile), "fact-sources: [sbom]\nsomethingNew: true\n")
-	if v, _ := FindVocabulary(os.DirFS(local), os.DirFS(published)); len(v.FactSources) != 1 {
-		t.Errorf("expected the writable source's own vocabulary first, got %+v", v)
-	}
-	if _, err := FindVocabulary(os.DirFS(t.TempDir())); err == nil {
-		t.Error("expected an error with no vocabulary anywhere")
+	// a source without one adds nothing
+	v, err := FindVocabulary(sources()...)
+	if err != nil || v == nil || len(v.FactSources) != 3 || len(v.Rules) != 3 {
+		t.Fatalf("expected the published vocabulary when the overlay has none, got %+v %v", v, err)
 	}
 	if !vocab.IsAdvisory("ALAS2-2023-1234") || !vocab.IsAdvisory("RHSA-2023:1234") || vocab.IsAdvisory("CVE-2023-1234") {
 		t.Error("expected ALAS* to cover ALAS2 and RHSA listed")
+	}
+	if err := v.CheckVulnerability("CLEANSTART-2026-GU36052"); err == nil {
+		t.Error("expected CLEANSTART refused before the overlay lists it")
+	}
+
+	// an overlay adds to the lists and maps; an identical redefinition and an unknown key are fine
+	write(t, filepath.Join(local, VocabularyFile), `vulnerability-namespaces: [CLEANSTART, CVE]
+advisory-ids: [IC]
+fact-sources: [nvd, cleanstart]
+justifications:
+  fp: {fix-installed: Installed version has the fix, not-shipped: The package does not ship the code}
+rules:
+  judgement/prior-claims-pattern: {verdict: any, ceiling: medium, decision: P-4, basis: prior claims on the same package}
+somethingNew: true
+`)
+	v, err = FindVocabulary(sources()...)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := v.CheckVulnerability("CLEANSTART-2026-GU36052"); err != nil {
+		t.Errorf("expected the overlay's namespace listed: %v", err)
+	}
+	if got := strings.Join(v.Namespaces, " ") + " | " + strings.Join(v.FactSources, " ") + " | " + strings.Join(v.AdvisoryIDs, " "); got != "CVE GHSA CLEANSTART | debian-security-tracker nvd sbom cleanstart | ALAS* ELSA ALSA RLSA RHSA AVG IC" {
+		t.Errorf("expected each list the union of both, in order: %s", got)
+	}
+	if !slices.Equal(v.Allowed(FP), []string{"fix-installed", "not-shipped", "vulnerable_code_not_present"}) {
+		t.Errorf("expected the overlay's justification added: %v", v.Allowed(FP))
+	}
+
+	// a key defined differently, or a namespace listed as both kinds, refuses the set, naming both sources
+	for name, tc := range map[string]struct{ overlay, want string }{
+		"justification": {"justifications:\n  fp: {fix-installed: Fixed upstream}\n",
+			`justification "fix-installed" under fp is "Installed version has the fix" in anchore/claims and "Fixed upstream" in additional-claims`},
+		"rule": {"rules:\n  debian/affected-unfixed: {verdict: tp, justification: no-fix, ceiling: high, decision: P-4, basis: Debian lists it as affected with no fix}\n",
+			`rule "debian/affected-unfixed" is defined differently in anchore/claims and additional-claims`},
+		"advisory pattern": {"vulnerability-namespaces: [ALAS2023]\n",
+			`namespace "ALAS2023" is in vulnerability-namespaces (additional-claims) and matches advisory-ids "ALAS*" (anchore/claims)`},
+		"advisory namespace": {"advisory-ids: [GHSA]\n",
+			`namespace "GHSA" is in vulnerability-namespaces (anchore/claims) and matches advisory-ids "GHSA" (additional-claims)`},
+	} {
+		write(t, filepath.Join(local, VocabularyFile), tc.overlay)
+		if _, err := FindVocabulary(sources()...); err == nil || !strings.Contains(err.Error(), tc.want) {
+			t.Errorf("%s: expected %q, got %v", name, tc.want, err)
+		}
+	}
+
+	if _, err := FindVocabulary(NamedFS{Name: "empty", FS: os.DirFS(t.TempDir())}); err == nil {
+		t.Error("expected an error with no vocabulary anywhere")
+	}
+	if v, err := MergeVocabularies(NamedFS{Name: "empty", FS: os.DirFS(t.TempDir())}); v != nil || err != nil {
+		t.Errorf("expected no vocabulary and no error from merging none, got %+v %v", v, err)
 	}
 }
 

@@ -63,6 +63,8 @@ Without a `catalog:`, the `catalog.yaml` of the first claims source holding one 
 
 Each entry is a local directory, `github.com/<owner>/<repo>@main` for a repository's published snapshot, or `github.com/<owner>/<repo>/<path>@<ref>` for a claims directory in a repository at a branch, tag or commit. A label in a later source wins over the same label in an earlier one.
 
+Each source's `vocabulary.yaml` is optional, and every one that exists is merged: `advisory-ids`, `vulnerability-namespaces` and `fact-sources` are the union of all of them, and a later source may add `justifications` and `rules`. A justification or rule two sources define differently is an error naming both sources, as is a namespace that is in `vulnerability-namespaces` and matches an `advisory-ids` pattern. So a provider's own claims can list its new namespace in a `vocabulary.yaml` holding only that, e.g. `vulnerability-namespaces: [CLEANSTART]`, before the published corpus lists it.
+
 A gate with no `claims:` uses the `claims:` of the app config, `.yardstick.yaml` or `config/yardstick.yaml` in the working directory. `--claims <dir>` appends a local source to either. A command that writes labels needs the last source to be local.
 
 ### `subjects`
