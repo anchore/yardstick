@@ -153,13 +153,15 @@ Write `<workspace>/.yardstick/research/<VULN>/<package>/REPORT.md`:
    USN dates; fix published in the release; when each DB first/last showed it if known.
 3. The evidence chain, numbered, each item with its URL and what to look for there.
 4. The DB difference and its cause (or "cause unverified").
-5. Open questions, if any.
+5. Open questions, if any, whatever the verdict.
 
 Then fill `proposal.json`: `verdict`, `justification` (Phase 3), `confidence`, `note` (one or two
 sentences, the deciding fact first; the UI shows it under the justification line),
 `evidence[0].interpretation` (the specific, then the evidence chain in prose, URLs inline; they are
-linkified; keep the report path the skeleton put at its end), `openQuestions` (empty unless
-`unclear`). Add facts you relied on that the skeleton did not observe to `evidence[0].facts`, as
+linkified; keep the report path the skeleton put at its end), `openQuestions` (every open question
+the report lists, on any verdict, one string each; the finding page reads only proposal.json, so a
+question left out of it is lost to the labeler; empty only when the report has none). Add facts
+you relied on that the skeleton did not observe to `evidence[0].facts`, as
 `{"source","url","about","field","value","observedAt"}`. A fact's source must be listed under
 `fact-sources` in `vocabulary.yaml` (`factSources` in `yardstick claims policy -o json`), or propose
 refuses the line: use the listed name (`cve.org`, `osv`, `debian-security-tracker`, ...), and
