@@ -19,7 +19,7 @@ describe("an unlisted namespace's dialog", () => {
     expect(w.title).toBe("CLEANSTART isn't in the claims vocabulary");
     expect(w.body).toBe("Research and labels on its rows can't be recorded until it is. Each CLEANSTART id in this scan names one vulnerability at most " +
       "(e.g. CLEANSTART-2026-GU36052 → CVE-2025-11082), so it looks like a disclosure namespace.");
-    expect(w.adds).toEqual([{ list: "vulnerability-namespaces", text: "Add as disclosure namespace" }, { list: "advisory-ids", text: "Add as advisory namespace" }]);
+    expect(w.adds).toEqual([{ list: "vulnerability-namespaces", text: "Add as disclosure" }, { list: "advisory-ids", text: "Add as advisory" }]);
     expect(w.small).toBe("Writes additional-claims/vocabulary.yaml; your PR will show the change.");
     expect(w.writable).toBe(true);
     expect(namespaceWords({ ...cleanstart, checked: 1 }).body).toContain("The one CLEANSTART id in this scan names one vulnerability (CLEANSTART-2026-GU36052 → CVE-2025-11082)");

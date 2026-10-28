@@ -33,7 +33,7 @@ function judged(u: UnlistedNamespace) {
 
 export function namespaceWords(u: UnlistedNamespace): NamespaceWords {
   const first = u.suggest ?? "vulnerability-namespaces";
-  const add = (list: VocabularyList): NamespaceAdd => ({ list, text: `Add as ${kinds[list]} namespace` });
+  const add = (list: VocabularyList): NamespaceAdd => ({ list, text: `Add as ${kinds[list]}` });
   return {
     title: `${u.namespace} isn't in the claims vocabulary`,
     body: `Research and labels on its rows can't be recorded until it is. ${judged(u)}`,

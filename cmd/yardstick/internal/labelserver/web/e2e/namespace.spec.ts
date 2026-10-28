@@ -30,7 +30,7 @@ test("research on an unlisted namespace asks to add it, and adding it starts the
   await expect(dialog.getByTestId("namespace-file")).toHaveText("Writes claims/vocabulary.yaml; your PR will show the change.");
   // the suggested list is the primary, the other list beside it
   const adds = dialog.getByTestId("namespace-add");
-  await expect(adds).toHaveText(["Add as advisory namespace", "Add as disclosure namespace"]);
+  await expect(adds).toHaveText(["Add as advisory", "Add as disclosure"]);
   await expect(dialog.locator('[data-list="vulnerability-namespaces"]')).not.toHaveAttribute("data-variant", "outline");
   // it stays until answered, unlike a toast
   await page.waitForTimeout(3000);
