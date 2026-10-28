@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"slices"
 	"strings"
@@ -231,7 +232,7 @@ func TestE2EResearchQueue(t *testing.T) {
 // research on a vulnerability whose namespace the vocabulary lacks is refused before any job is
 // queued, since proposing its call would be refused after the whole run
 func TestE2EResearchRefusesUnlistedNamespace(t *testing.T) {
-	srv, dir, _, _ := e2eServer(t)
+	srv, dir, tools, bin := e2eServer(t)
 	h, token := srv.Handler(), srv.Token()
 	vocab := filepath.Join(dir, "claims", claimsv1.VocabularyFile)
 	b, err := os.ReadFile(vocab)
@@ -246,13 +247,27 @@ func TestE2EResearchRefusesUnlistedNamespace(t *testing.T) {
 	req.Header.Set(labelserver.TokenHeader, token)
 	rec := httptest.NewRecorder()
 	h.ServeHTTP(rec, req)
-	if rec.Code != http.StatusBadRequest || !strings.Contains(rec.Body.String(), "add it to advisory-ids if its ids are advisories that alias CVEs, else to vulnerability-namespaces") {
+	// the refusal judges the list from the scan: the GHSA names one CVE, so it is a disclosure namespace
+	// in the writable source's vocabulary.yaml, as the set resolved it (a temp dir may be a symlink)
+	real, err := filepath.EvalSymlinks(vocab)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := "This gate's scan has 1 GHSA id; each names exactly 1 vulnerability (e.g. GHSA-67hx-6x53-jw92 → CVE-2023-45133), so add it to vulnerability-namespaces in " + real + "."
+	if rec.Code != http.StatusBadRequest || !strings.Contains(rec.Body.String(), want) {
 		t.Errorf("POST /api/research on an unlisted namespace: %d %s", rec.Code, rec.Body)
 	}
 	var jl labelserver.ResearchJobs
 	get(t, h, "/api/research/jobs", &jl)
 	if len(jl.Jobs) != 0 {
 		t.Errorf("a refused request queued jobs: %+v", jl.Jobs)
+	}
+	// propose refuses the call the same way
+	cmd := exec.Command(bin, "claims", "agent", "propose", "--gate", "deb-npm")
+	cmd.Dir, cmd.Env = dir, append(os.Environ(), "YARDSTICK_CACHE_DIR="+filepath.Join(tools, "cache"))
+	cmd.Stdin = strings.NewReader(`{"row":"24160b879ac36bf5","verdict":"unclear","justification":"not-assessed","author":{"skill":"triage-deltas","model":"e2e"}}`)
+	if out, err := cmd.CombinedOutput(); err == nil || !strings.Contains(string(out), want) {
+		t.Errorf("propose on an unlisted namespace: %v\n%s", err, out)
 	}
 }
 

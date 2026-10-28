@@ -233,18 +233,57 @@ func TestSchemaDescribesEveryKey(t *testing.T) {
 	}
 }
 
-// an id in neither list is refused, and the refusal says which list to add its namespace to
+// an id in neither list is refused, and the refusal says which list to add its namespace to: from
+// the scan's ids in it when there is a scan, else both
 func TestCheckVulnerability(t *testing.T) {
-	v := &Vocabulary{AdvisoryIDs: []string{"ELSA"}, Namespaces: []string{"CVE"}}
-	for _, id := range []string{"ELSA-2021-9137", "CVE-2020-1971"} {
-		if err := v.CheckVulnerability(id); err != nil {
+	v := &Vocabulary{AdvisoryIDs: []string{"ALAS*"}, Namespaces: []string{"CVE"}}
+	for _, id := range []string{"ALAS2-2021-1", "CVE-2020-1971"} {
+		if err := v.CheckScanned(id, "", nil); err != nil {
 			t.Errorf("%s: %v", id, err)
 		}
 	}
-	err := v.CheckVulnerability("CLEANSTART-2026-GU36052")
-	if want := `vulnerability CLEANSTART-2026-GU36052: namespace "CLEANSTART" is in neither advisory-ids nor vulnerability-namespaces in vocabulary.yaml; ` +
-		"add it to advisory-ids if its ids are advisories that alias CVEs, else to vulnerability-namespaces"; err == nil || err.Error() != want {
-		t.Errorf("got %v, want %s", err, want)
+	const head = `vulnerability CLEANSTART-2026-GU36052: namespace "CLEANSTART" is not in any claims source's vocabulary.yaml`
+	// each related list holds the id itself, as a row's aliases do
+	cleanstart := map[string][]string{
+		"CLEANSTART-2026-GU36052": {"CLEANSTART-2026-GU36052", "CVE-2025-11082"},
+		"CLEANSTART-2026-IC12241": {"CLEANSTART-2026-IC12241", "CVE-2025-11083"},
+		"CVE-2025-11082":          {"CVE-2025-11082", "CLEANSTART-2026-GU36052"},
+	}
+	for name, tc := range map[string]struct {
+		file    string
+		related map[string][]string
+		want    string
+	}{
+		"no scan": {"", nil, head + "; add it to vulnerability-namespaces in an additional-claims vocabulary.yaml if each of its ids names one vulnerability, " +
+			"or to advisory-ids if an id can name several (as an ELSA names several CVEs)"},
+		"one vulnerability each": {"", cleanstart, head + ". This gate's scan has 2 CLEANSTART ids; each names exactly 1 vulnerability " +
+			"(e.g. CLEANSTART-2026-GU36052 → CVE-2025-11082), so add it to vulnerability-namespaces in an additional-claims vocabulary.yaml. " +
+			"(An id naming several CVEs would belong in advisory-ids.)"},
+		// a sibling advisory isn't a vulnerability it names, and a GHSA beside a CVE is that CVE's alias
+		"siblings and a GHSA alias": {"/w/additional-claims/vocabulary.yaml", map[string][]string{
+			"CLEANSTART-2026-CU90484": {"CLEANSTART-2026-CU90484", "CLEANSTART-2026-BJ66525", "CVE-2026-32288", "GHSA-xxxx-yyyy-zzzz"},
+			"CLEANSTART-2026-AA00001": {"CLEANSTART-2026-AA00001"},
+		}, head + ". This gate's scan has 2 CLEANSTART ids; none names more than 1 vulnerability " +
+			"(e.g. CLEANSTART-2026-CU90484 → CVE-2026-32288), so add it to vulnerability-namespaces in /w/additional-claims/vocabulary.yaml. " +
+			"(An id naming several CVEs would belong in advisory-ids.)"},
+	} {
+		if err := v.CheckScanned("CLEANSTART-2026-GU36052", tc.file, tc.related); err == nil || err.Error() != tc.want {
+			t.Errorf("%s:\ngot  %v\nwant %s", name, err, tc.want)
+		}
+	}
+	// an ELSA-like id naming two CVEs is an advisory
+	elsa := map[string][]string{
+		"ELSA-2021-9137": {"ELSA-2021-9137", "CVE-2020-1971", "CVE-2021-23840"},
+		"ELSA-2021-9138": {"ELSA-2021-9138", "CVE-2021-3449"},
+	}
+	want := `vulnerability ELSA-2021-9137: namespace "ELSA" is not in any claims source's vocabulary.yaml. This gate's scan has 2 ELSA ids; ` +
+		"1 names several vulnerabilities (e.g. ELSA-2021-9137 → CVE-2020-1971, CVE-2021-23840), so add it to advisory-ids in an additional-claims vocabulary.yaml. " +
+		"(An id naming exactly one vulnerability would belong in vulnerability-namespaces.)"
+	if err := v.CheckScanned("ELSA-2021-9137", "", elsa); err == nil || err.Error() != want {
+		t.Errorf("ELSA:\ngot  %v\nwant %s", err, want)
+	}
+	if err := v.CheckVulnerability("ELSA-2021-9137"); err == nil || !strings.Contains(err.Error(), "add it to vulnerability-namespaces") {
+		t.Errorf("expected the plain refusal without a scan, got %v", err)
 	}
 }
 

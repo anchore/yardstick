@@ -79,11 +79,18 @@ func (p Proposal) Validate() error {
 // Problems is how the proposal sits with the vocabulary and the labeling policy: everything a
 // label would be refused for, and a confidence above its rule's ceiling.
 func (p Proposal) Problems(v *claimsv1.Vocabulary) []string {
+	return p.ProblemsIn(v, "", nil)
+}
+
+// ProblemsIn is Problems, an unlisted namespace's refusal judged from the scan the proposal is
+// about (Vocabulary.CheckScanned: the vocabulary.yaml to add it in, and each id the scan reported
+// with its related ids).
+func (p Proposal) ProblemsIn(v *claimsv1.Vocabulary, file string, related map[string][]string) []string {
 	var out []string
 	if v == nil {
 		return problems(v, claimsv1.Label{}, "")
 	}
-	if err := v.CheckVulnerability(p.Vulnerability); err != nil {
+	if err := v.CheckScanned(p.Vulnerability, file, related); err != nil {
 		out = append(out, err.Error())
 	}
 	return append(out, problems(v, p.Label(p.Author.Name, p.Timestamp), p.Confidence)...)

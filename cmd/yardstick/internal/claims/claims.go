@@ -13,6 +13,7 @@ import (
 	"io"
 	"io/fs"
 	"os"
+	"path/filepath"
 	"sort"
 	"strings"
 	"sync"
@@ -180,6 +181,15 @@ func (s *Set) findVocabulary() (*claimsv1.Vocabulary, error) {
 		named[i] = claimsv1.NamedFS{Name: src.Locator, FS: src.FS}
 	}
 	return claimsv1.MergeVocabularies(named...)
+}
+
+// VocabularyPath is the writable source's vocabulary.yaml, where a namespace the set lacks would be
+// added; empty when no source is writable.
+func (s *Set) VocabularyPath() string {
+	if w := s.writable(); w != nil {
+		return filepath.Join(w.Dir, claimsv1.VocabularyFile)
+	}
+	return ""
 }
 
 // writable is the last source when it is local, else nil.

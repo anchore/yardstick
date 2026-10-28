@@ -19,6 +19,7 @@ import (
 	claimsv1 "github.com/anchore/yardstick/cmd/yardstick/internal/claims/v1"
 	"github.com/anchore/yardstick/cmd/yardstick/internal/gatefile"
 	"github.com/anchore/yardstick/cmd/yardstick/internal/labelwrite"
+	"github.com/anchore/yardstick/cmd/yardstick/internal/pairing"
 	"github.com/anchore/yardstick/cmd/yardstick/internal/runrecord"
 	"github.com/anchore/yardstick/cmd/yardstick/internal/score"
 )
@@ -49,6 +50,9 @@ type scanned struct {
 	rec   *runrecord.Record
 	rows  map[string]*score.Row
 	vocab *claimsv1.Vocabulary
+	// vocabFile is the vocabulary.yaml an unlisted namespace would be added in: the writable claims
+	// source's, else empty
+	vocabFile string
 }
 
 // gatePath is a gate file as given, else the file of the gate scanned under run by that name.
@@ -89,7 +93,7 @@ func openScanned(run, gate string, extra []string) (*scanned, error) {
 	if err != nil {
 		return nil, fmt.Errorf("gate %s: %w", g.Name, err)
 	}
-	s := &scanned{run: run, gate: g, rec: rec, vocab: set.Vocabulary()}
+	s := &scanned{run: run, gate: g, rec: rec, vocab: set.Vocabulary(), vocabFile: set.VocabularyPath()}
 	var isAdvisory func(string) bool
 	if s.vocab != nil {
 		isAdvisory = s.vocab.IsAdvisory
@@ -98,6 +102,15 @@ func openScanned(run, gate string, extra []string) (*scanned, error) {
 		return nil, fmt.Errorf("gate %s: %w", g.Name, err)
 	}
 	return s, nil
+}
+
+// related is each id the scan reported, with the ids reported beside it.
+func (s *scanned) related() map[string][]string {
+	ms := make([]*pairing.Match, 0, len(s.rows))
+	for _, r := range s.rows {
+		ms = append(ms, r.Match)
+	}
+	return pairing.RelatedIDs(ms)
 }
 
 func (s *scanned) row(id string) (*score.Row, error) {
@@ -318,7 +331,7 @@ func (s *scanned) proposal(in proposalInput, now time.Time) (agentstore.Proposal
 	if err := p.Validate(); err != nil {
 		return p, err
 	}
-	return p, policy(p.Problems(s.vocab))
+	return p, policy(p.ProblemsIn(s.vocab, s.vocabFile, s.related()))
 }
 
 // causeInput is a cause that may list its members by row id.

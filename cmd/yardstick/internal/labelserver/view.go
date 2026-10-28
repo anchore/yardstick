@@ -167,6 +167,15 @@ func (r *rowRef) open() bool {
 	return verdictOf(r) == unlabeled || verdictOf(r) == string(claimsv1.Unclear)
 }
 
+// related is each id the gate's scans reported, with the ids reported beside it.
+func (v *view) related() map[string][]string {
+	ms := make([]*pairing.Match, 0, len(v.rows))
+	for _, r := range v.rows {
+		ms = append(ms, r.pm)
+	}
+	return pairing.RelatedIDs(ms)
+}
+
 func (s *Server) view(e *entry) (*view, error) {
 	e.mu.Lock()
 	defer e.mu.Unlock()

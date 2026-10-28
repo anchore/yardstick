@@ -187,13 +187,87 @@ func (v *Vocabulary) IsAdvisory(id string) bool {
 	return false
 }
 
-// CheckVulnerability refuses an id whose namespace is on neither list, saying which list to add it to.
+// CheckVulnerability refuses an id whose namespace is on neither list, naming both and the file to
+// add it in. CheckScanned says which list, when a scan is at hand.
 func (v *Vocabulary) CheckVulnerability(id string) error {
-	if !v.IsAdvisory(id) && !slices.Contains(v.Namespaces, Namespace(id)) {
-		return fmt.Errorf("vulnerability %s: namespace %q is in neither advisory-ids nor vulnerability-namespaces in %s; "+
-			"add it to advisory-ids if its ids are advisories that alias CVEs, else to vulnerability-namespaces", id, Namespace(id), VocabularyFile)
+	return v.CheckScanned(id, "", nil)
+}
+
+// CheckScanned is CheckVulnerability, its refusal judging which list the namespace belongs on from a
+// scan's ids in it: an id naming at most one vulnerability is a disclosure, one naming several is
+// an advisory. related is each id the scan reported, with the ids reported beside it; file is the
+// vocabulary.yaml to add the namespace in, empty for an additional-claims one.
+func (v *Vocabulary) CheckScanned(id, file string, related map[string][]string) error {
+	ns := Namespace(id)
+	if v.IsAdvisory(id) || slices.Contains(v.Namespaces, ns) {
+		return nil
 	}
-	return nil
+	if file == "" {
+		file = "an additional-claims " + VocabularyFile
+	}
+	head := fmt.Sprintf("vulnerability %s: namespace %q is not in any claims source's %s", id, ns, VocabularyFile)
+	var ids, several []string
+	for _, x := range slices.Sorted(maps.Keys(related)) {
+		if Namespace(x) == ns {
+			ids = append(ids, x)
+			if len(names(x, related[x])) > 1 {
+				several = append(several, x)
+			}
+		}
+	}
+	if len(ids) == 0 {
+		return fmt.Errorf("%s; add it to vulnerability-namespaces in %s if each of its ids names one vulnerability, "+
+			"or to advisory-ids if an id can name several (as an ELSA names several CVEs)", head, file)
+	}
+	example := func(x string) string {
+		if n := names(x, related[x]); len(n) > 0 {
+			return x + " → " + strings.Join(n, ", ")
+		}
+		return x + " names none"
+	}
+	count := fmt.Sprintf("This gate's scan has %d %s id", len(ids), ns)
+	if len(ids) > 1 {
+		count += "s"
+	}
+	if len(several) > 0 {
+		verb := "name"
+		if len(several) == 1 {
+			verb = "names"
+		}
+		return fmt.Errorf("%s. %s; %d %s several vulnerabilities (e.g. %s), so add it to advisory-ids in %s. "+
+			"(An id naming exactly one vulnerability would belong in vulnerability-namespaces.)", head, count, len(several), verb, example(several[0]), file)
+	}
+	each, ex := "none names more than 1 vulnerability", ids[0]
+	if !slices.ContainsFunc(ids, func(x string) bool { return len(names(x, related[x])) == 0 }) {
+		each = "each names exactly 1 vulnerability"
+	}
+	if i := slices.IndexFunc(ids, func(x string) bool { return len(names(x, related[x])) == 1 }); i >= 0 {
+		ex = ids[i]
+	}
+	return fmt.Errorf("%s. %s; %s (e.g. %s), so add it to vulnerability-namespaces in %s. "+
+		"(An id naming several CVEs would belong in advisory-ids.)", head, count, each, example(ex), file)
+}
+
+// names is the distinct vulnerabilities an id's related ids name. Ids in its own namespace are its
+// siblings (CleanStart's related advisories), not names. Its CVEs count when it has any: a GHSA
+// or other id beside a CVE is most often that CVE's alias, and a scan's related ids don't say
+// which pair up, so counting them too would call a CVE and its GHSA two vulnerabilities. With no
+// CVE, its ids in other namespaces count.
+func names(id string, related []string) []string {
+	var cves, other []string
+	for _, r := range related {
+		switch ns := Namespace(r); {
+		case ns == Namespace(id) || slices.Contains(cves, r) || slices.Contains(other, r):
+		case ns == "CVE":
+			cves = append(cves, r)
+		default:
+			other = append(other, r)
+		}
+	}
+	if len(cves) > 0 {
+		return cves
+	}
+	return other
 }
 
 // CheckAliases refuses aliases on a label that is not on an advisory, and an alias that is not a
