@@ -184,6 +184,21 @@ func TestSchemaDescribesEveryKey(t *testing.T) {
 	}
 }
 
+// an id in neither list is refused, and the refusal says which list to add its namespace to
+func TestCheckVulnerability(t *testing.T) {
+	v := &Vocabulary{AdvisoryIDs: []string{"ELSA"}, Namespaces: []string{"CVE"}}
+	for _, id := range []string{"ELSA-2021-9137", "CVE-2020-1971"} {
+		if err := v.CheckVulnerability(id); err != nil {
+			t.Errorf("%s: %v", id, err)
+		}
+	}
+	err := v.CheckVulnerability("CLEANSTART-2026-GU36052")
+	if want := `vulnerability CLEANSTART-2026-GU36052: namespace "CLEANSTART" is in neither advisory-ids nor vulnerability-namespaces in vocabulary.yaml; ` +
+		"add it to advisory-ids if its ids are advisories that alias CVEs, else to vulnerability-namespaces"; err == nil || err.Error() != want {
+		t.Errorf("got %v, want %s", err, want)
+	}
+}
+
 // aliases are only on an advisory label, and only name disclosures
 func TestCheckAliases(t *testing.T) {
 	v := &Vocabulary{AdvisoryIDs: []string{"ELSA"}, Namespaces: []string{"CVE"}}

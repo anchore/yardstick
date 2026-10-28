@@ -1,11 +1,13 @@
 package testkit
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"maps"
 	"math"
 	"net/http"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"slices"
@@ -14,6 +16,7 @@ import (
 	"time"
 
 	"github.com/anchore/yardstick/cmd/yardstick/internal/agentstore"
+	claimsv1 "github.com/anchore/yardstick/cmd/yardstick/internal/claims/v1"
 	"github.com/anchore/yardstick/cmd/yardstick/internal/labelserver"
 	"github.com/anchore/yardstick/cmd/yardstick/internal/research"
 	"github.com/anchore/yardstick/cmd/yardstick/internal/runrecord"
@@ -222,6 +225,34 @@ func TestE2EResearchQueue(t *testing.T) {
 	}
 	if !slices.Equal(shares["e1af7851f0e60bb4"], []string{"783bbb63489d81a6"}) || !slices.Equal(shares["783bbb63489d81a6"], []string{"e1af7851f0e60bb4"}) || shares["e3bfd3b0b0c30ee6"] != nil {
 		t.Errorf("research shares: %v", shares)
+	}
+}
+
+// research on a vulnerability whose namespace the vocabulary lacks is refused before any job is
+// queued, since proposing its call would be refused after the whole run
+func TestE2EResearchRefusesUnlistedNamespace(t *testing.T) {
+	srv, dir, _, _ := e2eServer(t)
+	h, token := srv.Handler(), srv.Token()
+	vocab := filepath.Join(dir, "claims", claimsv1.VocabularyFile)
+	b, err := os.ReadFile(vocab)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(vocab, []byte(strings.Replace(string(b), "vulnerability-namespaces: [CVE, GHSA]", "vulnerability-namespaces: [OSV]", 1)), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	body, _ := json.Marshal(map[string]any{"rows": []string{"24160b879ac36bf5"}})
+	req := httptest.NewRequest(http.MethodPost, "/api/research", bytes.NewReader(body))
+	req.Header.Set(labelserver.TokenHeader, token)
+	rec := httptest.NewRecorder()
+	h.ServeHTTP(rec, req)
+	if rec.Code != http.StatusBadRequest || !strings.Contains(rec.Body.String(), "add it to advisory-ids if its ids are advisories that alias CVEs, else to vulnerability-namespaces") {
+		t.Errorf("POST /api/research on an unlisted namespace: %d %s", rec.Code, rec.Body)
+	}
+	var jl labelserver.ResearchJobs
+	get(t, h, "/api/research/jobs", &jl)
+	if len(jl.Jobs) != 0 {
+		t.Errorf("a refused request queued jobs: %+v", jl.Jobs)
 	}
 }
 

@@ -105,10 +105,11 @@ func (v *Vocabulary) IsAdvisory(id string) bool {
 	return false
 }
 
-// CheckVulnerability refuses an id whose namespace is on neither list.
+// CheckVulnerability refuses an id whose namespace is on neither list, saying which list to add it to.
 func (v *Vocabulary) CheckVulnerability(id string) error {
 	if !v.IsAdvisory(id) && !slices.Contains(v.Namespaces, Namespace(id)) {
-		return fmt.Errorf("vulnerability %s: namespace %q is in neither advisory-ids nor vulnerability-namespaces in %s", id, Namespace(id), VocabularyFile)
+		return fmt.Errorf("vulnerability %s: namespace %q is in neither advisory-ids nor vulnerability-namespaces in %s; "+
+			"add it to advisory-ids if its ids are advisories that alias CVEs, else to vulnerability-namespaces", id, Namespace(id), VocabularyFile)
 	}
 	return nil
 }
