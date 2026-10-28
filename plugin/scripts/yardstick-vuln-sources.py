@@ -50,6 +50,12 @@ def save(out: Path, name: str, body) -> Path | None:
     return p
 
 
+def grype_of(setup: dict) -> str | None:
+    """The grype a setup scanned with: its version, or its path when the config gave grype by path."""
+    spec = (setup.get("grype") or {}).get("spec") or {}
+    return spec.get("version") or spec.get("path")
+
+
 def debian_tracker_table(page: bytes) -> list[list[str]]:
     rows = []
     for r in re.findall(rb"<tr>(.*?)</tr>", page, re.S):
@@ -110,7 +116,7 @@ def main() -> None:
         S.append(f"## Gate {report['name']} (run {name})")
         for s in ("candidate", "reference"):
             if s in setups:
-                S.append(f"- {s}: grype {setups[s]['grype']['spec']['version']} + {setups[s]['db'].get('source')}")
+                S.append(f"- {s}: grype {grype_of(setups[s])} + {(setups[s].get('db') or {}).get('source')}")
         for subj in report["subjects"]:
             ref = subj["name"]
             for r in subj["matches"]:
