@@ -39,13 +39,15 @@ func noteRefusal(c *cobra.Command) *cobra.Command {
 	c.RunE = func(cmd *cobra.Command, args []string) error {
 		err := run(cmd, args)
 		dir := os.Getenv(research.JobDirEnv)
-		if dir == "" {
+		// only ever a job's own directory, as the label server sets it: the variable can't point
+		// the write (or the removal) at another file
+		if dir == "" || filepath.Base(filepath.Dir(dir)) != "jobs" || !strings.HasSuffix(filepath.Dir(filepath.Dir(dir)), filepath.Join(".yardstick", "research")) {
 			return err
 		}
 		p := filepath.Join(dir, research.ProposeErrorFile)
 		if err == nil {
-			_ = os.Remove(p)
-		} else if werr := os.WriteFile(p, []byte(err.Error()+"\n"), 0o600); werr != nil {
+			_ = os.Remove(p) //nolint:gosec // G703: p is propose-error.txt in a research job's directory, checked above
+		} else if werr := os.WriteFile(p, []byte(err.Error()+"\n"), 0o600); werr != nil { //nolint:gosec // G703: as above
 			log.Warnf("unable to record the refusal in %s: %v", p, werr)
 		}
 		return err

@@ -55,7 +55,7 @@ func readEnding(path string) ending {
 			Result  string   `json:"result"`
 			Denials []denial `json:"permission_denials"`
 		}
-		if !bytes.HasPrefix(line, []byte("{")) || json.Unmarshal(line, &r) != nil || r.Type != "result" {
+		if !bytes.HasPrefix(line, []byte("{")) || json.Unmarshal(line, &r) != nil || r.Type != resultType {
 			continue
 		}
 		out = ending{Denials: r.Denials, Text: r.Result}

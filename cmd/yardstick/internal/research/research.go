@@ -186,15 +186,8 @@ func (r *Runner) Start(ctx context.Context, req Request) (Job, error) {
 	if len(req.Rows) == 0 {
 		return Job{}, errors.New("nothing to research")
 	}
-	if req.Model != "" {
-		if err := CheckModel(req.Model); err != nil {
-			return Job{}, err
-		}
-	}
-	if r.cfg.Command == DefaultCommand {
-		if err := checkRulePath(r.cfg.Dir); err != nil {
-			return Job{}, err
-		}
+	if err := r.check(req); err != nil {
+		return Job{}, err
 	}
 	id := req.Rows[0]
 	r.mu.Lock()
@@ -260,6 +253,20 @@ func (r *Runner) Start(ctx context.Context, req Request) (Job, error) {
 		r.run(ctx, &job)
 	}()
 	return queued, nil
+}
+
+// check refuses a request this runner can't start: an unknown model, or a workspace the default
+// command's Edit rule can't name
+func (r *Runner) check(req Request) error {
+	if req.Model != "" {
+		if err := CheckModel(req.Model); err != nil {
+			return err
+		}
+	}
+	if r.cfg.Command == DefaultCommand {
+		return checkRulePath(r.cfg.Dir)
+	}
+	return nil
 }
 
 // Cancel stops a job this process started, queued or running; its goroutine records Cancelled. Jobs

@@ -567,7 +567,11 @@ func TestE2EResearchNotRecorded(t *testing.T) {
 	}
 
 	// propose run in a job leaves its refusal in the job's directory, and a success clears it
-	jobDir := t.TempDir()
+	// (a job's own directory: propose writes nowhere else)
+	jobDir := filepath.Join(t.TempDir(), ".yardstick", "research", "jobs", "j1")
+	if err := os.MkdirAll(jobDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
 	propose := func(in string) error {
 		cmd := exec.Command(bin, "claims", "agent", "propose", "--gate", "deb-java")
 		cmd.Dir, cmd.Env, cmd.Stdin = dir, append(os.Environ(), research.JobDirEnv+"="+jobDir), strings.NewReader(in)

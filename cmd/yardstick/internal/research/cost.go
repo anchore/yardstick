@@ -21,6 +21,10 @@ type Usage struct {
 }
 
 // TokensIn is every input token, cached or not.
+// resultType is the type of the line stream-json ends with: the result, what the run cost and the
+// agent's last message
+const resultType = "result"
+
 func (u Usage) TokensIn() int {
 	return u.InputTokens + u.CacheReadTokens + u.CacheCreationTokens
 }
@@ -53,7 +57,7 @@ func readUsage(path string) *Usage {
 	for sc.Scan() {
 		line := bytes.TrimSpace(sc.Bytes())
 		var r result
-		if !bytes.HasPrefix(line, []byte("{")) || json.Unmarshal(line, &r) != nil || r.Type != "result" {
+		if !bytes.HasPrefix(line, []byte("{")) || json.Unmarshal(line, &r) != nil || r.Type != resultType {
 			continue
 		}
 		out = &Usage{CostUSD: r.TotalCostUSD, InputTokens: r.Usage.InputTokens, CacheReadTokens: r.Usage.CacheReadInputTokens,
