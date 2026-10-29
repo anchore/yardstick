@@ -57,7 +57,10 @@ type State struct {
 	Candidate  *setup.Prepared `json:"candidate,omitempty"`
 	Reference  *setup.Prepared `json:"reference,omitempty"`
 	Vocabulary *Vocabulary     `json:"vocabulary,omitempty"`
-	Warnings   []string        `json:"warnings,omitempty"`
+	// Unlisted are the namespaces of open rows the vocabulary lacks, which research and labels on
+	// them need added first.
+	Unlisted []UnlistedNamespace `json:"unlisted,omitempty"`
+	Warnings []string            `json:"warnings,omitempty"`
 	// OutdatedLookups says the computed reasons read DB lookups an older yardstick made, and how
 	// to redo them; empty when they are current.
 	OutdatedLookups string `json:"outdatedLookups,omitempty"`
@@ -297,7 +300,7 @@ func (s *Server) handleState(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 	st := State{Scans: summarize(e, v), Author: s.opts.Author, Gate: v.gateStatus(e), Vocabulary: vocabOf(v.vocab), Warnings: v.verdict.Warnings, OutdatedLookups: v.paired.OutdatedLookups,
-		Causes: v.stateCauses(), Explanations: v.stateExplanations()}
+		Causes: v.stateCauses(), Explanations: v.stateExplanations(), Unlisted: v.unlisted(e.name)}
 	if s.opts.Research != nil {
 		a := s.opts.ResearchAvailability
 		st.Research = &a
@@ -455,6 +458,8 @@ type RowResponse struct {
 	Label       *LabelView              `json:"label,omitempty"`
 	Hint        *Hint                   `json:"hint,omitempty"`
 	Explanation *agentstore.Explanation `json:"explanation,omitempty"`
+	// Research is what the row's newest research job concluded, absent while none has finished.
+	Research *ResearchDetail `json:"research,omitempty"`
 }
 
 // LabelView is the label deciding a row, as its file holds it, and every source holding its key.
@@ -482,6 +487,7 @@ func (s *Server) handleRow(w http.ResponseWriter, req *http.Request) {
 	}
 	resp := RowResponse{Row: v.listRow(r, idx), Subject: e.rec.Subjects[r.si].Name, Links: Links(r.match), Hint: v.hints[r.match.Row]}
 	resp.Row.ResearchShares = shares(research.Siblings(v.verdict), r.match.Row)
+	resp.Research = s.researchDetail(idx, r.match.Row)
 	if b := r.pm.Label; b != nil {
 		lv := &LabelView{Label: b.Label.Label, File: b.File, Global: b.Global}
 		for _, h := range b.Held {

@@ -39,15 +39,19 @@ export function steps(r: Row, side: Side, raw: GrypeMatch | undefined, rel: Rele
   const out: Step[] = [{ k: "package", t: `${pk.name} ${pk.version}`, sub: pk.type || "" }];
   const md = raw?.matchDetails?.[0];
   if (d) {
+    // with a raw match, every cell reads its first detail: the row pools all the match's details, so
+    // mixing it in can put one detail's search beside another's result
     const sb: SearchedBy = md?.searchedBy || {}, fd = md?.found || {};
-    const viaName = sb.package?.name && sb.package.name !== pk.name ? sb.package.name : (d.matchTypes || []).includes("exact-indirect-match") && (d.upstreams || [])[0] ? (d.upstreams || [])[0] : null;
-    if (sb.cpes?.length || (d.matchTypes || []).includes("cpe-match")) out.push(viaCPE(sb.cpes || d.cpes || []));
+    const types = md ? [md.type || ""] : d.matchTypes || [];
+    const ns = md ? sb.namespace : d.namespace, matcher = md ? md.matcher || "" : (d.matchers || [])[0] || "";
+    const viaName = !types.includes("exact-indirect-match") ? null : md ? (sb.package?.name !== pk.name ? sb.package?.name : null) : (d.upstreams || []).find((u) => u !== pk.name) ?? null;
+    if (types.includes("cpe-match") || sb.cpes?.length) out.push(viaCPE(md ? sb.cpes || [] : d.cpes || []));
     else if (viaName) out.push({ k: "via", t: `via source package ${viaName}`, sub: sb.package?.version && sb.package.version !== pk.version ? sb.package.version : "" });
-    out.push({ k: "searched", t: nsHuman(sb.namespace || d.namespace), sub: (md?.matcher || (d.matchers || [])[0] || "").replace(/-matcher$/, " matcher"), title: sb.namespace || d.namespace, same: sameRelease(sb.namespace || d.namespace, rel) });
-    const cons = fd.versionConstraint || (d.constraints || [])[0] || "";
+    out.push({ k: "searched", t: nsHuman(ns), sub: matcher.replace(/-matcher$/, " matcher"), title: ns, same: sameRelease(ns, rel) });
+    const cons = md ? fd.versionConstraint || "" : (d.constraints || [])[0] || "";
     out.push({ k: "record", t: `${fd.vulnerabilityID || r.vulnerability}`, sub: `affected ${cons && cons !== "none" ? cons.replace(/\s*\((\w[\w-]*)\)$/, "") : "every version"}${d.fixState === "fixed" && d.fixVersions?.length ? ` · fixed in ${d.fixVersions[0]}` : d.fixState ? ` · ${d.fixState.replace(/-/g, " ")}` : ""}`, title: cons });
     if (r.why?.key === "record/distro-not-affected") out.push(notApplied(r, side, d, setups));
-    out.push({ k: "result", t: "matched", sub: (md?.type || (d.matchTypes || [])[0] || "").replace(/-match$/, "") });
+    out.push({ k: "result", t: "matched", sub: (types[0] || "").replace(/-match$/, "") });
     return out;
   }
   // no match on this side: where did it stop?

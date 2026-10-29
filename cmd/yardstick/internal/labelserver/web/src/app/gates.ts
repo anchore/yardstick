@@ -13,6 +13,7 @@ import { labelsTable, type LRow } from "./labelstable";
 import { openOf } from "./images";
 import { labelText, mergeLabels, pageInfo, pageSize, shortSource, square, sumTally, type WideLabel } from "./listing";
 import { failed, keptPrimary, listCursor, loading } from "./lists";
+import { orFix } from "./namespace";
 import { queueFor } from "./queuelist";
 import { formatRoute, withFilters, type Route } from "./route";
 import { bulkResearch, cellFor, follow, researchOf, started, type Research } from "./researchtable";
@@ -39,7 +40,7 @@ export function gatesView(host: HTMLElement, r0: Route & { level: "gates" }, nav
   let tab: Tab, work: Work | null = null;
   const paint = () => renderShell(host, r, {
     title: "Gates",
-    above: work?.el,
+    above: work && [work.notice, work.el],
     // the banner carries the screen's primary action (UI-RULES 7); the other tabs enter the queue here
     actions: work ? undefined : left(sh.findings.length ? formatRoute(queueFor(r)) : null),
     tabCounts: { gates: list.gates.length, unlabeled: sh.findings.length, labels: list.labels },
@@ -124,7 +125,8 @@ function unlabeledTab(sh: () => SharedState, fresh: () => Promise<void>, st: Sta
   };
   async function start(fs: CrossFinding[]) {
     try {
-      const res = await api.startResearch({ rows: rowsOf(fs) });
+      const res = await orFix(() => api.startResearch({ rows: rowsOf(fs) }));
+      if (!res) return false;
       started(res.jobs?.length ?? 0, res.skipped.active);
     } catch (e) {
       toast((e as Error).message, true);

@@ -12,6 +12,7 @@ import (
 	"unicode/utf8"
 
 	"github.com/anchore/yardstick/cmd/yardstick/internal/agentstore"
+	"github.com/anchore/yardstick/cmd/yardstick/internal/log"
 	"github.com/anchore/yardstick/cmd/yardstick/internal/research"
 )
 
@@ -41,6 +42,8 @@ type ResearchSummary struct {
 	Model    string          `json:"model,omitempty"`
 	Source   string          `json:"source,omitempty"`
 	Batch    string          `json:"batch,omitempty"`
+	// CostUSD is what the job's run cost, zero when its log has no result line.
+	CostUSD float64 `json:"costUSD,omitempty"`
 	// Cancellable is true for jobs this server started and is still running or holding.
 	Cancellable    bool `json:"cancellable,omitempty"`
 	SurvivingGroup int  `json:"survivingGroup,omitempty"`
@@ -84,6 +87,9 @@ func (s *Server) researchIndex() (*researchIndex, error) {
 					Queued: j.Queued, LastDone: j.LastDone, Model: j.Model, Source: j.Source, Batch: j.Batch,
 					Cancellable: j.Status.Active() && s.opts.Research.Cancellable(j.ID), SurvivingGroup: j.SurvivingGroup,
 					Position: idx.position[j.ID], QueueLength: map[bool]int{true: len(idx.position)}[idx.position[j.ID] > 0]}
+				if j.Usage != nil {
+					idx.newest[id].CostUSD = j.Usage.CostUSD
+				}
 			}
 		}
 	}
@@ -271,6 +277,9 @@ func (s *Server) handleResearch(w http.ResponseWriter, req *http.Request) {
 	for i := range requests {
 		requests[i].Gate, requests[i].Source, requests[i].From = e.name, research.FromLabelUI, body.From
 	}
+	if !checkNamespaces(w, map[string]*view{e.name: v}, requests) {
+		return
+	}
 	if out.Batch, out.Jobs, err = s.start(requests, asked > 1); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -378,4 +387,73 @@ func tail(data []byte, n int) []byte {
 type CancelResponse struct {
 	Cancelled    []string       `json:"cancelled"`
 	NotCancelled []NotCancelled `json:"notCancelled"`
+}
+
+// ResearchDetail is what the newest research job on a row concluded: the agent's last message, and
+// what it wrote under the job's output directory. Recordable is a proposal it wrote that was not
+// recorded, which POST research/record records without researching again.
+type ResearchDetail struct {
+	Summary    string           `json:"summary,omitempty"`
+	Output     *research.Output `json:"output,omitempty"`
+	Recordable bool             `json:"recordable"`
+}
+
+// researchDetail is the row's newest job's detail; nil when no job finished on it.
+func (s *Server) researchDetail(idx *researchIndex, row string) *ResearchDetail {
+	sum := idx.newest[row]
+	if sum == nil || s.opts.Research == nil || sum.Status.Active() {
+		return nil
+	}
+	j := idx.byID[sum.Job]
+	out := &ResearchDetail{Summary: j.Summary, Output: s.opts.Research.Output(j)}
+	out.Recordable = j.Status == research.NotRecorded && out.Output != nil && out.Output.Proposal != nil
+	return out
+}
+
+// RecordRequest is POST /api/gates/{gate}/research/record: the row whose newest job's proposal to record.
+type RecordRequest struct {
+	Row string `json:"row"`
+}
+
+// RecordResponse is the job a record settled, and where it stands after.
+type RecordResponse struct {
+	Job    string          `json:"job"`
+	Status research.Status `json:"status"`
+}
+
+// handleRecord records the proposal the row's newest research job wrote but didn't record, through
+// propose as the agent would have, so it is checked as the agent's are and becomes the row's hint.
+// A refusal is answered with propose's words, for the finding page to show in place.
+func (s *Server) handleRecord(w http.ResponseWriter, req *http.Request) {
+	if s.opts.Research == nil {
+		http.Error(w, "research isn't configured", http.StatusNotImplemented)
+		return
+	}
+	var body RecordRequest
+	if !decode(w, req, &body) {
+		return
+	}
+	if _, v := s.viewFor(w, req); v == nil {
+		return
+	}
+	idx, err := s.researchIndex()
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	sum := idx.newest[body.Row]
+	if sum == nil {
+		http.Error(w, "no research job on row "+body.Row, http.StatusNotFound)
+		return
+	}
+	// a row id is the same in every gate that scans its image, and the finding page shows the row's
+	// newest job whichever gate it ran under; Record proposes under the job's own gate, so the
+	// request's gate only has to exist
+	job, err := s.opts.Research.Record(s.ctx, sum.Job)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	log.Infof("recorded research %s's proposal", job.ID)
+	writeJSON(w, RecordResponse{Job: job.ID, Status: job.Status})
 }

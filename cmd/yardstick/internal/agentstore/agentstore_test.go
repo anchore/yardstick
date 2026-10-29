@@ -183,3 +183,26 @@ func TestCurrentDropsUnclearConfidence(t *testing.T) {
 		t.Errorf("expected the cause's confidence dropped, got %+v %v", cs, err)
 	}
 }
+
+// a research job's calls are found by the id stamped on them, the newest time kept, a call a newer
+// one superseded counted too
+func TestRecordedJobs(t *testing.T) {
+	s := Open(t.TempDir())
+	if got, err := s.RecordedJobs(); err != nil || len(got) != 0 {
+		t.Fatalf("expected nothing recorded in an empty store, got %v %v", got, err)
+	}
+	first, second, hand := proposal("p1", "CVE-1", claimsv1.FP, "", "medium"), proposal("p2", "CVE-1", claimsv1.TP, "", "medium"), proposal("p3", "CVE-2", claimsv1.FP, "", "medium")
+	first.Author.ResearchJob, first.Timestamp = "job-a", now.Add(-time.Hour)
+	// the same match, so it supersedes the first
+	second.Author.ResearchJob = "job-b"
+	if err := s.Proposals.Add(first, second, hand); err != nil {
+		t.Fatal(err)
+	}
+	got, err := s.RecordedJobs()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(got) != 2 || !got["job-a"].Equal(now.Add(-time.Hour)) || !got["job-b"].Equal(now) {
+		t.Errorf("expected job-a and job-b at their times, the unstamped call left out, got %v", got)
+	}
+}

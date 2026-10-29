@@ -50,6 +50,8 @@ type ResearchQueueResponse struct {
 	Concurrency int              `json:"concurrency"`
 	Batch       string           `json:"batch,omitempty"`
 	Jobs        []string         `json:"jobs,omitempty"`
+	// Unlisted, on a dry run, is each namespace a start would be refused for, every one at once
+	Unlisted []UnlistedNamespace `json:"unlisted,omitempty"`
 }
 
 // ResearchGroup is one group's jobs in the queue's order. Rows counts the open rows they cover. An
@@ -167,19 +169,29 @@ func (s *Server) handleResearchQueue(w http.ResponseWriter, req *http.Request) {
 	for _, p := range start {
 		out.Estimate.Rows += openRows(open, p.Rows)
 	}
+	reqs := requestsOf(start)
 	if body.DryRun || len(start) == 0 {
+		out.Unlisted = unlistedIn(b.views, reqs)
 		writeJSON(w, out)
 		return
 	}
-	reqs := make([]research.Request, 0, len(start))
-	for _, p := range start {
-		reqs = append(reqs, p.req)
+	if !checkNamespaces(w, b.views, reqs) {
+		return
 	}
 	if out.Batch, out.Jobs, err = s.start(reqs, true); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 	writeJSON(w, out)
+}
+
+// requestsOf is the research requests of planned jobs.
+func requestsOf(start []planned) []research.Request {
+	reqs := make([]research.Request, 0, len(start))
+	for _, p := range start {
+		reqs = append(reqs, p.req)
+	}
+	return reqs
 }
 
 // parse checks the request and says its scope and the groups it selects.
@@ -403,7 +415,8 @@ type ResearchProgress struct {
 	Done        int     `json:"done"`
 	Running     int     `json:"running"`
 	Queued      int     `json:"queued"`
-	Failed      int     `json:"failed"` // failed, timed out or interrupted
+	Failed      int     `json:"failed"`      // failed, timed out or interrupted
+	NotRecorded int     `json:"notRecorded"` // ran, but recorded no call
 	Cancelled   int     `json:"cancelled"`
 	Spent       float64 `json:"spent"`
 	Estimate    float64 `json:"estimate"`
@@ -439,6 +452,8 @@ func progress(all, jobs []research.Job, concurrency int) ResearchProgress {
 			mean += basis.Mean
 		case research.Cancelled:
 			out.Cancelled++
+		case research.NotRecorded:
+			out.NotRecorded++
 		default:
 			out.Failed++
 		}

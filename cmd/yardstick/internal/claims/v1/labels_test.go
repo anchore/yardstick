@@ -5,8 +5,15 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
+
+	"github.com/anchore/go-logger"
+	"github.com/anchore/go-logger/adapter/discard"
+	"github.com/anchore/go-logger/adapter/logrus"
+
+	"github.com/anchore/yardstick/cmd/yardstick/internal/log"
 )
 
 // the corpus's own data: categories people write, not tool output
@@ -94,19 +101,106 @@ func TestFormatMajor(t *testing.T) {
 func TestFindVocabulary(t *testing.T) {
 	published, local := t.TempDir(), t.TempDir()
 	write(t, filepath.Join(published, VocabularyFile), vocabYAML)
-	v, err := FindVocabulary(os.DirFS(local), os.DirFS(published), os.DirFS(local))
-	if err != nil || v == nil || len(v.FactSources) != 3 {
-		t.Fatalf("expected the published vocabulary when the writable source has none, got %+v %v", v, err)
+	sources := func() []NamedFS {
+		return []NamedFS{{Name: "anchore/claims", FS: os.DirFS(published)}, {Name: "additional-claims", FS: os.DirFS(local)}}
 	}
-	write(t, filepath.Join(local, VocabularyFile), "fact-sources: [sbom]\nsomethingNew: true\n")
-	if v, _ := FindVocabulary(os.DirFS(local), os.DirFS(published)); len(v.FactSources) != 1 {
-		t.Errorf("expected the writable source's own vocabulary first, got %+v", v)
-	}
-	if _, err := FindVocabulary(os.DirFS(t.TempDir())); err == nil {
-		t.Error("expected an error with no vocabulary anywhere")
+	// a source without one adds nothing
+	v, err := FindVocabulary(sources()...)
+	if err != nil || v == nil || len(v.FactSources) != 3 || len(v.Rules) != 3 {
+		t.Fatalf("expected the published vocabulary when the overlay has none, got %+v %v", v, err)
 	}
 	if !vocab.IsAdvisory("ALAS2-2023-1234") || !vocab.IsAdvisory("RHSA-2023:1234") || vocab.IsAdvisory("CVE-2023-1234") {
 		t.Error("expected ALAS* to cover ALAS2 and RHSA listed")
+	}
+	if err := v.CheckVulnerability("CLEANSTART-2026-GU36052", ""); err == nil {
+		t.Error("expected CLEANSTART refused before the overlay lists it")
+	}
+
+	// an overlay adds to the lists and maps; an identical redefinition and an unknown key are fine
+	write(t, filepath.Join(local, VocabularyFile), `vulnerability-namespaces: [CLEANSTART, CVE]
+advisory-ids: [IC]
+fact-sources: [nvd, cleanstart]
+justifications:
+  fp: {fix-installed: Installed version has the fix, not-shipped: The package does not ship the code}
+rules:
+  judgement/prior-claims-pattern: {verdict: any, ceiling: medium, decision: P-4, basis: prior claims on the same package}
+somethingNew: true
+`)
+	v, err = FindVocabulary(sources()...)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := v.CheckVulnerability("CLEANSTART-2026-GU36052", ""); err != nil {
+		t.Errorf("expected the overlay's namespace listed: %v", err)
+	}
+	if got := strings.Join(v.Namespaces, " ") + " | " + strings.Join(v.FactSources, " ") + " | " + strings.Join(v.AdvisoryIDs, " "); got != "CVE GHSA CLEANSTART | debian-security-tracker nvd sbom cleanstart | ALAS* ELSA ALSA RLSA RHSA AVG IC" {
+		t.Errorf("expected each list the union of both, in order: %s", got)
+	}
+	if !slices.Equal(v.Allowed(FP), []string{"fix-installed", "not-shipped", "vulnerable_code_not_present"}) {
+		t.Errorf("expected the overlay's justification added: %v", v.Allowed(FP))
+	}
+
+	// a later source rewording a justification or a rule wins, with a warning naming both sources
+	logFile := filepath.Join(t.TempDir(), "log")
+	l, err := logrus.New(logrus.Config{FileLocation: logFile, Level: logger.WarnLevel})
+	if err != nil {
+		t.Fatal(err)
+	}
+	log.Set(l)
+	t.Cleanup(func() { log.Set(discard.New()) })
+	write(t, filepath.Join(local, VocabularyFile), `justifications:
+  fp: {fix-installed: Fixed upstream}
+rules:
+  debian/affected-unfixed: {verdict: tp, justification: no-fix, ceiling: medium, decision: P-4b, basis: Debian says affected and unfixed, title: Unfixed}
+`)
+	if v, err = FindVocabulary(sources()...); err != nil {
+		t.Fatal(err)
+	}
+	if r := v.Rules["debian/affected-unfixed"]; v.Justifications[FP]["fix-installed"] != "Fixed upstream" || r.Decision != "P-4b" || r.Basis != "Debian says affected and unfixed" || r.Title != "Unfixed" {
+		t.Errorf("expected the later source's wording, got %q and %+v", v.Justifications[FP]["fix-installed"], r)
+	}
+	logged, err := os.ReadFile(logFile)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, want := range []string{
+		`justification "fix-installed" under fp is "Installed version has the fix" in anchore/claims and "Fixed upstream" in additional-claims; using additional-claims's`,
+		`rule "debian/affected-unfixed" is worded differently in anchore/claims and additional-claims; using additional-claims's`,
+	} {
+		if !strings.Contains(string(logged), want) {
+			t.Errorf("expected the warning %s, got:\n%s", want, logged)
+		}
+	}
+
+	// a rule allowing a call something else, or a namespace listed as both kinds, refuses the set, naming both sources
+	for name, tc := range map[string]struct{ overlay, want string }{
+		"rule ceiling": {"rules:\n  debian/affected-unfixed: {verdict: tp, justification: no-fix, ceiling: high, decision: P-4, basis: Debian lists it as affected with no fix}\n",
+			`rule "debian/affected-unfixed" has verdict tp, justification "no-fix" and ceiling medium in anchore/claims but tp, "no-fix" and high in additional-claims`},
+		"rule verdict": {"rules:\n  judgement/prior-claims-pattern: {verdict: fp, ceiling: medium, decision: P-4, basis: prior claims on the same package}\n",
+			`rule "judgement/prior-claims-pattern" has verdict any, justification "" and ceiling medium in anchore/claims but fp, "" and medium in additional-claims`},
+		"rule justification": {"rules:\n  debian/installed-has-fix: {verdict: fp, justification: vulnerable_code_not_present, ceiling: high}\n",
+			`rule "debian/installed-has-fix" has verdict fp, justification "fix-installed" and ceiling high in anchore/claims but fp, "vulnerable_code_not_present" and high in additional-claims`},
+		"advisory pattern": {"vulnerability-namespaces: [ALAS2023]\n",
+			`namespace "ALAS2023" is in vulnerability-namespaces (additional-claims) and matches advisory-ids "ALAS*" (anchore/claims)`},
+		"advisory namespace": {"advisory-ids: [GHSA]\n",
+			`namespace "GHSA" is in vulnerability-namespaces (anchore/claims) and matches advisory-ids "GHSA" (additional-claims)`},
+	} {
+		write(t, filepath.Join(local, VocabularyFile), tc.overlay)
+		if _, err := FindVocabulary(sources()...); err == nil || !strings.Contains(err.Error(), tc.want) {
+			t.Errorf("%s: expected %q, got %v", name, tc.want, err)
+		}
+	}
+
+	if _, err := FindVocabulary(NamedFS{Name: "empty", FS: os.DirFS(t.TempDir())}); err == nil {
+		t.Error("expected an error with no vocabulary anywhere")
+	}
+	// a fragment is only a vocabulary merged onto a full one
+	write(t, filepath.Join(local, VocabularyFile), "vulnerability-namespaces: [CLEANSTART]\n")
+	if _, err := FindVocabulary(NamedFS{Name: "additional-claims", FS: os.DirFS(local)}); err == nil || !strings.Contains(err.Error(), "the ones there list no justifications") {
+		t.Errorf("expected a fragment alone refused, got %v", err)
+	}
+	if v, err := MergeVocabularies(NamedFS{Name: "empty", FS: os.DirFS(t.TempDir())}); v != nil || err != nil {
+		t.Errorf("expected no vocabulary and no error from merging none, got %+v %v", v, err)
 	}
 }
 
@@ -184,6 +278,67 @@ func TestSchemaDescribesEveryKey(t *testing.T) {
 	}
 }
 
+// an id in neither list is refused, and the refusal says which list to add its namespace to: from
+// the scan's ids in it when there is a scan, else both
+func TestCheckVulnerability(t *testing.T) {
+	v := &Vocabulary{AdvisoryIDs: []string{"ALAS*"}, Namespaces: []string{"CVE"}}
+	for _, id := range []string{"ALAS2-2021-1", "CVE-2020-1971"} {
+		if err := v.CheckScanned(id, "", nil); err != nil {
+			t.Errorf("%s: %v", id, err)
+		}
+	}
+	const head = `vulnerability CLEANSTART-2026-GU36052: namespace "CLEANSTART" is not in any claims source's vocabulary.yaml`
+	// each related list holds the id itself, as a row's aliases do
+	cleanstart := map[string][]string{
+		"CLEANSTART-2026-GU36052": {"CLEANSTART-2026-GU36052", "CVE-2025-11082"},
+		"CLEANSTART-2026-IC12241": {"CLEANSTART-2026-IC12241", "CVE-2025-11083"},
+		"CVE-2025-11082":          {"CVE-2025-11082", "CLEANSTART-2026-GU36052"},
+	}
+	for name, tc := range map[string]struct {
+		file    string
+		related map[string][]string
+		want    string
+	}{
+		"no scan": {"", nil, head + "; add it to vulnerability-namespaces in a claims source's vocabulary.yaml if each of its ids names one vulnerability, " +
+			"or to advisory-ids if an id can name several (as an ELSA names several CVEs)"},
+		// an advisory addressing one vulnerability names one too, so ids naming one each can't tell
+		"one vulnerability each": {"", cleanstart, head + ". This gate's scan has 2 CLEANSTART ids; each names exactly 1 vulnerability " +
+			"(e.g. CLEANSTART-2026-GU36052 → CVE-2025-11082), as a disclosure's do and an advisory's can, so the scan can't tell: " +
+			"add it to vulnerability-namespaces in a claims source's vocabulary.yaml if each of its ids names one vulnerability, " +
+			"or to advisory-ids if an id can name several (as an ELSA names several CVEs)."},
+		// a sibling advisory isn't a vulnerability it names, and a GHSA beside a CVE is that CVE's alias
+		"siblings and a GHSA alias": {"/w/additional-claims/vocabulary.yaml", map[string][]string{
+			"CLEANSTART-2026-CU90484": {"CLEANSTART-2026-CU90484", "CLEANSTART-2026-BJ66525", "CVE-2026-32288", "GHSA-xxxx-yyyy-zzzz"},
+			"CLEANSTART-2026-AA00001": {"CLEANSTART-2026-AA00001"},
+		}, head + ". This gate's scan has 2 CLEANSTART ids; none names more than 1 vulnerability " +
+			"(e.g. CLEANSTART-2026-CU90484 → CVE-2026-32288), as a disclosure's do and an advisory's can, so the scan can't tell: " +
+			"add it to vulnerability-namespaces in /w/additional-claims/vocabulary.yaml if each of its ids names one vulnerability, " +
+			"or to advisory-ids if an id can name several (as an ELSA names several CVEs)."},
+	} {
+		err := v.CheckScanned("CLEANSTART-2026-GU36052", tc.file, tc.related)
+		if err == nil || err.Error() != tc.want {
+			t.Errorf("%s:\ngot  %v\nwant %s", name, err, tc.want)
+		}
+		if u, ok := err.(*Unlisted); !ok || u.Suggest != "" {
+			t.Errorf("%s: expected no list suggested, got %+v", name, err)
+		}
+	}
+	// an ELSA-like id naming two CVEs is an advisory
+	elsa := map[string][]string{
+		"ELSA-2021-9137": {"ELSA-2021-9137", "CVE-2020-1971", "CVE-2021-23840"},
+		"ELSA-2021-9138": {"ELSA-2021-9138", "CVE-2021-3449"},
+	}
+	want := `vulnerability ELSA-2021-9137: namespace "ELSA" is not in any claims source's vocabulary.yaml. This gate's scan has 2 ELSA ids; ` +
+		"1 names several vulnerabilities (e.g. ELSA-2021-9137 → CVE-2020-1971, CVE-2021-23840), so add it to advisory-ids in a claims source's vocabulary.yaml. " +
+		"(An id naming exactly one vulnerability would belong in vulnerability-namespaces.)"
+	if err := v.CheckScanned("ELSA-2021-9137", "", elsa); err == nil || err.Error() != want {
+		t.Errorf("ELSA:\ngot  %v\nwant %s", err, want)
+	}
+	if err := v.CheckVulnerability("ELSA-2021-9137", ""); err == nil || !strings.Contains(err.Error(), "add it to vulnerability-namespaces") {
+		t.Errorf("expected the plain refusal without a scan, got %v", err)
+	}
+}
+
 // aliases are only on an advisory label, and only name disclosures
 func TestCheckAliases(t *testing.T) {
 	v := &Vocabulary{AdvisoryIDs: []string{"ELSA"}, Namespaces: []string{"CVE"}}
@@ -200,6 +355,119 @@ func TestCheckAliases(t *testing.T) {
 	} {
 		if err := v.CheckAliases(Label{Vulnerability: tc.vuln, Aliases: tc.aliases}); (err == nil) != tc.ok {
 			t.Errorf("%s with aliases %v: expected ok=%v, got %v", tc.vuln, tc.aliases, tc.ok, err)
+		}
+	}
+}
+
+// adding a namespace edits vocabulary.yaml in place: comments, order and styles kept, the list
+// made when missing, the file made when empty, a namespace already listed left alone
+func TestAddToList(t *testing.T) {
+	const in = `# the corpus's categories
+justifications:
+  fp: {fix-installed: Installed version has the fix}
+# advisories pair only their own id
+advisory-ids: ["ALAS*", ELSA]
+vulnerability-namespaces:
+  - CVE # disclosures
+  - GHSA
+`
+	for name, tc := range map[string]struct{ in, ns, list, want string }{
+		"block list": {in, "CLEANSTART", ListDisclosure, `# the corpus's categories
+justifications:
+  fp: {fix-installed: Installed version has the fix}
+# advisories pair only their own id
+advisory-ids: ["ALAS*", ELSA]
+vulnerability-namespaces:
+  - CVE # disclosures
+  - GHSA
+  - CLEANSTART
+`},
+		"flow list": {in, "IC", ListAdvisory, `# the corpus's categories
+justifications:
+  fp: {fix-installed: Installed version has the fix}
+# advisories pair only their own id
+advisory-ids: ["ALAS*", ELSA, IC]
+vulnerability-namespaces:
+  - CVE # disclosures
+  - GHSA
+`},
+		"already listed": {in, "GHSA", ListDisclosure, in},
+		"no list":        {"fact-sources: [nvd]\n", "CLEANSTART", ListDisclosure, "fact-sources: [nvd]\nvulnerability-namespaces: [CLEANSTART]\n"},
+		"empty list":     {"vulnerability-namespaces:\n", "CLEANSTART", ListDisclosure, "vulnerability-namespaces: [CLEANSTART]\n"},
+		"no file":        {"", "CLEANSTART", ListDisclosure, "vulnerability-namespaces: [CLEANSTART]\n"},
+		// only comments: kept as they are, the list after them
+		"comments only": {"# CleanStart's own namespaces\n# moved to anchore/claims by a bot", "CLEANSTART", ListDisclosure,
+			"# CleanStart's own namespaces\n# moved to anchore/claims by a bot\nvulnerability-namespaces: [CLEANSTART]\n"},
+		// a document with nothing in it, which loading takes as an empty vocabulary
+		"empty document": {"---\n", "CLEANSTART", ListDisclosure, "---\nvulnerability-namespaces: [CLEANSTART]\n"},
+		// blank lines and everything else around the list stay as they were
+		"blank lines kept": {"advisory-ids: [ELSA]\n\n# disclosures\nvulnerability-namespaces: [CVE]\n\nrules: {}\n", "GO", ListDisclosure,
+			"advisory-ids: [ELSA]\n\n# disclosures\nvulnerability-namespaces: [CVE, GO]\n\nrules: {}\n"},
+		"block list, no newline at the end": {"vulnerability-namespaces:\n    -   CVE\n\n    -   GHSA", "GO", ListDisclosure,
+			"vulnerability-namespaces:\n    -   CVE\n\n    -   GHSA\n    -   GO\n"},
+		"empty flow list":                             {"vulnerability-namespaces: [ ]   # none yet\n", "GO", ListDisclosure, "vulnerability-namespaces: [GO ]   # none yet\n"},
+		"multiline flow list":                         {"vulnerability-namespaces: [\n  CVE,\n  'GHSA'\n]\n\nx: 1\n", "GO", ListDisclosure, "vulnerability-namespaces: [\n  CVE,\n  'GHSA', GO\n]\n\nx: 1\n"},
+		"a namespace YAML would read as another type": {"vulnerability-namespaces: [CVE]\n", "NULL", ListDisclosure, "vulnerability-namespaces: [CVE, \"NULL\"]\n"},
+		// a quoted item with an escape isn't as long as its value: edited as a tree instead
+		"escaped item": {"vulnerability-namespaces: [\"C\\x56E\"]\n\nx: 1\n", "GO", ListDisclosure, "vulnerability-namespaces: [\"CVE\", GO]\nx: 1\n"},
+	} {
+		got, err := AddToList([]byte(tc.in), tc.ns, tc.list)
+		if err != nil || string(got) != tc.want {
+			t.Errorf("%s: %v\ngot:\n%s\nwant:\n%s", name, err, got, tc.want)
+		}
+	}
+	if _, err := AddToList([]byte("vulnerability-namespaces: CVE\n"), "GO", ListDisclosure); err == nil {
+		t.Error("expected a list that isn't one refused")
+	}
+
+	// on the published corpus's own file, adding to either list changes only that list's line
+	corpusFile, err := os.ReadFile(filepath.Join("testdata", VocabularyFile))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, tc := range []struct{ ns, list, line string }{
+		{"CLEANSTART", ListDisclosure, "vulnerability-namespaces: [CVE, GHSA, GO, PYSEC, RUSTSEC, BDSA, RSEC]"},
+		{"IC", ListAdvisory, `advisory-ids: ["ALAS*", ALSA, ELSA, RLSA, RHSA, RHBA, RHEA, AVG, FEDORA, BIT, DSA, DLA, USN, "ADV*"]`},
+	} {
+		got, err := AddToList(corpusFile, tc.ns, tc.list)
+		if err != nil {
+			t.Fatal(err)
+		}
+		before, after := strings.Split(string(corpusFile), "\n"), strings.Split(string(got), "\n")
+		if len(before) != len(after) {
+			t.Fatalf("adding %s: %d lines became %d", tc.ns, len(before), len(after))
+		}
+		for i := range before {
+			want := before[i]
+			if want == tc.line {
+				want = strings.TrimSuffix(tc.line, "]") + ", " + tc.ns + "]"
+			}
+			if after[i] != want {
+				t.Errorf("adding %s, line %d:\ngot  %s\nwant %s", tc.ns, i+1, after[i], want)
+			}
+		}
+	}
+}
+
+// a namespace is added to one list only, and a namespace already on it is no change
+func TestCheckAdd(t *testing.T) {
+	v := &Vocabulary{AdvisoryIDs: []string{"ALAS*", "ELSA"}, Namespaces: []string{"CVE"}}
+	for _, tc := range []struct {
+		ns, list string
+		already  bool
+		err      string
+	}{
+		{"CLEANSTART", ListDisclosure, false, ""},
+		{"CLEANSTART", ListAdvisory, false, ""},
+		{"CVE", ListDisclosure, true, ""},
+		{"ELSA", ListAdvisory, true, ""},
+		{"ALAS2023", ListDisclosure, false, `advisory-ids "ALAS*" already covers it`},
+		{"CVE", ListAdvisory, false, "it is in vulnerability-namespaces"},
+		{"CLEANSTART", "rules", false, "list must be"},
+	} {
+		already, err := v.CheckAdd(tc.ns, tc.list)
+		if already != tc.already || (err == nil) != (tc.err == "") || (err != nil && !strings.Contains(err.Error(), tc.err)) {
+			t.Errorf("%s to %s: got %v %v, want %v %q", tc.ns, tc.list, already, err, tc.already, tc.err)
 		}
 	}
 }

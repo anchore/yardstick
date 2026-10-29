@@ -3,7 +3,8 @@
 // back by recording a proposal with `yardstick claims agent propose`; yardstick only starts the command
 // and tracks the job.
 //
-// Jobs live on disk under .yardstick/research/jobs/<id>/ (job.json and log.txt).
+// Jobs live on disk under .yardstick/jobs/<id>/ (job.json and log.txt), outside .yardstick/research/,
+// where the agent writes.
 package research
 
 import (
@@ -30,12 +31,33 @@ import (
 // the agent works, so the log is live, and ends in the result line the job's Usage is read from.
 //
 // The agent reads pages anyone can write, so it gets the tools the skill uses and no more: the two
-// yardstick commands it runs, and file writes only under .yardstick/research/ (an Edit path rule
-// covers Write too). The skill's own allowed-tools adds its helper script, by the plugin's path,
-// which writes only there as well. Its environment is childEnv's.
+// yardstick commands it runs, and file writes only under the workspace's .yardstick/research/ (an
+// Edit path rule covers Write too). The skill's own allowed-tools adds its helper script, by the
+// plugin's path, which writes only there as well. Its environment is childEnv's.
+//
+// The Edit rule is absolute ("//" + the workspace, as /$YARDSTICK_ROOT expands to): Claude Code
+// resolves a relative rule against the session's current directory, which moves when the agent runs
+// `cd` in Bash (allowed, as a read-only command), and every write after that was refused. Start
+// refuses a workspace whose path could change what the rule means (see checkRulePath). The job
+// records under .yardstick/jobs/ sit outside that rule: the server trusts them for a job's status, its
+// refusal and the paths it reads and writes, so the agent, which reads pages anyone can write, must not
+// be able to forge or edit one. They are denied too (a deny rule wins over any allow), so an allow rule
+// in the user's own settings that is broader than this one doesn't reach them either, and so is
+// .yardstick/research/jobs/, where they used to be and from where NewRunner moves them once.
+//
+// The user's Claude Code settings still load, so their deny rules apply, but they would also bring
+// a defaultMode (acceptEdits or bypassPermissions would hand the agent writes, or everything) and
+// their MCP servers: --permission-mode default and --strict-mcp-config keep those out. Their allow
+// rules still merge with these, so a user who allows `gh` or a broad Edit allows it here too.
+//
+// With Config.PluginDir set, the plugin is loaded from there for this run only (--plugin-dir wins
+// over an installed plugin of the same name), so a branch's skills can be tried without touching the
+// user's Claude Code setup.
 const DefaultCommand = `claude -p "/yardstick:research-vuln row:$YARDSTICK_ROW $YARDSTICK_ROOT" --model "${YARDSTICK_MODEL:-sonnet}" ` +
-	`--allowedTools "Bash(yardstick claims agent propose *),Bash(yardstick claims policy),Bash(yardstick claims policy *),Read,Grep,Glob,Edit(.yardstick/research/**),WebFetch,WebSearch" ` +
-	`--output-format stream-json --verbose`
+	`${YARDSTICK_PLUGIN_DIR:+--plugin-dir "$YARDSTICK_PLUGIN_DIR"} ` +
+	`--allowedTools "Bash(yardstick claims agent propose *),Bash(yardstick claims policy),Bash(yardstick claims policy *),Read,Grep,Glob,Edit(/$YARDSTICK_ROOT/.yardstick/research/**),WebFetch,WebSearch" ` +
+	`--disallowedTools "Edit(/$YARDSTICK_ROOT/.yardstick/jobs/**),Edit(/$YARDSTICK_ROOT/.yardstick/research/jobs/**)" ` +
+	`--permission-mode default --strict-mcp-config --output-format stream-json --verbose`
 
 // DefaultModel is the model research runs on unless configured otherwise: a name or alias the
 // command understands (for claude, "sonnet", "opus", "haiku" or a full model ID).
@@ -49,8 +71,9 @@ type Status string
 const (
 	Queued      Status = "queued"
 	Running     Status = "running"
-	Done        Status = "done"   // the command exited 0
-	Failed      Status = "failed" // the command exited non-zero, or couldn't start
+	Done        Status = "done"       // the command exited 0 and the agent recorded a call
+	NotRecorded Status = "unrecorded" // the command exited 0, but the agent recorded no call; Error says why
+	Failed      Status = "failed"     // the command exited non-zero, or couldn't start
 	TimedOut    Status = "timed-out"
 	Interrupted Status = "interrupted" // yardstick stopped while the job was running
 	Cancelled   Status = "cancelled"   // a person cancelled it (see Runner.Cancel)
@@ -88,7 +111,8 @@ type Job struct {
 	Queued   time.Time `json:"queued"`
 	Started  time.Time `json:"started,omitzero"`
 	Finished time.Time `json:"finished,omitzero"`
-	// LastDone is when research of this group last finished (Done), in this run or an earlier one.
+	// LastDone is when research of this group last finished and recorded a call (Done), in this run or
+	// an earlier one.
 	// A rerun replaces the job's record, and a rerun that fails or is still running doesn't undo
 	// that the rows were researched.
 	LastDone time.Time `json:"lastDone,omitzero"`
@@ -98,6 +122,10 @@ type Job struct {
 	SurvivingGroup int `json:"survivingGroup,omitempty"`
 	// Usage is what the run cost, from the result line the command printed last; nil when it printed none.
 	Usage *Usage `json:"usage,omitempty"`
+	// Summary is the agent's last message, from that line: what it concluded, even when it recorded nothing.
+	Summary string `json:"summary,omitempty"`
+	// Recorded is a Done job Config.Recorded showed recorded a call, so Jobs needn't ask again.
+	Recorded bool `json:"recorded,omitempty"`
 }
 
 // Config is how research runs.
@@ -109,12 +137,22 @@ type Config struct {
 	Concurrency int           // how many jobs run at once
 	Timeout     time.Duration // per job
 	Bin         string        // this yardstick binary, for the agent to call back with
+	// Recorded is when each job last recorded a call (a proposal or cause stamped with its id); a
+	// job that exited 0 with none since it started is NotRecorded. Nil takes exiting 0 as recorded.
+	Recorded func() (map[string]time.Time, error)
+	// PluginDir is a yardstick plugin directory research loads instead of the installed plugin,
+	// given to the command as YARDSTICK_PLUGIN_DIR; empty runs the installed one
+	PluginDir string
+	// Claims are the claims sources the server reads after each gate's own (claims serve's
+	// --claims and config), given to the command as YARDSTICK_CLAIMS so the agent's propose checks
+	// against the same vocabulary, including a namespace the UI just added to the last of them
+	Claims []string
 }
 
 // Runner queues jobs and runs up to Concurrency at a time.
 type Runner struct {
 	cfg  Config
-	jobs string // .yardstick/research/jobs
+	jobs string // .yardstick/jobs
 	sem  chan struct{}
 	mu   sync.Mutex
 	live map[string]bool // jobs this process is running or has queued
@@ -140,9 +178,20 @@ func NewRunner(cfg Config) *Runner {
 	if cfg.Timeout <= 0 {
 		cfg.Timeout = 20 * time.Minute
 	}
+	jobs := filepath.Join(cfg.Dir, ".yardstick", "jobs")
+	// job records were kept under .yardstick/research/jobs/, where the agent may write: move them once.
+	// jobs/ is made right after, so a later start never imports what an agent left in the old place
+	if _, err := os.Stat(jobs); errors.Is(err, os.ErrNotExist) {
+		if err := os.Rename(filepath.Join(cfg.Dir, ".yardstick", "research", "jobs"), jobs); err != nil && !errors.Is(err, os.ErrNotExist) {
+			log.Warnf("unable to move the research jobs to %s: %v", jobs, err)
+		}
+		if err := os.MkdirAll(jobs, 0o755); err != nil {
+			log.Warnf("unable to make %s: %v", jobs, err)
+		}
+	}
 	return &Runner{
 		cfg:     cfg,
-		jobs:    filepath.Join(cfg.Dir, ".yardstick", "research", "jobs"),
+		jobs:    jobs,
 		sem:     make(chan struct{}, cfg.Concurrency),
 		live:    map[string]bool{},
 		cancels: map[string]*jobControl{},
@@ -167,10 +216,8 @@ func (r *Runner) Start(ctx context.Context, req Request) (Job, error) {
 	if len(req.Rows) == 0 {
 		return Job{}, errors.New("nothing to research")
 	}
-	if req.Model != "" {
-		if err := CheckModel(req.Model); err != nil {
-			return Job{}, err
-		}
+	if err := r.check(req); err != nil {
+		return Job{}, err
 	}
 	id := req.Rows[0]
 	r.mu.Lock()
@@ -238,6 +285,25 @@ func (r *Runner) Start(ctx context.Context, req Request) (Job, error) {
 	return queued, nil
 }
 
+// check refuses a request this runner can't start: an unknown model, or a workspace the default
+// command's Edit rule can't name
+func (r *Runner) check(req Request) error {
+	for _, c := range r.cfg.Claims {
+		if strings.Contains(c, ",") {
+			return fmt.Errorf("research can't pass the claims source %q on: YARDSTICK_CLAIMS is comma-separated", c)
+		}
+	}
+	if req.Model != "" {
+		if err := CheckModel(req.Model); err != nil {
+			return err
+		}
+	}
+	if r.cfg.Command == DefaultCommand {
+		return checkRulePath(r.cfg.Dir)
+	}
+	return nil
+}
+
 // Cancel stops a job this process started, queued or running; its goroutine records Cancelled. Jobs
 // started by another yardstick process can't be cancelled from here.
 func (r *Runner) Cancel(id string) error {
@@ -278,6 +344,12 @@ func (r *Runner) run(ctx context.Context, job *Job) {
 	_ = r.save(*job)
 	log.Infof("research %s: started (%s %s)", job.ID, job.Vulnerability, job.Package)
 
+	// a rerun's refusal and output are its own: the last run's is no reason this one recorded nothing,
+	// nor what it wrote
+	_ = os.Remove(filepath.Join(r.jobs, job.ID, ProposeErrorFile))
+	if rel := OutputDir(*job); rel != "" {
+		_ = os.RemoveAll(filepath.Join(r.cfg.Dir, rel))
+	}
 	logFile, err := os.Create(filepath.Join(r.jobs, job.ID, "log.txt"))
 	if err != nil {
 		r.finish(job, Failed, err)
@@ -312,7 +384,9 @@ func (r *Runner) run(ctx context.Context, job *Job) {
 	case err != nil:
 		r.finish(job, Failed, err)
 	default:
-		r.finish(job, Done, nil)
+		// finish reads the log too, which the command is done writing
+		s, err := r.conclude(job)
+		r.finish(job, s, err)
 	}
 }
 
@@ -335,6 +409,19 @@ func (r *Runner) finish(job *Job, s Status, err error) {
 	log.Infof("research %s: %s", job.ID, s)
 }
 
+// checkRulePath refuses a workspace the default command can't name in its Edit rule: it has to be
+// absolute, and free of what would end the rule or the shell's quoting early, or widen it as a glob
+// (a workspace named "x),Bash(*" would otherwise grant a shell).
+func checkRulePath(dir string) error {
+	if !filepath.IsAbs(dir) {
+		return fmt.Errorf("research needs an absolute workspace path, got %q", dir)
+	}
+	if i := strings.IndexAny(dir, "(),*?[]{}\"'`$\\!\n\r"); i >= 0 {
+		return fmt.Errorf("research can't run in %s: its path contains %q, which would change the permission rule that confines the agent's writes to .yardstick/research; run claims serve from a directory without it", dir, dir[i])
+	}
+	return nil
+}
+
 // SurvivorsWarning says that a job's processes may still be running, and how to stop them.
 func SurvivorsWarning(group int) string {
 	return fmt.Sprintf("child processes may still be running (process group %d): stop them with %s", group, KillCommand(group))
@@ -349,6 +436,16 @@ func KillCommand(groups ...int) string {
 	return cmd
 }
 
+// JobEnv names the job a command runs in, for `yardstick claims agent propose` to stamp on the calls
+// the job records, and RowsEnv and GateEnv the rows and gate propose holds them to. Propose reads
+// them, with JobDirEnv, from the environment alone. GateEnv is YARDSTICK_GATE again under a name no
+// flag reads, since --gate overrides YARDSTICK_GATE.
+const (
+	JobEnv  = "YARDSTICK_RESEARCH_JOB"
+	RowsEnv = "YARDSTICK_ROWS"
+	GateEnv = "YARDSTICK_RESEARCH_GATE"
+)
+
 // env is what the command gets to work with. YARDSTICK_GATE and YARDSTICK_NAME are what the CLI's
 // --gate and --name read, so `yardstick claims agent propose` resolves the job's rows with no flags; the
 // vulnerability and package go under RESEARCH_ names because clio would read YARDSTICK_PACKAGE and
@@ -357,15 +454,22 @@ func KillCommand(groups ...int) string {
 func (j Job) env(cfg Config) []string {
 	env := []string{
 		"YARDSTICK_ROW=" + j.Rows[0],
-		"YARDSTICK_ROWS=" + strings.Join(j.Rows, " "),
+		RowsEnv + "=" + strings.Join(j.Rows, " "),
 		"YARDSTICK_RESEARCH_VULNERABILITY=" + j.Vulnerability,
 		"YARDSTICK_RESEARCH_PACKAGE=" + j.Package,
 		"YARDSTICK_GATE=" + j.Gate,
+		GateEnv + "=" + j.Gate,
 		"YARDSTICK_NAME=" + cmp.Or(j.Run, cfg.Run),
 		"YARDSTICK_ROOT=" + cfg.Dir,
 		"YARDSTICK_BIN=" + cfg.Bin,
-		"YARDSTICK_RESEARCH_JOB=" + j.ID, // `yardstick claims agent propose` stamps it on the proposals the job records
+		JobEnv + "=" + j.ID,                                                  // `yardstick claims agent propose` stamps it on the proposals the job records
+		JobDirEnv + "=" + filepath.Join(cfg.Dir, ".yardstick", "jobs", j.ID), // and leaves its refusal there
+		OutputEnv + "=" + filepath.Join(cfg.Dir, OutputDir(j)),               // the agent's report and proposal
 		"YARDSTICK_MODEL=" + cmp.Or(j.Model, cfg.Model),
+		"YARDSTICK_PLUGIN_DIR=" + cfg.PluginDir,
+	}
+	if len(cfg.Claims) > 0 {
+		env = append(env, "YARDSTICK_CLAIMS="+strings.Join(cfg.Claims, ",")) // clio splits it on commas; check refuses a source with one
 	}
 	if cfg.Bin != "" {
 		env = append(env, "PATH="+filepath.Dir(cfg.Bin)+string(os.PathListSeparator)+os.Getenv("PATH"))
@@ -403,8 +507,9 @@ func childEnv(environ []string) []string {
 	return out
 }
 
-// Researched is true once research of the job's rows has finished, in this run or an earlier one,
-// whether or not it left an agent hint.
+// Researched is true once research of the job's rows has finished and recorded a call, in this run
+// or an earlier one. Research that recorded nothing (NotRecorded) isn't: the rows stay for batch
+// research to pick up, once whatever stopped the call is fixed.
 func (j Job) Researched() bool {
 	return j.Status == Done || !j.LastDone.IsZero()
 }
@@ -435,6 +540,7 @@ func (r *Runner) Jobs() ([]Job, error) {
 		}
 		out = append(out, j)
 	}
+	r.reconcile(out)
 	sort.Slice(out, func(i, k int) bool { return out[i].Queued.After(out[k].Queued) })
 	return out, nil
 }
@@ -444,13 +550,17 @@ func (r *Runner) LogPath(id string) string {
 	return filepath.Join(r.jobs, id, "log.txt")
 }
 
+// load reads a job's record. Its id is its directory's name, whatever the record says, since the id
+// becomes a path (its log, its saves) and the record is a file anything in the workspace can write.
 func (r *Runner) load(id string) (Job, error) {
 	data, err := os.ReadFile(filepath.Join(r.jobs, id, "job.json"))
 	if err != nil {
 		return Job{}, err
 	}
 	var j Job
-	return j, json.Unmarshal(data, &j)
+	err = json.Unmarshal(data, &j)
+	j.ID = id
+	return j, err
 }
 
 func (r *Runner) save(j Job) error {

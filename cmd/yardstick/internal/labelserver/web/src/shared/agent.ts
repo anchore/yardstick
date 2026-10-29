@@ -1,6 +1,6 @@
 // agent.ts says where an agent hint came from and where the row's research is: the words and
 // glyphs the tables' Agent hint cell, the finding page and hint review share.
-import type { HintSummary, ResearchSummary, research } from "../gen/wire";
+import type { HintSummary, ResearchDetail, ResearchSummary, research } from "../gen/wire";
 import type { Row } from "./rows";
 import { cap } from "./words";
 
@@ -38,11 +38,12 @@ export const queuePlace = (j: ResearchSummary) => (j.position ? `${ordinal(j.pos
 const modelName = (m: string | undefined) => cap(m ?? "");
 
 // Doing is what research is doing on a row with no hint showing, as one cell: researching (counting
-// up from start), queued (its place in line), failed (the error on hover), researched with no hint,
-// or nothing yet (offer, a Research button on an open row). none is a row there is nothing to say
+// up from start), queued (its place in line), failed (the error on hover), researched but nothing
+// recorded (why on hover), researched with no hint, or nothing yet (offer, a Research button on an
+// open row). none is a row there is nothing to say
 // about: labeled, or research can't be offered.
 export interface Doing {
-  kind: "running" | "queued" | "failed" | "nohint" | "offer" | "none";
+  kind: "running" | "queued" | "failed" | "notrecorded" | "nohint" | "offer" | "none";
   word: string;
   small?: string;      // the time running or the place in line
   since?: string;      // when running started, for the cell to count up from
@@ -55,6 +56,8 @@ export function doing(j: ResearchSummary | undefined, o: { open: boolean; resear
   if (j?.status === "queued") return { kind: "queued", word: "queued", small: queuePlace(j), title: on || undefined };
   if (!o.open) return { kind: "none", word: "" };
   if (failedJob(j)) return { kind: "failed", word: "failed", title: j!.error || j!.status };
+  // the newest job is the one to say: an earlier run that recorded nothing is no reason now
+  if (j?.status === "unrecorded") return { kind: "notrecorded", word: "researched, not recorded", title: j.error || undefined };
   if (o.researched || j?.status === "done") return { kind: "nohint", word: "researched, no hint" };
   return { kind: "offer", word: "Research" };
 }
@@ -70,6 +73,8 @@ export function researchLine(r: Row, now = Date.now()) {
     return [d.word, [d.small, j.status === "running" && modelName(j.model)].filter(Boolean).join(" · ")].filter(Boolean).join(" ");
   }
   if (j.status === "cancelled") return "research cancelled";
+  // the finding page's research section says what it concluded and why nothing was recorded
+  if (j.status === "unrecorded") return "";
   if (j.status !== "done") return `research ${j.status}${j.error ? `: ${j.error}` : ""}`;
   if (!r.hint) return "";
   const fresh = r.hint.written && j.started && new Date(r.hint.written) >= new Date(j.started);
@@ -79,3 +84,39 @@ export function researchLine(r: Row, now = Date.now()) {
 
 // jobHref is a job's row on the jobs page
 export const jobHref = (id: string) => `/ui/research/jobs#job-${id}`;
+
+// Outcome is what the finding page's research section says of the row's newest job: a head line
+// (when, on what, for how much) and what came of it. recorded left the hint the page shows;
+// notrecorded concluded but nothing was recorded, nothing ran without writing a conclusion, and
+// both say why; running, failed and cancelled are the job's own state.
+export interface Outcome {
+  kind: "running" | "recorded" | "notrecorded" | "nothing" | "failed" | "cancelled";
+  head: string;
+  text: string;
+}
+
+// stamp is when a job ran, as the section heads it: "Oct 28, 21:35"
+const stamp = (iso: string) => {
+  const d = new Date(iso);
+  return Number.isNaN(d.getTime()) ? iso : d.toLocaleString(undefined, { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" });
+};
+
+export function researchOutcome(j: ResearchSummary, d: ResearchDetail | undefined, when: (iso: string) => string = stamp, now = Date.now()): Outcome {
+  const at = j.finished || j.started || j.queued;
+  const head = [`${inFlight(j) ? "Researching" : "Researched"}${at && !inFlight(j) ? ` ${when(at)}` : ""}`, modelName(j.model), j.costUSD ? `$${j.costUSD.toFixed(2)}` : ""]
+    .filter(Boolean).join(" · ");
+  if (inFlight(j)) {
+    const w = doing(j, { open: true, researched: false }, now);
+    return { kind: "running", head, text: [w.word, w.small].filter(Boolean).join(" ") };
+  }
+  if (failedJob(j)) return { kind: "failed", head, text: `Research ${j.status === "failed" ? "failed" : j.status.replace("-", " ")}${j.error ? `: ${j.error}` : "."}` };
+  if (j.status === "cancelled") return { kind: "cancelled", head, text: "Research was cancelled before it finished." };
+  const why = j.error || "nothing was recorded; the log says what happened";
+  if (j.status === "unrecorded") {
+    const p = d?.output?.proposal;
+    return p
+      ? { kind: "notrecorded", head, text: `Research concluded ${[p.verdict, p.justification, p.confidence].filter(Boolean).join(" · ")} but it wasn't recorded: ${why}` }
+      : { kind: "nothing", head, text: `Research ran but wrote no result: ${why}` };
+  }
+  return { kind: "recorded", head, text: "Recorded as an agent hint." };
+}

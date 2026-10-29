@@ -40,6 +40,8 @@ export function researchCell(d: Doing, j: ResearchSummary | undefined, r: Resear
     case "failed":
       return el("span", { class: "rs fail", title: d.title, "data-testid": "research-cell", "data-state": d.kind }, `${d.word} `,
         r.available && start && el("button", { type: "button", class: "lk", "data-testid": "research-retry", onclick: start }, "retry"));
+    case "notrecorded":
+      return el("span", { class: "rs notrec", title: d.title, "data-testid": "research-cell", "data-state": d.kind }, d.word);
     case "nohint":
       return el("span", { class: "rs nohint", "data-testid": "research-cell", "data-state": d.kind }, d.word);
     case "offer":

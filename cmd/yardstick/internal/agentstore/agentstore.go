@@ -14,6 +14,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"time"
 )
 
 // Schema is written on every line.
@@ -52,6 +53,41 @@ func Open(dir string) *Store {
 		Explanations: &Log[Explanation]{path: filepath.Join(dir, explanationsFile)},
 		Overrides:    &Log[Override]{path: filepath.Join(dir, overridesFile)},
 	}
+}
+
+// RecordedJobs is when each research job last recorded a proposal or cause: the job's id is on the
+// calls it records (Author.ResearchJob). Every line counts, a call a newer one superseded too.
+func (s *Store) RecordedJobs() (map[string]time.Time, error) {
+	out := map[string]time.Time{}
+	for _, path := range []string{s.Proposals.path, s.Causes.path} {
+		data, err := os.ReadFile(path)
+		if errors.Is(err, os.ErrNotExist) {
+			continue
+		}
+		if err != nil {
+			return nil, err
+		}
+		sc := bufio.NewScanner(bytes.NewReader(data))
+		sc.Buffer(make([]byte, 0, 64*1024), 16*1024*1024)
+		for sc.Scan() {
+			var v struct {
+				Author struct {
+					ResearchJob string `json:"researchJob"`
+				} `json:"author"`
+				Timestamp time.Time `json:"timestamp"`
+			}
+			if json.Unmarshal(sc.Bytes(), &v) != nil || v.Author.ResearchJob == "" {
+				continue
+			}
+			if v.Timestamp.After(out[v.Author.ResearchJob]) {
+				out[v.Author.ResearchJob] = v.Timestamp
+			}
+		}
+		if err := sc.Err(); err != nil {
+			return nil, err
+		}
+	}
+	return out, nil
 }
 
 // Log is one JSON lines file, append-only: nothing is edited, a newer line with the same key

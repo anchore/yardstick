@@ -3,7 +3,7 @@
 // sticky on the right, and j / k through the list the URL's filters name. The content is the old
 // map page's tile, reorganized.
 import type { Direction, LabelKey, claimsv1 } from "../gen/wire";
-import { inFlight } from "../shared/agent";
+import { inFlight, jobHref, researchOutcome } from "../shared/agent";
 import * as api from "../shared/api";
 import { el, fill, toast, type Child } from "../shared/dom";
 import { records, matchPath } from "../shared/matchpath";
@@ -15,6 +15,7 @@ import { changed, forget, writeFailed, written } from "./data";
 import { loadFinding, type FindingData } from "./finding-data";
 import { effect, mutedReason, pendingCause, seenWith, shortSource } from "./finding-words";
 import { labelPanel, type Draft, type LabelPanel } from "./labelpanel";
+import { orFix } from "./namespace";
 import type { GateLines } from "./queuewords";
 import { nextOpen, position, type Item } from "./neighbors";
 import { formatRoute, type Route } from "./route";
@@ -61,6 +62,11 @@ export function findingView(host: HTMLElement, r: FindingRoute, nav: Nav, signal
   // the label panel and the page body are built with the first data and kept, so a repaint (a save
   // that stays, research polling) leaves the form's focus, caret and draft alone
   let lp: LabelPanel | null = null, body: HTMLElement | null = null, shownKey = "", shownWhy: Child = null;
+  // recordFailed is why recording the research's proposal was refused, shown in its section until
+  // the next try
+  let recordFailed = "";
+  // recording is a record in flight, so a second click doesn't run propose again
+  let recording = false;
   const content = el("div", { class: "fcontent" });
   const draft: Draft = { note: "" };
   const at = (row: string): Route => ({ ...r, row });
@@ -111,8 +117,8 @@ export function findingView(host: HTMLElement, r: FindingRoute, nav: Nav, signal
     body.dataset.verdict = row.verdict;
     // the content tabs are drawn again only when what they show changed, not on each research poll;
     // the raw matches are read once per view, so they never change it
-    const key = JSON.stringify([row.why, row.gate, d.detail]);
-    if (key !== shownKey || q?.why !== shownWhy) { shownKey = key; shownWhy = q?.why; fill(content, q?.why, tabs(d)); }
+    const key = JSON.stringify([row.why, row.gate, d.detail, row.research?.status, row.research?.job, recordFailed]);
+    if (key !== shownKey || q?.why !== shownWhy) { shownKey = key; shownWhy = q?.why; fill(content, q?.why, researchSection(d, record, recordFailed), tabs(d)); }
     renderShell(host, r, {
       title: row.vulnerability,
       row: row.vulnerability,
@@ -220,12 +226,34 @@ export function findingView(host: HTMLElement, r: FindingRoute, nav: Nav, signal
     if (!d) return;
     const off = d.state.research && !d.state.research.available ? d.state.research : null;
     if (off) return toast(`research disabled: ${off.reason}${off.command ? `; run ${off.command}` : ""}`, true);
-    try { await api.research(r.gate, [d.row.id], "finding"); } catch (e) { return toast((e as Error).message, true); }
+    const row = d.row.id;
+    try {
+      if (!(await orFix(() => api.research(r.gate, [row], "finding")))) return;
+    } catch (e) { return toast((e as Error).message, true); }
     toast("research started; what it finds arrives as an agent hint");
     void kick();
     forget();
     await load();
   }
+  // record records what the research wrote but didn't record, as a hint; a refusal stays in the
+  // section, never a toast
+  async function record() {
+    if (!d || recording) return;
+    recording = true;
+    try {
+      await api.recordResearch(r.gate, d.row.id);
+      recordFailed = "";
+    } catch (e) {
+      recordFailed = (e as Error).message.replace(/^\d+: /, "");
+      paint();
+      return;
+    } finally {
+      recording = false;
+    }
+    forget();
+    await load(true);
+  }
+
   async function cancelResearch() {
     if (!d) return;
     try {
@@ -277,6 +305,30 @@ export function findingView(host: HTMLElement, r: FindingRoute, nav: Nav, signal
 
   void load();
   return { key, refresh: load };
+}
+
+// ---------- the research section ----------
+
+// researchSection is what the row's newest research job did: when, on what and for how much, what
+// came of it, and when it concluded something it didn't record, its report, open questions, the
+// agent's last message and the way to record it now. Nothing while no job ran on the row.
+function researchSection(d: FindingData, record: () => void, failed: string) {
+  const j = d.row.research;
+  if (!j) return null;
+  const det = d.detail.research ?? undefined, o = researchOutcome(j, det), out = det?.output, p = out?.proposal;
+  const quiet = o.kind === "recorded" || o.kind === "running";
+  return el("section", { class: `rsection ${o.kind}`, "data-testid": "research-outcome", "data-outcome": o.kind },
+    el("h3", { "data-testid": "research-head" }, o.head),
+    el("p", { "data-testid": "research-outcome-text" }, o.text),
+    det?.recordable && el("div", { class: "acts" },
+      el("button", { type: "button", class: "btn", "data-size": "sm", "data-testid": "research-record", onclick: record, title: "records what it concluded as an agent hint, as propose would have; nothing is researched again" }, "Record as hint")),
+    failed && el("p", { class: "err", role: "alert", "data-testid": "research-record-error" }, failed),
+    !quiet && p?.openQuestions?.length ? el("div", { "data-testid": "research-questions" }, el("h4", {}, "Open questions"), el("ul", {}, p.openQuestions.map((x) => el("li", {}, x)))) : null,
+    !quiet && det?.summary && el("details", { "data-testid": "research-summary" }, el("summary", {}, "The agent's last message"), el("p", { class: "pre" }, det.summary)),
+    out?.report && el("details", { "data-testid": "research-report", open: !quiet }, el("summary", {}, "REPORT.md"), el("pre", { class: "report" }, out.report)),
+    el("p", { class: "help" }, el("a", { class: "lk", href: jobHref(j.job), "data-testid": "research-job" }, "view job"),
+      !inFlight(j) && [" · ", el("a", { class: "lk", href: `/api/research/${encodeURIComponent(j.job)}/log`, target: "_blank", rel: "noopener" }, "log")],
+      out && [" · ", el("span", { class: "mono", title: `files: ${out.files.join(", ") || "none"}` }, out.dir)]));
 }
 
 // ---------- the content tabs ----------

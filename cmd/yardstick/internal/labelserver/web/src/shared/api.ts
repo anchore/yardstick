@@ -4,16 +4,18 @@
 // where its caller has one.
 import type {
   AcceptCauseResponse, AcceptResponse, CancelResponse, CheckFindings, GateLabels, GateList, GateResult, HintsAcceptResponse, HintsResponse, History,
-  LabelKey, LabelsRequest, LabelsResponse, MatchesResponse, Queue, ResearchBatch, ResearchFrom, ResearchJobs, ResearchQueueRequest,
+  LabelKey, LabelsRequest, LabelsResponse, MatchesResponse, Queue, ResearchBatch, ResearchFrom, ResearchJobs, RecordResponse, ResearchQueueRequest,
   ResearchQueueResponse, ResearchResponse, RevertResponse, RowResponse, SharedState, State, WriteError, claimsv1,
+  AddNamespaceResponse, UnlistedNamespace, VocabularyList,
 } from "../gen/wire";
 
 export const token = document.querySelector<HTMLMetaElement>('meta[name="yardstick-token"]')?.content ?? "";
 
 // ApiError is a request the server refused. labels are what a write placed before it failed (the
-// server's WriteError), which an Undo can still take back.
+// server's WriteError), which an Undo can still take back; unlisted is research refused for a
+// namespace the claims vocabulary lacks, which the UI offers to add.
 export class ApiError extends Error {
-  constructor(readonly status: number, message: string, readonly labels: LabelKey[] = []) {
+  constructor(readonly status: number, message: string, readonly labels: LabelKey[] = [], readonly unlisted?: UnlistedNamespace) {
     super(`${status}: ${message}`);
   }
 }
@@ -22,8 +24,8 @@ async function call<T>(path: string, init?: RequestInit): Promise<T> {
   const r = await fetch(path, init);
   if (!r.ok) {
     if (r.headers.get("Content-Type")?.startsWith("application/json")) {
-      const e = (await r.json()) as WriteError;
-      throw new ApiError(r.status, e.error, e.labels ?? []);
+      const e = (await r.json()) as WriteError & Partial<UnlistedNamespace>;
+      throw new ApiError(r.status, e.error, e.labels ?? [], e.code === "unlisted-namespace" ? (e as UnlistedNamespace) : undefined);
     }
     throw new ApiError(r.status, (await r.text()).trim() || r.statusText);
   }
@@ -91,6 +93,9 @@ export const revert = (labels: LabelKey[]) => post<RevertResponse>("/api/history
 
 // research starts jobs on rows of one gate, from a table or a match
 export const research = (gate: string, rows: string[], from: ResearchFrom) => post<ResearchResponse>(gatePath(gate, "/research"), { rows, from });
+// recordResearch records the proposal the row's newest research job wrote but didn't record; no
+// research runs again
+export const recordResearch = (gate: string, row: string) => post<RecordResponse>(gatePath(gate, "/research/record"), { row });
 // cancelResearch cancels the newest research job on each row, when this server holds it
 export const cancelResearch = (gate: string, rows: string[]) => post<CancelResponse>(gatePath(gate, "/research/cancel"), { rows });
 
@@ -99,5 +104,8 @@ export const cancelResearch = (gate: string, rows: string[]) => post<CancelRespo
 type QueueBody = Omit<ResearchQueueRequest, "dryRun">;
 export const planResearch = (body: QueueBody) => post<ResearchQueueResponse>("/api/research", { ...body, dryRun: true });
 export const startResearch = (body: QueueBody) => post<ResearchQueueResponse>("/api/research", body);
+// addNamespace adds a namespace to a list of the gate's writable claims source's vocabulary.yaml
+export const addNamespace = (gate: string, namespace: string, list: VocabularyList) =>
+  post<AddNamespaceResponse>(gatePath(gate, "/vocabulary/namespace"), { namespace, list });
 // cancelBatch cancels the rest of a batch
 export const cancelBatch = (id: string) => post<CancelResponse>("/api/research/batch/cancel", { id });

@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"runtime"
 	"strconv"
 	"time"
@@ -28,8 +29,11 @@ type claimsServeConfig struct {
 	Author       string `yaml:"author" json:"author" mapstructure:"author"`
 	// ResearchModel is the model research jobs run on (research.DefaultModel when empty).
 	ResearchModel string `yaml:"research-model" json:"research-model" mapstructure:"research-model"`
-	Addr          string `yaml:"-" json:"-" mapstructure:"-"`
-	Open          bool   `yaml:"-" json:"-" mapstructure:"-"`
+	// ResearchPluginDir is a yardstick plugin directory (a clone's plugin/) research loads for its
+	// runs instead of the installed plugin, to try a branch's skills without changing Claude Code's setup.
+	ResearchPluginDir string `yaml:"research-plugin-dir" json:"research-plugin-dir" mapstructure:"research-plugin-dir"`
+	Addr              string `yaml:"-" json:"-" mapstructure:"-"`
+	Open              bool   `yaml:"-" json:"-" mapstructure:"-"`
 }
 
 func (c *claimsServeConfig) AddFlags(flags clio.FlagSet) {
@@ -39,6 +43,7 @@ func (c *claimsServeConfig) AddFlags(flags clio.FlagSet) {
 	flags.StringVarP(&c.Addr, "addr", "", "loopback address to listen on; a per-start token is the only authentication, so no other is accepted")
 	flags.BoolVarP(&c.Open, "open", "", "open the UI in a browser")
 	flags.StringVarP(&c.ResearchModel, "research-model", "", "model research jobs run on")
+	flags.StringVarP(&c.ResearchPluginDir, "research-plugin-dir", "", "yardstick plugin directory research jobs load instead of the installed plugin (e.g. a clone's plugin/)")
 }
 
 func ClaimsServe(app clio.Application) *cobra.Command {
@@ -84,7 +89,7 @@ explanations under .yardstick/ show as hints; none counts until a person accepts
 			if author == "" {
 				return errors.New("no author: give --author, or set git config user.name")
 			}
-			runner, avail, err := newResearch(cmd, app.ID().Version, cfg.Name, cfg.ResearchModel)
+			runner, avail, err := newResearch(cmd, app.ID().Version, cfg.Name, cfg.ResearchModel, cfg.ResearchPluginDir, cfg.Claims)
 			if err != nil {
 				return err
 			}
@@ -111,7 +116,7 @@ explanations under .yardstick/ show as hints; none counts until a person accepts
 
 // newResearch is the runner research jobs start from, in the working directory, and whether the
 // yardstick plugin they need is installed at this binary's version. yardstick never installs it.
-func newResearch(cmd *cobra.Command, version, run, model string) (*research.Runner, research.Availability, error) {
+func newResearch(cmd *cobra.Command, version, run, model, pluginDir string, claims []string) (*research.Runner, research.Availability, error) {
 	dir, err := os.Getwd()
 	if err != nil {
 		return nil, research.Availability{}, err
@@ -120,7 +125,33 @@ func newResearch(cmd *cobra.Command, version, run, model string) (*research.Runn
 	if err != nil {
 		return nil, research.Availability{}, err
 	}
-	avail := research.CheckPlugin(cmd.Context(), version)
+	// local sources by absolute path, so the agent's propose finds them wherever it runs from
+	abs := make([]string, len(claims))
+	for i, c := range claims {
+		abs[i] = c
+		if info, err := os.Stat(c); err == nil && info.IsDir() {
+			if p, err := filepath.Abs(c); err == nil {
+				abs[i] = p
+			}
+		}
+	}
+	claims = abs
+	var avail research.Availability
+	if pluginDir != "" {
+		if pluginDir, err = filepath.Abs(pluginDir); err != nil {
+			return nil, research.Availability{}, err
+		}
+		avail = research.CheckPluginDir(pluginDir, version)
+	} else {
+		avail = research.CheckPlugin(cmd.Context(), version)
+	}
+	if avail.Available && avail.Reason != "" {
+		out := newPrinter(cmd.ErrOrStderr())
+		out.row(out.notice(), "research: "+avail.Reason)
+		if err := out.flush(); err != nil {
+			return nil, research.Availability{}, err
+		}
+	}
 	if !avail.Available {
 		out := newPrinter(cmd.ErrOrStderr())
 		out.row(out.notice(), "research is disabled: "+avail.Reason)
@@ -131,7 +162,9 @@ func newResearch(cmd *cobra.Command, version, run, model string) (*research.Runn
 			return nil, research.Availability{}, err
 		}
 	}
-	return research.NewRunner(research.Config{Model: model, Dir: dir, Run: run, Concurrency: 2, Timeout: 20 * time.Minute, Bin: bin}), avail, nil
+	store := agentstore.Open(filepath.Join(dir, agentstore.Dir))
+	return research.NewRunner(research.Config{Model: model, Dir: dir, Run: run, Concurrency: 2, Timeout: 20 * time.Minute, Bin: bin,
+		PluginDir: pluginDir, Claims: claims, Recorded: store.RecordedJobs}), avail, nil
 }
 
 func serve(ctx context.Context, cmd *cobra.Command, addr string, open bool, h http.Handler) error {

@@ -46,6 +46,7 @@ type_mappings:
   research.Status: research.Status
   research.Basis: research.Basis
   research.Job: research.Job
+  research.Output: research.Output
   # only StateRow embeds it, and StateRow redefines package as {ref} and verdict to take
   # "unlabeled", which an interface cannot do over an inherited property
   report.Match: Omit<report.Match, "package" | "verdict">
@@ -96,6 +97,7 @@ packages:
       export type ResearchGroupName = "change" | "none";
       export type ResearchFrom = "table" | "finding";
       export type LabelScope = "subject" | "anywhere";
+      export type VocabularyList = "vulnerability-namespaces" | "advisory-ids";
   - path: github.com/anchore/yardstick/cmd/yardstick/internal/report
     output_path: cmd/yardstick/internal/labelserver/web/src/gen/report.ts
     frontmatter: |

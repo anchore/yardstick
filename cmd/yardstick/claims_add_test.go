@@ -234,3 +234,18 @@ func TestClaimsImportWarnsOnReplace(t *testing.T) {
 		t.Errorf("expected the second import to name what it replaced, got %s", out)
 	}
 }
+
+// importing into a claims directory whose vocabulary.yaml only adds a namespace checks against it
+// merged onto --claims, and is refused with nothing for it to add to
+func TestClaimsImportMergesTheVocabulary(t *testing.T) {
+	dir := t.TempDir()
+	writeFile(t, filepath.Join(dir, "base", claimsv1.VocabularyFile), strings.Replace(importVocabulary, "vulnerability-namespaces: [CVE]\n", "", 1))
+	writeFile(t, filepath.Join(dir, "overlay", claimsv1.VocabularyFile), "vulnerability-namespaces: [CVE]\n")
+	doc := fixture.Path("vex", "vendor.openvex.json")
+	if _, stderr, code := yardstick(t, dir, "claims", "import", doc, "--to", "overlay", "--author", "Will Murphy"); code == 0 || !strings.Contains(stderr, "the ones there list no justifications") {
+		t.Errorf("expected the overlay alone refused, got %d %s", code, stderr)
+	}
+	if _, stderr, code := yardstick(t, dir, "claims", "import", doc, "--claims", "base", "--to", "overlay", "--author", "Will Murphy"); code != 0 {
+		t.Errorf("import onto base: %d %s", code, stderr)
+	}
+}

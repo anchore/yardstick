@@ -411,6 +411,16 @@ func (r *Result) Relaxed(b *Bound, field, setup string) *Match {
 	return nil
 }
 
+// RelatedIDs is each id the matches report with every id reported beside it, their aliases, as
+// Vocabulary.CheckScanned reads them.
+func RelatedIDs(ms []*Match) map[string][]string {
+	out := map[string][]string{}
+	for _, m := range ms {
+		out[m.Vulnerability] = union(out[m.Vulnerability], m.Aliases)
+	}
+	return out
+}
+
 func union(a, b []string) []string {
 	for _, v := range b {
 		found := false

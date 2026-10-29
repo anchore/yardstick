@@ -1,8 +1,8 @@
 import { rmSync } from "node:fs";
 import { join } from "node:path";
 import type { Page, Request } from "@playwright/test";
-import type { CancelResponse, ResearchJob, ResearchJobs, ResearchJobsSummary, ResearchResponse, State, StateRow } from "../src/gen/wire";
-import { expect, test, workspace } from "./fixtures";
+import type { CancelResponse, ResearchJob, ResearchJobs, ResearchJobsSummary, ResearchResponse, RowResponse, State, StateRow } from "../src/gen/wire";
+import { answersWithError, expect, test, workspace } from "./fixtures";
 import { checkPage, gatePage, gatesPage, images, openFinding, rows, startedBatch, tableRow } from "./helpers";
 
 // research wherever labeling is offered: the Agent hint cell's states, a row's and a selection's
@@ -12,6 +12,8 @@ import { checkPage, gatePage, gatesPage, images, openFinding, rows, startedBatch
 // research-queue.spec.ts fakes a batch.
 
 test.setTimeout(90_000);
+// a page that polls (a queued job's finding) can have a faked state in flight as a test ends
+test.afterEach(async ({ page }) => page.unrouteAll({ behavior: "ignoreErrors" }));
 
 const noHints = () => {
   for (const f of ["proposals.jsonl", "causes.jsonl"]) rmSync(join(workspace, ".yardstick", f), { force: true });
@@ -32,7 +34,7 @@ const ago = (s: number) => new Date(Date.now() - s * 1000).toISOString();
 const job = (id: string, rows: string[], vulnerability: string, extra: Partial<ResearchJob>): ResearchJob =>
   ({ id, rows, vulnerability, package: "pkg:deb/debian/tar@1.34", gate: "deb-java", status: "done", command: "", dir: "", queued: ago(600), hints: [], ...extra });
 const summary = (extra: Partial<ResearchJobsSummary> = {}): ResearchJobsSummary =>
-  ({ total: 0, done: 0, running: 0, queued: 0, failed: 0, cancelled: 0, spent: 0, estimate: 0, secondsLeft: 0, concurrency: 2, hints: { tp: 0, fp: 0, unclear: 0 }, ...extra });
+  ({ total: 0, done: 0, running: 0, queued: 0, failed: 0, notRecorded: 0, cancelled: 0, spent: 0, estimate: 0, secondsLeft: 0, concurrency: 2, hints: { tp: 0, fp: 0, unclear: 0 }, ...extra });
 const fakeJobs = (page: Page, jobs: ResearchJob[], s: Partial<ResearchJobsSummary>) =>
   page.route("**/api/research/jobs", (r) => r.fulfill({ json: { jobs, summary: summary(s) } satisfies ResearchJobs }));
 
@@ -295,5 +297,64 @@ test.describe("the jobs page", () => {
     await expect(page.getByTestId("research-status")).toHaveText("queued 3rd of 13");
     await expect(page.getByTestId("research-job-link")).toHaveAttribute("href", "/ui/research/jobs#job-j-q");
     await expect(page.getByTestId("research-cancel-row")).toBeVisible();
+  });
+});
+
+// research that ran but recorded nothing: CLEANSTART's in the turnup, refused by propose or denied
+// its writes, read as "researched, no hint" with no way to see why
+test.describe("research that recorded nothing", () => {
+  const why = "the agent was refused 5 tool uses: Write .yardstick/research/CVE-2026-18508/tar/REPORT.md";
+  const notRecorded = (by: Map<string, StateRow>) => {
+    // not researched: batch research picks it up again
+    by.get(rows.tarHand)!.research = { job: rows.tarHand, status: "unrecorded", error: why, model: "sonnet", costUSD: 0.27, finished: ago(600) };
+  };
+  // wrote is the row's detail as it reaches the page, its research having written a proposal or not
+  const wrote = (page: Page, proposal: boolean) => page.route(`**/api/gates/deb-java/rows/${rows.tarHand}`, async (r) => {
+    const d = (await (await r.fetch()).json()) as RowResponse;
+    d.research = { recordable: proposal, summary: "Verdict I would propose: tp, fix-newer, medium.",
+      output: { dir: ".yardstick/research/CVE-2026-18508/tar", files: proposal ? ["REPORT.md", "proposal.json"] : ["proposal.json"],
+        report: proposal ? "# CVE-2026-18508 on tar\n\ntp, medium confidence" : undefined,
+        proposal: proposal ? { verdict: "tp", justification: "fix-newer", confidence: "medium", openQuestions: ["Was the fix backported?"] } : undefined } };
+    await r.fulfill({ json: d satisfies RowResponse });
+  });
+
+  test("the cell says it wasn't recorded, and why on hover", async ({ page }) => {
+    await fakeState(page, notRecorded);
+    await page.goto(unlabeledFindings);
+    await expect(cell(page, rows.tarHand)).toHaveAttribute("data-state", "notrecorded");
+    await expect(cell(page, rows.tarHand)).toHaveText("researched, not recorded");
+    await expect(cell(page, rows.tarHand)).toHaveAttribute("title", why);
+  });
+
+  test("the finding says what it found, records it as a hint, and keeps a refusal in place", async ({ page }) => {
+    await fakeState(page, notRecorded);
+    await wrote(page, true);
+    await page.route(`**/api/gates/deb-java/research/record`, async (r) => {
+      answersWithError(page, r.request().url());
+      await r.fulfill({ status: 400, contentType: "text/plain", body: "propose refused it: justification \"fix-newer\" is not listed under tp in vocabulary.yaml" });
+    });
+    await openFinding(page, rows.tarHand, null);
+    const section = page.getByTestId("research-outcome");
+    await expect(section).toHaveAttribute("data-outcome", "notrecorded");
+    await expect(section.getByTestId("research-head")).toContainText("· Sonnet · $0.27");
+    await expect(section.getByTestId("research-outcome-text")).toHaveText(`Research concluded tp · fix-newer · medium but it wasn't recorded: ${why}`);
+    await expect(section.getByTestId("research-questions")).toContainText("Was the fix backported?");
+    await expect(section.getByTestId("research-report")).toContainText("tp, medium confidence");
+    await section.getByTestId("research-record").click();
+    // a refusal stays, unlike a toast
+    await page.waitForTimeout(3000);
+    await expect(section.getByTestId("research-record-error")).toHaveText('propose refused it: justification "fix-newer" is not listed under tp in vocabulary.yaml');
+  });
+
+  test("research that wrote nothing says so, with the agent's last message", async ({ page }) => {
+    await fakeState(page, notRecorded);
+    await wrote(page, false);
+    await openFinding(page, rows.tarHand, null);
+    const section = page.getByTestId("research-outcome");
+    await expect(section).toHaveAttribute("data-outcome", "nothing");
+    await expect(section.getByTestId("research-outcome-text")).toHaveText(`Research ran but wrote no result: ${why}`);
+    await expect(section.getByTestId("research-record")).toHaveCount(0);
+    await section.getByTestId("research-summary").locator("summary").click();
+    await expect(section.getByTestId("research-summary")).toContainText("Verdict I would propose: tp, fix-newer, medium.");
   });
 });

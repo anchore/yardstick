@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"path/filepath"
 	"slices"
 	"strings"
 	"time"
@@ -19,20 +20,73 @@ import (
 	claimsv1 "github.com/anchore/yardstick/cmd/yardstick/internal/claims/v1"
 	"github.com/anchore/yardstick/cmd/yardstick/internal/gatefile"
 	"github.com/anchore/yardstick/cmd/yardstick/internal/labelwrite"
+	"github.com/anchore/yardstick/cmd/yardstick/internal/log"
+	"github.com/anchore/yardstick/cmd/yardstick/internal/pairing"
+	"github.com/anchore/yardstick/cmd/yardstick/internal/research"
 	"github.com/anchore/yardstick/cmd/yardstick/internal/runrecord"
 	"github.com/anchore/yardstick/cmd/yardstick/internal/score"
 )
 
-// researchJobEnv names the research job an agent runs in, set by the label server when it starts
-// one, so a proposal can say a person asked for it.
-const researchJobEnv = "YARDSTICK_RESEARCH_JOB"
+// researchJob is the research job a command runs in, as the label server sets it in the job's
+// environment (research.JobEnv and the rest), so a proposal can say a person asked for it and is
+// held to the job's rows and gate. These are env only on purpose and must never get a flag: the
+// agent runs propose with whatever arguments it likes, so a flag would let it choose its own job.
+// Fields with no flag are read from YARDSTICK_<key> alone, as no config file is read either.
+type researchJob struct {
+	ID   string `yaml:"-" json:"-" mapstructure:"research-job"`     // YARDSTICK_RESEARCH_JOB
+	Dir  string `yaml:"-" json:"-" mapstructure:"research-job-dir"` // YARDSTICK_RESEARCH_JOB_DIR
+	Gate string `yaml:"-" json:"-" mapstructure:"research-gate"`    // YARDSTICK_RESEARCH_GATE
+	Rows string `yaml:"-" json:"-" mapstructure:"rows"`             // YARDSTICK_ROWS, space separated
+}
+
+// holds refuses a proposal in a research job about anything but one of the job's rows, in the
+// job's gate.
+func (j researchJob) holds(gate, row string) error {
+	switch {
+	case gate != j.Gate:
+		return fmt.Errorf("research job %s is about gate %s, not %s: leave --gate off", j.ID, j.Gate, gate)
+	case row == "":
+		return fmt.Errorf("a proposal in research job %s names its row, one of %s", j.ID, j.Rows)
+	case !slices.Contains(strings.Fields(j.Rows), row):
+		return fmt.Errorf("row %s is not one of research job %s's rows (%s)", row, j.ID, j.Rows)
+	}
+	return nil
+}
+
+// noteRefusal has a propose command run in a research job leave its refusal in the job's directory
+// (research.ProposeErrorFile), so the job can say why it recorded nothing without reading the
+// agent's log; a later success there clears it.
+func noteRefusal(job *researchJob, c *cobra.Command) *cobra.Command {
+	run := c.RunE
+	c.RunE = func(cmd *cobra.Command, args []string) error {
+		err := run(cmd, args)
+		dir := job.Dir
+		// only ever a job's own directory, as the label server sets it: the variable can't point
+		// the write (or the removal) at another file
+		if dir == "" || filepath.Base(filepath.Dir(dir)) != "jobs" || filepath.Base(filepath.Dir(filepath.Dir(dir))) != ".yardstick" {
+			return err
+		}
+		p := filepath.Join(dir, research.ProposeErrorFile)
+		if err == nil {
+			_ = os.Remove(p)
+		} else if werr := os.WriteFile(p, []byte(err.Error()+"\n"), 0o600); werr != nil {
+			log.Warnf("unable to record the refusal in %s: %v", p, werr)
+		}
+		return err
+	}
+	return c
+}
 
 // agentOptions are what the commands recording agent state take: the gate whose last scan row ids
-// name, the run it was scanned under, and claims sources after the gate's own.
+// name, the run it was scanned under, claims sources after the gate's own, and the research job
+// they run in.
 type agentOptions struct {
 	claimsOption `yaml:",inline" mapstructure:",squash"`
 	nameOption   `yaml:",inline" mapstructure:",squash"`
 	Gate         string `yaml:"gate" json:"gate" mapstructure:"gate"`
+
+	// env only, never a flag: see researchJob
+	Research researchJob `yaml:"-" json:"-" mapstructure:",squash"`
 }
 
 func (o *agentOptions) AddFlags(flags clio.FlagSet) {
@@ -49,6 +103,9 @@ type scanned struct {
 	rec   *runrecord.Record
 	rows  map[string]*score.Row
 	vocab *claimsv1.Vocabulary
+	// vocabFile is the vocabulary.yaml an unlisted namespace would be added in: the writable claims
+	// source's, else empty
+	vocabFile string
 }
 
 // gatePath is a gate file as given, else the file of the gate scanned under run by that name.
@@ -89,7 +146,7 @@ func openScanned(run, gate string, extra []string) (*scanned, error) {
 	if err != nil {
 		return nil, fmt.Errorf("gate %s: %w", g.Name, err)
 	}
-	s := &scanned{run: run, gate: g, rec: rec, vocab: set.Vocabulary()}
+	s := &scanned{run: run, gate: g, rec: rec, vocab: set.Vocabulary(), vocabFile: set.VocabularyPath()}
 	var isAdvisory func(string) bool
 	if s.vocab != nil {
 		isAdvisory = s.vocab.IsAdvisory
@@ -98,6 +155,15 @@ func openScanned(run, gate string, extra []string) (*scanned, error) {
 		return nil, fmt.Errorf("gate %s: %w", g.Name, err)
 	}
 	return s, nil
+}
+
+// related is each id the scan reported, with the ids reported beside it.
+func (s *scanned) related() map[string][]string {
+	ms := make([]*pairing.Match, 0, len(s.rows))
+	for _, r := range s.rows {
+		ms = append(ms, r.Match)
+	}
+	return pairing.RelatedIDs(ms)
 }
 
 func (s *scanned) row(id string) (*score.Row, error) {
@@ -155,24 +221,27 @@ func describeSubject(s claimsv1.Subject) string {
 	return s.SBOM
 }
 
-// fillDefaults fills what an agent may leave out of a record: schema, id, timestamp, the author
-// kind (agent), and the research job it runs in.
-func fillDefaults(schema, id *string, ts *time.Time, a *agentstore.Author, now time.Time) {
+// fillDefaults fills what an agent may leave out of a record: schema, id, timestamp and the author
+// kind (agent); and stamps the research job it runs in, replacing any the record names. In a job
+// the timestamp and kind are always now and agent, whatever the record says.
+func fillDefaults(schema, id *string, ts *time.Time, a *agentstore.Author, job string, now time.Time) {
 	if *schema == "" {
 		*schema = agentstore.Schema
 	}
 	if *id == "" {
 		*id = uuid.NewString()
 	}
-	if ts.IsZero() {
+	// a job counts as recorded by a call stamped with it since the job started, so a call dated
+	// ahead would mark every later run of the job recorded, and one dated back none
+	if ts.IsZero() || job != "" {
 		*ts = now
 	}
-	if a.Kind == "" {
+	if a.Kind == "" || job != "" {
 		a.Kind = agentstore.Agent
 	}
-	if a.Kind == agentstore.Agent && a.ResearchJob == "" {
-		a.ResearchJob = os.Getenv(researchJobEnv)
-	}
+	// the job is the one propose runs in, never what the record says: a job counts as having
+	// recorded a call by this stamp, so a record naming another job would mark that one recorded
+	a.ResearchJob = job
 }
 
 // openInput is the file arguments one after another, else stdin.
@@ -238,7 +307,7 @@ type proposalInput struct {
 
 func ClaimsPropose(app clio.Application) *cobra.Command {
 	cfg := &agentOptions{nameOption: newNameOption()}
-	return app.SetupCommand(&cobra.Command{
+	return noteRefusal(&cfg.Research, app.SetupCommand(&cobra.Command{
 		Use:   "propose [file...] --gate <gate>",
 		Short: "Record agent calls as proposals for a person to accept (JSON on stdin or in files)",
 		Long: `propose reads proposals as JSON, one a line or one a file, and records them in .yardstick/proposals.jsonl, where the
@@ -250,7 +319,9 @@ plus confidence (high or medium, and none on an unclear), openQuestions and auth
 fields are refused. For convenience:
   - "row": a row id from yardstick score -o json stands in for subject, package and vulnerability
   - schema, id, timestamp and gate are filled in, and author.kind defaults to agent
-  - author.researchJob is filled from YARDSTICK_RESEARCH_JOB for an agent
+  - in a research job (YARDSTICK_RESEARCH_JOB, set by yardstick claims serve), author.researchJob
+    is that job, timestamp is now and author.kind is agent, whatever the line says; every line
+    gives a "row" of the job's (YARDSTICK_ROWS) in the job's gate, and subject is the row's
 
 A proposal is checked against the claims vocabulary and the labeling policy: a justification or
 evidence rule that is not listed, a rule of the other verdict, a confidence above the rule's
@@ -277,7 +348,7 @@ subject, tab separated.`,
 			now := time.Now().UTC()
 			out := make([]agentstore.Proposal, 0, len(lines))
 			for i, in := range lines {
-				p, err := s.proposal(in, now)
+				p, err := s.proposal(in, cfg.Research, now)
 				if err != nil {
 					return fmt.Errorf("proposal %d: %w", i+1, err)
 				}
@@ -292,11 +363,16 @@ subject, tab separated.`,
 			fmt.Fprintf(cmd.ErrOrStderr(), "recorded %d proposal(s) in %s\n", len(out), agentstore.Dir)
 			return nil
 		},
-	}, cfg)
+	}, cfg))
 }
 
-func (s *scanned) proposal(in proposalInput, now time.Time) (agentstore.Proposal, error) {
+func (s *scanned) proposal(in proposalInput, job researchJob, now time.Time) (agentstore.Proposal, error) {
 	p := in.Proposal
+	if job.ID != "" {
+		if err := job.holds(s.gate.Name, in.Row); err != nil {
+			return p, err
+		}
+	}
 	if in.Row != "" {
 		// a package or vulnerability given beside the row must be the row's, as a cause member's is:
 		// a hint pairs its row by the exact purl, so a near miss would never show
@@ -305,20 +381,27 @@ func (s *scanned) proposal(in proposalInput, now time.Time) (agentstore.Proposal
 			return p, err
 		}
 		p.Package, p.Vulnerability = m.Package, m.Vulnerability
-		if p.Subject == (claimsv1.Subject{}) {
-			if p.Subject, err = labelwrite.SubjectOf(r.Subject); err != nil {
+		// in a research job the subject is always the row's: a proposal supersedes another by
+		// subject, package and vulnerability, so another subject's would replace a hint off the job
+		if p.Subject == (claimsv1.Subject{}) || job.ID != "" {
+			sub, err := labelwrite.SubjectOf(r.Subject)
+			if err != nil {
 				return p, err
 			}
+			if p.Subject != (claimsv1.Subject{}) && p.Subject != sub {
+				return p, fmt.Errorf("row %s is in %s, not %s: leave subject off", in.Row, describeSubject(sub), describeSubject(p.Subject))
+			}
+			p.Subject = sub
 		}
 	}
 	if err := s.checkGate(&p.Gate); err != nil {
 		return p, err
 	}
-	fillDefaults(&p.Schema, &p.ID, &p.Timestamp, &p.Author, now)
+	fillDefaults(&p.Schema, &p.ID, &p.Timestamp, &p.Author, job.ID, now)
 	if err := p.Validate(); err != nil {
 		return p, err
 	}
-	return p, policy(p.Problems(s.vocab))
+	return p, policy(p.ProblemsIn(s.vocab, s.vocabFile, s.related()))
 }
 
 // causeInput is a cause that may list its members by row id.
@@ -329,7 +412,7 @@ type causeInput struct {
 
 func ClaimsProposeCause(app clio.Application) *cobra.Command {
 	cfg := &agentOptions{nameOption: newNameOption()}
-	return app.SetupCommand(&cobra.Command{
+	return noteRefusal(&cfg.Research, app.SetupCommand(&cobra.Command{
 		Use:   "propose-cause [file] --gate <gate>",
 		Short: "Record agent-proposed root causes for sets of a gate's rows (JSON lines on stdin or in a file)",
 		Long: `propose-cause reads causes as JSON lines and records them in .yardstick/causes.jsonl, where the
@@ -365,7 +448,7 @@ Each recorded cause prints as id, verdict, source package, member count and titl
 			now := time.Now().UTC()
 			out := make([]agentstore.Cause, 0, len(lines))
 			for i, in := range lines {
-				c, err := s.cause(in, now)
+				c, err := s.cause(in, cfg.Research.ID, now)
 				if err != nil {
 					return fmt.Errorf("cause %d: %w", i+1, err)
 				}
@@ -380,12 +463,12 @@ Each recorded cause prints as id, verdict, source package, member count and titl
 			fmt.Fprintf(cmd.ErrOrStderr(), "recorded %d cause(s) in %s\n", len(out), agentstore.Dir)
 			return nil
 		},
-	}, cfg)
+	}, cfg))
 }
 
 // cause resolves a cause's rows into members and fills in what they imply. Every row must be in
 // the cause's source package, so a cause cannot quietly cover another package's findings.
-func (s *scanned) cause(in causeInput, now time.Time) (agentstore.Cause, error) {
+func (s *scanned) cause(in causeInput, job string, now time.Time) (agentstore.Cause, error) {
 	c := in.Cause
 	listed := slices.Clone(c.Members)
 	for _, id := range in.Rows {
@@ -424,7 +507,7 @@ func (s *scanned) cause(in causeInput, now time.Time) (agentstore.Cause, error) 
 	if err := s.checkGate(&c.Gate); err != nil {
 		return c, err
 	}
-	fillDefaults(&c.Schema, &c.ID, &c.Timestamp, &c.Author, now)
+	fillDefaults(&c.Schema, &c.ID, &c.Timestamp, &c.Author, job, now)
 	if err := c.Validate(); err != nil {
 		return c, err
 	}

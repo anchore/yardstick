@@ -3,7 +3,8 @@
 
     yardstick-vuln-sources.py <VULN-ID | row:<row id>> [--pkg NAME] [--store DIR] [--name RUN] [--gate NAME] [--model ID]
 
-Writes one file per source under <store>/.yardstick/research/<VULN>/<pkg>/ plus SUMMARY.md,
+Writes one file per source under <store>/.yardstick/research/<VULN>/<pkg>/ (in a research job, the
+job's own directory, $YARDSTICK_RESEARCH_OUT) plus SUMMARY.md,
 which lists what was found, the key facts, and a link for every source, and proposal.json: a
 `yardstick claims agent propose` skeleton (row, author, the facts it observed) with verdict, justification,
 confidence, note, the evidence's interpretation and openQuestions left for you. Nothing here decides a
@@ -50,6 +51,12 @@ def save(out: Path, name: str, body) -> Path | None:
     return p
 
 
+def grype_of(setup: dict) -> str | None:
+    """The grype a setup scanned with: its version, or its path when the config gave grype by path."""
+    spec = (setup.get("grype") or {}).get("spec") or {}
+    return spec.get("version") or spec.get("path")
+
+
 def debian_tracker_table(page: bytes) -> list[list[str]]:
     rows = []
     for r in re.findall(rb"<tr>(.*?)</tr>", page, re.S):
@@ -93,8 +100,18 @@ def main() -> None:
             sys.exit(f"no row {row_id} in gate {report and report.get('name')}'s scans under run {name}")
         vuln = hit["vulnerability"]
         args.pkg = args.pkg or dc.parse_purl(hit["package"])["name"]
-    # always under the workspace's research directory, the one place a research job may write
-    out = store / ".yardstick" / "research" / safe_part(vuln) / safe_part(args.pkg or "all")
+    # always under the workspace's research directory, the one place a research job may write; a job
+    # names its own directory there, which yardstick reads back as the job's
+    research = (store / ".yardstick" / "research").resolve()
+    out = research / safe_part(vuln) / safe_part(args.pkg or "all")
+    if os.environ.get("YARDSTICK_RESEARCH_OUT"):
+        out = Path(os.environ["YARDSTICK_RESEARCH_OUT"]).resolve()
+        if out == research or not out.is_relative_to(research):
+            sys.exit(f"YARDSTICK_RESEARCH_OUT {out} is not under {research}")
+    # research/jobs/ is where yardstick kept its job records, and moves them from once: never write there
+    # (in any case, for a case-insensitive filesystem)
+    if out.relative_to(research).parts[0].lower() == "jobs":
+        sys.exit(f"{out} is under {research / 'jobs'}, which holds no research")
     out.mkdir(parents=True, exist_ok=True)
     S: list[str] = [f"# Sources for {vuln}" + (f" on {args.pkg}" if args.pkg else ""), ""]
     links: list[str] = []
@@ -110,7 +127,7 @@ def main() -> None:
         S.append(f"## Gate {report['name']} (run {name})")
         for s in ("candidate", "reference"):
             if s in setups:
-                S.append(f"- {s}: grype {setups[s]['grype']['spec']['version']} + {setups[s]['db'].get('source')}")
+                S.append(f"- {s}: grype {grype_of(setups[s])} + {(setups[s].get('db') or {}).get('source')}")
         for subj in report["subjects"]:
             ref = subj["name"]
             for r in subj["matches"]:

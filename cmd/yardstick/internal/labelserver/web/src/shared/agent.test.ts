@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
-import type { ResearchSummary, StateRow } from "../gen/wire";
-import { clock, doing, ordinal, researchLine } from "./agent";
+import type { ResearchDetail, ResearchSummary, StateRow } from "../gen/wire";
+import { clock, doing, ordinal, researchLine, researchOutcome } from "./agent";
 
 const now = Date.parse("2026-10-20T10:01:00Z");
 const job = (j: Partial<ResearchSummary>): ResearchSummary => ({ job: "j1", status: "queued", ...j });
@@ -35,5 +35,44 @@ describe("the table's research words", () => {
     expect(researchLine(row(job({ position: 3, queueLength: 13 })), now)).toBe("queued 3rd of 13");
     expect(researchLine(row(job({ status: "running", started: "2026-10-20T10:00:19Z", model: "sonnet" })), now)).toBe("researching 0:41 · Sonnet");
     expect(researchLine(row(job({ status: "cancelled" })), now)).toBe("research cancelled");
+  });
+  test("research that recorded nothing says so, with why on hover, over an older run's done", () => {
+    const open = { open: true, researched: true };
+    const why = "the agent was refused 5 tool uses: Bash gh api repos/bminor/binutils-gdb/commits/ea1a0737";
+    expect(doing(job({ status: "unrecorded", error: why }), open)).toEqual({ kind: "notrecorded", word: "researched, not recorded", title: why });
+    expect(doing(job({ status: "done" }), open).word).toBe("researched, no hint");
+    // the finding page's section says it in full, so the panel's line leaves it out
+    expect(researchLine({ id: "r", research: job({ status: "unrecorded", error: why }) } as unknown as StateRow)).toBe("");
+  });
+});
+
+describe("the finding page's research section", () => {
+  const when = () => "Oct 28, 21:35";
+  const ran = (j: Partial<ResearchSummary>) => job({ job: "c03045021a0f19a8", model: "sonnet", costUSD: 0.2724468, finished: "2026-10-28T21:36:17Z", ...j });
+  const wrote = (p: Partial<NonNullable<NonNullable<ResearchDetail["output"]>["proposal"]>> | null): ResearchDetail => ({
+    recordable: !!p, summary: "Verdict I would propose: tp, fix-newer, medium.",
+    output: { dir: ".yardstick/research/CLEANSTART-2026-GU36052/binutils", files: ["proposal.json"], proposal: p ? { verdict: "tp", ...p } : undefined },
+  });
+  test("heads with when, on what and for how much", () => {
+    expect(researchOutcome(ran({ status: "done" }), undefined, when)).toEqual({ kind: "recorded", head: "Researched Oct 28, 21:35 · Sonnet · $0.27", text: "Recorded as an agent hint." });
+  });
+  test("a conclusion it wrote but didn't record, and why", () => {
+    const why = 'propose refused it: proposal 1: vulnerability CLEANSTART-2026-GU36052: namespace "CLEANSTART" is not in any claims source\'s vocabulary.yaml';
+    expect(researchOutcome(ran({ status: "unrecorded", error: why }), wrote({ justification: "fix-newer", confidence: "high" }), when).text)
+      .toBe(`Research concluded tp · fix-newer · high but it wasn't recorded: ${why}`);
+  });
+  test("nothing written: only the skeleton, or no file at all", () => {
+    const why = "the agent was refused 5 tool uses: Write .yardstick/research/CLEANSTART-2026-GU36052/binutils/REPORT.md";
+    for (const det of [wrote(null), undefined]) {
+      expect(researchOutcome(ran({ status: "unrecorded", error: why }), det, when)).toMatchObject({ kind: "nothing", text: `Research ran but wrote no result: ${why}` });
+    }
+    expect(researchOutcome(ran({ status: "unrecorded" }), undefined, when).text).toBe("Research ran but wrote no result: nothing was recorded; the log says what happened");
+  });
+  test("running, failed and cancelled are the job's own", () => {
+    expect(researchOutcome(ran({ status: "running", started: "2026-10-20T10:00:19Z", finished: undefined }), undefined, when, now))
+      .toEqual({ kind: "running", head: "Researching · Sonnet · $0.27", text: "researching 0:41" });
+    expect(researchOutcome(ran({ status: "failed", error: "exit status 1" }), undefined, when).text).toBe("Research failed: exit status 1");
+    expect(researchOutcome(ran({ status: "timed-out" }), undefined, when).text).toBe("Research timed out.");
+    expect(researchOutcome(ran({ status: "cancelled" }), undefined, when).kind).toBe("cancelled");
   });
 });

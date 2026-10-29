@@ -4,24 +4,26 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"slices"
 	"time"
 
 	"github.com/spf13/cobra"
 
 	"github.com/anchore/clio"
-	claimsv1 "github.com/anchore/yardstick/cmd/yardstick/internal/claims/v1"
 	"github.com/anchore/yardstick/cmd/yardstick/internal/corpus"
 	"github.com/anchore/yardstick/cmd/yardstick/internal/log"
 	"github.com/anchore/yardstick/cmd/yardstick/internal/vex"
 )
 
 type claimsImportConfig struct {
-	To     string `yaml:"to" json:"to" mapstructure:"to"`
-	Author string `yaml:"author" json:"author" mapstructure:"author"`
-	Source string `yaml:"source" json:"source" mapstructure:"source"`
+	claimsOption `yaml:",inline" mapstructure:",squash"`
+	To           string `yaml:"to" json:"to" mapstructure:"to"`
+	Author       string `yaml:"author" json:"author" mapstructure:"author"`
+	Source       string `yaml:"source" json:"source" mapstructure:"source"`
 }
 
 func (c *claimsImportConfig) AddFlags(flags clio.FlagSet) {
+	c.claimsOption.AddFlags(flags)
 	flags.StringVarP(&c.To, "to", "", "the claims directory to write labels into")
 	flags.StringVarP(&c.Author, "author", "", "the person the labels are by: importing makes a vendor's statement your call")
 	flags.StringVarP(&c.Source, "source", "", "the fact source the evidence names (default: openvex or osv), as listed in vocabulary.yaml")
@@ -37,7 +39,8 @@ evidence. An OpenVEX statement about an image (pkg:oci/...@sha256:...) labels it
 subcomponents in that image's files, or its image.json when it names none; a statement about a
 package is a global label. An OSV record's listed and last-affected versions become tp labels,
 and its fixed versions fp, all global. Statements that name nothing a label can be about are
-skipped and listed.`,
+skipped and listed. Labels are checked against the vocabulary.yaml of the app config's claims
+sources, --claims and --to, merged, so --to may hold one that only adds a namespace.`,
 		Args: cobra.MinimumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if cfg.To == "" || cfg.Author == "" {
@@ -45,12 +48,14 @@ skipped and listed.`,
 			}
 			log.Debugf("options: to=%s author=%s source=%s", cfg.To, cfg.Author, cfg.Source)
 			log.Infof("importing %d VEX documents into %s", len(args), cfg.To)
-			to, err := os.OpenRoot(cfg.To)
+			// --to is written last, so labels are checked against every source's vocabulary merged,
+			// as a gate's are
+			set, err := openClaims(append(slices.Clone(cfg.Claims), cfg.To))
 			if err != nil {
 				return err
 			}
-			defer to.Close()
-			vocab, err := claimsv1.FindVocabulary(to.FS())
+			defer set.Close()
+			w, err := set.Writer()
 			if err != nil {
 				return err
 			}
@@ -67,7 +72,7 @@ skipped and listed.`,
 				}
 				placed, skipped = append(placed, got.Placed...), append(skipped, got.Skipped...)
 			}
-			written, err := (corpus.Writer{Dir: cfg.To, Vocab: vocab}).Write(placed)
+			written, err := w.Write(placed)
 			if err != nil {
 				return err
 			}

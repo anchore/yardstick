@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import type { Basis } from "../gen/research";
 import type { ResearchBatch, ResearchGroup, ResearchJob, ResearchQueueResponse } from "../gen/wire";
-import { about, activityWords, basisWords, batchWords, bulkPlan, bulkWords, costWords, estimate, estimateWords, finishedWords, fromWords, jobGroups, jobsIn, leadWords, newHints, rowsOf, rowText, stateWords, summary, timeWords, tokens, type BulkRow } from "./researchwords";
+import { about, activityWords, basisWords, batchWords, bulkPlan, bulkWords, costWords, estimate, estimateWords, finishedWords, fromWords, jobGroups, offWords, jobsIn, leadWords, newHints, rowsOf, rowText, stateWords, summary, timeWords, tokens, type BulkRow } from "./researchwords";
 
 // the built-in sonnet numbers (research/cost.go) and a model with no history
 const sonnet: Basis = { model: "sonnet", measured: true, source: "measured 2026-10-19", n: 23, min: 0.18, mean: 0.23, max: 0.28, tokensIn: 310_000, tokensOut: 4_700, seconds: 55 };
@@ -36,7 +36,7 @@ describe("estimate words", () => {
 });
 
 const batch = (b: Partial<ResearchBatch>): ResearchBatch => ({
-  id: "b1", started: "", model: "sonnet", total: 21, done: 0, running: 0, queued: 0, failed: 0, cancelled: 0, spent: 0, estimate: 0, secondsLeft: 0,
+  id: "b1", started: "", model: "sonnet", total: 21, done: 0, running: 0, queued: 0, failed: 0, notRecorded: 0, cancelled: 0, spent: 0, estimate: 0, secondsLeft: 0,
   hints: { tp: 0, fp: 0, unclear: 0 }, ...b,
 });
 
@@ -49,6 +49,7 @@ describe("batch words", () => {
   test("a finished batch keeps its real total", () => {
     expect(finishedWords(batch({ done: 21, spent: 4.84 }))).toBe("Research finished · 21 jobs · $4.84");
     expect(finishedWords(batch({ done: 12, cancelled: 8, failed: 1, spent: 2.71 }))).toBe("Research stopped · 12 of 21 jobs done · $2.71 · 1 failed");
+    expect(finishedWords(batch({ done: 18, notRecorded: 2, failed: 1, spent: 2.71 }))).toBe("Research finished · 21 jobs · $2.71 · 2 not recorded · 1 failed");
   });
 });
 
@@ -73,6 +74,9 @@ describe("a table selection's Research", () => {
     expect(bulkPlan([r("c1", { shares: ["c2"] }), r("c2", { shares: ["c1"] }), r("d")])).toMatchObject({ rows: ["c1", "c2", "d"], jobs: 2, shared: 1 });
     expect(bulkPlan([r("x", { job: "k" }), r("y", { job: "k" })])).toMatchObject({ jobs: 1, shared: 1 });
     expect(bulkWords(bulkPlan([r("c1", { shares: ["c2"] }), r("c2")]), opus).why).toBe("1 job, 1 sharing a sibling's.");
+  });
+  test("research that recorded nothing is researched again, with the rest", () => {
+    expect(bulkPlan([r("n", { doing: "nohint" }), r("nr", { doing: "notrecorded" })])).toEqual({ rows: ["nr"], jobs: 1, shared: 0, skip: { hinted: 0, active: 0, researched: 1, labeled: 0 } });
   });
   test("in flight, labeled and researched rows are skipped and named", () => {
     const p = bulkPlan([r("run", { doing: "running", hinted: true }), r("q", { doing: "queued" }), r("l", { open: false, doing: "none" }), r("n", { doing: "nohint" }), r("f", { doing: "failed" })]);
@@ -134,5 +138,21 @@ describe("the research page's rows", () => {
   });
   test("the search matches CVE, package, version and image", () => {
     expect(rowText(rowsOf(plan)[0])).toBe("CVE-2023-39323 stdlib 1.16.9 grype-quality-golang:d89207b");
+  });
+});
+
+describe("research off words", () => {
+  test("says why research is off and what to run", () => {
+    const w = offWords({ available: false, reason: "the yardstick plugin is version 0.16.0, but this yardstick is v0.17.0", command: "claude plugin update yardstick@yardstick" });
+    expect(w?.title).toBe("Research is off");
+    expect(w?.body).toBe("The yardstick plugin is version 0.16.0, but this yardstick is v0.17.0, so no table offers research. To turn it on, run this, then restart claims serve:");
+    expect(w?.command).toBe("claude plugin update yardstick@yardstick");
+  });
+  test("a branch build's note is said, research still on", () => {
+    expect(offWords({ available: true, reason: "this yardstick is v0.17.0-b, a build of 0.17.0" })?.title).toBe("Which plugin research runs");
+  });
+  test("nothing to say", () => {
+    expect(offWords(undefined)).toBeNull();
+    expect(offWords({ available: true })).toBeNull();
   });
 });

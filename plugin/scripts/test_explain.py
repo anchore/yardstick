@@ -129,5 +129,10 @@ with tempfile.TemporaryDirectory() as d:
     check("no file escaped", sorted(x.name for x in Path(d).iterdir()) == ["out"], f"{list(Path(d).iterdir())}")
     check("sanitizer", vs.safe_part("golang.org/x/net") == "golang.org_x_net" and vs.safe_part("1:2.3+dfsg-1") == "1_2.3+dfsg-1", "")
 
+# a setup gives grype by version, or by path (a local build), which has no version to read
+check("grype by version", vs.grype_of(side("v2", "d")) == "v2", "")
+check("grype by path", vs.grype_of({"grype": {"spec": {"name": "grype", "path": "/w/.tool/grype"}}}) == "/w/.tool/grype", "")
+check("grype unrecorded", vs.grype_of({}) is None, "")
+
 print("ok" if not failures else "\n".join(failures))
 sys.exit(1 if failures else 0)

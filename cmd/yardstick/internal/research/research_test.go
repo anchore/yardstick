@@ -17,7 +17,7 @@ func newRunner(t *testing.T, command string, timeout time.Duration) (*Runner, st
 }
 
 func TestRunPassesContextInTheEnvironment(t *testing.T) {
-	r, dir := newRunner(t, `echo "row=$YARDSTICK_ROW rows=$YARDSTICK_ROWS vuln=$YARDSTICK_RESEARCH_VULNERABILITY pkg=$YARDSTICK_RESEARCH_PACKAGE gate=$YARDSTICK_GATE name=$YARDSTICK_NAME root=$YARDSTICK_ROOT bin=$YARDSTICK_BIN path=${PATH%%:*}"`, time.Minute)
+	r, dir := newRunner(t, `echo "row=$YARDSTICK_ROW rows=$YARDSTICK_ROWS vuln=$YARDSTICK_RESEARCH_VULNERABILITY pkg=$YARDSTICK_RESEARCH_PACKAGE gate=$YARDSTICK_GATE/$YARDSTICK_RESEARCH_GATE name=$YARDSTICK_NAME root=$YARDSTICK_ROOT bin=$YARDSTICK_BIN path=${PATH%%:*}"`, time.Minute)
 	job, err := r.Start(context.Background(), Request{Rows: []string{"aaa", "bbb"}, Vulnerability: "CVE-1", Package: "pkg:deb/ubuntu/glibc@1", Gate: "g1"})
 	if err != nil {
 		t.Fatal(err)
@@ -35,9 +35,9 @@ func TestRunPassesContextInTheEnvironment(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	want := "row=aaa rows=aaa bbb vuln=CVE-1 pkg=pkg:deb/ubuntu/glibc@1 gate=g1 name=pr root=" + dir + " bin=/opt/ys/bin/yardstick path=/opt/ys/bin"
-	if _, err := os.Stat(filepath.Join(dir, ".yardstick", "research", "jobs", "aaa", "job.json")); err != nil {
-		t.Errorf("expected the job under .yardstick/research/jobs: %v", err)
+	want := "row=aaa rows=aaa bbb vuln=CVE-1 pkg=pkg:deb/ubuntu/glibc@1 gate=g1/g1 name=pr root=" + dir + " bin=/opt/ys/bin/yardstick path=/opt/ys/bin"
+	if _, err := os.Stat(filepath.Join(dir, ".yardstick", "jobs", "aaa", "job.json")); err != nil {
+		t.Errorf("expected the job under .yardstick/jobs: %v", err)
 	}
 	if strings.TrimSpace(string(out)) != want {
 		t.Errorf("expected %q, got %q", want, out)
@@ -172,6 +172,132 @@ func TestDefaultCommandIsNarrow(t *testing.T) {
 	for _, tool := range strings.Split(tools, ",") {
 		if tool == "Bash" || tool == "Write" || tool == "Edit" || strings.HasPrefix(tool, "Bash(jq") {
 			t.Errorf("expected no unscoped %s, got %s", tool, tools)
+		}
+	}
+}
+
+// a relative rule follows the agent's `cd`, after which every write was refused; the rule names the
+// workspace from the root ("//" once /$YARDSTICK_ROOT expands)
+func TestDefaultCommandWritesUnderTheWorkspaceByAbsolutePath(t *testing.T) {
+	if !strings.Contains(DefaultCommand, `Edit(/$YARDSTICK_ROOT/.yardstick/research/**)`) {
+		t.Errorf("expected an absolute Edit rule on the workspace, got %s", DefaultCommand)
+	}
+}
+
+func TestCheckRulePath(t *testing.T) {
+	for dir, ok := range map[string]bool{
+		"/Users/me/vunnel/tests/integration": true,
+		"/Users/me/my work/vunnel":           true,
+		"relative/dir":                       false,
+		"/x),Bash(*":                         false,
+		"/a/b*":                              false,
+		`/a/"b`:                              false,
+		"/a/$HOME":                           false,
+		"/a/\nb":                             false,
+	} {
+		if err := checkRulePath(dir); (err == nil) != ok {
+			t.Errorf("checkRulePath(%q): expected ok=%v, got %v", dir, ok, err)
+		}
+	}
+}
+
+func TestStartRefusesAWorkspaceTheRuleCantName(t *testing.T) {
+	r := NewRunner(Config{Dir: "/tmp/x),Bash(*", Bin: "/opt/ys/bin/yardstick"})
+	if _, err := r.Start(context.Background(), Request{Rows: []string{"aaa"}}); err == nil || !strings.Contains(err.Error(), "permission rule") {
+		t.Errorf("expected a refusal naming the permission rule, got %v", err)
+	}
+}
+
+// a job's id is its directory's name: a record naming another id, or a path, can't point its log or
+// its saves elsewhere
+func TestAJobsIDIsItsDirectory(t *testing.T) {
+	r, _ := newRunner(t, "true", time.Minute)
+	dir := filepath.Join(r.jobs, "aaa")
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "job.json"), []byte(`{"id":"../../../escape","rows":["aaa"],"status":"done"}`), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	jobs, err := r.Jobs()
+	if err != nil || len(jobs) != 1 || jobs[0].ID != "aaa" {
+		t.Fatalf("expected the job by its directory's name, got %+v %v", jobs, err)
+	}
+	if got := r.LogPath(jobs[0].ID); got != filepath.Join(dir, "log.txt") {
+		t.Errorf("its log is %s", got)
+	}
+}
+
+// the agent may write research output, never a job record the server trusts
+func TestDefaultCommandDeniesJobRecords(t *testing.T) {
+	if !strings.Contains(DefaultCommand, `--disallowedTools "Edit(/$YARDSTICK_ROOT/.yardstick/jobs/**),Edit(/$YARDSTICK_ROOT/.yardstick/research/jobs/**)"`) {
+		t.Errorf("expected job records denied, got %s", DefaultCommand)
+	}
+}
+
+// the agent's propose reads the same claims sources the server does
+func TestJobEnvPassesTheServersClaims(t *testing.T) {
+	env := Job{ID: "a", Rows: []string{"a"}}.env(Config{Claims: []string{"github.com/anchore/claims@main", "./additional-claims"}})
+	if !slices.Contains(env, "YARDSTICK_CLAIMS=github.com/anchore/claims@main,./additional-claims") {
+		t.Errorf("expected the claims sources, got %v", env)
+	}
+	if slices.ContainsFunc(Job{ID: "a", Rows: []string{"a"}}.env(Config{}), func(kv string) bool { return strings.HasPrefix(kv, "YARDSTICK_CLAIMS=") }) {
+		t.Error("expected no YARDSTICK_CLAIMS without sources, so the workspace's config applies")
+	}
+	r := NewRunner(Config{Dir: "/w", Claims: []string{"/a,b"}})
+	if _, err := r.Start(context.Background(), Request{Rows: []string{"aaa"}}); err == nil {
+		t.Error("expected a claims source with a comma refused")
+	}
+}
+
+// job records from under .yardstick/research/jobs/, where the agent may write, move out once
+func TestOldJobRecordsMoveOutOfTheResearchTree(t *testing.T) {
+	dir := t.TempDir()
+	old := filepath.Join(dir, ".yardstick", "research", "jobs", "aaa")
+	if err := os.MkdirAll(old, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(old, "job.json"), []byte(`{"rows":["aaa"],"status":"failed"}`), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	r := NewRunner(Config{Dir: dir})
+	if jobs, err := r.Jobs(); err != nil || len(jobs) != 1 || jobs[0].ID != "aaa" {
+		t.Errorf("expected the old job under .yardstick/jobs, got %+v %v", jobs, err)
+	}
+	if _, err := os.Stat(old); !os.IsNotExist(err) {
+		t.Errorf("expected nothing left under .yardstick/research/jobs: %v", err)
+	}
+	// once only: a record planted in the old place later is never imported
+	planted := filepath.Join(dir, ".yardstick", "research", "jobs", "bbb")
+	if err := os.MkdirAll(planted, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(planted, "job.json"), []byte(`{"rows":["bbb"],"status":"done"}`), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if jobs, err := NewRunner(Config{Dir: dir}).Jobs(); err != nil || len(jobs) != 1 || jobs[0].ID != "aaa" {
+		t.Errorf("expected only the moved job, got %+v %v", jobs, err)
+	}
+	// and with no old records at all, the first start still settles it
+	fresh := t.TempDir()
+	NewRunner(Config{Dir: fresh})
+	plant := filepath.Join(fresh, ".yardstick", "research", "jobs", "ccc")
+	if err := os.MkdirAll(plant, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(plant, "job.json"), []byte(`{"rows":["ccc"],"status":"done"}`), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if jobs, _ := NewRunner(Config{Dir: fresh}).Jobs(); len(jobs) != 0 {
+		t.Errorf("expected nothing imported from a later plant, got %+v", jobs)
+	}
+}
+
+// a user's defaultMode or MCP servers don't carry into research
+func TestDefaultCommandKeepsTheUsersModeAndMCPOut(t *testing.T) {
+	for _, flag := range []string{"--permission-mode default", "--strict-mcp-config"} {
+		if !strings.Contains(DefaultCommand, flag) {
+			t.Errorf("expected %s, got %s", flag, DefaultCommand)
 		}
 	}
 }

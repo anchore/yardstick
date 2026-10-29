@@ -144,6 +144,9 @@ type view struct {
 
 	rows    map[string]*rowRef // by row id
 	effects map[string]analysis.Effect
+	// related is each id the gate's scans reported, with the ids reported beside it: built on first
+	// use, once per view, since a big gate's takes a while and the state poll asks every time
+	related func() map[string][]string
 
 	hints          map[string]*Hint
 	causes         map[string]*CauseView
@@ -235,6 +238,13 @@ func (s *Server) compute(e *entry) (*view, error) {
 		return nil, err
 	}
 	v := &view{set: set, vocab: set.Vocabulary(), rows: map[string]*rowRef{}, effects: map[string]analysis.Effect{}}
+	v.related = sync.OnceValue(func() map[string][]string {
+		ms := make([]*pairing.Match, 0, len(v.rows))
+		for _, r := range v.rows {
+			ms = append(ms, r.pm)
+		}
+		return pairing.RelatedIDs(ms)
+	})
 	if st := score.Stale(s.ctx, s.opts.Run, e.gate, e.rec, set); st != nil {
 		v.stale = st.Message
 	}

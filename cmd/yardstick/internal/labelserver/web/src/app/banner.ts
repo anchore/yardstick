@@ -16,7 +16,8 @@ import { aloneWords, hintedRows, hintsHref, inScope, previewLabels, waitWords, w
 import { openOf } from "./images";
 import { formatRoute } from "./route";
 import { gateRows, isOpen, sumTally } from "./listing";
-import { active, batchWords, estimate, finishedWords, leadWords, money, summary } from "./researchwords";
+import { unlistedAlert } from "./namespace";
+import { active, batchWords, estimate, finishedWords, leadWords, money, offWords, summary } from "./researchwords";
 import { kbd, status, verdict } from "./ui";
 
 const needWords = (n: number) => `${n} ${n === 1 ? "needs" : "need"} you`;
@@ -26,6 +27,8 @@ const poll = 2000;
 
 export interface Work {
   el: HTMLElement;
+  // notice says which open rows' namespaces the claims vocabulary lacks, above the banner
+  notice: HTMLElement;
   // cell is a gate row's hint column, filled once the hints are in
   cell(gate: string): HTMLElement;
   // refresh reads the open work again after a write, over the numbers already shown
@@ -53,6 +56,17 @@ export function workBanner(list: GateList, signal: AbortSignal): Work {
     el("div", {}, caps, bigs, bar, legend, acts),
     el("div", {}, rcaps, outcomes, foot));
   const cells = new Map(gates.map((g) => [g.id, el("div", { class: "lnum", "data-testid": "gate-work" })]));
+  const notice = el("div", { "data-testid": "work-unlisted" });
+  // unlisted is every gate's open rows' namespaces the vocabulary lacks, before research is refused on them
+  // with research off (or on with a caveat), why: it's the same for every gate, so the first says
+  const unlisted = async () => {
+    const states = await Promise.all(gates.map((g) => gateState(g.id).catch(() => null)));
+    if (signal.aborted) return;
+    const off = offWords(states.find((st) => st?.research)?.research);
+    fill(notice, off && el("div", { class: "alert", role: "status", "data-testid": "research-off" },
+      el("h2", {}, off.title), el("section", {}, el("p", {}, off.body), off.command && el("pre", {}, el("code", {}, off.command)))),
+    unlistedAlert(states.flatMap((st) => st?.unlisted ?? []), gates.length > 1));
+  };
 
   // stack fills the bar, and the legend with only the segments the bar has
   const stack = (segs: [string, number, string][]) => {
@@ -213,11 +227,13 @@ export function workBanner(list: GateList, signal: AbortSignal): Work {
 
   const failed = (e: unknown) => fill(outcomes, el("span", { class: "muted" }, `Couldn't preview the hints: ${(e as Error).message}`));
   load().catch(failed);
+  void unlisted();
 
   return {
     el: banner,
+    notice,
     cell: (gate) => cells.get(gate) ?? el("div", { class: "lnum" }),
-    refresh(next) { gates = next.gates.filter((g) => !g.error); load().catch(failed); },
+    refresh(next) { gates = next.gates.filter((g) => !g.error); load().catch(failed); void unlisted(); },
   };
 }
 

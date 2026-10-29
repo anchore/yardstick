@@ -227,6 +227,15 @@ a[role="tab"] { text-decoration: none; }
 .toast.error { background: var(--fail); color: #fff; }
 .toast-action { all: unset; cursor: pointer; margin-left: 16px; font-weight: 600; text-decoration: underline; text-underline-offset: 3px; }
 .toast-action:focus-visible { outline: 2px solid currentColor; outline-offset: 2px; border-radius: 2px; }
+.toast-close { all: unset; cursor: pointer; margin-left: 12px; padding: 0 4px; font-size: 16px; line-height: 1; opacity: .8; }
+.toast-close:hover { opacity: 1; }
+.toast-close:focus-visible { outline: 2px solid currentColor; outline-offset: 2px; border-radius: 2px; }
+.namespace-dialog { max-width: min(560px, calc(100vw - 32px)); }
+/* three buttons can outgrow the dialog: wrap them, right-aligned, instead of overflowing it */
+.namespace-dialog footer { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px; }
+.namespace-dialog [role="alert"], .namespace-alert [role="alert"] { color: var(--fail); }
+.namespace-alert .acts { display: flex; gap: 8px; margin-top: 8px; }
+.namespace-alert { margin-bottom: 12px; }
 
 /* ---------- data table ---------- */
 

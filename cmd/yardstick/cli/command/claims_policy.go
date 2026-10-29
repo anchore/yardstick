@@ -37,8 +37,8 @@ func ClaimsPolicy(app clio.Application) *cobra.Command {
 	return app.SetupCommand(&cobra.Command{
 		Use:   "policy",
 		Short: "Show the labeling policy's rules and justifications from the claims vocabulary",
-		Long: `policy prints the vocabulary.yaml of the first claims source that has one (the app config's, then
---claims): each rule's verdict, justification, confidence ceiling, decision, basis and title, the
+		Long: `policy prints the vocabulary.yaml of every claims source that has one (the app config's, then
+--claims), merged: each rule's verdict, justification, confidence ceiling, decision, basis and title, the
 justifications allowed under each verdict, the fact sources, and the vulnerability namespaces.`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {

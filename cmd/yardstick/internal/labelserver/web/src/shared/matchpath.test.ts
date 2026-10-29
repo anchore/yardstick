@@ -73,6 +73,34 @@ describe("match path", () => {
     expect(absentLanes.map((l) => l.steps.filter((x) => x.cause).map((x) => x.k))).toEqual([["searched"], ["searched"]]);
     expect(steps(absent, "candidate", undefined, null).map((x) => x.t)).toEqual(["glibc-2.42 2.42-r4", "every namespace", "no record", "no match"]);
   });
+  test("a lane reads one match detail, not the row's pooled match types and upstreams", () => {
+    // binutils' match in a CleanStart scan: an exact-direct detail, then an exact-indirect one that
+    // searched by the same name, its upstream
+    const det = (type: string) => ({ type, matcher: "apk-matcher",
+      searchedBy: { namespace: "cleanstart:distro:cleanstart:rolling", package: { name: "binutils", version: "2.45.1-r0" } },
+      found: { vulnerabilityID: "CLEANSTART-2026-GU36052", versionConstraint: "< 2.46.0-r0 (apk)" } });
+    const row: Row = { id: "r", match: "m", row: "r", vulnerability: "CLEANSTART-2026-GU36052", group: "g", sourcePackage: "binutils", verdict: "unlabeled",
+      package: { ref: "pkg:apk/cleanstart/binutils@2.45.1-r0?arch=x86_64&distro=cleanstart-3.20.3" }, inCandidate: true, inReference: false,
+      candidate: { namespace: "cleanstart:distro:cleanstart:rolling", matchTypes: ["exact-direct-match", "exact-indirect-match"], matchers: ["apk-matcher"], upstreams: ["binutils"], constraints: ["< 2.46.0-r0 (apk)"] } };
+    const cells = (raw?: Parameters<typeof steps>[2]) => steps(row, "candidate", raw, null).map((x) => [x.k, x.t, x.sub ?? ""].join(" | "));
+    expect(cells({ matchDetails: [det("exact-direct-match"), det("exact-indirect-match")] })).toEqual([
+      "package | binutils 2.45.1-r0 | apk",
+      "searched | cleanstart rolling | apk matcher",
+      "record | CLEANSTART-2026-GU36052 | affected < 2.46.0-r0",
+      "result | matched | exact-direct",
+    ]);
+    // an indirect detail that searched by its own name went nowhere via a source package either
+    expect(cells({ matchDetails: [det("exact-indirect-match")] }).map((c) => c.split(" | ")[0])).toEqual(["package", "searched", "record", "result"]);
+    // one that searched by another name did
+    const src = det("exact-indirect-match");
+    src.searchedBy.package = { name: "binutils-src", version: "2.45.1-r1" };
+    expect(cells({ matchDetails: [src] })[1]).toBe("via | via source package binutils-src | 2.45.1-r1");
+    // without a raw match, the row's match types and upstreams are all the lane has: an upstream
+    // that is the package's own name is no source package either, and another is
+    expect(cells().map((c) => c.split(" | ")[0])).not.toContain("via");
+    row.candidate!.upstreams = ["binutils", "binutils-src"];
+    expect(cells()[1]).toBe("via | via source package binutils-src | ");
+  });
   test("each of the other DB's records says how it relates to the row", () => {
     const [cpe, distro] = nak.candidateRecords ?? [];
     expect(recordLine(nak, cpe, "dropped")).toBe("same record the reference matched (NVD (CPE) glibc, >= 2.38, <= 2.44)");

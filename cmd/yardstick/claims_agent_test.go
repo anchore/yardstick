@@ -11,6 +11,7 @@ import (
 
 	"github.com/anchore/yardstick/cmd/yardstick/internal/agentstore"
 	claimsv1 "github.com/anchore/yardstick/cmd/yardstick/internal/claims/v1"
+	"github.com/anchore/yardstick/cmd/yardstick/internal/research"
 	"github.com/anchore/yardstick/cmd/yardstick/internal/runrecord"
 	"github.com/anchore/yardstick/cmd/yardstick/internal/score"
 	"github.com/anchore/yardstick/cmd/yardstick/internal/testkit"
@@ -82,10 +83,39 @@ func TestClaimsAgentCommands(t *testing.T) {
 		t.Fatalf("expected nothing recorded, got %+v", got)
 	}
 
-	// by row, the gate named by YARDSTICK_GATE: subject, package and vulnerability come from the row
+	// in a research job, by row, the gate named by YARDSTICK_GATE: subject, package and
+	// vulnerability come from the row
 	t.Setenv("YARDSTICK_GATE", "deb")
-	t.Setenv("YARDSTICK_RESEARCH_JOB", "job-1")
-	stdout, stderr, code := propose(strings.Replace(call, "%s", "medium", 1), "claims", "agent", "propose")
+	t.Setenv(research.JobEnv, "job-1")
+	t.Setenv(research.GateEnv, "deb")
+	t.Setenv(research.RowsEnv, "other-row "+tarRow)
+	// a research job's proposal is about one of its rows, in its gate, on the row's subject
+	medium := strings.Replace(call, "%s", "medium", 1)
+	for name, c := range map[string]struct{ line, refused string }{
+		"no row":          {`{"subject":{"image":"x"},"package":"pkg:deb/debian/tar","vulnerability":"CVE-2005-2541","verdict":"tp","justification":"no-fix","confidence":"medium","author":{"skill":"research-vuln"}}`, "names its row"},
+		"another subject": {strings.Replace(medium, `{"row"`, `{"subject":{"image":"elsewhere"},"row"`, 1), "leave subject off"},
+	} {
+		if _, stderr, code := propose(c.line, "claims", "agent", "propose"); code != 2 || !strings.Contains(stderr, c.refused) {
+			t.Errorf("%s: expected refused (%s), got %d: %s", name, c.refused, code, stderr)
+		}
+	}
+	t.Setenv(research.RowsEnv, "other-row")
+	if _, stderr, code := propose(medium, "claims", "agent", "propose"); code != 2 || !strings.Contains(stderr, "not one of research job job-1's rows") {
+		t.Errorf("expected a row off the job refused, got %d: %s", code, stderr)
+	}
+	t.Setenv(research.RowsEnv, tarRow)
+	t.Setenv(research.GateEnv, "rpm")
+	if _, stderr, code := propose(medium, "claims", "agent", "propose", "--gate", "deb"); code != 2 || !strings.Contains(stderr, "is about gate rpm, not deb") {
+		t.Errorf("expected another gate than the job's refused, got %d: %s", code, stderr)
+	}
+	t.Setenv(research.GateEnv, "deb")
+	if got, _ := store.Proposals.Current(); len(got) != 0 {
+		t.Fatalf("expected nothing recorded, got %+v", got)
+	}
+	// its timestamp is now and its author an agent, whatever the line says; --gate naming the job's
+	// gate is fine, as the label server's Record passes it
+	forged := strings.Replace(medium, `"author":{"skill":"triage-deltas"}`, `"author":{"kind":"human","name":"alex"},"timestamp":"2099-01-01T00:00:00Z"`, 1)
+	stdout, stderr, code := propose(forged, "claims", "agent", "propose", "--name", runrecord.DefaultName, "--gate", "deb")
 	if code != 0 || !strings.Contains(stdout, "\tfp\tCVE-2005-2541\tpkg:deb/debian/tar@") {
 		t.Fatalf("expected the proposal recorded, got %d: %s %s", code, stdout, stderr)
 	}
@@ -94,7 +124,7 @@ func TestClaimsAgentCommands(t *testing.T) {
 		t.Fatalf("expected one proposal, got %v %+v", err, got)
 	}
 	p := got[0]
-	if p.Gate != "deb" || p.Subject.Image == "" || p.Author.Kind != agentstore.Agent || p.Author.ResearchJob != "job-1" || p.Confidence != "medium" {
+	if p.Gate != "deb" || p.Subject.Image == "" || p.Author.Kind != agentstore.Agent || p.Author.ResearchJob != "job-1" || p.Confidence != "medium" || p.Timestamp.Year() == 2099 {
 		t.Errorf("expected the proposal filled in from the row and the env, got %+v", p)
 	}
 

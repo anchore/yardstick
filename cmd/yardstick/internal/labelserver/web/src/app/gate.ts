@@ -12,6 +12,7 @@ import { labelsTable } from "./labelstable";
 import { gateRows, nextOpen, pageSize, sumTally, type FRow } from "./listing";
 import { failed, keptPrimary, listCursor, loading } from "./lists";
 import { railHints } from "./hints";
+import { unlistedAlert } from "./namespace";
 import { imageRail, type Rail } from "./rail";
 import { queueFor, researchFor } from "./queuelist";
 import { scopedResearch } from "./research";
@@ -66,7 +67,7 @@ export function gateView(host: HTMLElement, r0: GateRoute, nav: Nav, signal: Abo
     renderShell(host, r, {
       title: gate, status: head.status, sub: head.sub, meta: head.meta,
       actions: [research.el, labelNext(href)],
-      above: [lookupsAlert(st), verdictBar(sumTally(st.subjects.map((s) => s.changes)))],
+      above: [lookupsAlert(st), unlistedAlert(st.unlisted), verdictBar(sumTally(st.subjects.map((s) => s.changes)))],
       rail,
       scope: img && { label: imageName(img.name, img.ref), clear: () => nav(withFilters(r, { image: undefined })) },
       tabCounts: { checks: st.gate?.result?.checks.length ?? 0, findings: rows.length, labels: all.total },

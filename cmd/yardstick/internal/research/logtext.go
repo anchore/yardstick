@@ -65,7 +65,7 @@ func RenderLog(data []byte) []byte {
 		case "assistant", "user":
 			seen = true
 			last = writeMessage(&out, e.Message.Content, last)
-		case "result":
+		case resultType:
 			seen = true
 			if text := strings.TrimSpace(e.Result); text != "" && text != last {
 				fmt.Fprintf(&out, "%s\n\n", text)

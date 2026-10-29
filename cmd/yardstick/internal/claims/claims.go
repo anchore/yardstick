@@ -13,6 +13,7 @@ import (
 	"io"
 	"io/fs"
 	"os"
+	"path/filepath"
 	"sort"
 	"strings"
 	"sync"
@@ -172,23 +173,23 @@ func openSet(sources []gatefile.Source, remote map[string]*Source) (*Set, error)
 	return set, nil
 }
 
-// findVocabulary is the writable source's vocabulary when there is a writable source, else the
-// first source's that has one: the one vocabulary a set reads and writes by.
+// findVocabulary is every source's vocabulary merged, in order: the one vocabulary a set reads and
+// writes by; nil when no source has one.
 func (s *Set) findVocabulary() (*claimsv1.Vocabulary, error) {
-	var order []*Source
+	named := make([]claimsv1.NamedFS, len(s.Sources))
+	for i, src := range s.Sources {
+		named[i] = claimsv1.NamedFS{Name: src.Locator, FS: src.FS}
+	}
+	return claimsv1.MergeVocabularies(named...)
+}
+
+// VocabularyPath is the writable source's vocabulary.yaml, where a namespace the set lacks would be
+// added; empty when no source is writable.
+func (s *Set) VocabularyPath() string {
 	if w := s.writable(); w != nil {
-		order = append(order, w)
+		return filepath.Join(w.Dir, claimsv1.VocabularyFile)
 	}
-	for _, src := range append(order, s.Sources...) {
-		v, err := claimsv1.LoadVocabulary(src.FS)
-		if err != nil {
-			return nil, fmt.Errorf("claims source %s: %w", src.Locator, err)
-		}
-		if v != nil {
-			return v, nil
-		}
-	}
-	return nil, nil
+	return ""
 }
 
 // writable is the last source when it is local, else nil.
@@ -218,8 +219,8 @@ func (s *Set) Writer() (corpus.Writer, error) {
 	if last == nil {
 		return corpus.Writer{}, fmt.Errorf("writes need a local last claims source, and the last is %s; add one with --claims <path>", s.Sources[len(s.Sources)-1].Locator)
 	}
-	if s.vocab == nil {
-		return corpus.Writer{}, errors.New("no claims source has a " + claimsv1.VocabularyFile + ", so no justification or fact source can be checked")
+	if err := s.vocab.CheckWritable(); err != nil {
+		return corpus.Writer{}, err
 	}
 	return corpus.Writer{Dir: last.Dir, Vocab: s.vocab}, nil
 }
@@ -378,8 +379,8 @@ func disagreement(subject string, l Label) string {
 	return fmt.Sprintf("claims sources disagree on %s in %s (%s); %s's verdict is used", l.Key(), subject, strings.Join(parts, ", "), l.Source())
 }
 
-// Vocabulary is the vocabulary labels are read and written by: the writable source's when there is
-// one and it has one, else the first any source has; nil when none has one.
+// Vocabulary is the vocabulary labels are read and written by: every source's vocabulary.yaml
+// merged; nil when none has one.
 func (s *Set) Vocabulary() *claimsv1.Vocabulary {
 	return s.vocab
 }

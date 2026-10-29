@@ -4,7 +4,11 @@ description: Deep-dive one vulnerability finding from a yardstick gate — what 
 argument-hint: <CVE or GHSA id | row:<row id>> [workspace dir] [package name]
 disable-model-invocation: true
 # the skill reads pages anyone can write (upstream commits, issues, advisories), so it runs only the
-# commands it names and writes only under .yardstick/research/; a label is never written here
+# commands it names and writes only under .yardstick/research/; a label is never written here.
+# The Edit rule below is relative, so it follows the session's current directory and only means the
+# workspace in an interactive run started there. A research job from `yardstick claims serve` gets
+# an absolute Edit rule on the workspace (and a deny on its job records) on the command line, and
+# that is the one to trust: frontmatter can't name $YARDSTICK_ROOT
 allowed-tools:
   - Bash(python3 -I ${CLAUDE_PLUGIN_ROOT}/scripts/yardstick-vuln-sources.py *)
   - Bash(yardstick claims agent propose *)
@@ -30,8 +34,10 @@ A research job launched from `yardstick claims serve` runs
 `/yardstick:research-vuln row:$YARDSTICK_ROW $YARDSTICK_ROOT` and sets `YARDSTICK_ROOT` (the
 workspace), `YARDSTICK_GATE`, `YARDSTICK_NAME` (the run), `YARDSTICK_ROW`, `YARDSTICK_ROWS` (every
 row the job covers), `YARDSTICK_RESEARCH_VULNERABILITY`, `YARDSTICK_RESEARCH_PACKAGE`,
-`YARDSTICK_BIN`, `YARDSTICK_MODEL` and `YARDSTICK_RESEARCH_JOB`; the helper and `yardstick claims
-propose` read them, and propose stamps the job on the proposal.
+`YARDSTICK_BIN`, `YARDSTICK_MODEL`, `YARDSTICK_RESEARCH_JOB` and `YARDSTICK_RESEARCH_OUT` (the job's
+output directory); the helper and `yardstick claims propose` read them, and propose stamps the job on
+the proposal. In a job, propose refuses a proposal without a `row` from `YARDSTICK_ROWS`, a `--gate`
+other than the job's, and a `subject` other than the row's.
 
 # The question you are answering
 
@@ -56,7 +62,8 @@ python3 -I ${CLAUDE_PLUGIN_ROOT}/scripts/yardstick-vuln-sources.py <VULN or row:
 last, and the run `--name`, else `$YARDSTICK_NAME`, else `default`. The final `propose` needs the
 same gate and run, because row ids are only unique within one gate's last scan under one run.
 
-It writes `<workspace>/.yardstick/research/<VULN>/<package>/`:
+It writes its **output directory**, `$YARDSTICK_RESEARCH_OUT` in a research job (yardstick reads the
+job's result from there), else `<workspace>/.yardstick/research/<VULN>/<package>/`, and prints its path:
 
 - `SUMMARY.md`: both sides' row detail (fix state, constraints, namespace), what each cached DB holds,
   existing labels and notes, the CNA record (state, affected ranges, references), NVD CPE ranges,
@@ -75,6 +82,10 @@ It writes `<workspace>/.yardstick/research/<VULN>/<package>/`:
 Read `SUMMARY.md` first. Open the per-source files only for what the summary does not settle.
 
 # Phase 2: establish the facts, in this order
+
+Fetch pages with `WebFetch` (GitHub's API too, e.g. `https://api.github.com/repos/<o>/<r>/compare/<a>...<b>`).
+A headless run has no `curl`, `gh` or other shell beyond the commands listed above, and asking for
+one only spends a turn on the refusal.
 
 Write each fact with its source next to it. Label anything you inferred as inference.
 
@@ -146,26 +157,33 @@ Severity and "assume vulnerable" policies never change the verdict (P-1).
 
 # Phase 4: report and propose
 
-Write `<workspace>/.yardstick/research/<VULN>/<package>/REPORT.md`:
+Write and change files only with the Write and Edit tools, by absolute path: a headless run is
+allowed to write under the workspace's `.yardstick/research/` and nowhere else, and it refuses a
+shell redirect, a heredoc or a script that writes. Never `cd`: run every command as it is shown
+below, from the directory the session started in (a `cd` chained to `propose` is refused too).
+
+Write `REPORT.md` in the output directory:
 
 1. One line: verdict, confidence, and the single fact that decides it.
 2. Timeline (a short table): CVE published; upstream introduced / fixed; distro status changes and
    USN dates; fix published in the release; when each DB first/last showed it if known.
 3. The evidence chain, numbered, each item with its URL and what to look for there.
 4. The DB difference and its cause (or "cause unverified").
-5. Open questions, if any.
+5. Open questions, if any, whatever the verdict.
 
 Then fill `proposal.json`: `verdict`, `justification` (Phase 3), `confidence`, `note` (one or two
 sentences, the deciding fact first; the UI shows it under the justification line),
 `evidence[0].interpretation` (the specific, then the evidence chain in prose, URLs inline; they are
-linkified; keep the report path the skeleton put at its end), `openQuestions` (empty unless
-`unclear`). Add facts you relied on that the skeleton did not observe to `evidence[0].facts`, as
+linkified; keep the report path the skeleton put at its end), `openQuestions` (every open question
+the report lists, on any verdict, one string each; the finding page reads only proposal.json, so a
+question left out of it is lost to the labeler; empty only when the report has none). Add facts
+you relied on that the skeleton did not observe to `evidence[0].facts`, as
 `{"source","url","about","field","value","observedAt"}`. A fact's source must be listed under
 `fact-sources` in `vocabulary.yaml` (`factSources` in `yardstick claims policy -o json`), or propose
 refuses the line: use the listed name (`cve.org`, `osv`, `debian-security-tracker`, ...), and
 leave out a fact whose source isn't listed (a changelog line, an upstream commit), putting its URL in
 the interpretation instead. An evidence entry needs at least one fact; with none, drop `evidence`
-and put the reasoning in the note. Then, once, in the workspace:
+and put the reasoning in the note. Then, once, from the workspace (where the session started):
 
 ```bash
 yardstick claims agent propose --name "${YARDSTICK_NAME:-default}" --gate <gate> <dir>/proposal.json
@@ -174,7 +192,7 @@ yardstick claims agent propose --name "${YARDSTICK_NAME:-default}" --gate <gate>
 (`--gate` reads `$YARDSTICK_GATE` when the flag is left off, so a research job may omit it.)
 
 When `rows.json` lists several binary packages, propose once per row with the same content: write a copy of proposal.json per row beside it, `proposal-<row id>.json` with `row` set to that row, and pass them all to a single `propose` call.
-In place of `row` a proposal may give `subject` (`{"image": ...}` or `{"sbom": ...}`), `package` and
+Outside a research job, in place of `row` a proposal may give `subject` (`{"image": ...}` or `{"sbom": ...}`), `package` and
 `vulnerability`; there is no proposal for the package anywhere (a global label), so a broader call
 goes in the report and the note.
 

@@ -88,7 +88,7 @@
 //	                            the keys it wrote with the label each replaced, for undoing it
 //
 //	row.research, researchLevel, researched, researchedBy, hint.origin
-//	                          ← research.Job records under .yardstick/research/jobs/, as in delta;
+//	                          ← research.Job records under .yardstick/jobs/;
 //	                            researchedBy reads only the newest proposal (no history kept)
 //	state.research            ← research.Availability: whether the yardstick plugin is installed at
 //	                            this binary's version, and the command to copy when not.
@@ -106,6 +106,20 @@
 //	research/jobs             ← every research.Job record, newest first; position from the order
 //	                            this runner queued the ones it holds; summary is research/batch's
 //	                            math over the active jobs and the batches they are in
+//	POST research (both)      ← refused with an UnlistedNamespace (code unlisted-namespace) when a
+//	                            job's vulnerability is in a namespace its gate's vocabulary lacks:
+//	                            Vocabulary.CheckScanned over the gate's rows; the error names every
+//	                            other namespace the request would be refused for
+//	state.unlisted            ← the same, for each namespace of the gate's open rows
+//	research dry run unlisted ← the same, for each namespace of the jobs a start would queue
+//	POST vocabulary/namespace ← claimsv1.AddToList on the writable source's vocabulary.yaml. The
+//	                            gate only picks the source: every gate on that source reads the
+//	                            change, not just this one
+//	row.research.status       ← research.Job.Status: unrecorded when the job exited 0 but recorded no
+//	                            call, error saying why; costUSD from its Usage
+//	rows/{id}.research        ← the newest job's Summary and research.Output (its REPORT.md and
+//	                            proposal.json); recordable when that proposal was never recorded
+//	POST research/record      ← research.Runner.Record: propose on the job's proposal files, no new run
 package labelserver
 
 import (
@@ -231,6 +245,8 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("POST "+g+"/preview", s.handlePreview)
 	mux.HandleFunc("POST "+g+"/research", s.authorized(s.handleResearch))
 	mux.HandleFunc("POST "+g+"/research/cancel", s.authorized(s.handleCancelResearch))
+	mux.HandleFunc("POST "+g+"/research/record", s.authorized(s.handleRecord))
+	mux.HandleFunc("POST "+g+"/vocabulary/namespace", s.authorized(s.handleAddNamespace))
 	mux.HandleFunc("POST /api/research", s.authorized(s.handleResearchQueue))
 	mux.HandleFunc("GET /api/research/batch", s.handleResearchBatch)
 	mux.HandleFunc("GET /api/research/jobs", s.handleResearchJobs)

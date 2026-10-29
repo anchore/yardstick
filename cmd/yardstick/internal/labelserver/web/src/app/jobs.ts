@@ -14,6 +14,7 @@ import { busy, kick, latest, onJobs } from "./activity";
 import { gateState } from "./data";
 import { hintsHref } from "./hintsdata";
 import { failed, loading } from "./lists";
+import { orFix } from "./namespace";
 import { started, tick } from "./researchtable";
 import { costWords, fromWords, jobGroups, liveLog, modelWords, money, newHints, stateWords, timeWords } from "./researchwords";
 import { formatRoute, type Route } from "./route";
@@ -84,7 +85,7 @@ export function jobsView(host: HTMLElement, r: Extract<Route, { level: "jobs" }>
     concurrency = s.concurrency;
     fill(sub, `${modelWords(j.jobs[0]?.model ?? basis?.model ?? "")}, ${concurrency || "?"} at a time. Jobs write hints, never labels.`);
     const big = (b: Child, word: string, testid: string) => el("div", { class: "big" }, el("b", { "data-testid": testid }, b), el("span", {}, word));
-    const finished = s.done + s.failed + s.cancelled, act = s.running + s.queued;
+    const finished = s.done + s.notRecorded + s.failed + s.cancelled, act = s.running + s.queued;
     const fresh = newHints(j.jobs, pending);
     const review = fresh > 0 && el("a", { class: "btn", href: hintsHref({}), "data-testid": "jobs-review" }, `Review ${plural(fresh, "new hint")} `, kbd("h"));
     const so = (["fp", "tp", "unclear"] as const).filter((v) => s.hints[v] > 0).map((v) => `${s.hints[v]} ${words[v].word}`).join(", ");
@@ -137,12 +138,13 @@ export function jobsView(host: HTMLElement, r: Extract<Route, { level: "jobs" }>
   function line(x: ResearchJob, group: string) {
     const w = where.get(x.id), row = x.rows[0];
     const finding = x.gate && row ? formatRoute({ level: "finding", gate: x.gate, check: null, row, filters: {} }) : null;
-    const state = x.status === "running" ? "run" : x.status === "queued" ? "q" : failedJob(x) ? "fail" : x.status === "done" ? "ok" : "cancel";
+    const state = x.status === "running" ? "run" : x.status === "queued" ? "q" : failedJob(x) ? "fail" : x.status === "done" ? "ok" : x.status === "unrecorded" ? "notrec" : "cancel";
     const time = timeWords(x, basis, concurrency);
     if (x.status === "running") tick();
     const result: Child = x.status === "done"
       ? x.hints.length ? [x.hints.map((h) => hint(`${words[h.verdict]?.word ?? h.verdict}${h.confidence ? ` · ${h.confidence}` : ""}`)), " ", finding && el("a", { class: "lk", href: finding, "data-testid": "job-review" }, "review")]
         : el("span", { class: "quiet" }, "no hint")
+      : x.status === "unrecorded" ? [el("span", { class: "err", title: x.error }, `not recorded: ${x.error ?? ""}`), " ", finding && el("a", { class: "lk", href: finding, "data-testid": "job-review" }, "see what it found")]
       : failedJob(x) ? el("span", { class: "err", title: x.error }, x.error || x.status)
         : x.status === "cancelled" ? el("span", { class: "quiet" }, x.started ? "cancelled" : "cancelled before it started") : null;
     return el("div", { class: "jr2", id: `job-${x.id}`, "data-testid": "job-row", "data-job": x.id, "data-state": x.status, "data-group": group },
@@ -177,8 +179,8 @@ export function jobsView(host: HTMLElement, r: Extract<Route, { level: "jobs" }>
   // retry starts a failed or cancelled job's rows again, from where it was first started
   async function retry(x: ResearchJob) {
     try {
-      const res = await api.research(x.gate!, x.rows, x.from === "finding" ? "finding" : "table");
-      started(res.queued, res.skipped);
+      const res = await orFix(() => api.research(x.gate!, x.rows, x.from === "finding" ? "finding" : "table"));
+      if (res) started(res.queued, res.skipped);
     } catch (e) {
       toast((e as Error).message, true);
     }

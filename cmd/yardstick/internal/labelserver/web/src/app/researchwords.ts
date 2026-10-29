@@ -2,7 +2,7 @@
 // costs: money with tokens beside it, time, the basis an estimate comes from, a batch's progress,
 // what a table selection's Research covers, the research page's rows, and the jobs page's rows.
 // Pure: research.ts, banner.ts, labelpanel.ts, researchtable.ts and jobs.ts draw it.
-import type { Basis } from "../gen/research";
+import type { Availability, Basis } from "../gen/research";
 import type { ResearchBatch, ResearchEstimate, ResearchGroup, ResearchJob, ResearchProgress, ResearchQueueResponse } from "../gen/wire";
 import { clock, failedJob, ordinal, since, type Doing } from "../shared/agent";
 import { cap, plural } from "../shared/words";
@@ -27,6 +27,15 @@ export function about(seconds: number): string {
 }
 
 export const modelWords = (m: string) => (m ? cap(m) : "the configured model");
+
+// offWords is the gates page's notice when research can't run here: the tables then offer no
+// research at all, so this is where a person learns why, and what to run (yardstick never runs it).
+// A branch build's note (research on, with a reason) is said too. Null when there's nothing to say.
+export function offWords(a: Availability | undefined): { title: string; body: string; command?: string } | null {
+  if (!a?.reason) return null;
+  if (a.available) return { title: "Which plugin research runs", body: cap(a.reason) + "." };
+  return { title: "Research is off", body: `${cap(a.reason)}, so no table offers research.${a.command ? " To turn it on, run this, then restart claims serve:" : ""}`, command: a.command };
+}
 
 // estimate is what jobs on basis cost, as the server prices a selection (researchqueue.go): every
 // figure times the jobs, and the time at concurrency jobs at once
@@ -86,7 +95,7 @@ export function batchWords(b: ResearchBatch): BatchWords {
 export function finishedWords(b: ResearchBatch): string {
   const stopped = b.cancelled > 0;
   return [stopped ? "Research stopped" : "Research finished", stopped ? `${b.done} of ${plural(b.total, "job")} done` : plural(b.total, "job"),
-    money(b.spent), b.failed > 0 && `${b.failed} failed`].filter(Boolean).join(" · ");
+    money(b.spent), b.notRecorded > 0 && `${b.notRecorded} not recorded`, b.failed > 0 && `${b.failed} failed`].filter(Boolean).join(" · ");
 }
 
 // ---------- the research page's rows ----------
@@ -129,6 +138,7 @@ export function bulkPlan(rs: BulkRow[]): BulkPlan {
     if (r.doing === "running" || r.doing === "queued") out.skip.active++;
     else if (!r.open) out.skip.labeled++;
     else if (r.hinted) out.skip.hinted++;
+    // research that recorded nothing is researched again: what stopped it may be fixed since
     else if (r.doing === "nohint") out.skip.researched++;
     else {
       out.rows.push(r.id);

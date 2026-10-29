@@ -133,7 +133,7 @@ func (w Writer) Check(p Placed) (err error) {
 	if w.Vocab == nil {
 		return fmt.Errorf("%s: no %s to check the justification and fact sources against", where, claimsv1.VocabularyFile)
 	}
-	if err := w.Vocab.CheckVulnerability(p.Label.Vulnerability); err != nil {
+	if err := w.Vocab.CheckVulnerability(p.Label.Vulnerability, filepath.Join(w.Dir, claimsv1.VocabularyFile)); err != nil {
 		return fmt.Errorf("%s: %w", where, err)
 	}
 	if err := w.Vocab.CheckAliases(p.Label); err != nil {

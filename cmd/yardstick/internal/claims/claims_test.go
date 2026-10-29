@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"slices"
 	"strings"
 	"testing"
 
@@ -346,12 +347,12 @@ func TestWritesGoToTheLastLocalSource(t *testing.T) {
 	}
 }
 
-// the vocabulary a set reads by is the one its writer checks against: the writable source's,
-// else the first one's
-func TestVocabularyFollowsTheWritableSource(t *testing.T) {
+// the vocabulary a set reads by is the one its writer checks against: every source's merged, so
+// a local overlay that lists only what it adds extends the published one
+func TestVocabularyMergesSources(t *testing.T) {
 	published, local := newCorpus(t), t.TempDir()
-	more := strings.Replace(vocabYAML, "fp: {fix-installed: Installed version has the fix}", "fp: {fix-installed: Installed version has the fix, not-in-image: The package is not in the image}", 1)
-	if err := os.WriteFile(filepath.Join(local, claimsv1.VocabularyFile), []byte(more), 0o600); err != nil {
+	overlay := "vulnerability-namespaces: [CLEANSTART]\njustifications:\n  fp: {not-in-image: The package is not in the image}\n"
+	if err := os.WriteFile(filepath.Join(local, claimsv1.VocabularyFile), []byte(overlay), 0o600); err != nil {
 		t.Fatal(err)
 	}
 	set, err := OpenSet([]gatefile.Source{{Locator: published}, {Locator: local}})
@@ -362,16 +363,24 @@ func TestVocabularyFollowsTheWritableSource(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, ok := set.Vocabulary().Justifications[claimsv1.FP]["not-in-image"]; !ok || set.Vocabulary() != w.Vocab {
-		t.Errorf("expected the writable source's vocabulary for reads and writes, got %+v", set.Vocabulary().Justifications)
+	v := set.Vocabulary()
+	if v != w.Vocab || !slices.Equal(v.Allowed(claimsv1.FP), []string{"fix-installed", "not-in-image"}) || v.CheckVulnerability("CLEANSTART-2026-GU36052", "") != nil || v.CheckVulnerability("CVE-2026-1", "") != nil {
+		t.Errorf("expected both sources' vocabularies merged for reads and writes, got %+v", v)
 	}
-	// with no vocabulary of its own, the writable source writes by the first one's
+	// with no vocabulary of its own, the writable source writes by the published one
 	set, err = OpenSet([]gatefile.Source{{Locator: published}, {Locator: t.TempDir()}})
 	if err != nil {
 		t.Fatal(err)
 	}
 	if _, ok := set.Vocabulary().Justifications[claimsv1.FP]["not-in-image"]; ok || set.Vocabulary() == nil {
 		t.Errorf("expected the published vocabulary, got %+v", set.Vocabulary())
+	}
+	// a namespace the overlay lists as the other kind refuses the set, naming both sources
+	if err := os.WriteFile(filepath.Join(local, claimsv1.VocabularyFile), []byte("advisory-ids: [GHSA]\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := OpenSet([]gatefile.Source{{Locator: published}, {Locator: local}}); err == nil || !strings.Contains(err.Error(), published) || !strings.Contains(err.Error(), local) {
+		t.Errorf("expected the conflict to name both sources, got %v", err)
 	}
 }
 
@@ -404,5 +413,19 @@ func TestMissingSourceCreatedOnWrite(t *testing.T) {
 	}
 	if err := set.Close(); err != nil {
 		t.Error(err)
+	}
+}
+
+// a namespace is added in the writable source's vocabulary.yaml; a set whose last source is remote
+// has none to add it in
+func TestVocabularyPath(t *testing.T) {
+	local := &Source{Locator: "claims", Kind: Corpus, Dir: "claims"}
+	if got := (&Set{Sources: []*Source{{Kind: Remote}, local}}).VocabularyPath(); got != filepath.Join("claims", claimsv1.VocabularyFile) {
+		t.Errorf("expected the local last source's vocabulary.yaml, got %q", got)
+	}
+	for _, s := range []*Set{{}, {Sources: []*Source{local, {Kind: Remote}}}} {
+		if got := s.VocabularyPath(); got != "" {
+			t.Errorf("expected no writable vocabulary.yaml, got %q", got)
+		}
 	}
 }
