@@ -21,10 +21,14 @@ func TestPluginAvailability(t *testing.T) {
 		{"dev build takes any", installed("0.16.0", true), "[not provided]", true, ""},
 		{"older", installed("0.16.0", true), "0.17.0", false, "claude plugin marketplace update delta-prototype && claude plugin update yardstick@delta-prototype"},
 		{"disabled", installed("0.17.0", false), "0.17.0", false, "claude plugin enable yardstick@delta-prototype"},
+		{"branch build of the release", installed("0.17.0", true), "v0.17.0-address-turnup-feedback", true, ""},
+		{"snapshot of the release", installed("0.17.0", true), "v0.17.0+dirty", true, ""},
+		{"branch build of another release", installed("0.16.0", true), "v0.17.0-my-branch", false, "claude plugin marketplace update delta-prototype && claude plugin update yardstick@delta-prototype"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			got := pluginAvailability(tc.plugins, tc.version)
-			if got.Available != tc.available || got.Command != tc.command || (!got.Available && got.Reason == "") {
+			if got.Available != tc.available || got.Command != tc.command || (!got.Available && got.Reason == "") ||
+				(got.Available && strings.Contains(tc.version, "-") && !strings.Contains(got.Reason, "installed yardstick plugin")) {
 				t.Errorf("got %+v", got)
 			}
 		})

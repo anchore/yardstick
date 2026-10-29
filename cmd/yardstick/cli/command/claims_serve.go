@@ -122,6 +122,13 @@ func newResearch(cmd *cobra.Command, version, run, model string) (*research.Runn
 		return nil, research.Availability{}, err
 	}
 	avail := research.CheckPlugin(cmd.Context(), version)
+	if avail.Available && avail.Reason != "" {
+		out := newPrinter(cmd.ErrOrStderr())
+		out.row(out.notice(), "research: "+avail.Reason)
+		if err := out.flush(); err != nil {
+			return nil, research.Availability{}, err
+		}
+	}
 	if !avail.Available {
 		out := newPrinter(cmd.ErrOrStderr())
 		out.row(out.notice(), "research is disabled: "+avail.Reason)

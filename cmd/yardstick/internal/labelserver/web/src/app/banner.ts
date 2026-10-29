@@ -17,7 +17,7 @@ import { openOf } from "./images";
 import { formatRoute } from "./route";
 import { gateRows, isOpen, sumTally } from "./listing";
 import { unlistedAlert } from "./namespace";
-import { active, batchWords, estimate, finishedWords, leadWords, money, summary } from "./researchwords";
+import { active, batchWords, estimate, finishedWords, leadWords, money, offWords, summary } from "./researchwords";
 import { kbd, status, verdict } from "./ui";
 
 const needWords = (n: number) => `${n} ${n === 1 ? "needs" : "need"} you`;
@@ -58,9 +58,14 @@ export function workBanner(list: GateList, signal: AbortSignal): Work {
   const cells = new Map(gates.map((g) => [g.id, el("div", { class: "lnum", "data-testid": "gate-work" })]));
   const notice = el("div", { "data-testid": "work-unlisted" });
   // unlisted is every gate's open rows' namespaces the vocabulary lacks, before research is refused on them
+  // with research off (or on with a caveat), why: it's the same for every gate, so the first says
   const unlisted = async () => {
-    const all = await Promise.all(gates.map((g) => gateState(g.id).then((st) => st.unlisted ?? [], () => [])));
-    if (!signal.aborted) fill(notice, unlistedAlert(all.flat(), gates.length > 1));
+    const states = await Promise.all(gates.map((g) => gateState(g.id).catch(() => null)));
+    if (signal.aborted) return;
+    const off = offWords(states.find((st) => st?.research)?.research);
+    fill(notice, off && el("div", { class: "alert", role: "status", "data-testid": "research-off" },
+      el("h2", {}, off.title), el("section", {}, el("p", {}, off.body), off.command && el("pre", {}, el("code", {}, off.command)))),
+    unlistedAlert(states.flatMap((st) => st?.unlisted ?? []), gates.length > 1));
   };
 
   // stack fills the bar, and the legend with only the segments the bar has

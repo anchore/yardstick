@@ -2,7 +2,7 @@
 // costs: money with tokens beside it, time, the basis an estimate comes from, a batch's progress,
 // what a table selection's Research covers, the research page's rows, and the jobs page's rows.
 // Pure: research.ts, banner.ts, labelpanel.ts, researchtable.ts and jobs.ts draw it.
-import type { Basis } from "../gen/research";
+import type { Availability, Basis } from "../gen/research";
 import type { ResearchBatch, ResearchEstimate, ResearchGroup, ResearchJob, ResearchProgress, ResearchQueueResponse } from "../gen/wire";
 import { clock, failedJob, ordinal, since, type Doing } from "../shared/agent";
 import { cap, plural } from "../shared/words";
@@ -27,6 +27,15 @@ export function about(seconds: number): string {
 }
 
 export const modelWords = (m: string) => (m ? cap(m) : "the configured model");
+
+// offWords is the gates page's notice when research can't run here: the tables then offer no
+// research at all, so this is where a person learns why, and what to run (yardstick never runs it).
+// A branch build's note (research on, with a reason) is said too. Null when there's nothing to say.
+export function offWords(a: Availability | undefined): { title: string; body: string; command?: string } | null {
+  if (!a?.reason) return null;
+  if (a.available) return { title: "Research runs the installed plugin", body: cap(a.reason) + "." };
+  return { title: "Research is off", body: `${cap(a.reason)}, so no table offers research.${a.command ? " To turn it on, run this, then restart claims serve:" : ""}`, command: a.command };
+}
 
 // estimate is what jobs on basis cost, as the server prices a selection (researchqueue.go): every
 // figure times the jobs, and the time at concurrency jobs at once
