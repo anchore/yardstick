@@ -165,22 +165,32 @@ func TestRunDropsCredentials(t *testing.T) {
 	}
 }
 
-// the default command never hands the agent an open shell or a write anywhere
+// the default command never hands the agent an open shell, a write anywhere or a read outside the
+// workspace
 func TestDefaultCommandIsNarrow(t *testing.T) {
-	_, tools, _ := strings.Cut(DefaultCommand, `--allowedTools "`)
-	tools, _, _ = strings.Cut(tools, `"`)
-	for _, tool := range strings.Split(tools, ",") {
-		if tool == "Bash" || tool == "Write" || tool == "Edit" || strings.HasPrefix(tool, "Bash(jq") {
-			t.Errorf("expected no unscoped %s, got %s", tool, tools)
+	rules := func(flag string) []string {
+		_, list, _ := strings.Cut(DefaultCommand, flag+` "`)
+		list, _, _ = strings.Cut(list, `"`)
+		return strings.Split(list, ",")
+	}
+	for _, tool := range rules("--allowedTools") {
+		if slices.Contains([]string{"Bash", "Write", "Edit", "Read", "Grep", "Glob"}, tool) || strings.HasPrefix(tool, "Bash(jq") {
+			t.Errorf("expected no unscoped %s, got %v", tool, rules("--allowedTools"))
 		}
+	}
+	// a person's settings may allow Read anywhere, so only the block keeps reads in the workspace
+	if !strings.Contains(DefaultCommand, `--settings '{"permissions":{"blockReadsOutsideWorkingDirectories":true}}'`) {
+		t.Errorf("expected reads outside the workspace blocked, got %s", DefaultCommand)
 	}
 }
 
-// a relative rule follows the agent's `cd`, after which every write was refused; the rule names the
+// a relative rule follows the agent's `cd`, after which every write was refused; the rules name the
 // workspace from the root ("//" once /$YARDSTICK_ROOT expands)
 func TestDefaultCommandWritesUnderTheWorkspaceByAbsolutePath(t *testing.T) {
-	if !strings.Contains(DefaultCommand, `Edit(/$YARDSTICK_ROOT/.yardstick/research/**)`) {
-		t.Errorf("expected an absolute Edit rule on the workspace, got %s", DefaultCommand)
+	for _, rule := range []string{"Edit(/$YARDSTICK_ROOT/.yardstick/research/**)", "Read(/$YARDSTICK_ROOT/**)", "Grep(/$YARDSTICK_ROOT/**)", "Glob(/$YARDSTICK_ROOT/**)"} {
+		if !strings.Contains(DefaultCommand, rule) {
+			t.Errorf("expected the absolute rule %s on the workspace, got %s", rule, DefaultCommand)
+		}
 	}
 }
 
@@ -230,7 +240,7 @@ func TestAJobsIDIsItsDirectory(t *testing.T) {
 
 // the agent may write research output, never a job record the server trusts
 func TestDefaultCommandDeniesJobRecords(t *testing.T) {
-	if !strings.Contains(DefaultCommand, `--disallowedTools "Edit(/$YARDSTICK_ROOT/.yardstick/jobs/**),Edit(/$YARDSTICK_ROOT/.yardstick/research/jobs/**)"`) {
+	if !strings.Contains(DefaultCommand, `--disallowedTools "Edit(/$YARDSTICK_ROOT/.yardstick/jobs/**),Edit(/$YARDSTICK_ROOT/.yardstick/research/jobs/**)`) {
 		t.Errorf("expected job records denied, got %s", DefaultCommand)
 	}
 }

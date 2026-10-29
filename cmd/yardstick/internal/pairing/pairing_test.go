@@ -445,6 +445,15 @@ func TestVersionsCompareAsPurls(t *testing.T) {
 	}
 }
 
+func TestUnion(t *testing.T) {
+	if got := union([]string{"b", "d"}, "c", "a", "b", "c"); !slices.Equal(got, []string{"a", "b", "c", "d"}) {
+		t.Errorf("expected each id once, sorted, got %v", got)
+	}
+	if got := union(nil); got != nil {
+		t.Errorf("expected nil for nothing, got %v", got)
+	}
+}
+
 func TestIDYear(t *testing.T) {
 	for id, want := range map[string]int{
 		"CVE-2023-1234": 2023, "cve-2021-44228": 2021, "ALAS-2022-1234": 2022, "ELSA-2022-9359": 2022,

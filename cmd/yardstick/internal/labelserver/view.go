@@ -189,7 +189,8 @@ func (s *Server) view(e *entry) (*view, error) {
 }
 
 // stampOf changes whenever anything the view reads does: the run record and gate file (by
-// modification time), any file in a local claims source, and the agent store.
+// modification time), any file in a local claims source (outside dot directories like .git, which a
+// corpus never reads from), and the agent store.
 func (s *Server) stampOf(e *entry) (string, error) {
 	h := sha256.New()
 	fmt.Fprintf(h, "%s|%s\n", e.recAt, e.gateAt)
@@ -200,8 +201,14 @@ func (s *Server) stampOf(e *entry) (string, error) {
 			continue
 		}
 		err := filepath.WalkDir(src.Locator, func(p string, d fs.DirEntry, err error) error {
-			if err != nil || d.IsDir() {
+			if err != nil {
 				return err
+			}
+			if d.IsDir() {
+				if p != src.Locator && strings.HasPrefix(d.Name(), ".") {
+					return filepath.SkipDir
+				}
+				return nil
 			}
 			info, err := d.Info()
 			if err != nil {

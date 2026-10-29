@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
+	"io"
 	"net/http"
 	"os"
 	"slices"
@@ -352,19 +353,34 @@ func (s *Server) handleResearchLog(w http.ResponseWriter, req *http.Request) {
 		http.Error(w, "no such job", http.StatusNotFound)
 		return
 	}
-	data, err := os.ReadFile(s.opts.Research.LogPath(jobs[i].ID))
+	path := s.opts.Research.LogPath(jobs[i].ID)
+	textHeaders := func() {
+		w.Header().Set("Content-Type", "text/plain; charset=utf-8")
+		w.Header().Set("X-Content-Type-Options", "nosniff")
+		w.Header().Set("Cache-Control", "no-store")
+	}
+	// raw is the file as written, whole, streamed rather than read into memory
+	if req.URL.Query().Get("raw") == "1" {
+		f, err := os.Open(path)
+		if err != nil && !errors.Is(err, os.ErrNotExist) {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		textHeaders()
+		if f != nil {
+			defer f.Close()
+			_, _ = io.Copy(w, f)
+		}
+		return
+	}
+	// otherwise the end of it rendered
+	data, err := os.ReadFile(path)
 	if err != nil && !errors.Is(err, os.ErrNotExist) {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	// raw is the file as written, whole; otherwise the end of it rendered
-	if req.URL.Query().Get("raw") != "1" {
-		data = tail(research.RenderLog(data), 64<<10)
-	}
-	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
-	w.Header().Set("X-Content-Type-Options", "nosniff")
-	w.Header().Set("Cache-Control", "no-store")
-	_, _ = w.Write(data)
+	textHeaders()
+	_, _ = w.Write(tail(research.RenderLog(data), 64<<10))
 }
 
 // tail is the last n bytes of a log from the first whole line in them, so a cut never splits a
