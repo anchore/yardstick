@@ -45,6 +45,11 @@ import (
 // in the user's own settings that is broader than this one doesn't reach them either, and so is
 // .yardstick/research/jobs/, where they used to be and from where NewRunner moves them once.
 //
+// The user's Claude Code settings still load, so their deny rules apply, but they would also bring
+// a defaultMode (acceptEdits or bypassPermissions would hand the agent writes, or everything) and
+// their MCP servers: --permission-mode default and --strict-mcp-config keep those out. Their allow
+// rules still merge with these, so a user who allows `gh` or a broad Edit allows it here too.
+//
 // With Config.PluginDir set, the plugin is loaded from there for this run only (--plugin-dir wins
 // over an installed plugin of the same name), so a branch's skills can be tried without touching the
 // user's Claude Code setup.
@@ -52,7 +57,7 @@ const DefaultCommand = `claude -p "/yardstick:research-vuln row:$YARDSTICK_ROW $
 	`${YARDSTICK_PLUGIN_DIR:+--plugin-dir "$YARDSTICK_PLUGIN_DIR"} ` +
 	`--allowedTools "Bash(yardstick claims agent propose *),Bash(yardstick claims policy),Bash(yardstick claims policy *),Read,Grep,Glob,Edit(/$YARDSTICK_ROOT/.yardstick/research/**),WebFetch,WebSearch" ` +
 	`--disallowedTools "Edit(/$YARDSTICK_ROOT/.yardstick/jobs/**),Edit(/$YARDSTICK_ROOT/.yardstick/research/jobs/**)" ` +
-	`--output-format stream-json --verbose`
+	`--permission-mode default --strict-mcp-config --output-format stream-json --verbose`
 
 // DefaultModel is the model research runs on unless configured otherwise: a name or alias the
 // command understands (for claude, "sonnet", "opus", "haiku" or a full model ID).

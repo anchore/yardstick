@@ -292,3 +292,12 @@ func TestOldJobRecordsMoveOutOfTheResearchTree(t *testing.T) {
 		t.Errorf("expected nothing imported from a later plant, got %+v", jobs)
 	}
 }
+
+// a user's defaultMode or MCP servers don't carry into research
+func TestDefaultCommandKeepsTheUsersModeAndMCPOut(t *testing.T) {
+	for _, flag := range []string{"--permission-mode default", "--strict-mcp-config"} {
+		if !strings.Contains(DefaultCommand, flag) {
+			t.Errorf("expected %s, got %s", flag, DefaultCommand)
+		}
+	}
+}
