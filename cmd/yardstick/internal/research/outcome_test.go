@@ -192,3 +192,16 @@ func must[T any](v T, err error) T {
 	}
 	return v
 }
+
+// a cut never splits a rune
+func TestCutKeepsRunesWhole(t *testing.T) {
+	for _, tc := range []struct {
+		s    string
+		n    int
+		want string
+	}{{"abc", 5, "abc"}, {"abc", 2, "ab"}, {"aé", 2, "a"}, {"aé", 3, "aé"}, {"é", 1, ""}} {
+		if got := cut(tc.s, tc.n); got != tc.want {
+			t.Errorf("cut(%q, %d) = %q, want %q", tc.s, tc.n, got, tc.want)
+		}
+	}
+}

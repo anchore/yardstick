@@ -12,6 +12,7 @@ import (
 	"slices"
 	"strings"
 	"time"
+	"unicode/utf8"
 
 	"github.com/anchore/yardstick/cmd/yardstick/internal/log"
 )
@@ -167,7 +168,7 @@ func (d denial) String() string {
 		if v, ok := d.ToolInput[k].(string); ok && v != "" {
 			v = strings.Join(strings.Fields(v), " ")
 			if len(v) > 80 {
-				v = v[:79] + "…"
+				v = cut(v, 79) + "…"
 			}
 			return d.ToolName + " " + v
 		}
@@ -186,9 +187,17 @@ func plural(n int, one, many string) string {
 func summary(text string) string {
 	text = strings.TrimSpace(text)
 	if len(text) > summaryWidth {
-		text = text[:summaryWidth] + "…"
+		text = cut(text, summaryWidth) + "…"
 	}
 	return text
+}
+
+// cut is at most the first n bytes of s, ending before a rune n would split.
+func cut(s string, n int) string {
+	for n > 0 && n < len(s) && !utf8.RuneStart(s[n]) {
+		n--
+	}
+	return s[:min(n, len(s))]
 }
 
 // conclude is the status of a job whose command exited 0: Done once it recorded a call, else
