@@ -115,6 +115,19 @@ func TestARerunDropsTheLastRunsRefusal(t *testing.T) {
 	}
 }
 
+// the refusals that kept a call from being recorded lead, whatever order they came in
+func TestWritesAndProposeLeadTheReason(t *testing.T) {
+	r := NewRunner(Config{Dir: t.TempDir()})
+	gh := func(n string) denial {
+		return denial{ToolName: "Bash", ToolInput: map[string]any{"command": "gh api " + n}}
+	}
+	end := ending{Denials: []denial{gh("a"), gh("b"), gh("c"), {ToolName: "Write", ToolInput: map[string]any{"file_path": "REPORT.md"}},
+		{ToolName: "Bash", ToolInput: map[string]any{"command": "yardstick claims agent propose --gate g"}}}}
+	if got, want := r.whyNotRecorded(&Job{ID: "aaa"}, end), "the agent was refused 5 tool uses: Write REPORT.md; Bash yardstick claims agent propose --gate g; Bash gh api a and 2 more"; got != want {
+		t.Errorf("got  %q\nwant %q", got, want)
+	}
+}
+
 func TestDenialsAreShortened(t *testing.T) {
 	long := denial{ToolName: "Bash", ToolInput: map[string]any{"command": "cat > REPORT.md <<'EOF'\n# CLEANSTART-2026-GU36052 (CVE-2025-11082) on binutils 2.45.1-r0\n\n**tp, medium confidence"}}
 	if got := long.String(); len([]rune(got)) > 86 || got[:31] != "Bash cat > REPORT.md <<'EOF' # " {

@@ -111,8 +111,11 @@ func (r *Runner) whyNotRecorded(job *Job, end ending) string {
 		}
 	}
 	if n := len(end.Denials); n > 0 {
+		// the refusals that kept a call from being recorded first: a write, or propose itself
+		denials := slices.Clone(end.Denials)
+		slices.SortStableFunc(denials, func(a, b denial) int { return b.blocksRecording() - a.blocksRecording() })
 		shown := make([]string, 0, 3)
-		for _, d := range end.Denials[:min(n, 3)] {
+		for _, d := range denials[:min(n, 3)] {
 			shown = append(shown, d.String())
 		}
 		more := ""
@@ -126,6 +129,16 @@ func (r *Runner) whyNotRecorded(job *Job, end ending) string {
 
 // ansi is a terminal color sequence, as the CLI's log lines carry
 var ansi = regexp.MustCompile(`\x1b\[[0-9;]*m`)
+
+// blocksRecording is 1 for a refusal that keeps a call from being recorded: a write, or running
+// propose; else 0.
+func (d denial) blocksRecording() int {
+	cmd, _ := d.ToolInput["command"].(string)
+	if d.ToolName == "Write" || d.ToolName == "Edit" || strings.Contains(cmd, "claims agent propose") || strings.Contains(cmd, "cat >") {
+		return 1
+	}
+	return 0
+}
 
 // String is the tool and what it was asked to do, shortened: "Write .yardstick/research/…/REPORT.md".
 func (d denial) String() string {
