@@ -13,9 +13,15 @@ import (
 	"github.com/anchore/yardstick/cmd/yardstick/internal/log"
 )
 
-// Dir returns a path in yardstick's cache, rooted at YARDSTICK_CACHE_DIR, else <xdg cache>/yardstick.
+// DirVar names the cache's root, else <xdg cache>/yardstick. Like claims.URLVar it is read from the
+// environment rather than bound as a clio option: every command reaches the cache, clio has no
+// app-wide option but logging's, and the processes yardstick starts (a research agent, the plugin's
+// scripts) inherit it as it is.
+const DirVar = "YARDSTICK_CACHE_DIR"
+
+// Dir returns a path in yardstick's cache, rooted at $YARDSTICK_CACHE_DIR, else <xdg cache>/yardstick.
 func Dir(elem ...string) string {
-	root := os.Getenv("YARDSTICK_CACHE_DIR")
+	root := os.Getenv(DirVar)
 	if root == "" {
 		root = filepath.Join(xdg.CacheHome, "yardstick")
 	}
