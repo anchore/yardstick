@@ -76,6 +76,10 @@ Read `SUMMARY.md` first. Open the per-source files only for what the summary doe
 
 # Phase 2: establish the facts, in this order
 
+Fetch pages with `WebFetch` (GitHub's API too, e.g. `https://api.github.com/repos/<o>/<r>/compare/<a>...<b>`).
+A headless run has no `curl`, `gh` or other shell beyond the commands listed above, and asking for
+one only spends a turn on the refusal.
+
 Write each fact with its source next to it. Label anything you inferred as inference.
 
 1. **What the bug is**: the function or file, from the CNA/NVD description and the fix commit. Find
