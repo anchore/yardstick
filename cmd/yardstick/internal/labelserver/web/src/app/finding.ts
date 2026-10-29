@@ -65,6 +65,8 @@ export function findingView(host: HTMLElement, r: FindingRoute, nav: Nav, signal
   // recordFailed is why recording the research's proposal was refused, shown in its section until
   // the next try
   let recordFailed = "";
+  // recording is a record in flight, so a second click doesn't run propose again
+  let recording = false;
   const content = el("div", { class: "fcontent" });
   const draft: Draft = { note: "" };
   const at = (row: string): Route => ({ ...r, row });
@@ -236,7 +238,8 @@ export function findingView(host: HTMLElement, r: FindingRoute, nav: Nav, signal
   // record records what the research wrote but didn't record, as a hint; a refusal stays in the
   // section, never a toast
   async function record() {
-    if (!d) return;
+    if (!d || recording) return;
+    recording = true;
     try {
       await api.recordResearch(r.gate, d.row.id);
       recordFailed = "";
@@ -244,6 +247,8 @@ export function findingView(host: HTMLElement, r: FindingRoute, nav: Nav, signal
       recordFailed = (e as Error).message.replace(/^\d+: /, "");
       paint();
       return;
+    } finally {
+      recording = false;
     }
     forget();
     await load(true);
