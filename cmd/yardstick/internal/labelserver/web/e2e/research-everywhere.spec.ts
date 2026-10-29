@@ -305,8 +305,8 @@ test.describe("the jobs page", () => {
 test.describe("research that recorded nothing", () => {
   const why = "the agent was refused 5 tool uses: Write .yardstick/research/CVE-2026-18508/tar/REPORT.md";
   const notRecorded = (by: Map<string, StateRow>) => {
+    // not researched: batch research picks it up again
     by.get(rows.tarHand)!.research = { job: rows.tarHand, status: "not-recorded", error: why, model: "sonnet", costUSD: 0.27, finished: ago(600) };
-    by.get(rows.tarHand)!.researched = true;
   };
   // wrote is the row's detail as it reaches the page, its research having written a proposal or not
   const wrote = (page: Page, proposal: boolean) => page.route(`**/api/gates/deb-java/rows/${rows.tarHand}`, async (r) => {

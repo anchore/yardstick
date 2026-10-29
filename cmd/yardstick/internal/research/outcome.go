@@ -12,6 +12,8 @@ import (
 	"slices"
 	"strings"
 	"time"
+
+	"github.com/anchore/yardstick/cmd/yardstick/internal/log"
 )
 
 // A job whose command exited 0 has done its research, but a person sees it only once the agent
@@ -64,13 +66,17 @@ func readEnding(path string) ending {
 }
 
 // recorded says whether the job recorded a call since it started, a rerun having the id of the run
-// before it. With no Recorded, or an error asking, exiting 0 is taken as recorded, as before.
-func (r *Runner) recorded(job *Job) bool {
+// before it, and whether Recorded could tell. With no Recorded, or an error asking, exiting 0 is
+// taken as recorded, as before, and asked again when the job is next read.
+func (r *Runner) recorded(job *Job) (ok, known bool) {
 	if r.cfg.Recorded == nil {
-		return true
+		return true, false
 	}
 	at, err := r.cfg.Recorded()
-	return err != nil || recordedSince(at, job)
+	if err != nil {
+		return true, false
+	}
+	return recordedSince(at, job), true
 }
 
 func recordedSince(at map[string]time.Time, job *Job) bool {
@@ -78,11 +84,14 @@ func recordedSince(at map[string]time.Time, job *Job) bool {
 	return ok && !t.Before(job.Started)
 }
 
-// reconcile reads a done job that recorded nothing as NotRecorded, saying why from its log, as a
-// job that finished before yardstick told the two apart: its record still says done. It asks
-// Recorded once for all of them.
+// reconcile settles each done job not yet known to have recorded a call, as a job that finished
+// before yardstick told the two apart is: one Recorded shows recorded is marked so, and one that
+// recorded nothing becomes NotRecorded, saying why from its log, and no longer counts as researched.
+// Each is saved, so it is settled once: later reads ask Recorded nothing and read no log. jobs are
+// Jobs' list, read under r.mu, so no save here races a start.
 func (r *Runner) reconcile(jobs []Job) {
-	if r.cfg.Recorded == nil || !slices.ContainsFunc(jobs, func(j Job) bool { return j.Status == Done }) {
+	unsettled := func(j Job) bool { return j.Status == Done && !j.Recorded && !r.live[j.ID] }
+	if r.cfg.Recorded == nil || !slices.ContainsFunc(jobs, unsettled) {
 		return
 	}
 	at, err := r.cfg.Recorded()
@@ -91,13 +100,24 @@ func (r *Runner) reconcile(jobs []Job) {
 	}
 	for i := range jobs {
 		j := &jobs[i]
-		if j.Status != Done || recordedSince(at, j) {
+		if !unsettled(*j) {
 			continue
 		}
-		end := readEnding(r.LogPath(j.ID))
-		j.Status, j.Error = NotRecorded, r.whyNotRecorded(j, end)
-		if j.Summary == "" {
-			j.Summary = summary(end.Text)
+		if recordedSince(at, j) {
+			j.Recorded = true
+		} else {
+			end := readEnding(r.LogPath(j.ID))
+			j.Status, j.Error = NotRecorded, r.whyNotRecorded(j, end)
+			if j.Summary == "" {
+				j.Summary = summary(end.Text)
+			}
+			// this run set LastDone when it was read as done; an earlier run's stays
+			if j.LastDone.Equal(j.Finished) {
+				j.LastDone = time.Time{}
+			}
+		}
+		if err := r.save(*j); err != nil {
+			log.Warnf("research %s: unable to record what it came to: %v", j.ID, err)
 		}
 	}
 }
@@ -175,7 +195,9 @@ func summary(text string) string {
 func (r *Runner) conclude(job *Job) (Status, error) {
 	end := readEnding(r.LogPath(job.ID))
 	job.Summary = summary(end.Text)
-	if r.recorded(job) {
+	ok, known := r.recorded(job)
+	if ok {
+		job.Recorded = known
 		return Done, nil
 	}
 	return NotRecorded, errors.New(r.whyNotRecorded(job, end))

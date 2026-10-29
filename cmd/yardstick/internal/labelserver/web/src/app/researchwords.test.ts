@@ -74,6 +74,9 @@ describe("a table selection's Research", () => {
     expect(bulkPlan([r("x", { job: "k" }), r("y", { job: "k" })])).toMatchObject({ jobs: 1, shared: 1 });
     expect(bulkWords(bulkPlan([r("c1", { shares: ["c2"] }), r("c2")]), opus).why).toBe("1 job, 1 sharing a sibling's.");
   });
+  test("research that recorded nothing is researched again, with the rest", () => {
+    expect(bulkPlan([r("n", { doing: "nohint" }), r("nr", { doing: "notrecorded" })])).toEqual({ rows: ["nr"], jobs: 1, shared: 0, skip: { hinted: 0, active: 0, researched: 1, labeled: 0 } });
+  });
   test("in flight, labeled and researched rows are skipped and named", () => {
     const p = bulkPlan([r("run", { doing: "running", hinted: true }), r("q", { doing: "queued" }), r("l", { open: false, doing: "none" }), r("n", { doing: "nohint" }), r("f", { doing: "failed" })]);
     expect(p).toEqual({ rows: ["f"], jobs: 1, shared: 0, skip: { hinted: 0, active: 2, researched: 1, labeled: 1 } });

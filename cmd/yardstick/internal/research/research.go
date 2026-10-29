@@ -99,7 +99,8 @@ type Job struct {
 	Queued   time.Time `json:"queued"`
 	Started  time.Time `json:"started,omitzero"`
 	Finished time.Time `json:"finished,omitzero"`
-	// LastDone is when research of this group last finished (Done or NotRecorded), in this run or an earlier one.
+	// LastDone is when research of this group last finished and recorded a call (Done), in this run or
+	// an earlier one.
 	// A rerun replaces the job's record, and a rerun that fails or is still running doesn't undo
 	// that the rows were researched.
 	LastDone time.Time `json:"lastDone,omitzero"`
@@ -111,6 +112,8 @@ type Job struct {
 	Usage *Usage `json:"usage,omitempty"`
 	// Summary is the agent's last message, from that line: what it concluded, even when it recorded nothing.
 	Summary string `json:"summary,omitempty"`
+	// Recorded is a Done job Config.Recorded showed recorded a call, so Jobs needn't ask again.
+	Recorded bool `json:"recorded,omitempty"`
 }
 
 // Config is how research runs.
@@ -354,7 +357,7 @@ func (r *Runner) run(ctx context.Context, job *Job) {
 func (r *Runner) finish(job *Job, s Status, err error) {
 	job.Status, job.Finished = s, time.Now().UTC()
 	job.Usage = readUsage(r.LogPath(job.ID))
-	if s == Done || s == NotRecorded {
+	if s == Done {
 		job.LastDone = job.Finished
 	}
 	if err != nil {
@@ -453,10 +456,11 @@ func childEnv(environ []string) []string {
 	return out
 }
 
-// Researched is true once research of the job's rows has finished, in this run or an earlier one,
-// whether or not it left an agent hint.
+// Researched is true once research of the job's rows has finished and recorded a call, in this run
+// or an earlier one. Research that recorded nothing (NotRecorded) isn't: the rows stay for batch
+// research to pick up, once whatever stopped the call is fixed.
 func (j Job) Researched() bool {
-	return j.Status == Done || j.Status == NotRecorded || !j.LastDone.IsZero()
+	return j.Status == Done || !j.LastDone.IsZero()
 }
 
 // Jobs lists every recorded job, newest first. Jobs left active by a yardstick that is no longer

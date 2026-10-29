@@ -549,8 +549,13 @@ func TestE2EResearchNotRecorded(t *testing.T) {
 		!slices.Equal(r.Output.Proposal.OpenQuestions, []string{"Was the fix backported?"}) {
 		t.Fatalf("what the research wrote: %+v %+v", r, r.Output)
 	}
-	if d.Hint != nil {
-		t.Fatalf("expected no hint before recording, got %+v", d.Hint)
+	if d.Hint != nil || d.Row.Researched {
+		t.Fatalf("expected no hint and not researched before recording, got %+v %v", d.Hint, d.Row.Researched)
+	}
+	// not researched, so batch research plans it again
+	var plan labelserver.ResearchQueueResponse
+	if code := post(t, h, token, "/api/research", map[string]any{"groups": []string{"change", "none"}, "dryRun": true}, &plan); code != http.StatusOK || !slices.Contains(planLines(plan), "none deb-java "+tar) {
+		t.Errorf("expected the batch plan to research it again: %d %v", code, planLines(plan))
 	}
 
 	// recording it is propose on what it wrote, as the job: the hint arrives, and the job is done

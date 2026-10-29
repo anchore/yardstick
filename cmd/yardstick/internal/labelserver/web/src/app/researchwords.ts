@@ -138,7 +138,8 @@ export function bulkPlan(rs: BulkRow[]): BulkPlan {
     if (r.doing === "running" || r.doing === "queued") out.skip.active++;
     else if (!r.open) out.skip.labeled++;
     else if (r.hinted) out.skip.hinted++;
-    else if (r.doing === "nohint" || r.doing === "notrecorded") out.skip.researched++;
+    // research that recorded nothing is researched again: what stopped it may be fixed since
+    else if (r.doing === "nohint") out.skip.researched++;
     else {
       out.rows.push(r.id);
       const k = r.job ?? r.id;

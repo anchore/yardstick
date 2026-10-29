@@ -110,8 +110,7 @@ function gatesCell(f: CrossFinding) {
 // rowsOf are a finding's rows, one per gate's appearance, each once
 const rowsOf = (fs: CrossFinding[]) => [...new Set(fs.flatMap((f) => f.in.map((a) => a.row)))];
 const crossHint = (f: CrossFinding) => (f.hint?.status === "pending" ? hint(hintWords({ verdict: f.hint.verdict, confidence: f.hint.confidence, kind: "proposal" })) : f.cause ? hint("package hint") : null);
-const researchedOn = (f: CrossFinding) => f.research?.status === "done" || f.research?.status === "not-recorded";
-const crossDoing = (f: CrossFinding) => doing(f.research, { open: true, researched: researchedOn(f) });
+const crossDoing = (f: CrossFinding) => doing(f.research, { open: true, researched: f.research?.status === "done" });
 
 // unlabeledTab is every open finding across gates, the ones whose label decides the most gates
 // first. Research here runs each finding once, under the gate the research page would pick.
@@ -144,7 +143,7 @@ function unlabeledTab(sh: () => SharedState, fresh: () => Promise<void>, st: Sta
       { key: "package", label: "Package", cell: (f) => { const p = pkgOf(f.package.ref); return el("span", { class: "mono" }, p.name, " ", el("small", {}, p.version)); }, sort: (f) => pkgOf(f.package.ref).name, title: (f) => f.package.ref, truncate: true },
       { key: "image", label: "Image", cell: (f) => imageName(f.image), sort: (f) => f.image, title: (f) => f.image, truncate: true },
       { key: "gates", label: "Gates", cell: gatesCell, sort: (f) => f.in.length, help: columnHelp.gates, title: (f) => f.in.map((a) => `${a.gate}: ${sideWords[a.dir]}`).join(", "), truncate: true },
-      { key: "hint", label: "Agent hint", cell: (f) => cellFor({ hint: crossHint(f), research: f.research, open: true, researched: researchedOn(f) }, research, () => void start([f])), sort: (f) => f.hint?.verdict ?? (f.cause ? "~" : ""), help: columnHelp.crossHint },
+      { key: "hint", label: "Agent hint", cell: (f) => cellFor({ hint: crossHint(f), research: f.research, open: true, researched: f.research?.status === "done" }, research, () => void start([f])), sort: (f) => f.hint?.verdict ?? (f.cause ? "~" : ""), help: columnHelp.crossHint },
       { key: "effect", label: "Effect", cell: (f) => (f.flips ? [couldMove(), el("small", {}, ` in ${plural(f.flips, "gate")}`)] : el("span", { class: "muted" }, `bears on ${plural(f.bears, "gate")}`)), sort: (f) => f.flips * 100 + f.bears, num: false, help: columnHelp.crossEffect },
     ],
     select: { bulk: (ids, clear) => {

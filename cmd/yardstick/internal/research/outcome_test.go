@@ -79,9 +79,9 @@ func TestAJobIsDoneOnlyOnceItRecordedACall(t *testing.T) {
 		if rec.asked == 0 {
 			t.Errorf("%s: Recorded never asked", name)
 		}
-		// researched either way: the money is spent and the rows were looked at
-		if !j.Researched() || j.LastDone.IsZero() || j.Usage == nil {
-			t.Errorf("%s: expected a researched job with its cost, got %+v", name, j)
+		// researched only once it recorded a call: batch research picks the others up again
+		if recorded := tc.status == Done; j.Researched() != recorded || j.LastDone.IsZero() == recorded || j.Recorded != recorded || j.Usage == nil {
+			t.Errorf("%s: expected researched=%v with its cost, got %+v", name, recorded, j)
 		}
 		if name != "never proposed" && j.Summary != "I couldn't finish this one. Verdict I would propose: tp, fix-newer, medium." {
 			t.Errorf("%s: expected the agent's last message kept, got %q", name, j.Summary)
@@ -147,27 +147,48 @@ func TestACallBeforeTheRunIsNotItsOwn(t *testing.T) {
 	}
 }
 
-// a job recorded as done before yardstick told done from not recorded reads as not recorded, with
-// why from its log, when it recorded nothing; its record is left as it was
-func TestAnOldDoneJobThatRecordedNothingReadsAsNotRecorded(t *testing.T) {
+// a job recorded as done before yardstick told done from not recorded is settled the first time it
+// is read: not recorded, with why from its log, when it recorded nothing, and no longer researched;
+// marked recorded when it did. Either way it is saved, so later reads ask nothing.
+func TestAnOldDoneJobIsSettledOnce(t *testing.T) {
 	lines := t.TempDir()
 	if err := os.WriteFile(filepath.Join(lines, "r.json"), []byte(deniedResult+"\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	rec := &recorder{ok: true}
-	_, r := runOne(t, "cat "+filepath.Join(lines, "r.json"), rec.recorded)
-	if jobs, _ := r.Jobs(); jobs[0].Status != Done {
-		t.Fatalf("expected done while its call is on record, got %+v", jobs[0])
+	// with no Recorded, as before this yardstick, exiting 0 is done
+	old, r0 := runOne(t, "cat "+filepath.Join(lines, "r.json"), nil)
+	if old.Status != Done || old.Recorded || old.LastDone.IsZero() {
+		t.Fatalf("expected an old-style done job, got %+v", old)
 	}
-	rec.ok = false
-	jobs, err := r.Jobs()
+	for _, recorded := range []bool{false, true} {
+		dir := t.TempDir()
+		if err := os.CopyFS(dir, os.DirFS(r0.cfg.Dir)); err != nil {
+			t.Fatal(err)
+		}
+		rec := &recorder{ok: recorded}
+		r := NewRunner(Config{Dir: dir, Recorded: rec.recorded})
+		jobs, err := r.Jobs()
+		if err != nil {
+			t.Fatal(err)
+		}
+		j, saved := jobs[0], must(r.load("aaa"))
+		switch {
+		case recorded && (j.Status != Done || !j.Recorded || !j.Researched()):
+			t.Errorf("recorded: expected done and marked so, got %+v", j)
+		case !recorded && (j.Status != NotRecorded || j.Error[:30] != "the agent was refused 2 tool u" || j.Summary == "" || j.Researched() || !j.LastDone.IsZero()):
+			t.Errorf("not recorded: expected not recorded with the denials, and not researched, got %+v", j)
+		case saved.Status != j.Status || saved.Recorded != j.Recorded:
+			t.Errorf("recorded=%v: expected what it came to saved, got %+v", recorded, saved)
+		}
+		if _, err := r.Jobs(); err != nil || rec.asked != 1 {
+			t.Errorf("recorded=%v: expected one question across two reads, got %d %v", recorded, rec.asked, err)
+		}
+	}
+}
+
+func must[T any](v T, err error) T {
 	if err != nil {
-		t.Fatal(err)
+		panic(err)
 	}
-	if j := jobs[0]; j.Status != NotRecorded || j.Error[:30] != "the agent was refused 2 tool u" || j.Summary == "" {
-		t.Errorf("expected not recorded with the denials, got %+v", j)
-	}
-	if saved, _ := r.load("aaa"); saved.Status != Done {
-		t.Errorf("expected the record left as it was, got %s", saved.Status)
-	}
+	return v
 }
