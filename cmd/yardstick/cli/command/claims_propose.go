@@ -195,8 +195,8 @@ func describeSubject(s claimsv1.Subject) string {
 	return s.SBOM
 }
 
-// fillDefaults fills what an agent may leave out of a record: schema, id, timestamp, the author
-// kind (agent), and the research job it runs in.
+// fillDefaults fills what an agent may leave out of a record: schema, id, timestamp and the author
+// kind (agent); and stamps the research job it runs in, replacing any the record names.
 func fillDefaults(schema, id *string, ts *time.Time, a *agentstore.Author, now time.Time) {
 	if *schema == "" {
 		*schema = agentstore.Schema
@@ -210,9 +210,9 @@ func fillDefaults(schema, id *string, ts *time.Time, a *agentstore.Author, now t
 	if a.Kind == "" {
 		a.Kind = agentstore.Agent
 	}
-	if a.Kind == agentstore.Agent && a.ResearchJob == "" {
-		a.ResearchJob = os.Getenv(researchJobEnv)
-	}
+	// the job is the one propose runs in, never what the record says: a job counts as having
+	// recorded a call by this stamp, so a record naming another job would mark that one recorded
+	a.ResearchJob = os.Getenv(researchJobEnv)
 }
 
 // openInput is the file arguments one after another, else stdin.
