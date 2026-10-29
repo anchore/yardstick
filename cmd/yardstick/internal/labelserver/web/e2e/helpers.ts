@@ -15,13 +15,30 @@ export interface DiskLabel {
   notes: string[];
 }
 
+// settled reads a file the server may be replacing: the server renames a new copy over it, which
+// the docker bind mount can show for a moment as no file at all (the ENOENT flakes on main and here).
+// It waits up to half a second for the file to come back, and is null if it was really removed.
+function settled(path: string): string | null {
+  for (let i = 0; ; i++) {
+    try {
+      return readFileSync(path, "utf8");
+    } catch (e) {
+      if ((e as NodeJS.ErrnoException).code !== "ENOENT") throw e;
+      if (i === 20) return null;
+      Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 25);
+    }
+  }
+}
+
 // diskLabels is every label in the workspace's claims, as written by the UI or seeded
 export function diskLabels(): DiskLabel[] {
   const claims = join(workspace, "claims");
   const out: DiskLabel[] = [];
   for (const f of readdirSync(claims, { recursive: true, encoding: "utf8" })) {
     if (!f.endsWith(".json") || f.endsWith("sbom.json")) continue;
-    const doc = JSON.parse(readFileSync(join(claims, f), "utf8"));
+    const text = settled(join(claims, f));
+    if (text === null) continue;
+    const doc = JSON.parse(text);
     for (const l of doc.labels ?? []) {
       out.push({
         file: f, subject: doc.subject?.image?.replace(/@.*/, "").replace(/.*\//, "") ?? "global",
