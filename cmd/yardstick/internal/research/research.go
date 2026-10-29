@@ -495,13 +495,17 @@ func (r *Runner) LogPath(id string) string {
 	return filepath.Join(r.jobs, id, "log.txt")
 }
 
+// load reads a job's record. Its id is its directory's name, whatever the record says, since the id
+// becomes a path (its log, its saves) and the record is a file anything in the workspace can write.
 func (r *Runner) load(id string) (Job, error) {
 	data, err := os.ReadFile(filepath.Join(r.jobs, id, "job.json"))
 	if err != nil {
 		return Job{}, err
 	}
 	var j Job
-	return j, json.Unmarshal(data, &j)
+	err = json.Unmarshal(data, &j)
+	j.ID = id
+	return j, err
 }
 
 func (r *Runner) save(j Job) error {

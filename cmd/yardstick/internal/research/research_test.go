@@ -207,3 +207,23 @@ func TestStartRefusesAWorkspaceTheRuleCantName(t *testing.T) {
 		t.Errorf("expected a refusal naming the permission rule, got %v", err)
 	}
 }
+
+// a job's id is its directory's name: a record naming another id, or a path, can't point its log or
+// its saves elsewhere
+func TestAJobsIDIsItsDirectory(t *testing.T) {
+	r, _ := newRunner(t, "true", time.Minute)
+	dir := filepath.Join(r.jobs, "aaa")
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "job.json"), []byte(`{"id":"../../../escape","rows":["aaa"],"status":"done"}`), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	jobs, err := r.Jobs()
+	if err != nil || len(jobs) != 1 || jobs[0].ID != "aaa" {
+		t.Fatalf("expected the job by its directory's name, got %+v %v", jobs, err)
+	}
+	if got := r.LogPath(jobs[0].ID); got != filepath.Join(dir, "log.txt") {
+		t.Errorf("its log is %s", got)
+	}
+}
