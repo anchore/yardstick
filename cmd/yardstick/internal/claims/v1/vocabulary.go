@@ -443,13 +443,26 @@ func AddToList(data []byte, ns, list string) ([]byte, error) {
 		return nil, fmt.Errorf("%s: %w", VocabularyFile, err)
 	}
 	if doc.Kind == 0 {
-		doc = yaml.Node{Kind: yaml.DocumentNode, Content: []*yaml.Node{{Kind: yaml.MappingNode}}}
+		// no file, or only comments, which yaml.v3 doesn't keep for a document with no node: the
+		// text stays as it is, the list after it
+		list, err := encode(&yaml.Node{Kind: yaml.MappingNode, Content: []*yaml.Node{str(list), flowList(ns)}})
+		if err != nil {
+			return nil, err
+		}
+		out := slices.Clone(data)
+		if len(out) > 0 && !bytes.HasSuffix(out, []byte("\n")) {
+			out = append(out, '\n')
+		}
+		return append(out, list...), nil
 	}
 	root := doc.Content[0]
+	// a document with no content ("---"), which loading reads as an empty vocabulary
+	if root.Kind == yaml.ScalarNode && root.Tag == "!!null" {
+		root.Kind, root.Tag, root.Value = yaml.MappingNode, "!!map", ""
+	}
 	if root.Kind != yaml.MappingNode {
 		return nil, fmt.Errorf("%s is not a mapping", VocabularyFile)
 	}
-	item := &yaml.Node{Kind: yaml.ScalarNode, Tag: "!!str", Value: ns}
 	var seq *yaml.Node
 	for i := 0; i+1 < len(root.Content); i += 2 {
 		if root.Content[i].Value == list {
@@ -458,21 +471,32 @@ func AddToList(data []byte, ns, list string) ([]byte, error) {
 	}
 	switch {
 	case seq == nil:
-		root.Content = append(root.Content, &yaml.Node{Kind: yaml.ScalarNode, Tag: "!!str", Value: list},
-			&yaml.Node{Kind: yaml.SequenceNode, Tag: "!!seq", Style: yaml.FlowStyle, Content: []*yaml.Node{item}})
+		root.Content = append(root.Content, str(list), flowList(ns))
 	case seq.Kind == yaml.SequenceNode:
 		if !slices.ContainsFunc(seq.Content, func(n *yaml.Node) bool { return n.Value == ns }) {
-			seq.Content = append(seq.Content, item)
+			seq.Content = append(seq.Content, str(ns))
 		}
 	case seq.Tag == "!!null":
-		*seq = yaml.Node{Kind: yaml.SequenceNode, Tag: "!!seq", Style: yaml.FlowStyle, Content: []*yaml.Node{item}}
+		*seq = *flowList(ns)
 	default:
 		return nil, fmt.Errorf("%s in %s is not a list", list, VocabularyFile)
 	}
+	return encode(&doc)
+}
+
+// str is a string node; flowList a one-item list written inline, [ns].
+func str(v string) *yaml.Node { return &yaml.Node{Kind: yaml.ScalarNode, Tag: "!!str", Value: v} }
+
+func flowList(v string) *yaml.Node {
+	return &yaml.Node{Kind: yaml.SequenceNode, Tag: "!!seq", Style: yaml.FlowStyle, Content: []*yaml.Node{str(v)}}
+}
+
+// encode is a YAML tree as vocabulary.yaml is written, indented by 2.
+func encode(n *yaml.Node) ([]byte, error) {
 	var out bytes.Buffer
 	enc := yaml.NewEncoder(&out)
 	enc.SetIndent(2)
-	if err := enc.Encode(&doc); err != nil {
+	if err := enc.Encode(n); err != nil {
 		return nil, err
 	}
 	return out.Bytes(), enc.Close()

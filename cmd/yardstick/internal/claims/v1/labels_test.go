@@ -343,6 +343,11 @@ vulnerability-namespaces:
 		"no list":        {"fact-sources: [nvd]\n", "CLEANSTART", ListDisclosure, "fact-sources: [nvd]\nvulnerability-namespaces: [CLEANSTART]\n"},
 		"empty list":     {"vulnerability-namespaces:\n", "CLEANSTART", ListDisclosure, "vulnerability-namespaces: [CLEANSTART]\n"},
 		"no file":        {"", "CLEANSTART", ListDisclosure, "vulnerability-namespaces: [CLEANSTART]\n"},
+		// only comments: kept as they are, the list after them
+		"comments only": {"# CleanStart's own namespaces\n# moved to anchore/claims by a bot", "CLEANSTART", ListDisclosure,
+			"# CleanStart's own namespaces\n# moved to anchore/claims by a bot\nvulnerability-namespaces: [CLEANSTART]\n"},
+		// a document with nothing in it, which loading takes as an empty vocabulary
+		"empty document": {"---\n", "CLEANSTART", ListDisclosure, "vulnerability-namespaces: [CLEANSTART]\n"},
 	} {
 		got, err := AddToList([]byte(tc.in), tc.ns, tc.list)
 		if err != nil || string(got) != tc.want {
