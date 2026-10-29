@@ -415,6 +415,12 @@ type RecordRequest struct {
 	Row string `json:"row"`
 }
 
+// RecordResponse is the job a record settled, and where it stands after.
+type RecordResponse struct {
+	Job    string          `json:"job"`
+	Status research.Status `json:"status"`
+}
+
 // handleRecord records the proposal the row's newest research job wrote but didn't record, through
 // propose as the agent would have, so it is checked as the agent's are and becomes the row's hint.
 // A refusal is answered with propose's words, for the finding page to show in place.
@@ -449,5 +455,5 @@ func (s *Server) handleRecord(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 	log.Infof("recorded research %s's proposal", job.ID)
-	writeJSON(w, map[string]string{"job": job.ID, "status": string(job.Status)})
+	writeJSON(w, RecordResponse{Job: job.ID, Status: job.Status})
 }

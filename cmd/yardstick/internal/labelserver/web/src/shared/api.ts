@@ -4,7 +4,7 @@
 // where its caller has one.
 import type {
   AcceptCauseResponse, AcceptResponse, CancelResponse, CheckFindings, GateLabels, GateList, GateResult, HintsAcceptResponse, HintsResponse, History,
-  LabelKey, LabelsRequest, LabelsResponse, MatchesResponse, Queue, ResearchBatch, ResearchFrom, ResearchJobs, ResearchQueueRequest,
+  LabelKey, LabelsRequest, LabelsResponse, MatchesResponse, Queue, ResearchBatch, ResearchFrom, ResearchJobs, RecordResponse, ResearchQueueRequest,
   ResearchQueueResponse, ResearchResponse, RevertResponse, RowResponse, SharedState, State, WriteError, claimsv1,
   AddNamespaceResponse, UnlistedNamespace, VocabularyList,
 } from "../gen/wire";
@@ -95,7 +95,7 @@ export const revert = (labels: LabelKey[]) => post<RevertResponse>("/api/history
 export const research = (gate: string, rows: string[], from: ResearchFrom) => post<ResearchResponse>(gatePath(gate, "/research"), { rows, from });
 // recordResearch records the proposal the row's newest research job wrote but didn't record; no
 // research runs again
-export const recordResearch = (gate: string, row: string) => post<{ job: string; status: string }>(gatePath(gate, "/research/record"), { row });
+export const recordResearch = (gate: string, row: string) => post<RecordResponse>(gatePath(gate, "/research/record"), { row });
 // cancelResearch cancels the newest research job on each row, when this server holds it
 export const cancelResearch = (gate: string, rows: string[]) => post<CancelResponse>(gatePath(gate, "/research/cancel"), { rows });
 
