@@ -31,7 +31,9 @@ A research job launched from `yardstick claims serve` runs
 workspace), `YARDSTICK_GATE`, `YARDSTICK_NAME` (the run), `YARDSTICK_ROW`, `YARDSTICK_ROWS` (every
 row the job covers), `YARDSTICK_RESEARCH_VULNERABILITY`, `YARDSTICK_RESEARCH_PACKAGE`,
 `YARDSTICK_BIN`, `YARDSTICK_MODEL` and `YARDSTICK_RESEARCH_JOB`; the helper and `yardstick claims
-propose` read them, and propose stamps the job on the proposal.
+propose` read them, and propose stamps the job on the proposal. In a job, propose refuses a
+proposal without a `row` from `YARDSTICK_ROWS`, a `--gate` other than the job's, and a `subject`
+other than the row's.
 
 # The question you are answering
 
@@ -185,7 +187,7 @@ yardstick claims agent propose --name "${YARDSTICK_NAME:-default}" --gate <gate>
 (`--gate` reads `$YARDSTICK_GATE` when the flag is left off, so a research job may omit it.)
 
 When `rows.json` lists several binary packages, propose once per row with the same content: write a copy of proposal.json per row beside it, `proposal-<row id>.json` with `row` set to that row, and pass them all to a single `propose` call.
-In place of `row` a proposal may give `subject` (`{"image": ...}` or `{"sbom": ...}`), `package` and
+Outside a research job, in place of `row` a proposal may give `subject` (`{"image": ...}` or `{"sbom": ...}`), `package` and
 `vulnerability`; there is no proposal for the package anywhere (a global label), so a broader call
 goes in the report and the note.
 

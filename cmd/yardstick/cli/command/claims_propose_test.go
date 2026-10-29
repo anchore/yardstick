@@ -79,6 +79,8 @@ func TestTheResearchJobIsEnvOnly(t *testing.T) {
 
 	t.Setenv(research.JobEnv, "job-1")
 	t.Setenv(research.JobDirEnv, "/w/.yardstick/research/jobs/job-1")
+	t.Setenv(research.GateEnv, "deb")
+	t.Setenv(research.RowsEnv, "aaa bbb")
 	var got researchJob
 	opts := &agentOptions{}
 	cmd := app.SetupCommand(&cobra.Command{Use: "propose", RunE: func(*cobra.Command, []string) error {
@@ -88,12 +90,12 @@ func TestTheResearchJobIsEnvOnly(t *testing.T) {
 	if err := cmd.Execute(); err != nil {
 		t.Fatal(err)
 	}
-	if want := (researchJob{ID: "job-1", Dir: "/w/.yardstick/research/jobs/job-1"}); got != want {
+	if want := (researchJob{ID: "job-1", Dir: "/w/.yardstick/research/jobs/job-1", Gate: "deb", Rows: "aaa bbb"}); got != want {
 		t.Errorf("got %+v from the environment, want %+v", got, want)
 	}
 
 	propose := ClaimsPropose(app)
-	for _, name := range []string{"research-job", "research-job-dir"} {
+	for _, name := range []string{"research-job", "research-job-dir", "research-gate", "rows"} {
 		if propose.Flags().Lookup(name) != nil {
 			t.Errorf("propose has a flag --%s: a research job must come from the environment alone", name)
 		}

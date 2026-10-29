@@ -28,13 +28,29 @@ import (
 )
 
 // researchJob is the research job a command runs in, as the label server sets it in the job's
-// environment (research.JobEnv, research.JobDirEnv), so a proposal can say a person asked for it.
-// These are env only on purpose and must never get a flag: the agent runs propose with whatever
-// arguments it likes, so a flag would let it choose its own job. Fields with no flag are read from
-// YARDSTICK_<key> alone, as no config file is read either.
+// environment (research.JobEnv and the rest), so a proposal can say a person asked for it and is
+// held to the job's rows and gate. These are env only on purpose and must never get a flag: the
+// agent runs propose with whatever arguments it likes, so a flag would let it choose its own job.
+// Fields with no flag are read from YARDSTICK_<key> alone, as no config file is read either.
 type researchJob struct {
-	ID  string `yaml:"-" json:"-" mapstructure:"research-job"`     // YARDSTICK_RESEARCH_JOB
-	Dir string `yaml:"-" json:"-" mapstructure:"research-job-dir"` // YARDSTICK_RESEARCH_JOB_DIR
+	ID   string `yaml:"-" json:"-" mapstructure:"research-job"`     // YARDSTICK_RESEARCH_JOB
+	Dir  string `yaml:"-" json:"-" mapstructure:"research-job-dir"` // YARDSTICK_RESEARCH_JOB_DIR
+	Gate string `yaml:"-" json:"-" mapstructure:"research-gate"`    // YARDSTICK_RESEARCH_GATE
+	Rows string `yaml:"-" json:"-" mapstructure:"rows"`             // YARDSTICK_ROWS, space separated
+}
+
+// holds refuses a proposal in a research job about anything but one of the job's rows, in the
+// job's gate.
+func (j researchJob) holds(gate, row string) error {
+	switch {
+	case gate != j.Gate:
+		return fmt.Errorf("research job %s is about gate %s, not %s: leave --gate off", j.ID, j.Gate, gate)
+	case row == "":
+		return fmt.Errorf("a proposal in research job %s names its row, one of %s", j.ID, j.Rows)
+	case !slices.Contains(strings.Fields(j.Rows), row):
+		return fmt.Errorf("row %s is not one of research job %s's rows (%s)", row, j.ID, j.Rows)
+	}
+	return nil
 }
 
 // noteRefusal has a propose command run in a research job leave its refusal in the job's directory
@@ -304,7 +320,8 @@ fields are refused. For convenience:
   - "row": a row id from yardstick score -o json stands in for subject, package and vulnerability
   - schema, id, timestamp and gate are filled in, and author.kind defaults to agent
   - in a research job (YARDSTICK_RESEARCH_JOB, set by yardstick claims serve), author.researchJob
-    is that job, timestamp is now and author.kind is agent, whatever the line says
+    is that job, timestamp is now and author.kind is agent, whatever the line says; every line
+    gives a "row" of the job's (YARDSTICK_ROWS) in the job's gate, and subject is the row's
 
 A proposal is checked against the claims vocabulary and the labeling policy: a justification or
 evidence rule that is not listed, a rule of the other verdict, a confidence above the rule's
@@ -351,6 +368,11 @@ subject, tab separated.`,
 
 func (s *scanned) proposal(in proposalInput, job researchJob, now time.Time) (agentstore.Proposal, error) {
 	p := in.Proposal
+	if job.ID != "" {
+		if err := job.holds(s.gate.Name, in.Row); err != nil {
+			return p, err
+		}
+	}
 	if in.Row != "" {
 		// a package or vulnerability given beside the row must be the row's, as a cause member's is:
 		// a hint pairs its row by the exact purl, so a near miss would never show
@@ -359,10 +381,17 @@ func (s *scanned) proposal(in proposalInput, job researchJob, now time.Time) (ag
 			return p, err
 		}
 		p.Package, p.Vulnerability = m.Package, m.Vulnerability
-		if p.Subject == (claimsv1.Subject{}) {
-			if p.Subject, err = labelwrite.SubjectOf(r.Subject); err != nil {
+		// in a research job the subject is always the row's: a proposal supersedes another by
+		// subject, package and vulnerability, so another subject's would replace a hint off the job
+		if p.Subject == (claimsv1.Subject{}) || job.ID != "" {
+			sub, err := labelwrite.SubjectOf(r.Subject)
+			if err != nil {
 				return p, err
 			}
+			if p.Subject != (claimsv1.Subject{}) && p.Subject != sub {
+				return p, fmt.Errorf("row %s is in %s, not %s: leave subject off", in.Row, describeSubject(sub), describeSubject(p.Subject))
+			}
+			p.Subject = sub
 		}
 	}
 	if err := s.checkGate(&p.Gate); err != nil {

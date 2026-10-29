@@ -17,7 +17,7 @@ func newRunner(t *testing.T, command string, timeout time.Duration) (*Runner, st
 }
 
 func TestRunPassesContextInTheEnvironment(t *testing.T) {
-	r, dir := newRunner(t, `echo "row=$YARDSTICK_ROW rows=$YARDSTICK_ROWS vuln=$YARDSTICK_RESEARCH_VULNERABILITY pkg=$YARDSTICK_RESEARCH_PACKAGE gate=$YARDSTICK_GATE name=$YARDSTICK_NAME root=$YARDSTICK_ROOT bin=$YARDSTICK_BIN path=${PATH%%:*}"`, time.Minute)
+	r, dir := newRunner(t, `echo "row=$YARDSTICK_ROW rows=$YARDSTICK_ROWS vuln=$YARDSTICK_RESEARCH_VULNERABILITY pkg=$YARDSTICK_RESEARCH_PACKAGE gate=$YARDSTICK_GATE/$YARDSTICK_RESEARCH_GATE name=$YARDSTICK_NAME root=$YARDSTICK_ROOT bin=$YARDSTICK_BIN path=${PATH%%:*}"`, time.Minute)
 	job, err := r.Start(context.Background(), Request{Rows: []string{"aaa", "bbb"}, Vulnerability: "CVE-1", Package: "pkg:deb/ubuntu/glibc@1", Gate: "g1"})
 	if err != nil {
 		t.Fatal(err)
@@ -35,7 +35,7 @@ func TestRunPassesContextInTheEnvironment(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	want := "row=aaa rows=aaa bbb vuln=CVE-1 pkg=pkg:deb/ubuntu/glibc@1 gate=g1 name=pr root=" + dir + " bin=/opt/ys/bin/yardstick path=/opt/ys/bin"
+	want := "row=aaa rows=aaa bbb vuln=CVE-1 pkg=pkg:deb/ubuntu/glibc@1 gate=g1/g1 name=pr root=" + dir + " bin=/opt/ys/bin/yardstick path=/opt/ys/bin"
 	if _, err := os.Stat(filepath.Join(dir, ".yardstick", "research", "jobs", "aaa", "job.json")); err != nil {
 		t.Errorf("expected the job under .yardstick/research/jobs: %v", err)
 	}

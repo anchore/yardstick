@@ -414,8 +414,14 @@ func KillCommand(groups ...int) string {
 }
 
 // JobEnv names the job a command runs in, for `yardstick claims agent propose` to stamp on the calls
-// the job records. Propose reads it, with JobDirEnv, from the environment alone.
-const JobEnv = "YARDSTICK_RESEARCH_JOB"
+// the job records, and RowsEnv and GateEnv the rows and gate propose holds them to. Propose reads
+// them, with JobDirEnv, from the environment alone. GateEnv is YARDSTICK_GATE again under a name no
+// flag reads, since --gate overrides YARDSTICK_GATE.
+const (
+	JobEnv  = "YARDSTICK_RESEARCH_JOB"
+	RowsEnv = "YARDSTICK_ROWS"
+	GateEnv = "YARDSTICK_RESEARCH_GATE"
+)
 
 // env is what the command gets to work with. YARDSTICK_GATE and YARDSTICK_NAME are what the CLI's
 // --gate and --name read, so `yardstick claims agent propose` resolves the job's rows with no flags; the
@@ -425,10 +431,11 @@ const JobEnv = "YARDSTICK_RESEARCH_JOB"
 func (j Job) env(cfg Config) []string {
 	env := []string{
 		"YARDSTICK_ROW=" + j.Rows[0],
-		"YARDSTICK_ROWS=" + strings.Join(j.Rows, " "),
+		RowsEnv + "=" + strings.Join(j.Rows, " "),
 		"YARDSTICK_RESEARCH_VULNERABILITY=" + j.Vulnerability,
 		"YARDSTICK_RESEARCH_PACKAGE=" + j.Package,
 		"YARDSTICK_GATE=" + j.Gate,
+		GateEnv + "=" + j.Gate,
 		"YARDSTICK_NAME=" + cmp.Or(j.Run, cfg.Run),
 		"YARDSTICK_ROOT=" + cfg.Dir,
 		"YARDSTICK_BIN=" + cfg.Bin,
