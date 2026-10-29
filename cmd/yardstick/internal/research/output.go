@@ -62,10 +62,17 @@ type Output struct {
 // Output reads what the job's agent wrote; nil when it has no output directory, or never started (a
 // rerun cancelled while queued would otherwise show the run before it).
 func (r *Runner) Output(job Job) *Output {
+	out, _ := r.output(job)
+	return out
+}
+
+// output is Output, and the bytes of proposal.json it read its Proposal from.
+func (r *Runner) output(job Job) (*Output, []byte) {
 	rel := OutputDir(job)
 	if rel == "" || job.Started.IsZero() {
-		return nil
+		return nil, nil
 	}
+	var raw []byte
 	out := &Output{Dir: rel, Files: []string{}}
 	dir := filepath.Join(r.cfg.Dir, rel)
 	has := func(name string) bool {
@@ -83,7 +90,7 @@ func (r *Runner) Output(job Job) *Output {
 		}
 		data, err := os.ReadFile(filepath.Join(dir, ProposalFile))
 		if err == nil && json.Unmarshal(data, &w) == nil && slices.Contains(job.Rows, w.Row) && w.Verdict != "" {
-			out.Proposal = &w.Written
+			out.Proposal, raw = &w.Written, data
 		}
 	}
 	if report {
@@ -91,7 +98,7 @@ func (r *Runner) Output(job Job) *Output {
 			out.Report = string(data)
 		}
 	}
-	return out
+	return out, raw
 }
 
 func readCapped(path string) ([]byte, error) {
@@ -110,8 +117,9 @@ func readCapped(path string) ([]byte, error) {
 
 // Record records the proposal the job's agent wrote but didn't record, as it would have: this
 // yardstick's `claims agent propose` on proposal.json, in the job's environment, so the call carries
-// the job's id and is checked as the agent's are. It records exactly what Output shows: this run's
-// proposal, about one of the job's rows. The job is judged as Jobs reads it, so one from before
+// the job's id and is checked as the agent's are. It records exactly what Output shows: the bytes it
+// read go to propose on stdin, never a path propose would read again after the agent (this job's, or
+// another's) could have rewritten it. The job is judged as Jobs reads it, so one from before
 // yardstick told done from not recorded can be recorded too. Once recorded the job is Done; a
 // refusal is returned as propose said it, and the job left as it was. Nothing is researched again.
 func (r *Runner) Record(ctx context.Context, id string) (Job, error) {
@@ -134,16 +142,15 @@ func (r *Runner) Record(ctx context.Context, id string) (Job, error) {
 	case r.cfg.Bin == "":
 		return job, errors.New("this server can't run propose: it doesn't know its own binary")
 	}
-	o := r.Output(job)
+	o, raw := r.output(job)
 	if o == nil || o.Proposal == nil {
 		return job, errors.New("this run wrote no proposal with a verdict about its rows to record")
 	}
-	args := append([]string{"claims", "agent", "propose", "--name", cmp.Or(job.Run, r.cfg.Run), "--gate", job.Gate, filepath.Join(r.cfg.Dir, o.Dir, ProposalFile)},
-		r.rowCopies(job, filepath.Join(r.cfg.Dir, o.Dir), *o.Proposal)...)
+	in := bytes.Join(append([][]byte{raw}, r.rowCopies(job, filepath.Join(r.cfg.Dir, o.Dir), raw, *o.Proposal)...), []byte("\n"))
 	ctx, cancel := context.WithTimeout(ctx, time.Minute)
 	defer cancel()
-	cmd := exec.CommandContext(ctx, r.cfg.Bin, args...) //nolint:gosec // G204: this binary, the job's own file
-	cmd.Dir = r.cfg.Dir
+	cmd := exec.CommandContext(ctx, r.cfg.Bin, "claims", "agent", "propose", "--name", cmp.Or(job.Run, r.cfg.Run), "--gate", job.Gate) //nolint:gosec // G204: this binary
+	cmd.Dir, cmd.Stdin = r.cfg.Dir, bytes.NewReader(in)
 	cmd.Env = append(childEnv(os.Environ()), job.env(r.cfg)...)
 	var out bytes.Buffer
 	cmd.Stdout, cmd.Stderr = &out, &out
@@ -173,20 +180,20 @@ func (r *Runner) Record(ctx context.Context, id string) (Job, error) {
 	return cur, r.save(cur)
 }
 
-// rowCopies are the per-row copies of the proposal the skill writes beside proposal.json when the
-// finding covers several binary packages (proposal-<row id>.json): about another of the job's rows,
-// and saying what the page shows (the verdict and justification of proposal.json), so Record records
-// every row the agent would have and nothing the page didn't show.
-func (r *Runner) rowCopies(job Job, dir string, shown Written) []string {
+// rowCopies are proposal.json (raw) once more for each other row of the job the skill wrote a copy for
+// beside it, when the finding covers several binary packages (proposal-<row id>.json) and the copy
+// says what the page shows (proposal.json's verdict and justification). Each is raw with only its row
+// changed, so Record records every row the agent would have and nothing the page didn't show.
+func (r *Runner) rowCopies(job Job, dir string, raw []byte, shown Written) [][]byte {
 	paths, _ := filepath.Glob(filepath.Join(dir, "proposal-*.json"))
-	var out []string
-	var first struct {
-		Row string `json:"row"`
+	var out [][]byte
+	var fields map[string]json.RawMessage
+	if json.Unmarshal(raw, &fields) != nil {
+		return nil
 	}
-	if data, err := os.ReadFile(filepath.Join(dir, ProposalFile)); err == nil {
-		_ = json.Unmarshal(data, &first)
-	}
-	seen := map[string]bool{first.Row: true} // proposal.json's row is recorded already
+	var first string
+	_ = json.Unmarshal(fields["row"], &first)
+	seen := map[string]bool{first: true} // proposal.json's row is recorded already
 	for _, p := range paths {
 		var w struct {
 			Written
@@ -200,7 +207,10 @@ func (r *Runner) rowCopies(job Job, dir string, shown Written) []string {
 			continue
 		}
 		seen[w.Row] = true
-		out = append(out, p)
+		fields["row"], _ = json.Marshal(w.Row)
+		if b, err := json.Marshal(fields); err == nil {
+			out = append(out, b)
+		}
 	}
 	return out
 }

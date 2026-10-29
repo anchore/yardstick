@@ -15,7 +15,7 @@ const wroteCommand = `d=$YARDSTICK_RESEARCH_OUT && mkdir -p "$d" && printf '# re
 	`printf '{"row":"%s","verdict":"tp","justification":"no-fix"}\n' "$YARDSTICK_ROW" > "$d/proposal.json" && ` +
 	`printf '{"row":"zzz","verdict":"fp","justification":"no-fix"}\n' > "$d/proposal-z.json"`
 
-// fakePropose stands in for this yardstick's propose: it keeps what it was given in the workspace,
+// fakePropose stands in for this yardstick's propose: it keeps its arguments and stdin in the workspace,
 // refuses when the workspace holds "refuse", and when it holds "rerun" leaves the job's record as a
 // rerun queued meanwhile would
 const fakePropose = `#!/bin/sh
@@ -23,6 +23,7 @@ cd "$YARDSTICK_ROOT"
 if [ -f refuse ]; then printf '[0000] ERROR \033[31mproposal 1: no\033[0m\n'; exit 2; fi
 if [ -f rerun ]; then printf '{"rows":["aaa"],"status":"queued","queued":"2030-01-01T00:00:00Z"}' > .yardstick/jobs/aaa/job.json; fi
 echo "$@" >> args.txt
+cat >> in.txt
 `
 
 // recordRunner has run wroteCommand as job aaa on CVE-1 in foo, which recorded nothing
@@ -54,8 +55,11 @@ func TestRecordRecordsWhatThePageShows(t *testing.T) {
 		t.Fatalf("expected recorded and done, got %+v %v", j, err)
 	}
 	args := strings.TrimSpace(string(must(os.ReadFile(filepath.Join(r.cfg.Dir, "args.txt")))))
-	if want := "claims agent propose --name pr --gate g " + filepath.Join(r.cfg.Dir, ".yardstick", "research", "job-aaa", ProposalFile); args != want {
+	if want := "claims agent propose --name pr --gate g"; args != want {
 		t.Errorf("propose got %q, want %q", args, want)
+	}
+	if in, want := string(must(os.ReadFile(filepath.Join(r.cfg.Dir, "in.txt")))), `{"row":"aaa","verdict":"tp","justification":"no-fix"}`+"\n"; in != want {
+		t.Errorf("propose read %q, want %q", in, want)
 	}
 	if _, err := r.Record(context.Background(), "aaa"); err == nil || !strings.Contains(err.Error(), "the job is done") {
 		t.Errorf("expected a done job refused, got %v", err)
@@ -143,7 +147,8 @@ func TestRecordSaysWhyProposeRefused(t *testing.T) {
 }
 
 // a finding over several binary packages: the skill writes a copy per row beside proposal.json, and
-// Record records each of the job's rows once, saying what the page shows, and no other row
+// Record records each of the job's rows once, as the page shows it (proposal.json, a copy's other
+// fields aside), and no other row
 func TestRecordRecordsEveryRowsCopy(t *testing.T) {
 	dir := t.TempDir()
 	bin := filepath.Join(t.TempDir(), "yardstick")
@@ -152,7 +157,7 @@ func TestRecordRecordsEveryRowsCopy(t *testing.T) {
 	}
 	const wrote = `d=$YARDSTICK_RESEARCH_OUT && mkdir -p "$d" && ` +
 		`printf '{"row":"aaa","verdict":"tp","justification":"no-fix"}\n' | tee "$d/proposal.json" > "$d/proposal-aaa.json" && ` +
-		`printf '{"row":"bbb","verdict":"tp","justification":"no-fix"}\n' > "$d/proposal-bbb.json" && ` +
+		`printf '{"row":"bbb","verdict":"tp","justification":"no-fix","note":"not shown"}\n' > "$d/proposal-bbb.json" && ` +
 		`printf '{"row":"bbb","verdict":"fp","justification":"no-fix"}\n' > "$d/proposal-bbb2.json" && ` +
 		`printf '{"row":"zzz","verdict":"tp","justification":"no-fix"}\n' > "$d/proposal-zzz.json"`
 	none := func() (map[string]time.Time, error) { return map[string]time.Time{}, nil }
@@ -164,9 +169,8 @@ func TestRecordRecordsEveryRowsCopy(t *testing.T) {
 	if _, err := r.Record(context.Background(), "aaa"); err != nil {
 		t.Fatal(err)
 	}
-	d := filepath.Join(dir, ".yardstick", "research", "job-aaa")
-	args := strings.TrimSpace(string(must(os.ReadFile(filepath.Join(dir, "args.txt")))))
-	if want := "claims agent propose --name pr --gate g " + filepath.Join(d, ProposalFile) + " " + filepath.Join(d, "proposal-bbb.json"); args != want {
-		t.Errorf("propose got %q, want %q", args, want)
+	in := string(must(os.ReadFile(filepath.Join(dir, "in.txt"))))
+	if want := `{"row":"aaa","verdict":"tp","justification":"no-fix"}` + "\n\n" + `{"justification":"no-fix","row":"bbb","verdict":"tp"}`; in != want {
+		t.Errorf("propose read %q, want %q", in, want)
 	}
 }
