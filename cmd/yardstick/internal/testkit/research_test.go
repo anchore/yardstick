@@ -366,6 +366,13 @@ func TestE2EUnlistedNamespace(t *testing.T) {
 	if data, _ := os.ReadFile(filepath.Join(dir, "overlay", claimsv1.VocabularyFile)); string(data) != "vulnerability-namespaces: [CLEANSTART]\n" {
 		t.Errorf("the overlay's vocabulary.yaml:\n%s", data)
 	}
+	// with nothing for it to add to, the overlay alone is no vocabulary, and adding to it is refused
+	if err := os.WriteFile(gate, []byte(strings.Replace(string(g), "claims: [../claims]", "claims: [../overlay]", 1)), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if rec := send("/api/gates/deb-java/vocabulary/namespace", map[string]string{"namespace": "IC", "list": claimsv1.ListAdvisory}); rec.Code != http.StatusBadRequest || !strings.Contains(rec.Body.String(), "the ones there list no justifications") {
+		t.Errorf("adding with only the overlay: %d %s", rec.Code, rec.Body)
+	}
 }
 
 // jobs is GET /api/research/jobs once want jobs are running.

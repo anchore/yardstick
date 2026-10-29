@@ -194,6 +194,11 @@ rules:
 	if _, err := FindVocabulary(NamedFS{Name: "empty", FS: os.DirFS(t.TempDir())}); err == nil {
 		t.Error("expected an error with no vocabulary anywhere")
 	}
+	// a fragment is only a vocabulary merged onto a full one
+	write(t, filepath.Join(local, VocabularyFile), "vulnerability-namespaces: [CLEANSTART]\n")
+	if _, err := FindVocabulary(NamedFS{Name: "additional-claims", FS: os.DirFS(local)}); err == nil || !strings.Contains(err.Error(), "the ones there list no justifications") {
+		t.Errorf("expected a fragment alone refused, got %v", err)
+	}
 	if v, err := MergeVocabularies(NamedFS{Name: "empty", FS: os.DirFS(t.TempDir())}); v != nil || err != nil {
 		t.Errorf("expected no vocabulary and no error from merging none, got %+v %v", v, err)
 	}

@@ -84,13 +84,36 @@ type NamedFS struct {
 }
 
 // FindVocabulary is the vocabulary labels are written against: every source's vocabulary.yaml
-// merged (MergeVocabularies), an error when none has one.
+// merged (MergeVocabularies), an error when none has one or each is a fragment (CheckWritable).
 func FindVocabulary(sources ...NamedFS) (*Vocabulary, error) {
 	v, err := MergeVocabularies(sources...)
-	if err == nil && v == nil {
-		err = errors.New("no claims source has a " + VocabularyFile + ", so no justification or fact source can be checked")
+	if err == nil {
+		err = v.CheckWritable()
 	}
-	return v, err
+	if err != nil {
+		return nil, err
+	}
+	return v, nil
+}
+
+// Fragment says the vocabulary lists no justifications, as one holding only a namespace doesn't:
+// it adds to another claims source's vocabulary.yaml, and is only whole merged onto one.
+func (v *Vocabulary) Fragment() bool {
+	return len(v.Justifications) == 0
+}
+
+// CheckWritable says why labels can't be checked against a merged vocabulary: no claims source
+// has a vocabulary.yaml (v is nil), or each one there is a fragment.
+func (v *Vocabulary) CheckWritable() error {
+	const none = "no claims source has a " + VocabularyFile + ", so no justification or fact source can be checked"
+	switch {
+	case v == nil:
+		return errors.New(none)
+	case v.Fragment():
+		return errors.New(none + "; the ones there list no justifications, so they only add to a full " + VocabularyFile +
+			" from another source, such as github.com/anchore/claims@main")
+	}
+	return nil
 }
 
 // MergeVocabularies merges the vocabulary.yaml of each source that has one, in order; nil when none

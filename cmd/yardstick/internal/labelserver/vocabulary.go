@@ -104,7 +104,7 @@ func evalSymlinks(p string) string {
 func checkNamespaces(w http.ResponseWriter, views map[string]*view, reqs []research.Request) bool {
 	for _, r := range reqs {
 		v := views[r.Gate]
-		if v == nil || v.vocab == nil {
+		if v == nil || v.vocab.CheckWritable() != nil {
 			continue
 		}
 		err := v.vocab.CheckScanned(r.Vulnerability, v.set.VocabularyPath(), v.related())
@@ -124,7 +124,7 @@ func checkNamespaces(w http.ResponseWriter, views map[string]*view, reqs []resea
 // unlisted is each namespace of the view's open rows its vocabulary lacks, with what the scan
 // suggests, so the gate can say so before anyone starts research there.
 func (v *view) unlisted(gate string) []UnlistedNamespace {
-	if v.vocab == nil {
+	if v.vocab.CheckWritable() != nil {
 		return nil
 	}
 	file, related := v.set.VocabularyPath(), v.related()
@@ -171,19 +171,19 @@ func (s *Server) handleAddNamespace(w http.ResponseWriter, req *http.Request) {
 		http.Error(w, fmt.Sprintf("gate %s has no local claims source to write %s to; add one with --claims <path>", e.name, claimsv1.VocabularyFile), http.StatusBadRequest)
 		return
 	}
-	out := AddNamespaceResponse{File: workspacePath(file)}
-	if v.vocab != nil {
-		already, err := v.vocab.CheckAdd(body.Namespace, body.List)
-		if err != nil {
-			http.Error(w, err.Error(), http.StatusBadRequest)
-			return
-		}
-		if already {
-			writeJSON(w, out)
-			return
-		}
-	} else if _, err := (&claimsv1.Vocabulary{}).CheckAdd(body.Namespace, body.List); err != nil {
+	// a namespace written with no full vocabulary to add to would be a fragment alone, refusing every label
+	if err := v.vocab.CheckWritable(); err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	out := AddNamespaceResponse{File: workspacePath(file)}
+	already, err := v.vocab.CheckAdd(body.Namespace, body.List)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	if already {
+		writeJSON(w, out)
 		return
 	}
 	data, err := os.ReadFile(file)

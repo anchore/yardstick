@@ -219,8 +219,8 @@ func (s *Set) Writer() (corpus.Writer, error) {
 	if last == nil {
 		return corpus.Writer{}, fmt.Errorf("writes need a local last claims source, and the last is %s; add one with --claims <path>", s.Sources[len(s.Sources)-1].Locator)
 	}
-	if s.vocab == nil {
-		return corpus.Writer{}, errors.New("no claims source has a " + claimsv1.VocabularyFile + ", so no justification or fact source can be checked")
+	if err := s.vocab.CheckWritable(); err != nil {
+		return corpus.Writer{}, err
 	}
 	return corpus.Writer{Dir: last.Dir, Vocab: s.vocab}, nil
 }
