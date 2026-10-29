@@ -181,6 +181,9 @@ func TestServeResearchLogRendersClaudesJSON(t *testing.T) {
 			if rec.Code != http.StatusOK || !ok {
 				t.Errorf("expected %q, got %d %q", tt.want, rec.Code, got)
 			}
+			if h := rec.Header(); h.Get("Content-Type") != "text/plain; charset=utf-8" || h.Get("X-Content-Type-Options") != "nosniff" {
+				t.Errorf("expected plain text with nosniff, got %v", h)
+			}
 		})
 	}
 }
