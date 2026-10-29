@@ -105,6 +105,13 @@
 .links a::after { content: " ↗"; color: var(--muted-foreground); }
 .links .note { color: var(--muted-foreground); }
 .explanation { border-left: 2px solid var(--hint); padding-left: 16px; }
+.rsection { display: grid; gap: 6px; margin-bottom: 20px; padding: 12px 16px; border: 1px solid var(--border); border-radius: 8px; font-size: 14px; }
+.rsection h3 { font-size: 13px; font-weight: 600; color: var(--muted-foreground); }
+.rsection.notrecorded, .rsection.nothing, .rsection.failed { border-left: 3px solid var(--cost); }
+.rsection .err { color: var(--fail); }
+.rsection .pre { white-space: pre-wrap; }
+.rsection pre.report { white-space: pre-wrap; max-height: 480px; overflow: auto; font-size: 12.5px; }
+.rsection h4 { font-size: 13px; font-weight: 600; }
 
 .rawtab { gap: 16px; }
 .raw { border: 1px solid var(--border); border-radius: 10px; background: var(--card); overflow: hidden; }

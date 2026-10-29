@@ -185,7 +185,7 @@ Its chips are buttons with `data-chip` (`all`, `change`, `none`, `checked`, `?ch
 | `bulk-bar` | the bar over a table while rows are checked | |
 | `bulk-accept` | "Accept hints (N)" | `disabled` with no hint selected |
 | `bulk-research`, `bulk-research-why` | "Research N · ~$X" (an ellipsis when over 10 jobs opens the research page), and the line under the buttons on what it skips | `data-rows`, `data-jobs`, `disabled` with nothing to research |
-| `research-cell` | the Agent hint cell when it says what research is doing: a link to the job while queued or running, a button for an open row nobody has looked at | `data-state` = running / queued / failed / nohint / offer |
+| `research-cell` | the Agent hint cell when it says what research is doing: a link to the job while queued or running, a button for an open row nobody has looked at | `data-state` = running / queued / failed / notrecorded (research finished, nothing recorded; why in its title) / nohint / offer |
 | `research-retry` | retry in a failed cell | |
 | `label-as` | the "Label as…" select, option values `<verdict>:<justification>` | |
 
@@ -228,6 +228,10 @@ Filter chips are buttons with `data-chip` (`all`, `unlabeled`, `tp`, `fp`, `uncl
 | `save-label` | "Save and next", or "Save" with the cog's `advance-checkbox` off | |
 | `skip-button` | Skip (`j`) | |
 | `research-foot`, `research-button`, `research-status` | research (`R`) | `research-button` has `data-researched`; `research-status` has `data-state` (the job's status), and while queued or running reads as the table cell does |
+| `research-outcome` | the finding's research section, above its tabs, while a job ran on the row: when, on what model, for how much, and what came of it | `data-outcome` `running`, `recorded`, `notrecorded` (concluded, not recorded), `nothing` (wrote no result), `failed` or `cancelled` |
+| `research-head`, `research-outcome-text` | the section's "Researched … · model · $cost" line, and what came of it with why nothing was recorded | |
+| `research-record`, `research-record-error` | Record as hint, when the research wrote a proposal it didn't record, and why propose refused it, which stays | |
+| `research-questions`, `research-report`, `research-summary`, `research-job` | its open questions, REPORT.md, the agent's last message, and its job | |
 | `research-job-link`, `research-cancel-row` | while a job is queued or running, "view job" and Cancel | |
 | `research-price`, `research-shares` | on the button, one job's price ("~$0.23") when measured; under it, "One job, about a minute, shared with …" naming the sibling packages | |
 

@@ -64,6 +64,8 @@
 .rs.fail::before { content: "✕"; font-size: 11px; }
 .rs.nohint { color: var(--muted-foreground); }
 .rs.nohint::before { content: "✦"; color: var(--faint); }
+.rs.notrec { color: var(--muted-foreground); cursor: help; text-decoration: underline dotted; text-underline-offset: 3px; }
+.rs.notrec::before { content: "✦"; color: var(--cost); }
 .rs.ok::before { content: "●"; color: var(--cost); font-size: 10px; }
 .rs.cancel { color: var(--faint); }
 a.rs:hover { text-decoration: underline; text-underline-offset: 2px; }

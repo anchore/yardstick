@@ -93,6 +93,9 @@ export const revert = (labels: LabelKey[]) => post<RevertResponse>("/api/history
 
 // research starts jobs on rows of one gate, from a table or a match
 export const research = (gate: string, rows: string[], from: ResearchFrom) => post<ResearchResponse>(gatePath(gate, "/research"), { rows, from });
+// recordResearch records the proposal the row's newest research job wrote but didn't record; no
+// research runs again
+export const recordResearch = (gate: string, row: string) => post<{ job: string; status: string }>(gatePath(gate, "/research/record"), { row });
 // cancelResearch cancels the newest research job on each row, when this server holds it
 export const cancelResearch = (gate: string, rows: string[]) => post<CancelResponse>(gatePath(gate, "/research/cancel"), { rows });
 
