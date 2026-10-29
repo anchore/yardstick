@@ -112,7 +112,7 @@ func TestFindVocabulary(t *testing.T) {
 	if !vocab.IsAdvisory("ALAS2-2023-1234") || !vocab.IsAdvisory("RHSA-2023:1234") || vocab.IsAdvisory("CVE-2023-1234") {
 		t.Error("expected ALAS* to cover ALAS2 and RHSA listed")
 	}
-	if err := v.CheckVulnerability("CLEANSTART-2026-GU36052"); err == nil {
+	if err := v.CheckVulnerability("CLEANSTART-2026-GU36052", ""); err == nil {
 		t.Error("expected CLEANSTART refused before the overlay lists it")
 	}
 
@@ -130,7 +130,7 @@ somethingNew: true
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := v.CheckVulnerability("CLEANSTART-2026-GU36052"); err != nil {
+	if err := v.CheckVulnerability("CLEANSTART-2026-GU36052", ""); err != nil {
 		t.Errorf("expected the overlay's namespace listed: %v", err)
 	}
 	if got := strings.Join(v.Namespaces, " ") + " | " + strings.Join(v.FactSources, " ") + " | " + strings.Join(v.AdvisoryIDs, " "); got != "CVE GHSA CLEANSTART | debian-security-tracker nvd sbom cleanstart | ALAS* ELSA ALSA RLSA RHSA AVG IC" {
@@ -299,10 +299,10 @@ func TestCheckVulnerability(t *testing.T) {
 		related map[string][]string
 		want    string
 	}{
-		"no scan": {"", nil, head + "; add it to vulnerability-namespaces in an additional-claims vocabulary.yaml if each of its ids names one vulnerability, " +
+		"no scan": {"", nil, head + "; add it to vulnerability-namespaces in a claims source's vocabulary.yaml if each of its ids names one vulnerability, " +
 			"or to advisory-ids if an id can name several (as an ELSA names several CVEs)"},
 		"one vulnerability each": {"", cleanstart, head + ". This gate's scan has 2 CLEANSTART ids; each names exactly 1 vulnerability " +
-			"(e.g. CLEANSTART-2026-GU36052 → CVE-2025-11082), so add it to vulnerability-namespaces in an additional-claims vocabulary.yaml. " +
+			"(e.g. CLEANSTART-2026-GU36052 → CVE-2025-11082), so add it to vulnerability-namespaces in a claims source's vocabulary.yaml. " +
 			"(An id naming several CVEs would belong in advisory-ids.)"},
 		// a sibling advisory isn't a vulnerability it names, and a GHSA beside a CVE is that CVE's alias
 		"siblings and a GHSA alias": {"/w/additional-claims/vocabulary.yaml", map[string][]string{
@@ -322,12 +322,12 @@ func TestCheckVulnerability(t *testing.T) {
 		"ELSA-2021-9138": {"ELSA-2021-9138", "CVE-2021-3449"},
 	}
 	want := `vulnerability ELSA-2021-9137: namespace "ELSA" is not in any claims source's vocabulary.yaml. This gate's scan has 2 ELSA ids; ` +
-		"1 names several vulnerabilities (e.g. ELSA-2021-9137 → CVE-2020-1971, CVE-2021-23840), so add it to advisory-ids in an additional-claims vocabulary.yaml. " +
+		"1 names several vulnerabilities (e.g. ELSA-2021-9137 → CVE-2020-1971, CVE-2021-23840), so add it to advisory-ids in a claims source's vocabulary.yaml. " +
 		"(An id naming exactly one vulnerability would belong in vulnerability-namespaces.)"
 	if err := v.CheckScanned("ELSA-2021-9137", "", elsa); err == nil || err.Error() != want {
 		t.Errorf("ELSA:\ngot  %v\nwant %s", err, want)
 	}
-	if err := v.CheckVulnerability("ELSA-2021-9137"); err == nil || !strings.Contains(err.Error(), "add it to vulnerability-namespaces") {
+	if err := v.CheckVulnerability("ELSA-2021-9137", ""); err == nil || !strings.Contains(err.Error(), "add it to vulnerability-namespaces") {
 		t.Errorf("expected the plain refusal without a scan, got %v", err)
 	}
 }

@@ -364,7 +364,7 @@ func TestVocabularyMergesSources(t *testing.T) {
 		t.Fatal(err)
 	}
 	v := set.Vocabulary()
-	if v != w.Vocab || !slices.Equal(v.Allowed(claimsv1.FP), []string{"fix-installed", "not-in-image"}) || v.CheckVulnerability("CLEANSTART-2026-GU36052") != nil || v.CheckVulnerability("CVE-2026-1") != nil {
+	if v != w.Vocab || !slices.Equal(v.Allowed(claimsv1.FP), []string{"fix-installed", "not-in-image"}) || v.CheckVulnerability("CLEANSTART-2026-GU36052", "") != nil || v.CheckVulnerability("CVE-2026-1", "") != nil {
 		t.Errorf("expected both sources' vocabularies merged for reads and writes, got %+v", v)
 	}
 	// with no vocabulary of its own, the writable source writes by the published one

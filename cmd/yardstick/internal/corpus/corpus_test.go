@@ -497,7 +497,7 @@ func TestWriterRefuses(t *testing.T) {
 		"no author":                    {Placed{File: TypeFile(debDir, "deb"), Subject: debImage, Label: noAuthor}, "author is required"},
 		"package in image.json":        {Placed{File: NoPackagePath(debDir), Subject: debImage, Label: tp(libc, "CVE-2024-6")}, "package must be absent"},
 		"no package in a type file":    {Placed{File: TypeFile(debDir, "deb"), Subject: debImage, Label: tp("", "CVE-2024-7")}, "package is required"},
-		"unknown namespace":            {Placed{File: TypeFile(debDir, "deb"), Subject: debImage, Label: tp(libc, "FOO-2024-1")}, `namespace "FOO"`},
+		"unknown namespace":            {Placed{File: TypeFile(debDir, "deb"), Subject: debImage, Label: tp(libc, "FOO-2024-1")}, `add it to vulnerability-namespaces in ` + filepath.Join(dir, claimsv1.VocabularyFile)},
 		"subject not the path's":       {Placed{File: TypeFile(debDir, "deb"), Subject: &claimsv1.Subject{Image: "docker.io/anchore/other@" + debDigest}, Label: tp(libc, "CVE-2024-8")}, "which the path names"},
 		"not a place in the layout":    {Placed{File: "images/centos/labels.json", Subject: debImage, Label: tp(libc, "CVE-2024-9")}, "not a label file"},
 		"evidence without facts":       {Placed{File: TypeFile(debDir, "deb"), Subject: debImage, Label: noFacts}, "evidence[0] needs at least one fact"},
@@ -607,7 +607,7 @@ func TestValidateCorpus(t *testing.T) {
 		{"rule with an unknown ceiling", edit(claimsv1.VocabularyFile, "ceiling: medium, decision: P-4, basis: Debian", "ceiling: certain, decision: P-4, basis: Debian"), claimsv1.VocabularyFile, "", `ceiling "certain"`},
 		{"unknown fact source", edit(debFile, `"debian-security-tracker"`, `"suse-oval"`), debFile, "CVE-2022-37434 on " + zlib, `"suse-oval"`},
 		{"package in image.json", edit(NoPackagePath(debDir), `"vulnerability":`, `"package": "pkg:deb/debian/libc6", "vulnerability":`), NoPackagePath(debDir), "CVE-2023-4911 on pkg:deb/debian/libc6", "package must be absent"},
-		{"unlisted namespace", edit(debFile, `"CVE-2023-4911"`, `"FOO-2024-1"`), debFile, "FOO-2024-1 on " + libc, `namespace "FOO"`},
+		{"unlisted namespace", edit(debFile, `"CVE-2023-4911"`, `"FOO-2024-1"`), debFile, "FOO-2024-1 on " + libc, `namespace "FOO" is not in any claims source's vocabulary.yaml; add it to vulnerability-namespaces in vocabulary.yaml if`},
 		{"descriptor not the catalog's", edit(CatalogFile, "syft@v1.54.1", "syft@v1.52.0"), debDir + "/" + ImageSBOMFile, "", "syft 1.54.1, where the catalog pins 1.52.0"},
 		{"config not the catalog's", func(t *testing.T, dir string) {
 			write(t, filepath.Join(dir, "syft.yaml"), "search:\n  scope: all-layers\n")

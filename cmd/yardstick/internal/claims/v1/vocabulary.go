@@ -226,10 +226,10 @@ func (v *Vocabulary) IsAdvisory(id string) bool {
 	return false
 }
 
-// CheckVulnerability refuses an id whose namespace is on neither list, naming both and the file to
-// add it in. CheckScanned says which list, when a scan is at hand.
-func (v *Vocabulary) CheckVulnerability(id string) error {
-	return v.CheckScanned(id, "", nil)
+// CheckVulnerability refuses an id whose namespace is on neither list, naming both and file, the
+// vocabulary.yaml to add it in. CheckScanned says which list, when a scan is at hand.
+func (v *Vocabulary) CheckVulnerability(id, file string) error {
+	return v.CheckScanned(id, file, nil)
 }
 
 // The two lists a namespace may be on.
@@ -243,7 +243,8 @@ const (
 // several is an advisory.
 type Unlisted struct {
 	ID, Namespace string
-	// File is the vocabulary.yaml to add the namespace in, empty for an additional-claims one.
+	// File is the vocabulary.yaml to add the namespace in; empty when the caller can't say which
+	// claims source's it is.
 	File string
 	// Suggest is ListDisclosure or ListAdvisory, empty when the scan had no id in the namespace.
 	Suggest string
@@ -256,7 +257,7 @@ type Unlisted struct {
 }
 
 func (u *Unlisted) Error() string {
-	file := cmp.Or(u.File, "an additional-claims "+VocabularyFile)
+	file := cmp.Or(u.File, "a claims source's "+VocabularyFile)
 	head := fmt.Sprintf("vulnerability %s: namespace %q is not in any claims source's %s", u.ID, u.Namespace, VocabularyFile)
 	if u.Suggest == "" {
 		return fmt.Sprintf("%s; add it to %s in %s if each of its ids names one vulnerability, "+
@@ -288,8 +289,7 @@ func (u *Unlisted) Error() string {
 
 // CheckScanned is CheckVulnerability, refusing with an *Unlisted that judges which list the
 // namespace belongs on from a scan's ids in it. related is each id the scan reported, with the ids
-// reported beside it; file is the vocabulary.yaml to add the namespace in, empty for an
-// additional-claims one.
+// reported beside it; file is the vocabulary.yaml to add the namespace in (Unlisted.File).
 func (v *Vocabulary) CheckScanned(id, file string, related map[string][]string) error {
 	ns := Namespace(id)
 	if v.IsAdvisory(id) || slices.Contains(v.Namespaces, ns) {
