@@ -120,7 +120,7 @@ func explanation(e *agentstore.Explanation, cfg *agentOptions, opened map[[2]str
 		}
 		e.Members[i] = m
 	}
-	fillDefaults(&e.Schema, &e.ID, &e.Timestamp, &e.Author, now)
+	fillDefaults(&e.Schema, &e.ID, &e.Timestamp, &e.Author, cfg.Research.ID, now)
 	if err := e.Validate(); err != nil {
 		return err
 	}

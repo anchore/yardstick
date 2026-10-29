@@ -413,6 +413,10 @@ func KillCommand(groups ...int) string {
 	return cmd
 }
 
+// JobEnv names the job a command runs in, for `yardstick claims agent propose` to stamp on the calls
+// the job records. Propose reads it, with JobDirEnv, from the environment alone.
+const JobEnv = "YARDSTICK_RESEARCH_JOB"
+
 // env is what the command gets to work with. YARDSTICK_GATE and YARDSTICK_NAME are what the CLI's
 // --gate and --name read, so `yardstick claims agent propose` resolves the job's rows with no flags; the
 // vulnerability and package go under RESEARCH_ names because clio would read YARDSTICK_PACKAGE and
@@ -428,7 +432,7 @@ func (j Job) env(cfg Config) []string {
 		"YARDSTICK_NAME=" + cmp.Or(j.Run, cfg.Run),
 		"YARDSTICK_ROOT=" + cfg.Dir,
 		"YARDSTICK_BIN=" + cfg.Bin,
-		"YARDSTICK_RESEARCH_JOB=" + j.ID,                                                 // `yardstick claims agent propose` stamps it on the proposals the job records
+		JobEnv + "=" + j.ID, // `yardstick claims agent propose` stamps it on the proposals the job records
 		JobDirEnv + "=" + filepath.Join(cfg.Dir, ".yardstick", "research", "jobs", j.ID), // and leaves its refusal there
 		"YARDSTICK_MODEL=" + cmp.Or(j.Model, cfg.Model),
 		"YARDSTICK_PLUGIN_DIR=" + cfg.PluginDir,

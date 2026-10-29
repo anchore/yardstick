@@ -27,18 +27,24 @@ import (
 	"github.com/anchore/yardstick/cmd/yardstick/internal/score"
 )
 
-// researchJobEnv names the research job an agent runs in, set by the label server when it starts
-// one, so a proposal can say a person asked for it.
-const researchJobEnv = "YARDSTICK_RESEARCH_JOB"
+// researchJob is the research job a command runs in, as the label server sets it in the job's
+// environment (research.JobEnv, research.JobDirEnv), so a proposal can say a person asked for it.
+// These are env only on purpose and must never get a flag: the agent runs propose with whatever
+// arguments it likes, so a flag would let it choose its own job. Fields with no flag are read from
+// YARDSTICK_<key> alone, as no config file is read either.
+type researchJob struct {
+	ID  string `yaml:"-" json:"-" mapstructure:"research-job"`     // YARDSTICK_RESEARCH_JOB
+	Dir string `yaml:"-" json:"-" mapstructure:"research-job-dir"` // YARDSTICK_RESEARCH_JOB_DIR
+}
 
 // noteRefusal has a propose command run in a research job leave its refusal in the job's directory
 // (research.ProposeErrorFile), so the job can say why it recorded nothing without reading the
 // agent's log; a later success there clears it.
-func noteRefusal(c *cobra.Command) *cobra.Command {
+func noteRefusal(job *researchJob, c *cobra.Command) *cobra.Command {
 	run := c.RunE
 	c.RunE = func(cmd *cobra.Command, args []string) error {
 		err := run(cmd, args)
-		dir := os.Getenv(research.JobDirEnv)
+		dir := job.Dir
 		// only ever a job's own directory, as the label server sets it: the variable can't point
 		// the write (or the removal) at another file
 		if dir == "" || filepath.Base(filepath.Dir(dir)) != "jobs" || !strings.HasSuffix(filepath.Dir(filepath.Dir(dir)), filepath.Join(".yardstick", "research")) {
@@ -46,8 +52,8 @@ func noteRefusal(c *cobra.Command) *cobra.Command {
 		}
 		p := filepath.Join(dir, research.ProposeErrorFile)
 		if err == nil {
-			_ = os.Remove(p) //nolint:gosec // G703: p is propose-error.txt in a research job's directory, checked above
-		} else if werr := os.WriteFile(p, []byte(err.Error()+"\n"), 0o600); werr != nil { //nolint:gosec // G703: as above
+			_ = os.Remove(p)
+		} else if werr := os.WriteFile(p, []byte(err.Error()+"\n"), 0o600); werr != nil {
 			log.Warnf("unable to record the refusal in %s: %v", p, werr)
 		}
 		return err
@@ -56,11 +62,15 @@ func noteRefusal(c *cobra.Command) *cobra.Command {
 }
 
 // agentOptions are what the commands recording agent state take: the gate whose last scan row ids
-// name, the run it was scanned under, and claims sources after the gate's own.
+// name, the run it was scanned under, claims sources after the gate's own, and the research job
+// they run in.
 type agentOptions struct {
 	claimsOption `yaml:",inline" mapstructure:",squash"`
 	nameOption   `yaml:",inline" mapstructure:",squash"`
 	Gate         string `yaml:"gate" json:"gate" mapstructure:"gate"`
+
+	// env only, never a flag: see researchJob
+	Research researchJob `yaml:"-" json:"-" mapstructure:",squash"`
 }
 
 func (o *agentOptions) AddFlags(flags clio.FlagSet) {
@@ -197,7 +207,7 @@ func describeSubject(s claimsv1.Subject) string {
 
 // fillDefaults fills what an agent may leave out of a record: schema, id, timestamp and the author
 // kind (agent); and stamps the research job it runs in, replacing any the record names.
-func fillDefaults(schema, id *string, ts *time.Time, a *agentstore.Author, now time.Time) {
+func fillDefaults(schema, id *string, ts *time.Time, a *agentstore.Author, job string, now time.Time) {
 	if *schema == "" {
 		*schema = agentstore.Schema
 	}
@@ -212,7 +222,7 @@ func fillDefaults(schema, id *string, ts *time.Time, a *agentstore.Author, now t
 	}
 	// the job is the one propose runs in, never what the record says: a job counts as having
 	// recorded a call by this stamp, so a record naming another job would mark that one recorded
-	a.ResearchJob = os.Getenv(researchJobEnv)
+	a.ResearchJob = job
 }
 
 // openInput is the file arguments one after another, else stdin.
@@ -278,7 +288,7 @@ type proposalInput struct {
 
 func ClaimsPropose(app clio.Application) *cobra.Command {
 	cfg := &agentOptions{nameOption: newNameOption()}
-	return noteRefusal(app.SetupCommand(&cobra.Command{
+	return noteRefusal(&cfg.Research, app.SetupCommand(&cobra.Command{
 		Use:   "propose [file...] --gate <gate>",
 		Short: "Record agent calls as proposals for a person to accept (JSON on stdin or in files)",
 		Long: `propose reads proposals as JSON, one a line or one a file, and records them in .yardstick/proposals.jsonl, where the
@@ -317,7 +327,7 @@ subject, tab separated.`,
 			now := time.Now().UTC()
 			out := make([]agentstore.Proposal, 0, len(lines))
 			for i, in := range lines {
-				p, err := s.proposal(in, now)
+				p, err := s.proposal(in, cfg.Research, now)
 				if err != nil {
 					return fmt.Errorf("proposal %d: %w", i+1, err)
 				}
@@ -335,7 +345,7 @@ subject, tab separated.`,
 	}, cfg))
 }
 
-func (s *scanned) proposal(in proposalInput, now time.Time) (agentstore.Proposal, error) {
+func (s *scanned) proposal(in proposalInput, job researchJob, now time.Time) (agentstore.Proposal, error) {
 	p := in.Proposal
 	if in.Row != "" {
 		// a package or vulnerability given beside the row must be the row's, as a cause member's is:
@@ -354,7 +364,7 @@ func (s *scanned) proposal(in proposalInput, now time.Time) (agentstore.Proposal
 	if err := s.checkGate(&p.Gate); err != nil {
 		return p, err
 	}
-	fillDefaults(&p.Schema, &p.ID, &p.Timestamp, &p.Author, now)
+	fillDefaults(&p.Schema, &p.ID, &p.Timestamp, &p.Author, job.ID, now)
 	if err := p.Validate(); err != nil {
 		return p, err
 	}
@@ -369,7 +379,7 @@ type causeInput struct {
 
 func ClaimsProposeCause(app clio.Application) *cobra.Command {
 	cfg := &agentOptions{nameOption: newNameOption()}
-	return noteRefusal(app.SetupCommand(&cobra.Command{
+	return noteRefusal(&cfg.Research, app.SetupCommand(&cobra.Command{
 		Use:   "propose-cause [file] --gate <gate>",
 		Short: "Record agent-proposed root causes for sets of a gate's rows (JSON lines on stdin or in a file)",
 		Long: `propose-cause reads causes as JSON lines and records them in .yardstick/causes.jsonl, where the
@@ -405,7 +415,7 @@ Each recorded cause prints as id, verdict, source package, member count and titl
 			now := time.Now().UTC()
 			out := make([]agentstore.Cause, 0, len(lines))
 			for i, in := range lines {
-				c, err := s.cause(in, now)
+				c, err := s.cause(in, cfg.Research.ID, now)
 				if err != nil {
 					return fmt.Errorf("cause %d: %w", i+1, err)
 				}
@@ -425,7 +435,7 @@ Each recorded cause prints as id, verdict, source package, member count and titl
 
 // cause resolves a cause's rows into members and fills in what they imply. Every row must be in
 // the cause's source package, so a cause cannot quietly cover another package's findings.
-func (s *scanned) cause(in causeInput, now time.Time) (agentstore.Cause, error) {
+func (s *scanned) cause(in causeInput, job string, now time.Time) (agentstore.Cause, error) {
 	c := in.Cause
 	listed := slices.Clone(c.Members)
 	for _, id := range in.Rows {
@@ -464,7 +474,7 @@ func (s *scanned) cause(in causeInput, now time.Time) (agentstore.Cause, error) 
 	if err := s.checkGate(&c.Gate); err != nil {
 		return c, err
 	}
-	fillDefaults(&c.Schema, &c.ID, &c.Timestamp, &c.Author, now)
+	fillDefaults(&c.Schema, &c.ID, &c.Timestamp, &c.Author, job, now)
 	if err := c.Validate(); err != nil {
 		return c, err
 	}
