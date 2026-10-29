@@ -16,7 +16,7 @@ import { effectCell } from "./findings";
 import { jobsToggle } from "./jobs";
 import { effectRank } from "./listing";
 import { failed, loading } from "./lists";
-import { orFix } from "./namespace";
+import { orFix, unlistedAlert } from "./namespace";
 import { queueFor } from "./queuelist";
 import { formatRoute, withFilters, type Route } from "./route";
 import { renderShell, type Nav, type View } from "./shell";
@@ -146,7 +146,8 @@ export function researchView(host: HTMLElement, r: ResearchRoute, nav: Nav, sign
       foot: (xs) => plural(xs.length, "match", "matches"),
     });
 
-    shell(el("div", { class: "review" }, el("div", { class: "rlist" }, el("div", { class: "filters" }, chipRow, image, search), table.el, skipped), panel));
+    // namespaces a start would be refused for, every one at once, before the price is relied on
+    shell(el("div", { class: "review" }, el("div", { class: "rlist" }, unlistedAlert(first.unlisted, true), el("div", { class: "filters" }, chipRow, image, search), table.el, skipped), panel));
 
     function drawChips() {
       const c = chipOf();

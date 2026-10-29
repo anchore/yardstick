@@ -108,8 +108,10 @@
 //	                            math over the active jobs and the batches they are in
 //	POST research (both)      ← refused with an UnlistedNamespace (code unlisted-namespace) when a
 //	                            job's vulnerability is in a namespace its gate's vocabulary lacks:
-//	                            Vocabulary.CheckScanned over the gate's rows
+//	                            Vocabulary.CheckScanned over the gate's rows; the error names every
+//	                            other namespace the request would be refused for
 //	state.unlisted            ← the same, for each namespace of the gate's open rows
+//	research dry run unlisted ← the same, for each namespace of the jobs a start would queue
 //	POST vocabulary/namespace ← claimsv1.AddToList on the writable source's vocabulary.yaml. The
 //	                            gate only picks the source: every gate on that source reads the
 //	                            change, not just this one

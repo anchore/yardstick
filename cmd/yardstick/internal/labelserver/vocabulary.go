@@ -100,26 +100,47 @@ func evalSymlinks(p string) string {
 	return p
 }
 
-// checkNamespaces refuses research on any of the requests whose vulnerability's namespace its
-// gate's vocabulary lacks, answering with an UnlistedNamespace; views are the gates' by name.
-func checkNamespaces(w http.ResponseWriter, views map[string]*view, reqs []research.Request) bool {
+// unlistedIn is each namespace of the requests' vulnerabilities their gate's vocabulary lacks, once
+// per gate, with its refusal's text; views are the gates' by name.
+func unlistedIn(views map[string]*view, reqs []research.Request) []UnlistedNamespace {
+	seen := map[[2]string]bool{}
+	var out []UnlistedNamespace
 	for _, r := range reqs {
-		v := views[r.Gate]
-		if v == nil || v.vocab.CheckWritable() != nil {
+		v, key := views[r.Gate], [2]string{r.Gate, claimsv1.Namespace(r.Vulnerability)}
+		if v == nil || v.vocab.CheckWritable() != nil || seen[key] {
 			continue
 		}
-		err := v.vocab.CheckScanned(r.Vulnerability, v.set.VocabularyPath(), v.related())
+		seen[key] = true
 		var u *claimsv1.Unlisted
-		if errors.As(err, &u) {
-			out := unlistedOf(r.Gate, u)
+		if errors.As(v.vocab.CheckScanned(r.Vulnerability, v.set.VocabularyPath(), v.related()), &u) {
+			n := unlistedOf(r.Gate, u)
 			// the text names the file as the body does
-			u.File = out.File
-			out.Code, out.Error = codeUnlistedNamespace, u.Error()
-			writeJSONStatus(w, http.StatusBadRequest, out)
-			return false
+			u.File = n.File
+			n.Error = u.Error()
+			out = append(out, n)
 		}
 	}
-	return true
+	return out
+}
+
+// checkNamespaces refuses research when any request's namespace is unlisted (unlistedIn),
+// answering with the first as an UnlistedNamespace whose error names the rest too.
+func checkNamespaces(w http.ResponseWriter, views map[string]*view, reqs []research.Request) bool {
+	all := unlistedIn(views, reqs)
+	if len(all) == 0 {
+		return true
+	}
+	out := all[0]
+	out.Code = codeUnlistedNamespace
+	if len(all) > 1 {
+		rest := make([]string, 0, len(all)-1)
+		for _, u := range all[1:] {
+			rest = append(rest, fmt.Sprintf("%s (gate %s)", u.Namespace, u.Gate))
+		}
+		out.Error = strings.TrimSuffix(out.Error, ".") + ". Also not in the vocabulary: " + strings.Join(rest, ", ")
+	}
+	writeJSONStatus(w, http.StatusBadRequest, out)
+	return false
 }
 
 // unlisted is each namespace of the view's open rows its vocabulary lacks, with what the scan

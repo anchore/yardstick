@@ -280,6 +280,28 @@ func TestE2EUnlistedNamespace(t *testing.T) {
 			t.Errorf("POST %s's refusal: %+v", path, got)
 		}
 	}
+	// a dry run of every open row says so too, before anything is refused; with CVE unlisted as
+	// well, it lists each gate's namespaces at once, and a start names them all
+	var plan labelserver.ResearchQueueResponse
+	all := map[string]any{"groups": []string{"change", "none"}, "dryRun": true}
+	if code := post(t, h, token, "/api/research", all, &plan); code != http.StatusOK || !slices.ContainsFunc(plan.Unlisted, func(u labelserver.UnlistedNamespace) bool {
+		return u.Gate == "deb-npm" && u.Namespace == "GHSA" && strings.Contains(u.Error, text)
+	}) {
+		t.Errorf("dry run on an unlisted namespace: %d %+v", code, plan.Unlisted)
+	}
+	if err := os.WriteFile(vocab, []byte(strings.Replace(edited, "vulnerability-namespaces: [CVE]", "vulnerability-namespaces: []", 1)), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if code := post(t, h, token, "/api/research", all, &plan); code != http.StatusOK || len(plan.Unlisted) != 2 || plan.Unlisted[1].Namespace != "CVE" {
+		t.Errorf("dry run with CVE unlisted too: %d %+v", code, plan.Unlisted)
+	}
+	delete(all, "dryRun")
+	if rec := send("/api/research", all); rec.Code != http.StatusBadRequest || !strings.Contains(rec.Body.String(), "Also not in the vocabulary: ") {
+		t.Errorf("start with CVE unlisted too: %d %s", rec.Code, rec.Body)
+	}
+	if err := os.WriteFile(vocab, []byte(edited), 0o600); err != nil {
+		t.Fatal(err)
+	}
 	var jl labelserver.ResearchJobs
 	get(t, h, "/api/research/jobs", &jl)
 	if len(jl.Jobs) != 0 {
