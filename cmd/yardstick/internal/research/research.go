@@ -38,7 +38,12 @@ import (
 // resolves a relative rule against the session's current directory, which moves when the agent runs
 // `cd` in Bash (allowed, as a read-only command), and every write after that was refused. Start
 // refuses a workspace whose path could change what the rule means (see checkRulePath).
+//
+// With Config.PluginDir set, the plugin is loaded from there for this run only (--plugin-dir wins
+// over an installed plugin of the same name), so a branch's skills can be tried without touching the
+// user's Claude Code setup.
 const DefaultCommand = `claude -p "/yardstick:research-vuln row:$YARDSTICK_ROW $YARDSTICK_ROOT" --model "${YARDSTICK_MODEL:-sonnet}" ` +
+	`${YARDSTICK_PLUGIN_DIR:+--plugin-dir "$YARDSTICK_PLUGIN_DIR"} ` +
 	`--allowedTools "Bash(yardstick claims agent propose *),Bash(yardstick claims policy),Bash(yardstick claims policy *),Read,Grep,Glob,Edit(/$YARDSTICK_ROOT/.yardstick/research/**),WebFetch,WebSearch" ` +
 	`--output-format stream-json --verbose`
 
@@ -120,6 +125,9 @@ type Config struct {
 	// Recorded is when each job last recorded a call (a proposal or cause stamped with its id); a
 	// job that exited 0 with none since it started is NotRecorded. Nil takes exiting 0 as recorded.
 	Recorded func() (map[string]time.Time, error)
+	// PluginDir is a yardstick plugin directory research loads instead of the installed plugin,
+	// given to the command as YARDSTICK_PLUGIN_DIR; empty runs the installed one
+	PluginDir string
 }
 
 // Runner queues jobs and runs up to Concurrency at a time.
@@ -400,6 +408,7 @@ func (j Job) env(cfg Config) []string {
 		"YARDSTICK_RESEARCH_JOB=" + j.ID,                                                 // `yardstick claims agent propose` stamps it on the proposals the job records
 		JobDirEnv + "=" + filepath.Join(cfg.Dir, ".yardstick", "research", "jobs", j.ID), // and leaves its refusal there
 		"YARDSTICK_MODEL=" + cmp.Or(j.Model, cfg.Model),
+		"YARDSTICK_PLUGIN_DIR=" + cfg.PluginDir,
 	}
 	if cfg.Bin != "" {
 		env = append(env, "PATH="+filepath.Dir(cfg.Bin)+string(os.PathListSeparator)+os.Getenv("PATH"))

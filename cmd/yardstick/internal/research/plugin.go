@@ -4,7 +4,9 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
 	"time"
 )
@@ -45,6 +47,36 @@ func CheckPlugin(ctx context.Context, version string) Availability {
 		return Availability{Reason: fmt.Sprintf("unable to read claude plugin list --json: %v", err)}
 	}
 	return pluginAvailability(plugins, version)
+}
+
+// CheckPluginDir is CheckPlugin for a plugin research loads from a directory (Config.PluginDir)
+// instead of the installed one: it must be a yardstick plugin, at this binary's version as
+// CheckPlugin compares them.
+func CheckPluginDir(dir, version string) Availability {
+	if _, err := exec.LookPath("claude"); err != nil {
+		return Availability{Reason: "claude is not on PATH; research runs the yardstick plugin's research-vuln skill in Claude Code"}
+	}
+	var manifest struct {
+		Name    string `json:"name"`
+		Version string `json:"version"`
+	}
+	b, err := os.ReadFile(filepath.Join(dir, ".claude-plugin", "plugin.json"))
+	if err == nil {
+		err = json.Unmarshal(b, &manifest)
+	}
+	if err != nil || manifest.Name != "yardstick" {
+		return Availability{Reason: fmt.Sprintf("%s is not a yardstick plugin directory (it needs .claude-plugin/plugin.json naming yardstick)", dir)}
+	}
+	a := pluginAvailability([]installedPlugin{{ID: "yardstick@" + dir, Version: manifest.Version, Enabled: true}}, version)
+	switch {
+	case !a.Available:
+		a.Command = "" // updating the marketplace doesn't change a directory
+	case a.Reason == "":
+		a.Reason = "research runs the yardstick plugin in " + dir
+	default:
+		a.Reason = strings.Replace(a.Reason, "the installed yardstick plugin", "the yardstick plugin in "+dir, 1)
+	}
+	return a
 }
 
 func pluginAvailability(plugins []installedPlugin, version string) Availability {

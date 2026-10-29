@@ -31,6 +31,14 @@ Every screen draws into `#app` through `renderShell` (`web/src/app/shell.ts`), a
 
 When e2e fails in CI, download the `playwright-results` artifact and drop its `trace.zip` on https://trace.playwright.dev. The trace loads locally in the browser and nothing is uploaded.
 
+## Trying a branch in another repo's gate
+
+A gate in another repo (vunnel's `tests/integration`, grype's quality gate) runs the yardstick in its `.tool/`, which binny installs from a release. To run a branch there:
+
+1. Build it with its label UI: `make snapshot:single-target` (goreleaser, which runs `make generate` first) leaves the binary under `snapshot/`. A plain `go install` or `go build` has no UI, since the built assets aren't committed, and `claims serve` refuses to start without them; `make generate && go build ./cmd/yardstick` works too, but has no version stamp.
+2. Copy it over the other repo's `.tool/yardstick`. That repo's make targets run `binny check` first and may put the release back, so run yardstick from `.tool/` directly while you try it.
+3. Research runs the yardstick Claude Code plugin. A branch build of the plugin's release (stamped like `v0.17.0-SNAPSHOT-abc1234`) runs the installed plugin, and says so on the gates page. To run the branch's own skills instead, without changing Claude Code's setup, start the server with `yardstick claims serve --research-plugin-dir <this clone>/plugin`. Research jobs then load that directory for their run only.
+
 ## Output
 
 Every command follows the same few rules, so they read alike:
