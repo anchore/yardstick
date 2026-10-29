@@ -427,8 +427,7 @@ func (s *Server) handleRecord(w http.ResponseWriter, req *http.Request) {
 	if !decode(w, req, &body) {
 		return
 	}
-	e, v := s.viewFor(w, req)
-	if v == nil {
+	if _, v := s.viewFor(w, req); v == nil {
 		return
 	}
 	idx, err := s.researchIndex()
@@ -441,11 +440,9 @@ func (s *Server) handleRecord(w http.ResponseWriter, req *http.Request) {
 		http.Error(w, "no research job on row "+body.Row, http.StatusNotFound)
 		return
 	}
-	// the gate the request is about is the one the job researched under, whose scans its rows are
-	if g := idx.byID[sum.Job].Gate; g != e.name {
-		http.Error(w, fmt.Sprintf("row %s's research job is about gate %s, not %s", body.Row, g, e.name), http.StatusBadRequest)
-		return
-	}
+	// a row id is the same in every gate that scans its image, and the finding page shows the row's
+	// newest job whichever gate it ran under; Record proposes under the job's own gate, so the
+	// request's gate only has to exist
 	job, err := s.opts.Research.Record(s.ctx, sum.Job)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)

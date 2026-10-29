@@ -197,7 +197,8 @@ func (r *Runner) Record(ctx context.Context, id string) (Job, error) {
 	if o == nil || o.Proposal == nil {
 		return job, errors.New("this run wrote no proposal with a verdict about its rows to record")
 	}
-	args := []string{"claims", "agent", "propose", "--name", cmp.Or(job.Run, r.cfg.Run), "--gate", job.Gate, filepath.Join(r.cfg.Dir, o.Dir, ProposalFile)}
+	args := append([]string{"claims", "agent", "propose", "--name", cmp.Or(job.Run, r.cfg.Run), "--gate", job.Gate, filepath.Join(r.cfg.Dir, o.Dir, ProposalFile)},
+		r.rowCopies(job, filepath.Join(r.cfg.Dir, o.Dir), *o.Proposal)...)
 	ctx, cancel := context.WithTimeout(ctx, time.Minute)
 	defer cancel()
 	cmd := exec.CommandContext(ctx, r.cfg.Bin, args...) //nolint:gosec // G204: this binary, the job's own file
@@ -229,4 +230,40 @@ func (r *Runner) Record(ctx context.Context, id string) (Job, error) {
 	cur.Status, cur.Error, cur.Recorded = Done, "", true
 	cur.LastDone = time.Now().UTC()
 	return cur, r.save(cur)
+}
+
+// rowCopies are the per-row copies of the proposal the skill writes beside proposal.json when the
+// finding covers several binary packages (proposal-<row id>.json): this run's, about another of the
+// job's rows, and saying what the page shows (the verdict and justification of proposal.json), so
+// Record records every row the agent would have and nothing the page didn't show.
+func (r *Runner) rowCopies(job Job, dir string, shown Written) []string {
+	paths, _ := filepath.Glob(filepath.Join(dir, "proposal-*.json"))
+	var out []string
+	var first struct {
+		Row string `json:"row"`
+	}
+	if data, err := os.ReadFile(filepath.Join(dir, ProposalFile)); err == nil {
+		_ = json.Unmarshal(data, &first)
+	}
+	seen := map[string]bool{first.Row: true} // proposal.json's row is recorded already
+	for _, p := range paths {
+		var w struct {
+			Written
+			Row string `json:"row"`
+		}
+		info, err := os.Stat(p)
+		if err != nil || info.ModTime().Before(job.Started) {
+			continue
+		}
+		data, err := os.ReadFile(p)
+		if err != nil || json.Unmarshal(data, &w) != nil {
+			continue
+		}
+		if !slices.Contains(job.Rows, w.Row) || seen[w.Row] || w.Verdict != shown.Verdict || w.Justification != shown.Justification {
+			continue
+		}
+		seen[w.Row] = true
+		out = append(out, p)
+	}
+	return out
 }

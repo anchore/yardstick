@@ -140,3 +140,32 @@ func TestRecordSaysWhyProposeRefused(t *testing.T) {
 		t.Errorf("expected the job left not recorded, got %s", j.Status)
 	}
 }
+
+// a finding over several binary packages: the skill writes a copy per row beside proposal.json, and
+// Record records each of the job's rows once, saying what the page shows, and no other row
+func TestRecordRecordsEveryRowsCopy(t *testing.T) {
+	dir := t.TempDir()
+	bin := filepath.Join(t.TempDir(), "yardstick")
+	if err := os.WriteFile(bin, []byte(fakePropose), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	const wrote = `d=.yardstick/research/CVE-1/foo && mkdir -p "$d" && ` +
+		`printf '{"row":"aaa","verdict":"tp","justification":"no-fix"}\n' | tee "$d/proposal.json" > "$d/proposal-aaa.json" && ` +
+		`printf '{"row":"bbb","verdict":"tp","justification":"no-fix"}\n' > "$d/proposal-bbb.json" && ` +
+		`printf '{"row":"bbb","verdict":"fp","justification":"no-fix"}\n' > "$d/proposal-bbb2.json" && ` +
+		`printf '{"row":"zzz","verdict":"tp","justification":"no-fix"}\n' > "$d/proposal-zzz.json"`
+	none := func() (map[string]time.Time, error) { return map[string]time.Time{}, nil }
+	r := NewRunner(Config{Command: wrote, Dir: dir, Run: "pr", Timeout: time.Minute, Bin: bin, Recorded: none})
+	if _, err := r.Start(context.Background(), Request{Rows: []string{"aaa", "bbb"}, Vulnerability: "CVE-1", Package: "pkg:npm/foo@1", Gate: "g"}); err != nil {
+		t.Fatal(err)
+	}
+	r.Wait()
+	if _, err := r.Record(context.Background(), "aaa"); err != nil {
+		t.Fatal(err)
+	}
+	d := filepath.Join(dir, ".yardstick", "research", "CVE-1", "foo")
+	args := strings.TrimSpace(string(must(os.ReadFile(filepath.Join(dir, "args.txt")))))
+	if want := "claims agent propose --name pr --gate g " + filepath.Join(d, ProposalFile) + " " + filepath.Join(d, "proposal-bbb.json"); args != want {
+		t.Errorf("propose got %q, want %q", args, want)
+	}
+}
