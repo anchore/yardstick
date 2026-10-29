@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -101,18 +102,14 @@ func (r *Runner) output(job Job) (*Output, []byte) {
 	return out, raw
 }
 
+// readCapped is the first maxReport bytes of a file.
 func readCapped(path string) ([]byte, error) {
 	f, err := os.Open(path)
 	if err != nil {
 		return nil, err
 	}
 	defer f.Close()
-	buf := make([]byte, maxReport)
-	n, err := f.Read(buf)
-	if err != nil && n == 0 {
-		return nil, err
-	}
-	return buf[:n], nil
+	return io.ReadAll(io.LimitReader(f, maxReport))
 }
 
 // Record records the proposal the job's agent wrote but didn't record, as it would have: this
