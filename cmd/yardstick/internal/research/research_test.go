@@ -227,3 +227,25 @@ func TestAJobsIDIsItsDirectory(t *testing.T) {
 		t.Errorf("its log is %s", got)
 	}
 }
+
+// the agent may write research output, never a job record the server trusts
+func TestDefaultCommandDeniesJobRecords(t *testing.T) {
+	if !strings.Contains(DefaultCommand, `--disallowedTools "Edit(/$YARDSTICK_ROOT/.yardstick/research/jobs/**)"`) {
+		t.Errorf("expected job records denied, got %s", DefaultCommand)
+	}
+}
+
+// the agent's propose reads the same claims sources the server does
+func TestJobEnvPassesTheServersClaims(t *testing.T) {
+	env := Job{ID: "a", Rows: []string{"a"}}.env(Config{Claims: []string{"github.com/anchore/claims@main", "./additional-claims"}})
+	if !slices.Contains(env, "YARDSTICK_CLAIMS=github.com/anchore/claims@main,./additional-claims") {
+		t.Errorf("expected the claims sources, got %v", env)
+	}
+	if slices.ContainsFunc(Job{ID: "a", Rows: []string{"a"}}.env(Config{}), func(kv string) bool { return strings.HasPrefix(kv, "YARDSTICK_CLAIMS=") }) {
+		t.Error("expected no YARDSTICK_CLAIMS without sources, so the workspace's config applies")
+	}
+	r := NewRunner(Config{Dir: "/w", Claims: []string{"/a,b"}})
+	if _, err := r.Start(context.Background(), Request{Rows: []string{"aaa"}}); err == nil {
+		t.Error("expected a claims source with a comma refused")
+	}
+}

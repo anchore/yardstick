@@ -89,7 +89,7 @@ explanations under .yardstick/ show as hints; none counts until a person accepts
 			if author == "" {
 				return errors.New("no author: give --author, or set git config user.name")
 			}
-			runner, avail, err := newResearch(cmd, app.ID().Version, cfg.Name, cfg.ResearchModel, cfg.ResearchPluginDir)
+			runner, avail, err := newResearch(cmd, app.ID().Version, cfg.Name, cfg.ResearchModel, cfg.ResearchPluginDir, cfg.Claims)
 			if err != nil {
 				return err
 			}
@@ -116,7 +116,7 @@ explanations under .yardstick/ show as hints; none counts until a person accepts
 
 // newResearch is the runner research jobs start from, in the working directory, and whether the
 // yardstick plugin they need is installed at this binary's version. yardstick never installs it.
-func newResearch(cmd *cobra.Command, version, run, model, pluginDir string) (*research.Runner, research.Availability, error) {
+func newResearch(cmd *cobra.Command, version, run, model, pluginDir string, claims []string) (*research.Runner, research.Availability, error) {
 	dir, err := os.Getwd()
 	if err != nil {
 		return nil, research.Availability{}, err
@@ -125,6 +125,17 @@ func newResearch(cmd *cobra.Command, version, run, model, pluginDir string) (*re
 	if err != nil {
 		return nil, research.Availability{}, err
 	}
+	// local sources by absolute path, so the agent's propose finds them wherever it runs from
+	abs := make([]string, len(claims))
+	for i, c := range claims {
+		abs[i] = c
+		if info, err := os.Stat(c); err == nil && info.IsDir() {
+			if p, err := filepath.Abs(c); err == nil {
+				abs[i] = p
+			}
+		}
+	}
+	claims = abs
 	var avail research.Availability
 	if pluginDir != "" {
 		if pluginDir, err = filepath.Abs(pluginDir); err != nil {
@@ -153,7 +164,7 @@ func newResearch(cmd *cobra.Command, version, run, model, pluginDir string) (*re
 	}
 	store := agentstore.Open(filepath.Join(dir, agentstore.Dir))
 	return research.NewRunner(research.Config{Model: model, Dir: dir, Run: run, Concurrency: 2, Timeout: 20 * time.Minute, Bin: bin,
-		PluginDir: pluginDir, Recorded: store.RecordedJobs}), avail, nil
+		PluginDir: pluginDir, Claims: claims, Recorded: store.RecordedJobs}), avail, nil
 }
 
 func serve(ctx context.Context, cmd *cobra.Command, addr string, open bool, h http.Handler) error {

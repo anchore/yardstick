@@ -37,7 +37,10 @@ import (
 // The Edit rule is absolute ("//" + the workspace, as /$YARDSTICK_ROOT expands to): Claude Code
 // resolves a relative rule against the session's current directory, which moves when the agent runs
 // `cd` in Bash (allowed, as a read-only command), and every write after that was refused. Start
-// refuses a workspace whose path could change what the rule means (see checkRulePath).
+// refuses a workspace whose path could change what the rule means (see checkRulePath). The job
+// records under .yardstick/research/jobs/ are denied (a deny rule wins over the allow): the server
+// trusts them for a job's status, its refusal and the paths it reads and writes, so the agent, which
+// reads pages anyone can write, must not be able to forge or edit one.
 //
 // With Config.PluginDir set, the plugin is loaded from there for this run only (--plugin-dir wins
 // over an installed plugin of the same name), so a branch's skills can be tried without touching the
@@ -45,6 +48,7 @@ import (
 const DefaultCommand = `claude -p "/yardstick:research-vuln row:$YARDSTICK_ROW $YARDSTICK_ROOT" --model "${YARDSTICK_MODEL:-sonnet}" ` +
 	`${YARDSTICK_PLUGIN_DIR:+--plugin-dir "$YARDSTICK_PLUGIN_DIR"} ` +
 	`--allowedTools "Bash(yardstick claims agent propose *),Bash(yardstick claims policy),Bash(yardstick claims policy *),Read,Grep,Glob,Edit(/$YARDSTICK_ROOT/.yardstick/research/**),WebFetch,WebSearch" ` +
+	`--disallowedTools "Edit(/$YARDSTICK_ROOT/.yardstick/research/jobs/**)" ` +
 	`--output-format stream-json --verbose`
 
 // DefaultModel is the model research runs on unless configured otherwise: a name or alias the
@@ -131,6 +135,10 @@ type Config struct {
 	// PluginDir is a yardstick plugin directory research loads instead of the installed plugin,
 	// given to the command as YARDSTICK_PLUGIN_DIR; empty runs the installed one
 	PluginDir string
+	// Claims are the claims sources the server reads after each gate's own (claims serve's
+	// --claims and config), given to the command as YARDSTICK_CLAIMS so the agent's propose checks
+	// against the same vocabulary, including a namespace the UI just added to the last of them
+	Claims []string
 }
 
 // Runner queues jobs and runs up to Concurrency at a time.
@@ -261,6 +269,11 @@ func (r *Runner) Start(ctx context.Context, req Request) (Job, error) {
 // check refuses a request this runner can't start: an unknown model, or a workspace the default
 // command's Edit rule can't name
 func (r *Runner) check(req Request) error {
+	for _, c := range r.cfg.Claims {
+		if strings.Contains(c, ",") {
+			return fmt.Errorf("research can't pass the claims source %q on: YARDSTICK_CLAIMS is comma-separated", c)
+		}
+	}
 	if req.Model != "" {
 		if err := CheckModel(req.Model); err != nil {
 			return err
@@ -419,6 +432,9 @@ func (j Job) env(cfg Config) []string {
 		JobDirEnv + "=" + filepath.Join(cfg.Dir, ".yardstick", "research", "jobs", j.ID), // and leaves its refusal there
 		"YARDSTICK_MODEL=" + cmp.Or(j.Model, cfg.Model),
 		"YARDSTICK_PLUGIN_DIR=" + cfg.PluginDir,
+	}
+	if len(cfg.Claims) > 0 {
+		env = append(env, "YARDSTICK_CLAIMS="+strings.Join(cfg.Claims, ",")) // clio splits it on commas; check refuses a source with one
 	}
 	if cfg.Bin != "" {
 		env = append(env, "PATH="+filepath.Dir(cfg.Bin)+string(os.PathListSeparator)+os.Getenv("PATH"))
