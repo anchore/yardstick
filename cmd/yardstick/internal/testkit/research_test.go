@@ -507,9 +507,9 @@ func TestE2EResearchInFlight(t *testing.T) {
 }
 
 // notRecordedCommand stands in for research whose propose call was denied, as headless claude's
-// were in the CleanStart turnup: it writes its report and proposal where the skill does, and never
-// proposes
-const notRecordedCommand = `d=.yardstick/research/$YARDSTICK_RESEARCH_VULNERABILITY/tar && mkdir -p "$d" && printf '# %s on tar\n\ntp, medium confidence\n' "$YARDSTICK_RESEARCH_VULNERABILITY" > "$d/REPORT.md" && ` +
+// were in the CleanStart turnup: it writes its report and proposal in the job's output directory, as
+// the skill does, and never proposes
+const notRecordedCommand = `d=$YARDSTICK_RESEARCH_OUT && mkdir -p "$d" && printf '# %s on tar\n\ntp, medium confidence\n' "$YARDSTICK_RESEARCH_VULNERABILITY" > "$d/REPORT.md" && ` +
 	`printf '{"row":"%s","verdict":"tp","justification":"no-fix","confidence":"medium","note":"e2e","openQuestions":["Was the fix backported?"],"author":{"skill":"research-vuln","model":"e2e"}}\n' "$YARDSTICK_ROW" > "$d/proposal.json" && ` +
 	`echo '{"type":"result","subtype":"success","result":"Verdict I would propose: tp, no-fix, medium.","total_cost_usd":0.27,"num_turns":18,"permission_denials":[{"tool_name":"Bash","tool_use_id":"t1","tool_input":{"command":"yardstick claims agent propose --gate deb-java proposal.json"}}]}'`
 
@@ -544,7 +544,7 @@ func TestE2EResearchNotRecorded(t *testing.T) {
 	}
 	r := d.Research
 	if r == nil || !r.Recordable || r.Summary != "Verdict I would propose: tp, no-fix, medium." || r.Output == nil ||
-		r.Output.Dir != filepath.Join(".yardstick", "research", "CVE-2026-18508", "tar") || !slices.Equal(r.Output.Files, []string{"REPORT.md", "proposal.json"}) ||
+		r.Output.Dir != filepath.Join(".yardstick", "research", "job-"+tar) || !slices.Equal(r.Output.Files, []string{"REPORT.md", "proposal.json"}) ||
 		!strings.Contains(r.Output.Report, "tp, medium confidence") || r.Output.Proposal == nil || r.Output.Proposal.Verdict != "tp" ||
 		!slices.Equal(r.Output.Proposal.OpenQuestions, []string{"Was the fix backported?"}) {
 		t.Fatalf("what the research wrote: %+v %+v", r, r.Output)

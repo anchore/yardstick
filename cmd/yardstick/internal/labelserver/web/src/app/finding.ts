@@ -325,7 +325,6 @@ function researchSection(d: FindingData, record: () => void, failed: string) {
     failed && el("p", { class: "err", role: "alert", "data-testid": "research-record-error" }, failed),
     !quiet && p?.openQuestions?.length ? el("div", { "data-testid": "research-questions" }, el("h4", {}, "Open questions"), el("ul", {}, p.openQuestions.map((x) => el("li", {}, x)))) : null,
     !quiet && det?.summary && el("details", { "data-testid": "research-summary" }, el("summary", {}, "The agent's last message"), el("p", { class: "pre" }, det.summary)),
-    out?.otherRow && el("p", { class: "help", "data-testid": "research-other-row" }, `${out.dir} holds research on another finding (row ${out.otherRow}), not this job's.`),
     out?.report && el("details", { "data-testid": "research-report", open: !quiet }, el("summary", {}, "REPORT.md"), el("pre", { class: "report" }, out.report)),
     el("p", { class: "help" }, el("a", { class: "lk", href: jobHref(j.job), "data-testid": "research-job" }, "view job"),
       !inFlight(j) && [" · ", el("a", { class: "lk", href: `/api/research/${encodeURIComponent(j.job)}/log`, target: "_blank", rel: "noopener" }, "log")],

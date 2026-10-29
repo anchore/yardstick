@@ -10,8 +10,8 @@ import (
 )
 
 // wroteCommand stands in for research whose propose call was denied: it writes its report and a
-// proposal on its row where the plugin does, and a second proposal naming another row beside it
-const wroteCommand = `d=.yardstick/research/CVE-1/foo && mkdir -p "$d" && printf '# report\n' > "$d/REPORT.md" && ` +
+// proposal on its row in the job's output directory, and a second proposal naming another row beside it
+const wroteCommand = `d=$YARDSTICK_RESEARCH_OUT && mkdir -p "$d" && printf '# report\n' > "$d/REPORT.md" && ` +
 	`printf '{"row":"%s","verdict":"tp","justification":"no-fix"}\n' "$YARDSTICK_ROW" > "$d/proposal.json" && ` +
 	`printf '{"row":"zzz","verdict":"fp","justification":"no-fix"}\n' > "$d/proposal-z.json"`
 
@@ -46,7 +46,7 @@ func recordRunner(t *testing.T) *Runner {
 func TestRecordRecordsWhatThePageShows(t *testing.T) {
 	r := recordRunner(t)
 	out := r.Output(must(r.load("aaa")))
-	if out.Proposal == nil || out.Proposal.Verdict != "tp" || out.Report != "# report\n" || out.OtherRow != "" {
+	if out.Proposal == nil || out.Proposal.Verdict != "tp" || out.Report != "# report\n" {
 		t.Fatalf("expected this run's proposal and report, got %+v", out)
 	}
 	j, err := r.Record(context.Background(), "aaa")
@@ -54,7 +54,7 @@ func TestRecordRecordsWhatThePageShows(t *testing.T) {
 		t.Fatalf("expected recorded and done, got %+v %v", j, err)
 	}
 	args := strings.TrimSpace(string(must(os.ReadFile(filepath.Join(r.cfg.Dir, "args.txt")))))
-	if want := "claims agent propose --name pr --gate g " + filepath.Join(r.cfg.Dir, ".yardstick", "research", "CVE-1", "foo", ProposalFile); args != want {
+	if want := "claims agent propose --name pr --gate g " + filepath.Join(r.cfg.Dir, ".yardstick", "research", "job-aaa", ProposalFile); args != want {
 		t.Errorf("propose got %q, want %q", args, want)
 	}
 	if _, err := r.Record(context.Background(), "aaa"); err == nil || !strings.Contains(err.Error(), "the job is done") {
@@ -62,35 +62,36 @@ func TestRecordRecordsWhatThePageShows(t *testing.T) {
 	}
 }
 
-// a proposal in the shared folder about another row, or from before this run, isn't this job's
-func TestRecordRefusesAnotherRowsOrAnEarlierRunsProposal(t *testing.T) {
+// a proposal naming a row the job doesn't research isn't shown or recorded as the job's
+func TestRecordRefusesAnotherRowsProposal(t *testing.T) {
 	r := recordRunner(t)
-	p := filepath.Join(r.cfg.Dir, ".yardstick", "research", "CVE-1", "foo", ProposalFile)
+	p := filepath.Join(r.cfg.Dir, ".yardstick", "research", "job-aaa", ProposalFile)
 	if err := os.WriteFile(p, []byte(`{"row":"zzz","verdict":"fp","justification":"no-fix"}`), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	job := must(r.load("aaa"))
-	if out := r.Output(job); out.Proposal != nil || out.OtherRow != "zzz" || out.Report != "" {
-		t.Errorf("expected another finding's research, not shown as this job's, got %+v", out)
+	if out := r.Output(must(r.load("aaa"))); out.Proposal != nil {
+		t.Errorf("expected another row's proposal not shown as this job's, got %+v", out)
 	}
 	if _, err := r.Record(context.Background(), "aaa"); err == nil {
 		t.Error("expected another row's proposal refused")
 	}
-	// the job's own row again, but written before this run started
-	if err := os.WriteFile(p, []byte(`{"row":"aaa","verdict":"tp"}`), 0o600); err != nil {
+}
+
+// a rerun starts from an empty output directory, and a job that never started shows none
+func TestOutputIsTheLastRunsOnly(t *testing.T) {
+	r := recordRunner(t)
+	r.cfg.Command = "true"
+	if _, err := r.Start(context.Background(), Request{Rows: []string{"aaa"}, Vulnerability: "CVE-1", Package: "pkg:npm/foo@1", Gate: "g"}); err != nil {
 		t.Fatal(err)
 	}
-	before := job.Started.Add(-time.Hour)
-	for _, f := range []string{p, filepath.Join(filepath.Dir(p), Report)} {
-		if err := os.Chtimes(f, before, before); err != nil {
-			t.Fatal(err)
-		}
+	r.Wait()
+	job := must(r.load("aaa"))
+	if out := r.Output(job); out == nil || out.Proposal != nil || out.Report != "" || len(out.Files) != 0 {
+		t.Errorf("expected the last run's output gone, got %+v", out)
 	}
-	if out := r.Output(job); out.Proposal != nil || out.Report != "" || len(out.Files) != 2 {
-		t.Errorf("expected an earlier run's files listed but not shown, got %+v", out)
-	}
-	if _, err := r.Record(context.Background(), "aaa"); err == nil {
-		t.Error("expected an earlier run's proposal refused")
+	job.Started = time.Time{}
+	if out := r.Output(job); out != nil {
+		t.Errorf("expected no output for a job that never started, got %+v", out)
 	}
 }
 
@@ -149,7 +150,7 @@ func TestRecordRecordsEveryRowsCopy(t *testing.T) {
 	if err := os.WriteFile(bin, []byte(fakePropose), 0o700); err != nil {
 		t.Fatal(err)
 	}
-	const wrote = `d=.yardstick/research/CVE-1/foo && mkdir -p "$d" && ` +
+	const wrote = `d=$YARDSTICK_RESEARCH_OUT && mkdir -p "$d" && ` +
 		`printf '{"row":"aaa","verdict":"tp","justification":"no-fix"}\n' | tee "$d/proposal.json" > "$d/proposal-aaa.json" && ` +
 		`printf '{"row":"bbb","verdict":"tp","justification":"no-fix"}\n' > "$d/proposal-bbb.json" && ` +
 		`printf '{"row":"bbb","verdict":"fp","justification":"no-fix"}\n' > "$d/proposal-bbb2.json" && ` +
@@ -163,7 +164,7 @@ func TestRecordRecordsEveryRowsCopy(t *testing.T) {
 	if _, err := r.Record(context.Background(), "aaa"); err != nil {
 		t.Fatal(err)
 	}
-	d := filepath.Join(dir, ".yardstick", "research", "CVE-1", "foo")
+	d := filepath.Join(dir, ".yardstick", "research", "job-aaa")
 	args := strings.TrimSpace(string(must(os.ReadFile(filepath.Join(dir, "args.txt")))))
 	if want := "claims agent propose --name pr --gate g " + filepath.Join(d, ProposalFile) + " " + filepath.Join(d, "proposal-bbb.json"); args != want {
 		t.Errorf("propose got %q, want %q", args, want)

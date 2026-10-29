@@ -30,10 +30,10 @@ A research job launched from `yardstick claims serve` runs
 `/yardstick:research-vuln row:$YARDSTICK_ROW $YARDSTICK_ROOT` and sets `YARDSTICK_ROOT` (the
 workspace), `YARDSTICK_GATE`, `YARDSTICK_NAME` (the run), `YARDSTICK_ROW`, `YARDSTICK_ROWS` (every
 row the job covers), `YARDSTICK_RESEARCH_VULNERABILITY`, `YARDSTICK_RESEARCH_PACKAGE`,
-`YARDSTICK_BIN`, `YARDSTICK_MODEL` and `YARDSTICK_RESEARCH_JOB`; the helper and `yardstick claims
-propose` read them, and propose stamps the job on the proposal. In a job, propose refuses a
-proposal without a `row` from `YARDSTICK_ROWS`, a `--gate` other than the job's, and a `subject`
-other than the row's.
+`YARDSTICK_BIN`, `YARDSTICK_MODEL`, `YARDSTICK_RESEARCH_JOB` and `YARDSTICK_RESEARCH_OUT` (the job's
+output directory); the helper and `yardstick claims propose` read them, and propose stamps the job on
+the proposal. In a job, propose refuses a proposal without a `row` from `YARDSTICK_ROWS`, a `--gate`
+other than the job's, and a `subject` other than the row's.
 
 # The question you are answering
 
@@ -58,7 +58,8 @@ python3 -I ${CLAUDE_PLUGIN_ROOT}/scripts/yardstick-vuln-sources.py <VULN or row:
 last, and the run `--name`, else `$YARDSTICK_NAME`, else `default`. The final `propose` needs the
 same gate and run, because row ids are only unique within one gate's last scan under one run.
 
-It writes `<workspace>/.yardstick/research/<VULN>/<package>/`:
+It writes its **output directory**, `$YARDSTICK_RESEARCH_OUT` in a research job (yardstick reads the
+job's result from there), else `<workspace>/.yardstick/research/<VULN>/<package>/`, and prints its path:
 
 - `SUMMARY.md`: both sides' row detail (fix state, constraints, namespace), what each cached DB holds,
   existing labels and notes, the CNA record (state, affected ranges, references), NVD CPE ranges,
@@ -157,7 +158,7 @@ allowed to write under the workspace's `.yardstick/research/` and nowhere else, 
 shell redirect, a heredoc or a script that writes. Never `cd`: run every command as it is shown
 below, from the directory the session started in (a `cd` chained to `propose` is refused too).
 
-Write `<workspace>/.yardstick/research/<VULN>/<package>/REPORT.md`:
+Write `REPORT.md` in the output directory:
 
 1. One line: verdict, confidence, and the single fact that decides it.
 2. Timeline (a short table): CVE published; upstream introduced / fixed; distro status changes and

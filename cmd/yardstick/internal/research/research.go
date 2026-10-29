@@ -334,8 +334,12 @@ func (r *Runner) run(ctx context.Context, job *Job) {
 	_ = r.save(*job)
 	log.Infof("research %s: started (%s %s)", job.ID, job.Vulnerability, job.Package)
 
-	// a rerun's refusal is its own: the last run's is no reason this one recorded nothing
+	// a rerun's refusal and output are its own: the last run's is no reason this one recorded nothing,
+	// nor what it wrote
 	_ = os.Remove(filepath.Join(r.jobs, job.ID, ProposeErrorFile))
+	if rel := OutputDir(*job); rel != "" {
+		_ = os.RemoveAll(filepath.Join(r.cfg.Dir, rel))
+	}
 	logFile, err := os.Create(filepath.Join(r.jobs, job.ID, "log.txt"))
 	if err != nil {
 		r.finish(job, Failed, err)
@@ -450,6 +454,7 @@ func (j Job) env(cfg Config) []string {
 		"YARDSTICK_BIN=" + cfg.Bin,
 		JobEnv + "=" + j.ID,                                                  // `yardstick claims agent propose` stamps it on the proposals the job records
 		JobDirEnv + "=" + filepath.Join(cfg.Dir, ".yardstick", "jobs", j.ID), // and leaves its refusal there
+		OutputEnv + "=" + filepath.Join(cfg.Dir, OutputDir(j)),               // the agent's report and proposal
 		"YARDSTICK_MODEL=" + cmp.Or(j.Model, cfg.Model),
 		"YARDSTICK_PLUGIN_DIR=" + cfg.PluginDir,
 	}

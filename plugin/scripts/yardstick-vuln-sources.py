@@ -3,7 +3,8 @@
 
     yardstick-vuln-sources.py <VULN-ID | row:<row id>> [--pkg NAME] [--store DIR] [--name RUN] [--gate NAME] [--model ID]
 
-Writes one file per source under <store>/.yardstick/research/<VULN>/<pkg>/ plus SUMMARY.md,
+Writes one file per source under <store>/.yardstick/research/<VULN>/<pkg>/ (in a research job, the
+job's own directory, $YARDSTICK_RESEARCH_OUT) plus SUMMARY.md,
 which lists what was found, the key facts, and a link for every source, and proposal.json: a
 `yardstick claims agent propose` skeleton (row, author, the facts it observed) with verdict, justification,
 confidence, note, the evidence's interpretation and openQuestions left for you. Nothing here decides a
@@ -99,8 +100,14 @@ def main() -> None:
             sys.exit(f"no row {row_id} in gate {report and report.get('name')}'s scans under run {name}")
         vuln = hit["vulnerability"]
         args.pkg = args.pkg or dc.parse_purl(hit["package"])["name"]
-    # always under the workspace's research directory, the one place a research job may write
-    out = store / ".yardstick" / "research" / safe_part(vuln) / safe_part(args.pkg or "all")
+    # always under the workspace's research directory, the one place a research job may write; a job
+    # names its own directory there, which yardstick reads back as the job's
+    research = (store / ".yardstick" / "research").resolve()
+    out = research / safe_part(vuln) / safe_part(args.pkg or "all")
+    if os.environ.get("YARDSTICK_RESEARCH_OUT"):
+        out = Path(os.environ["YARDSTICK_RESEARCH_OUT"]).resolve()
+        if out == research or not out.is_relative_to(research):
+            sys.exit(f"YARDSTICK_RESEARCH_OUT {out} is not under {research}")
     out.mkdir(parents=True, exist_ok=True)
     S: list[str] = [f"# Sources for {vuln}" + (f" on {args.pkg}" if args.pkg else ""), ""]
     links: list[str] = []

@@ -10,85 +10,33 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"regexp"
 	"slices"
-	"strconv"
 	"strings"
 	"time"
 )
 
 // What a job's agent writes: the research-vuln skill keeps its report and the proposal it means to
-// record under .yardstick/research/<vulnerability>/<package name>/ (the plugin's
-// yardstick-vuln-sources.py), whether or not propose took the proposal.
+// record in the job's own output directory, .yardstick/research/job-<id>/ (OutputEnv), whether or not
+// propose took the proposal. A run outside a job writes under .yardstick/research/<vuln>/<package>/.
 
-// Report and ProposalFile are the skill's files in a job's output directory.
+// Report and ProposalFile are the skill's files in a job's output directory; OutputEnv names that
+// directory for the plugin's yardstick-vuln-sources.py and the skill.
 const (
 	Report       = "REPORT.md"
 	ProposalFile = "proposal.json"
+	OutputEnv    = "YARDSTICK_RESEARCH_OUT"
 )
 
 // maxReport caps how much of a report is read.
 const maxReport = 256 * 1024
 
-// unsafePart is what the plugin replaces in a path component.
-var unsafePart = regexp.MustCompile(`[^A-Za-z0-9._+-]`)
-
-// safePart is one path component as the plugin's safe_part makes it; empty when it refuses one.
-func safePart(s string) string {
-	s = unsafePart.ReplaceAllString(s, "_")
-	if s == "" || s == "." || s == ".." {
-		return ""
-	}
-	return s
-}
-
-// purlName is the plugin's PURL_RE (yardstick_common.py) up to the name: one optional namespace
-// segment, then the name up to the version, qualifiers or subpath. A Go module keeps the path past
-// its first segment in the name (golang.org/x/net names "x/net"), as the plugin's parse_purl does.
-var purlName = regexp.MustCompile(`^pkg:[^/]+/(?:[^/]+/)?([^@?#]+)`)
-
-// packageDir is the plugin's directory for a package: safe_part of parse_purl's name, the purl
-// itself when it doesn't parse, "all" with none.
-func packageDir(purl string) string {
-	name := purl
-	if m := purlName.FindStringSubmatch(purl); m != nil {
-		name = unquote(m[1])
-	}
-	if name == "" {
-		name = "all"
-	}
-	return safePart(name)
-}
-
-// unquote decodes %XX escapes as Python's urllib.parse.unquote does: a malformed escape is left as
-// it is, and the bytes are read as UTF-8. Invalid UTF-8 becomes U+FFFD, one per run here where
-// Python may give several; either way safePart makes each "_", so only such a name's length differs.
-func unquote(s string) string {
-	if !strings.Contains(s, "%") {
-		return s
-	}
-	var b []byte
-	for i := 0; i < len(s); i++ {
-		if s[i] == '%' && i+2 < len(s) {
-			if v, err := strconv.ParseUint(s[i+1:i+3], 16, 8); err == nil {
-				b = append(b, byte(v))
-				i += 2
-				continue
-			}
-		}
-		b = append(b, s[i])
-	}
-	return strings.ToValidUTF8(string(b), "\uFFFD")
-}
-
-// OutputDir is where the job's agent writes its report and proposal, relative to the workspace, as
-// the plugin's yardstick-vuln-sources.py names it; empty when the plugin would refuse the name.
+// OutputDir is where the job's agent writes its report and proposal, relative to the workspace;
+// empty for an id that isn't one path component.
 func OutputDir(job Job) string {
-	vuln, name := safePart(job.Vulnerability), packageDir(job.Package)
-	if vuln == "" || name == "" {
+	if job.ID == "" || filepath.Base(job.ID) != job.ID {
 		return ""
 	}
-	return filepath.Join(".yardstick", "research", vuln, name)
+	return filepath.Join(".yardstick", "research", "job-"+job.ID)
 }
 
 // Written is a proposal the agent wrote down, as far as a person reads it before it is recorded.
@@ -102,50 +50,43 @@ type Written struct {
 
 // Output is what a job's agent left in its output directory: the files there of the skill's, the
 // report's text, and the proposal when it holds a verdict (the plugin writes it first as a skeleton
-// with none). The directory is the vulnerability's and package's, with no subject, so another
-// job's agent can write there too: a report or proposal counts only when written since this run
-// started, and a proposal only when it is about one of this job's rows. OtherRow is the row a
-// proposal there names instead, another finding's research.
+// with none) and is about one of this job's rows. A run clears the directory as it starts, so what
+// is there is the last run's.
 type Output struct {
 	Dir      string   `json:"dir"`
 	Files    []string `json:"files"`
 	Report   string   `json:"report,omitempty"`
 	Proposal *Written `json:"proposal,omitempty"`
-	OtherRow string   `json:"otherRow,omitempty"`
 }
 
-// Output reads what the job's agent wrote; nil when it has no output directory.
+// Output reads what the job's agent wrote; nil when it has no output directory, or never started (a
+// rerun cancelled while queued would otherwise show the run before it).
 func (r *Runner) Output(job Job) *Output {
 	rel := OutputDir(job)
-	if rel == "" {
+	if rel == "" || job.Started.IsZero() {
 		return nil
 	}
 	out := &Output{Dir: rel, Files: []string{}}
 	dir := filepath.Join(r.cfg.Dir, rel)
-	// this run's: written since it started
-	ours := func(name string) bool {
-		info, err := os.Stat(filepath.Join(dir, name))
+	has := func(name string) bool {
+		_, err := os.Stat(filepath.Join(dir, name))
 		if err == nil {
 			out.Files = append(out.Files, name)
 		}
-		return err == nil && !info.ModTime().Before(job.Started)
+		return err == nil
 	}
-	report, proposal := ours(Report), ours(ProposalFile)
+	report, proposal := has(Report), has(ProposalFile)
 	if proposal {
 		var w struct {
 			Written
 			Row string `json:"row"`
 		}
 		data, err := os.ReadFile(filepath.Join(dir, ProposalFile))
-		switch {
-		case err != nil || json.Unmarshal(data, &w) != nil:
-		case w.Row != "" && !slices.Contains(job.Rows, w.Row):
-			out.OtherRow = w.Row
-		case w.Row != "" && w.Verdict != "":
+		if err == nil && json.Unmarshal(data, &w) == nil && slices.Contains(job.Rows, w.Row) && w.Verdict != "" {
 			out.Proposal = &w.Written
 		}
 	}
-	if report && out.OtherRow == "" {
+	if report {
 		if data, err := readCapped(filepath.Join(dir, Report)); err == nil {
 			out.Report = string(data)
 		}
@@ -233,9 +174,9 @@ func (r *Runner) Record(ctx context.Context, id string) (Job, error) {
 }
 
 // rowCopies are the per-row copies of the proposal the skill writes beside proposal.json when the
-// finding covers several binary packages (proposal-<row id>.json): this run's, about another of the
-// job's rows, and saying what the page shows (the verdict and justification of proposal.json), so
-// Record records every row the agent would have and nothing the page didn't show.
+// finding covers several binary packages (proposal-<row id>.json): about another of the job's rows,
+// and saying what the page shows (the verdict and justification of proposal.json), so Record records
+// every row the agent would have and nothing the page didn't show.
 func (r *Runner) rowCopies(job Job, dir string, shown Written) []string {
 	paths, _ := filepath.Glob(filepath.Join(dir, "proposal-*.json"))
 	var out []string
@@ -250,10 +191,6 @@ func (r *Runner) rowCopies(job Job, dir string, shown Written) []string {
 		var w struct {
 			Written
 			Row string `json:"row"`
-		}
-		info, err := os.Stat(p)
-		if err != nil || info.ModTime().Before(job.Started) {
-			continue
 		}
 		data, err := os.ReadFile(p)
 		if err != nil || json.Unmarshal(data, &w) != nil {
