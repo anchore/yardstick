@@ -146,6 +146,11 @@ Severity and "assume vulnerable" policies never change the verdict (P-1).
 
 # Phase 4: report and propose
 
+Write and change files only with the Write and Edit tools, by absolute path: a headless run is
+allowed to write under the workspace's `.yardstick/research/` and nowhere else, and it refuses a
+shell redirect, a heredoc or a script that writes. Never `cd`: run every command as it is shown
+below, from the directory the session started in (a `cd` chained to `propose` is refused too).
+
 Write `<workspace>/.yardstick/research/<VULN>/<package>/REPORT.md`:
 
 1. One line: verdict, confidence, and the single fact that decides it.
@@ -167,7 +172,7 @@ you relied on that the skeleton did not observe to `evidence[0].facts`, as
 refuses the line: use the listed name (`cve.org`, `osv`, `debian-security-tracker`, ...), and
 leave out a fact whose source isn't listed (a changelog line, an upstream commit), putting its URL in
 the interpretation instead. An evidence entry needs at least one fact; with none, drop `evidence`
-and put the reasoning in the note. Then, once, in the workspace:
+and put the reasoning in the note. Then, once, from the workspace (where the session started):
 
 ```bash
 yardstick claims agent propose --name "${YARDSTICK_NAME:-default}" --gate <gate> <dir>/proposal.json

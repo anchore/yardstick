@@ -30,11 +30,16 @@ import (
 // the agent works, so the log is live, and ends in the result line the job's Usage is read from.
 //
 // The agent reads pages anyone can write, so it gets the tools the skill uses and no more: the two
-// yardstick commands it runs, and file writes only under .yardstick/research/ (an Edit path rule
-// covers Write too). The skill's own allowed-tools adds its helper script, by the plugin's path,
-// which writes only there as well. Its environment is childEnv's.
+// yardstick commands it runs, and file writes only under the workspace's .yardstick/research/ (an
+// Edit path rule covers Write too). The skill's own allowed-tools adds its helper script, by the
+// plugin's path, which writes only there as well. Its environment is childEnv's.
+//
+// The Edit rule is absolute ("//" + the workspace, as /$YARDSTICK_ROOT expands to): Claude Code
+// resolves a relative rule against the session's current directory, which moves when the agent runs
+// `cd` in Bash (allowed, as a read-only command), and every write after that was refused. Start
+// refuses a workspace whose path could change what the rule means (see checkRulePath).
 const DefaultCommand = `claude -p "/yardstick:research-vuln row:$YARDSTICK_ROW $YARDSTICK_ROOT" --model "${YARDSTICK_MODEL:-sonnet}" ` +
-	`--allowedTools "Bash(yardstick claims agent propose *),Bash(yardstick claims policy),Bash(yardstick claims policy *),Read,Grep,Glob,Edit(.yardstick/research/**),WebFetch,WebSearch" ` +
+	`--allowedTools "Bash(yardstick claims agent propose *),Bash(yardstick claims policy),Bash(yardstick claims policy *),Read,Grep,Glob,Edit(/$YARDSTICK_ROOT/.yardstick/research/**),WebFetch,WebSearch" ` +
 	`--output-format stream-json --verbose`
 
 // DefaultModel is the model research runs on unless configured otherwise: a name or alias the
@@ -175,6 +180,11 @@ func (r *Runner) Start(ctx context.Context, req Request) (Job, error) {
 	}
 	if req.Model != "" {
 		if err := CheckModel(req.Model); err != nil {
+			return Job{}, err
+		}
+	}
+	if r.cfg.Command == DefaultCommand {
+		if err := checkRulePath(r.cfg.Dir); err != nil {
 			return Job{}, err
 		}
 	}
@@ -343,6 +353,19 @@ func (r *Runner) finish(job *Job, s Status, err error) {
 		log.Warnf("research %s: unable to record the result: %v", job.ID, saveErr)
 	}
 	log.Infof("research %s: %s", job.ID, s)
+}
+
+// checkRulePath refuses a workspace the default command can't name in its Edit rule: it has to be
+// absolute, and free of what would end the rule or the shell's quoting early, or widen it as a glob
+// (a workspace named "x),Bash(*" would otherwise grant a shell).
+func checkRulePath(dir string) error {
+	if !filepath.IsAbs(dir) {
+		return fmt.Errorf("research needs an absolute workspace path, got %q", dir)
+	}
+	if i := strings.IndexAny(dir, "(),*?[]{}\"'`$\\!\n\r"); i >= 0 {
+		return fmt.Errorf("research can't run in %s: its path contains %q, which would change the permission rule that confines the agent's writes to .yardstick/research; run claims serve from a directory without it", dir, dir[i])
+	}
+	return nil
 }
 
 // SurvivorsWarning says that a job's processes may still be running, and how to stop them.

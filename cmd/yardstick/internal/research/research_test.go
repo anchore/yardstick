@@ -175,3 +175,35 @@ func TestDefaultCommandIsNarrow(t *testing.T) {
 		}
 	}
 }
+
+// a relative rule follows the agent's `cd`, after which every write was refused; the rule names the
+// workspace from the root ("//" once /$YARDSTICK_ROOT expands)
+func TestDefaultCommandWritesUnderTheWorkspaceByAbsolutePath(t *testing.T) {
+	if !strings.Contains(DefaultCommand, `Edit(/$YARDSTICK_ROOT/.yardstick/research/**)`) {
+		t.Errorf("expected an absolute Edit rule on the workspace, got %s", DefaultCommand)
+	}
+}
+
+func TestCheckRulePath(t *testing.T) {
+	for dir, ok := range map[string]bool{
+		"/Users/me/vunnel/tests/integration": true,
+		"/Users/me/my work/vunnel":           true,
+		"relative/dir":                       false,
+		"/x),Bash(*":                         false,
+		"/a/b*":                              false,
+		`/a/"b`:                              false,
+		"/a/$HOME":                           false,
+		"/a/\nb":                             false,
+	} {
+		if err := checkRulePath(dir); (err == nil) != ok {
+			t.Errorf("checkRulePath(%q): expected ok=%v, got %v", dir, ok, err)
+		}
+	}
+}
+
+func TestStartRefusesAWorkspaceTheRuleCantName(t *testing.T) {
+	r := NewRunner(Config{Dir: "/tmp/x),Bash(*", Bin: "/opt/ys/bin/yardstick"})
+	if _, err := r.Start(context.Background(), Request{Rows: []string{"aaa"}}); err == nil || !strings.Contains(err.Error(), "permission rule") {
+		t.Errorf("expected a refusal naming the permission rule, got %v", err)
+	}
+}
