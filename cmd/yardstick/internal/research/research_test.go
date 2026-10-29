@@ -36,8 +36,8 @@ func TestRunPassesContextInTheEnvironment(t *testing.T) {
 		t.Fatal(err)
 	}
 	want := "row=aaa rows=aaa bbb vuln=CVE-1 pkg=pkg:deb/ubuntu/glibc@1 gate=g1/g1 name=pr root=" + dir + " bin=/opt/ys/bin/yardstick path=/opt/ys/bin"
-	if _, err := os.Stat(filepath.Join(dir, ".yardstick", "research", "jobs", "aaa", "job.json")); err != nil {
-		t.Errorf("expected the job under .yardstick/research/jobs: %v", err)
+	if _, err := os.Stat(filepath.Join(dir, ".yardstick", "jobs", "aaa", "job.json")); err != nil {
+		t.Errorf("expected the job under .yardstick/jobs: %v", err)
 	}
 	if strings.TrimSpace(string(out)) != want {
 		t.Errorf("expected %q, got %q", want, out)
@@ -230,7 +230,7 @@ func TestAJobsIDIsItsDirectory(t *testing.T) {
 
 // the agent may write research output, never a job record the server trusts
 func TestDefaultCommandDeniesJobRecords(t *testing.T) {
-	if !strings.Contains(DefaultCommand, `--disallowedTools "Edit(/$YARDSTICK_ROOT/.yardstick/research/jobs/**)"`) {
+	if !strings.Contains(DefaultCommand, `--disallowedTools "Edit(/$YARDSTICK_ROOT/.yardstick/jobs/**)"`) {
 		t.Errorf("expected job records denied, got %s", DefaultCommand)
 	}
 }
@@ -247,5 +247,24 @@ func TestJobEnvPassesTheServersClaims(t *testing.T) {
 	r := NewRunner(Config{Dir: "/w", Claims: []string{"/a,b"}})
 	if _, err := r.Start(context.Background(), Request{Rows: []string{"aaa"}}); err == nil {
 		t.Error("expected a claims source with a comma refused")
+	}
+}
+
+// job records from under .yardstick/research/jobs/, where the agent may write, move out once
+func TestOldJobRecordsMoveOutOfTheResearchTree(t *testing.T) {
+	dir := t.TempDir()
+	old := filepath.Join(dir, ".yardstick", "research", "jobs", "aaa")
+	if err := os.MkdirAll(old, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(old, "job.json"), []byte(`{"rows":["aaa"],"status":"failed"}`), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	r := NewRunner(Config{Dir: dir})
+	if jobs, err := r.Jobs(); err != nil || len(jobs) != 1 || jobs[0].ID != "aaa" {
+		t.Errorf("expected the old job under .yardstick/jobs, got %+v %v", jobs, err)
+	}
+	if _, err := os.Stat(old); !os.IsNotExist(err) {
+		t.Errorf("expected nothing left under .yardstick/research/jobs: %v", err)
 	}
 }

@@ -21,7 +21,7 @@ const wroteCommand = `d=.yardstick/research/CVE-1/foo && mkdir -p "$d" && printf
 const fakePropose = `#!/bin/sh
 cd "$YARDSTICK_ROOT"
 if [ -f refuse ]; then printf '[0000] ERROR \033[31mproposal 1: no\033[0m\n'; exit 2; fi
-if [ -f rerun ]; then printf '{"rows":["aaa"],"status":"queued","queued":"2030-01-01T00:00:00Z"}' > .yardstick/research/jobs/aaa/job.json; fi
+if [ -f rerun ]; then printf '{"rows":["aaa"],"status":"queued","queued":"2030-01-01T00:00:00Z"}' > .yardstick/jobs/aaa/job.json; fi
 echo "$@" >> args.txt
 `
 

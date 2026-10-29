@@ -3,7 +3,8 @@
 // back by recording a proposal with `yardstick claims agent propose`; yardstick only starts the command
 // and tracks the job.
 //
-// Jobs live on disk under .yardstick/research/jobs/<id>/ (job.json and log.txt).
+// Jobs live on disk under .yardstick/jobs/<id>/ (job.json and log.txt), outside .yardstick/research/,
+// where the agent writes.
 package research
 
 import (
@@ -38,9 +39,10 @@ import (
 // resolves a relative rule against the session's current directory, which moves when the agent runs
 // `cd` in Bash (allowed, as a read-only command), and every write after that was refused. Start
 // refuses a workspace whose path could change what the rule means (see checkRulePath). The job
-// records under .yardstick/research/jobs/ are denied (a deny rule wins over the allow): the server
-// trusts them for a job's status, its refusal and the paths it reads and writes, so the agent, which
-// reads pages anyone can write, must not be able to forge or edit one.
+// records under .yardstick/jobs/ sit outside that rule: the server trusts them for a job's status, its
+// refusal and the paths it reads and writes, so the agent, which reads pages anyone can write, must not
+// be able to forge or edit one. They are denied too (a deny rule wins over any allow), so an allow rule
+// in the user's own settings that is broader than this one doesn't reach them either.
 //
 // With Config.PluginDir set, the plugin is loaded from there for this run only (--plugin-dir wins
 // over an installed plugin of the same name), so a branch's skills can be tried without touching the
@@ -48,7 +50,7 @@ import (
 const DefaultCommand = `claude -p "/yardstick:research-vuln row:$YARDSTICK_ROW $YARDSTICK_ROOT" --model "${YARDSTICK_MODEL:-sonnet}" ` +
 	`${YARDSTICK_PLUGIN_DIR:+--plugin-dir "$YARDSTICK_PLUGIN_DIR"} ` +
 	`--allowedTools "Bash(yardstick claims agent propose *),Bash(yardstick claims policy),Bash(yardstick claims policy *),Read,Grep,Glob,Edit(/$YARDSTICK_ROOT/.yardstick/research/**),WebFetch,WebSearch" ` +
-	`--disallowedTools "Edit(/$YARDSTICK_ROOT/.yardstick/research/jobs/**)" ` +
+	`--disallowedTools "Edit(/$YARDSTICK_ROOT/.yardstick/jobs/**)" ` +
 	`--output-format stream-json --verbose`
 
 // DefaultModel is the model research runs on unless configured otherwise: a name or alias the
@@ -144,7 +146,7 @@ type Config struct {
 // Runner queues jobs and runs up to Concurrency at a time.
 type Runner struct {
 	cfg  Config
-	jobs string // .yardstick/research/jobs
+	jobs string // .yardstick/jobs
 	sem  chan struct{}
 	mu   sync.Mutex
 	live map[string]bool // jobs this process is running or has queued
@@ -170,9 +172,16 @@ func NewRunner(cfg Config) *Runner {
 	if cfg.Timeout <= 0 {
 		cfg.Timeout = 20 * time.Minute
 	}
+	jobs := filepath.Join(cfg.Dir, ".yardstick", "jobs")
+	// job records were kept under .yardstick/research/jobs/, where the agent may write: move them once
+	if _, err := os.Stat(jobs); errors.Is(err, os.ErrNotExist) {
+		if err := os.Rename(filepath.Join(cfg.Dir, ".yardstick", "research", "jobs"), jobs); err != nil && !errors.Is(err, os.ErrNotExist) {
+			log.Warnf("unable to move the research jobs to %s: %v", jobs, err)
+		}
+	}
 	return &Runner{
 		cfg:     cfg,
-		jobs:    filepath.Join(cfg.Dir, ".yardstick", "research", "jobs"),
+		jobs:    jobs,
 		sem:     make(chan struct{}, cfg.Concurrency),
 		live:    map[string]bool{},
 		cancels: map[string]*jobControl{},
@@ -439,8 +448,8 @@ func (j Job) env(cfg Config) []string {
 		"YARDSTICK_NAME=" + cmp.Or(j.Run, cfg.Run),
 		"YARDSTICK_ROOT=" + cfg.Dir,
 		"YARDSTICK_BIN=" + cfg.Bin,
-		JobEnv + "=" + j.ID, // `yardstick claims agent propose` stamps it on the proposals the job records
-		JobDirEnv + "=" + filepath.Join(cfg.Dir, ".yardstick", "research", "jobs", j.ID), // and leaves its refusal there
+		JobEnv + "=" + j.ID,                                                  // `yardstick claims agent propose` stamps it on the proposals the job records
+		JobDirEnv + "=" + filepath.Join(cfg.Dir, ".yardstick", "jobs", j.ID), // and leaves its refusal there
 		"YARDSTICK_MODEL=" + cmp.Or(j.Model, cfg.Model),
 		"YARDSTICK_PLUGIN_DIR=" + cfg.PluginDir,
 	}

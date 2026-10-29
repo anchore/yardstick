@@ -63,7 +63,7 @@ func noteRefusal(job *researchJob, c *cobra.Command) *cobra.Command {
 		dir := job.Dir
 		// only ever a job's own directory, as the label server sets it: the variable can't point
 		// the write (or the removal) at another file
-		if dir == "" || filepath.Base(filepath.Dir(dir)) != "jobs" || !strings.HasSuffix(filepath.Dir(filepath.Dir(dir)), filepath.Join(".yardstick", "research")) {
+		if dir == "" || filepath.Base(filepath.Dir(dir)) != "jobs" || filepath.Base(filepath.Dir(filepath.Dir(dir))) != ".yardstick" {
 			return err
 		}
 		p := filepath.Join(dir, research.ProposeErrorFile)

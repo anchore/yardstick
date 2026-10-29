@@ -28,7 +28,7 @@ func TestNoteRefusalOnlyInAJobDirectory(t *testing.T) {
 	if _, err := os.Stat(filepath.Join(elsewhere, research.ProposeErrorFile)); !os.IsNotExist(err) {
 		t.Errorf("expected no note outside a job's directory: %v", err)
 	}
-	dir := filepath.Join(t.TempDir(), ".yardstick", "research", "jobs", "j1")
+	dir := filepath.Join(t.TempDir(), ".yardstick", "jobs", "j1")
 	if err := os.MkdirAll(dir, 0o755); err != nil {
 		t.Fatal(err)
 	}

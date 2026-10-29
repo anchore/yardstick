@@ -88,7 +88,7 @@
 //	                            the keys it wrote with the label each replaced, for undoing it
 //
 //	row.research, researchLevel, researched, researchedBy, hint.origin
-//	                          ← research.Job records under .yardstick/research/jobs/, as in delta;
+//	                          ← research.Job records under .yardstick/jobs/;
 //	                            researchedBy reads only the newest proposal (no history kept)
 //	state.research            ← research.Availability: whether the yardstick plugin is installed at
 //	                            this binary's version, and the command to copy when not.

@@ -575,7 +575,7 @@ func TestE2EResearchNotRecorded(t *testing.T) {
 
 	// propose run in a job leaves its refusal in the job's directory, and a success clears it
 	// (a job's own directory: propose writes nowhere else)
-	jobDir := filepath.Join(t.TempDir(), ".yardstick", "research", "jobs", "j1")
+	jobDir := filepath.Join(t.TempDir(), ".yardstick", "jobs", "j1")
 	if err := os.MkdirAll(jobDir, 0o755); err != nil {
 		t.Fatal(err)
 	}
