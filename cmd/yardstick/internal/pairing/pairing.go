@@ -251,12 +251,13 @@ func (r *Result) matches(s Subject) {
 				m.Details[setup] = detail(gm, doc)
 			}
 			m.Rows[setup] = append(m.Rows[setup], i)
-			m.Addresses = union(m.Addresses, addresses)
-			m.reported = union(m.reported, []string{gm.Vulnerability.ID})
-			m.Aliases = union(m.Aliases, []string{gm.Vulnerability.ID})
+			m.Addresses = union(m.Addresses, addresses...)
+			m.reported = union(m.reported, gm.Vulnerability.ID)
+			aliases := []string{gm.Vulnerability.ID}
 			for _, rel := range gm.RelatedVulnerabilities {
-				m.Aliases = union(m.Aliases, []string{rel.ID})
+				aliases = append(aliases, rel.ID)
 			}
+			m.Aliases = union(m.Aliases, aliases...)
 		}
 	}
 	for _, m := range r.Matches {
@@ -317,12 +318,13 @@ func (r *Result) addresses(gm models.Match) []string {
 	if g := r.aliases.Group(gm.Vulnerability.ID); g != "" {
 		return []string{g}
 	}
-	var out []string
+	var groups []string
 	for _, rel := range gm.RelatedVulnerabilities {
 		if g := r.aliases.Group(rel.ID); g != "" {
-			out = union(out, []string{g})
+			groups = append(groups, g)
 		}
 	}
+	out := union(nil, groups...)
 	if len(out) == 0 {
 		// an advisory naming nothing a label can be about is its own group, and pairs nothing
 		return []string{gm.Vulnerability.ID}
@@ -416,21 +418,20 @@ func (r *Result) Relaxed(b *Bound, field, setup string) *Match {
 func RelatedIDs(ms []*Match) map[string][]string {
 	out := map[string][]string{}
 	for _, m := range ms {
-		out[m.Vulnerability] = union(out[m.Vulnerability], m.Aliases)
+		out[m.Vulnerability] = union(out[m.Vulnerability], m.Aliases...)
 	}
 	return out
 }
 
-func union(a, b []string) []string {
+// union adds what b has that a doesn't to a, sorted. a has no duplicates (it is union's own output).
+func union(a []string, b ...string) []string {
+	seen := make(map[string]bool, len(a)+len(b))
+	for _, v := range a {
+		seen[v] = true
+	}
 	for _, v := range b {
-		found := false
-		for _, have := range a {
-			if have == v {
-				found = true
-				break
-			}
-		}
-		if !found {
+		if !seen[v] {
+			seen[v] = true
 			a = append(a, v)
 		}
 	}
