@@ -186,7 +186,13 @@ func (s *Server) handleAddNamespace(w http.ResponseWriter, req *http.Request) {
 		writeJSON(w, out)
 		return
 	}
-	data, err := os.ReadFile(file)
+	// read inside the source, as the set's loader and the write are: never through a link out of it
+	var data []byte
+	root, err := os.OpenRoot(filepath.Dir(file))
+	if err == nil {
+		data, err = root.ReadFile(claimsv1.VocabularyFile)
+		_ = root.Close()
+	}
 	out.Created = errors.Is(err, fs.ErrNotExist)
 	if err != nil && !out.Created {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
