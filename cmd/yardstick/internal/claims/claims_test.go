@@ -375,8 +375,8 @@ func TestVocabularyMergesSources(t *testing.T) {
 	if _, ok := set.Vocabulary().Justifications[claimsv1.FP]["not-in-image"]; ok || set.Vocabulary() == nil {
 		t.Errorf("expected the published vocabulary, got %+v", set.Vocabulary())
 	}
-	// a key the overlay redefines refuses the set, naming both sources
-	if err := os.WriteFile(filepath.Join(local, claimsv1.VocabularyFile), []byte("justifications:\n  fp: {fix-installed: Fixed upstream}\n"), 0o600); err != nil {
+	// a namespace the overlay lists as the other kind refuses the set, naming both sources
+	if err := os.WriteFile(filepath.Join(local, claimsv1.VocabularyFile), []byte("advisory-ids: [GHSA]\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := OpenSet([]gatefile.Source{{Locator: published}, {Locator: local}}); err == nil || !strings.Contains(err.Error(), published) || !strings.Contains(err.Error(), local) {

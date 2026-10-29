@@ -8,6 +8,12 @@ import (
 	"slices"
 	"strings"
 	"testing"
+
+	"github.com/anchore/go-logger"
+	"github.com/anchore/go-logger/adapter/discard"
+	"github.com/anchore/go-logger/adapter/logrus"
+
+	"github.com/anchore/yardstick/cmd/yardstick/internal/log"
 )
 
 // the corpus's own data: categories people write, not tool output
@@ -134,12 +140,46 @@ somethingNew: true
 		t.Errorf("expected the overlay's justification added: %v", v.Allowed(FP))
 	}
 
-	// a key defined differently, or a namespace listed as both kinds, refuses the set, naming both sources
+	// a later source rewording a justification or a rule wins, with a warning naming both sources
+	logFile := filepath.Join(t.TempDir(), "log")
+	l, err := logrus.New(logrus.Config{FileLocation: logFile, Level: logger.WarnLevel})
+	if err != nil {
+		t.Fatal(err)
+	}
+	log.Set(l)
+	t.Cleanup(func() { log.Set(discard.New()) })
+	write(t, filepath.Join(local, VocabularyFile), `justifications:
+  fp: {fix-installed: Fixed upstream}
+rules:
+  debian/affected-unfixed: {verdict: tp, justification: no-fix, ceiling: medium, decision: P-4b, basis: Debian says affected and unfixed, title: Unfixed}
+`)
+	if v, err = FindVocabulary(sources()...); err != nil {
+		t.Fatal(err)
+	}
+	if r := v.Rules["debian/affected-unfixed"]; v.Justifications[FP]["fix-installed"] != "Fixed upstream" || r.Decision != "P-4b" || r.Basis != "Debian says affected and unfixed" || r.Title != "Unfixed" {
+		t.Errorf("expected the later source's wording, got %q and %+v", v.Justifications[FP]["fix-installed"], r)
+	}
+	logged, err := os.ReadFile(logFile)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, want := range []string{
+		`justification "fix-installed" under fp is "Installed version has the fix" in anchore/claims and "Fixed upstream" in additional-claims; using additional-claims's`,
+		`rule "debian/affected-unfixed" is worded differently in anchore/claims and additional-claims; using additional-claims's`,
+	} {
+		if !strings.Contains(string(logged), want) {
+			t.Errorf("expected the warning %s, got:\n%s", want, logged)
+		}
+	}
+
+	// a rule allowing a call something else, or a namespace listed as both kinds, refuses the set, naming both sources
 	for name, tc := range map[string]struct{ overlay, want string }{
-		"justification": {"justifications:\n  fp: {fix-installed: Fixed upstream}\n",
-			`justification "fix-installed" under fp is "Installed version has the fix" in anchore/claims and "Fixed upstream" in additional-claims`},
-		"rule": {"rules:\n  debian/affected-unfixed: {verdict: tp, justification: no-fix, ceiling: high, decision: P-4, basis: Debian lists it as affected with no fix}\n",
-			`rule "debian/affected-unfixed" is defined differently in anchore/claims and additional-claims`},
+		"rule ceiling": {"rules:\n  debian/affected-unfixed: {verdict: tp, justification: no-fix, ceiling: high, decision: P-4, basis: Debian lists it as affected with no fix}\n",
+			`rule "debian/affected-unfixed" has verdict tp, justification "no-fix" and ceiling medium in anchore/claims but tp, "no-fix" and high in additional-claims`},
+		"rule verdict": {"rules:\n  judgement/prior-claims-pattern: {verdict: fp, ceiling: medium, decision: P-4, basis: prior claims on the same package}\n",
+			`rule "judgement/prior-claims-pattern" has verdict any, justification "" and ceiling medium in anchore/claims but fp, "" and medium in additional-claims`},
+		"rule justification": {"rules:\n  debian/installed-has-fix: {verdict: fp, justification: vulnerable_code_not_present, ceiling: high}\n",
+			`rule "debian/installed-has-fix" has verdict fp, justification "fix-installed" and ceiling high in anchore/claims but fp, "vulnerable_code_not_present" and high in additional-claims`},
 		"advisory pattern": {"vulnerability-namespaces: [ALAS2023]\n",
 			`namespace "ALAS2023" is in vulnerability-namespaces (additional-claims) and matches advisory-ids "ALAS*" (anchore/claims)`},
 		"advisory namespace": {"advisory-ids: [GHSA]\n",

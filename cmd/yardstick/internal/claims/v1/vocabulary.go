@@ -13,6 +13,8 @@ import (
 	"strings"
 
 	"go.yaml.in/yaml/v3"
+
+	"github.com/anchore/yardstick/cmd/yardstick/internal/log"
 )
 
 // VocabularyFile is where a corpus keeps its vocabulary, at its root.
@@ -93,8 +95,11 @@ func FindVocabulary(sources ...NamedFS) (*Vocabulary, error) {
 
 // MergeVocabularies merges the vocabulary.yaml of each source that has one, in order; nil when none
 // has one. A source adds to the lists and to the justifications and rules, so a provider's own
-// claims can list its namespace before the published corpus does. A justification or rule two
-// sources define differently is an error naming both, as is a namespace listed as both kinds.
+// claims can list its namespace before the published corpus does: a vocabulary.yaml holding only
+// that is a fragment, meant to be merged onto a source with the rest. Where two sources word a
+// justification or a rule differently, the later one's words win, with a warning, so a checkout a
+// commit behind the published corpus still opens. A rule two sources give a different verdict,
+// justification or ceiling is an error naming both, as is a namespace listed as both kinds.
 func MergeVocabularies(sources ...NamedFS) (*Vocabulary, error) {
 	var out *Vocabulary
 	// from is the source that first listed each list entry or map key, for the errors
@@ -149,22 +154,31 @@ func (v *Vocabulary) merge(source string, o *Vocabulary, from map[string]string)
 		}
 		for _, j := range slices.Sorted(maps.Keys(o.Justifications[verdict])) {
 			desc, key := o.Justifications[verdict][j], fmt.Sprintf("justification %s/%s", verdict, j)
-			if had, ok := v.Justifications[verdict][j]; ok && had != desc {
-				return fmt.Errorf("justification %q under %s is %q in %s and %q in %s, each in its %s", j, verdict, had, from[key], desc, source, VocabularyFile)
+			had, ok := v.Justifications[verdict][j]
+			if ok && had == desc {
+				continue
 			}
-			if _, ok := v.Justifications[verdict][j]; !ok {
-				v.Justifications[verdict][j], from[key] = desc, source
+			if ok {
+				log.Warnf("justification %q under %s is %q in %s and %q in %s; using %s's", j, verdict, had, from[key], desc, source, source)
 			}
+			v.Justifications[verdict][j], from[key] = desc, source
 		}
 	}
 	for _, name := range slices.Sorted(maps.Keys(o.Rules)) {
 		r, key := o.Rules[name], "rule "+name
-		if had, ok := v.Rules[name]; ok && had != r {
-			return fmt.Errorf("rule %q is defined differently in %s and %s, each in its %s", name, from[key], source, VocabularyFile)
+		had, ok := v.Rules[name]
+		if ok && had == r {
+			continue
 		}
-		if _, ok := v.Rules[name]; !ok {
-			v.Rules[name], from[key] = r, source
+		// what a rule allows a call citing it must agree; only its prose may differ
+		if ok && (had.Verdict != r.Verdict || had.Justification != r.Justification || had.Ceiling != r.Ceiling) {
+			return fmt.Errorf("rule %q has verdict %s, justification %q and ceiling %s in %s but %s, %q and %s in %s, each in its %s",
+				name, had.Verdict, had.Justification, had.Ceiling, from[key], r.Verdict, r.Justification, r.Ceiling, source, VocabularyFile)
 		}
+		if ok {
+			log.Warnf("rule %q is worded differently in %s and %s; using %s's", name, from[key], source, source)
+		}
+		v.Rules[name], from[key] = r, source
 	}
 	return nil
 }
