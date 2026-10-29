@@ -115,7 +115,7 @@
 //	POST vocabulary/namespace ← claimsv1.AddToList on the writable source's vocabulary.yaml. The
 //	                            gate only picks the source: every gate on that source reads the
 //	                            change, not just this one
-//	row.research.status       ← research.Job.Status: not-recorded when the job exited 0 but recorded no
+//	row.research.status       ← research.Job.Status: unrecorded when the job exited 0 but recorded no
 //	                            call, error saying why; costUSD from its Usage
 //	rows/{id}.research        ← the newest job's Summary and research.Output (its REPORT.md and
 //	                            proposal.json); recordable when that proposal was never recorded

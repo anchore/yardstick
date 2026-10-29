@@ -138,13 +138,13 @@ export function jobsView(host: HTMLElement, r: Extract<Route, { level: "jobs" }>
   function line(x: ResearchJob, group: string) {
     const w = where.get(x.id), row = x.rows[0];
     const finding = x.gate && row ? formatRoute({ level: "finding", gate: x.gate, check: null, row, filters: {} }) : null;
-    const state = x.status === "running" ? "run" : x.status === "queued" ? "q" : failedJob(x) ? "fail" : x.status === "done" ? "ok" : x.status === "not-recorded" ? "notrec" : "cancel";
+    const state = x.status === "running" ? "run" : x.status === "queued" ? "q" : failedJob(x) ? "fail" : x.status === "done" ? "ok" : x.status === "unrecorded" ? "notrec" : "cancel";
     const time = timeWords(x, basis, concurrency);
     if (x.status === "running") tick();
     const result: Child = x.status === "done"
       ? x.hints.length ? [x.hints.map((h) => hint(`${words[h.verdict]?.word ?? h.verdict}${h.confidence ? ` · ${h.confidence}` : ""}`)), " ", finding && el("a", { class: "lk", href: finding, "data-testid": "job-review" }, "review")]
         : el("span", { class: "quiet" }, "no hint")
-      : x.status === "not-recorded" ? [el("span", { class: "err", title: x.error }, `not recorded: ${x.error ?? ""}`), " ", finding && el("a", { class: "lk", href: finding, "data-testid": "job-review" }, "see what it found")]
+      : x.status === "unrecorded" ? [el("span", { class: "err", title: x.error }, `not recorded: ${x.error ?? ""}`), " ", finding && el("a", { class: "lk", href: finding, "data-testid": "job-review" }, "see what it found")]
       : failedJob(x) ? el("span", { class: "err", title: x.error }, x.error || x.status)
         : x.status === "cancelled" ? el("span", { class: "quiet" }, x.started ? "cancelled" : "cancelled before it started") : null;
     return el("div", { class: "jr2", id: `job-${x.id}`, "data-testid": "job-row", "data-job": x.id, "data-state": x.status, "data-group": group },

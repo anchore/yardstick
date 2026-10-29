@@ -57,7 +57,7 @@ export function doing(j: ResearchSummary | undefined, o: { open: boolean; resear
   if (!o.open) return { kind: "none", word: "" };
   if (failedJob(j)) return { kind: "failed", word: "failed", title: j!.error || j!.status };
   // the newest job is the one to say: an earlier run that recorded nothing is no reason now
-  if (j?.status === "not-recorded") return { kind: "notrecorded", word: "researched, not recorded", title: j.error || undefined };
+  if (j?.status === "unrecorded") return { kind: "notrecorded", word: "researched, not recorded", title: j.error || undefined };
   if (o.researched || j?.status === "done") return { kind: "nohint", word: "researched, no hint" };
   return { kind: "offer", word: "Research" };
 }
@@ -74,7 +74,7 @@ export function researchLine(r: Row, now = Date.now()) {
   }
   if (j.status === "cancelled") return "research cancelled";
   // the finding page's research section says what it concluded and why nothing was recorded
-  if (j.status === "not-recorded") return "";
+  if (j.status === "unrecorded") return "";
   if (j.status !== "done") return `research ${j.status}${j.error ? `: ${j.error}` : ""}`;
   if (!r.hint) return "";
   const fresh = r.hint.written && j.started && new Date(r.hint.written) >= new Date(j.started);
@@ -112,7 +112,7 @@ export function researchOutcome(j: ResearchSummary, d: ResearchDetail | undefine
   if (failedJob(j)) return { kind: "failed", head, text: `Research ${j.status === "failed" ? "failed" : j.status.replace("-", " ")}${j.error ? `: ${j.error}` : "."}` };
   if (j.status === "cancelled") return { kind: "cancelled", head, text: "Research was cancelled before it finished." };
   const why = j.error || "nothing was recorded; the log says what happened";
-  if (j.status === "not-recorded") {
+  if (j.status === "unrecorded") {
     const p = d?.output?.proposal;
     return p
       ? { kind: "notrecorded", head, text: `Research concluded ${[p.verdict, p.justification, p.confidence].filter(Boolean).join(" · ")} but it wasn't recorded: ${why}` }

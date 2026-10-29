@@ -71,9 +71,9 @@ type Status string
 const (
 	Queued      Status = "queued"
 	Running     Status = "running"
-	Done        Status = "done"         // the command exited 0 and the agent recorded a call
-	NotRecorded Status = "not-recorded" // the command exited 0, but the agent recorded no call; Error says why
-	Failed      Status = "failed"       // the command exited non-zero, or couldn't start
+	Done        Status = "done"       // the command exited 0 and the agent recorded a call
+	NotRecorded Status = "unrecorded" // the command exited 0, but the agent recorded no call; Error says why
+	Failed      Status = "failed"     // the command exited non-zero, or couldn't start
 	TimedOut    Status = "timed-out"
 	Interrupted Status = "interrupted" // yardstick stopped while the job was running
 	Cancelled   Status = "cancelled"   // a person cancelled it (see Runner.Cancel)
