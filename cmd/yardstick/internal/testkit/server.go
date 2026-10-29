@@ -2,6 +2,7 @@ package testkit
 
 import (
 	"context"
+	"path/filepath"
 	"time"
 
 	"github.com/anchore/yardstick/cmd/yardstick/internal/agentstore"
@@ -24,6 +25,7 @@ const researchCommand = `echo '{"type":"system","subtype":"init","model":"e2e"}'
 func NewServer(ctx context.Context, dir, bin string) (*labelserver.Server, error) {
 	return newServer(ctx, research.NewRunner(research.Config{
 		Command: researchCommand, Dir: dir, Run: runrecord.DefaultName, Concurrency: 2, Timeout: time.Minute, Bin: bin,
+		Recorded: agentstore.Open(filepath.Join(dir, agentstore.Dir)).RecordedJobs,
 	}))
 }
 

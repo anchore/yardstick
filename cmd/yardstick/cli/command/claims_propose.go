@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"path/filepath"
 	"slices"
 	"strings"
 	"time"
@@ -19,7 +20,9 @@ import (
 	claimsv1 "github.com/anchore/yardstick/cmd/yardstick/internal/claims/v1"
 	"github.com/anchore/yardstick/cmd/yardstick/internal/gatefile"
 	"github.com/anchore/yardstick/cmd/yardstick/internal/labelwrite"
+	"github.com/anchore/yardstick/cmd/yardstick/internal/log"
 	"github.com/anchore/yardstick/cmd/yardstick/internal/pairing"
+	"github.com/anchore/yardstick/cmd/yardstick/internal/research"
 	"github.com/anchore/yardstick/cmd/yardstick/internal/runrecord"
 	"github.com/anchore/yardstick/cmd/yardstick/internal/score"
 )
@@ -27,6 +30,28 @@ import (
 // researchJobEnv names the research job an agent runs in, set by the label server when it starts
 // one, so a proposal can say a person asked for it.
 const researchJobEnv = "YARDSTICK_RESEARCH_JOB"
+
+// noteRefusal has a propose command run in a research job leave its refusal in the job's directory
+// (research.ProposeErrorFile), so the job can say why it recorded nothing without reading the
+// agent's log; a later success there clears it.
+func noteRefusal(c *cobra.Command) *cobra.Command {
+	run := c.RunE
+	c.RunE = func(cmd *cobra.Command, args []string) error {
+		err := run(cmd, args)
+		dir := os.Getenv(research.JobDirEnv)
+		if dir == "" {
+			return err
+		}
+		p := filepath.Join(dir, research.ProposeErrorFile)
+		if err == nil {
+			_ = os.Remove(p)
+		} else if werr := os.WriteFile(p, []byte(err.Error()+"\n"), 0o600); werr != nil {
+			log.Warnf("unable to record the refusal in %s: %v", p, werr)
+		}
+		return err
+	}
+	return c
+}
 
 // agentOptions are what the commands recording agent state take: the gate whose last scan row ids
 // name, the run it was scanned under, and claims sources after the gate's own.
@@ -251,7 +276,7 @@ type proposalInput struct {
 
 func ClaimsPropose(app clio.Application) *cobra.Command {
 	cfg := &agentOptions{nameOption: newNameOption()}
-	return app.SetupCommand(&cobra.Command{
+	return noteRefusal(app.SetupCommand(&cobra.Command{
 		Use:   "propose [file...] --gate <gate>",
 		Short: "Record agent calls as proposals for a person to accept (JSON on stdin or in files)",
 		Long: `propose reads proposals as JSON, one a line or one a file, and records them in .yardstick/proposals.jsonl, where the
@@ -305,7 +330,7 @@ subject, tab separated.`,
 			fmt.Fprintf(cmd.ErrOrStderr(), "recorded %d proposal(s) in %s\n", len(out), agentstore.Dir)
 			return nil
 		},
-	}, cfg)
+	}, cfg))
 }
 
 func (s *scanned) proposal(in proposalInput, now time.Time) (agentstore.Proposal, error) {
@@ -342,7 +367,7 @@ type causeInput struct {
 
 func ClaimsProposeCause(app clio.Application) *cobra.Command {
 	cfg := &agentOptions{nameOption: newNameOption()}
-	return app.SetupCommand(&cobra.Command{
+	return noteRefusal(app.SetupCommand(&cobra.Command{
 		Use:   "propose-cause [file] --gate <gate>",
 		Short: "Record agent-proposed root causes for sets of a gate's rows (JSON lines on stdin or in a file)",
 		Long: `propose-cause reads causes as JSON lines and records them in .yardstick/causes.jsonl, where the
@@ -393,7 +418,7 @@ Each recorded cause prints as id, verdict, source package, member count and titl
 			fmt.Fprintf(cmd.ErrOrStderr(), "recorded %d cause(s) in %s\n", len(out), agentstore.Dir)
 			return nil
 		},
-	}, cfg)
+	}, cfg))
 }
 
 // cause resolves a cause's rows into members and fills in what they imply. Every row must be in

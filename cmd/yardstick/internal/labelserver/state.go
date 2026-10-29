@@ -458,6 +458,8 @@ type RowResponse struct {
 	Label       *LabelView              `json:"label,omitempty"`
 	Hint        *Hint                   `json:"hint,omitempty"`
 	Explanation *agentstore.Explanation `json:"explanation,omitempty"`
+	// Research is what the row's newest research job concluded, absent while none has finished.
+	Research *ResearchDetail `json:"research,omitempty"`
 }
 
 // LabelView is the label deciding a row, as its file holds it, and every source holding its key.
@@ -485,6 +487,7 @@ func (s *Server) handleRow(w http.ResponseWriter, req *http.Request) {
 	}
 	resp := RowResponse{Row: v.listRow(r, idx), Subject: e.rec.Subjects[r.si].Name, Links: Links(r.match), Hint: v.hints[r.match.Row]}
 	resp.Row.ResearchShares = shares(research.Siblings(v.verdict), r.match.Row)
+	resp.Research = s.researchDetail(idx, r.match.Row)
 	if b := r.pm.Label; b != nil {
 		lv := &LabelView{Label: b.Label.Label, File: b.File, Global: b.Global}
 		for _, h := range b.Held {

@@ -49,8 +49,9 @@ type Status string
 const (
 	Queued      Status = "queued"
 	Running     Status = "running"
-	Done        Status = "done"   // the command exited 0
-	Failed      Status = "failed" // the command exited non-zero, or couldn't start
+	Done        Status = "done"         // the command exited 0 and the agent recorded a call
+	NotRecorded Status = "not-recorded" // the command exited 0, but the agent recorded no call; Error says why
+	Failed      Status = "failed"       // the command exited non-zero, or couldn't start
 	TimedOut    Status = "timed-out"
 	Interrupted Status = "interrupted" // yardstick stopped while the job was running
 	Cancelled   Status = "cancelled"   // a person cancelled it (see Runner.Cancel)
@@ -88,7 +89,7 @@ type Job struct {
 	Queued   time.Time `json:"queued"`
 	Started  time.Time `json:"started,omitzero"`
 	Finished time.Time `json:"finished,omitzero"`
-	// LastDone is when research of this group last finished (Done), in this run or an earlier one.
+	// LastDone is when research of this group last finished (Done or NotRecorded), in this run or an earlier one.
 	// A rerun replaces the job's record, and a rerun that fails or is still running doesn't undo
 	// that the rows were researched.
 	LastDone time.Time `json:"lastDone,omitzero"`
@@ -98,6 +99,8 @@ type Job struct {
 	SurvivingGroup int `json:"survivingGroup,omitempty"`
 	// Usage is what the run cost, from the result line the command printed last; nil when it printed none.
 	Usage *Usage `json:"usage,omitempty"`
+	// Summary is the agent's last message, from that line: what it concluded, even when it recorded nothing.
+	Summary string `json:"summary,omitempty"`
 }
 
 // Config is how research runs.
@@ -109,6 +112,9 @@ type Config struct {
 	Concurrency int           // how many jobs run at once
 	Timeout     time.Duration // per job
 	Bin         string        // this yardstick binary, for the agent to call back with
+	// Recorded is when each job last recorded a call (a proposal or cause stamped with its id); a
+	// job that exited 0 with none since it started is NotRecorded. Nil takes exiting 0 as recorded.
+	Recorded func() (map[string]time.Time, error)
 }
 
 // Runner queues jobs and runs up to Concurrency at a time.
@@ -278,6 +284,8 @@ func (r *Runner) run(ctx context.Context, job *Job) {
 	_ = r.save(*job)
 	log.Infof("research %s: started (%s %s)", job.ID, job.Vulnerability, job.Package)
 
+	// a rerun's refusal is its own: the last run's is no reason this one recorded nothing
+	_ = os.Remove(filepath.Join(r.jobs, job.ID, ProposeErrorFile))
 	logFile, err := os.Create(filepath.Join(r.jobs, job.ID, "log.txt"))
 	if err != nil {
 		r.finish(job, Failed, err)
@@ -312,14 +320,16 @@ func (r *Runner) run(ctx context.Context, job *Job) {
 	case err != nil:
 		r.finish(job, Failed, err)
 	default:
-		r.finish(job, Done, nil)
+		// finish reads the log too, which the command is done writing
+		s, err := r.conclude(job)
+		r.finish(job, s, err)
 	}
 }
 
 func (r *Runner) finish(job *Job, s Status, err error) {
 	job.Status, job.Finished = s, time.Now().UTC()
 	job.Usage = readUsage(r.LogPath(job.ID))
-	if s == Done {
+	if s == Done || s == NotRecorded {
 		job.LastDone = job.Finished
 	}
 	if err != nil {
@@ -364,7 +374,8 @@ func (j Job) env(cfg Config) []string {
 		"YARDSTICK_NAME=" + cmp.Or(j.Run, cfg.Run),
 		"YARDSTICK_ROOT=" + cfg.Dir,
 		"YARDSTICK_BIN=" + cfg.Bin,
-		"YARDSTICK_RESEARCH_JOB=" + j.ID, // `yardstick claims agent propose` stamps it on the proposals the job records
+		"YARDSTICK_RESEARCH_JOB=" + j.ID,                                                 // `yardstick claims agent propose` stamps it on the proposals the job records
+		JobDirEnv + "=" + filepath.Join(cfg.Dir, ".yardstick", "research", "jobs", j.ID), // and leaves its refusal there
 		"YARDSTICK_MODEL=" + cmp.Or(j.Model, cfg.Model),
 	}
 	if cfg.Bin != "" {
@@ -406,7 +417,7 @@ func childEnv(environ []string) []string {
 // Researched is true once research of the job's rows has finished, in this run or an earlier one,
 // whether or not it left an agent hint.
 func (j Job) Researched() bool {
-	return j.Status == Done || !j.LastDone.IsZero()
+	return j.Status == Done || j.Status == NotRecorded || !j.LastDone.IsZero()
 }
 
 // Jobs lists every recorded job, newest first. Jobs left active by a yardstick that is no longer
@@ -435,6 +446,7 @@ func (r *Runner) Jobs() ([]Job, error) {
 		}
 		out = append(out, j)
 	}
+	r.reconcile(out)
 	sort.Slice(out, func(i, k int) bool { return out[i].Queued.After(out[k].Queued) })
 	return out, nil
 }

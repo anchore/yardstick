@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"runtime"
 	"strconv"
 	"time"
@@ -131,7 +132,9 @@ func newResearch(cmd *cobra.Command, version, run, model string) (*research.Runn
 			return nil, research.Availability{}, err
 		}
 	}
-	return research.NewRunner(research.Config{Model: model, Dir: dir, Run: run, Concurrency: 2, Timeout: 20 * time.Minute, Bin: bin}), avail, nil
+	store := agentstore.Open(filepath.Join(dir, agentstore.Dir))
+	return research.NewRunner(research.Config{Model: model, Dir: dir, Run: run, Concurrency: 2, Timeout: 20 * time.Minute, Bin: bin,
+		Recorded: store.RecordedJobs}), avail, nil
 }
 
 func serve(ctx context.Context, cmd *cobra.Command, addr string, open bool, h http.Handler) error {

@@ -111,6 +111,11 @@
 //	                            Vocabulary.CheckScanned over the gate's rows
 //	state.unlisted            ← the same, for each namespace of the gate's open rows
 //	POST vocabulary/namespace ← claimsv1.AddToList on the writable source's vocabulary.yaml
+//	row.research.status       ← research.Job.Status: not-recorded when the job exited 0 but recorded no
+//	                            call, error saying why; costUSD from its Usage
+//	rows/{id}.research        ← the newest job's Summary and research.Output (its REPORT.md and
+//	                            proposal.json); recordable when that proposal was never recorded
+//	POST research/record      ← research.Runner.Record: propose on the job's proposal files, no new run
 package labelserver
 
 import (
@@ -236,6 +241,7 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("POST "+g+"/preview", s.handlePreview)
 	mux.HandleFunc("POST "+g+"/research", s.authorized(s.handleResearch))
 	mux.HandleFunc("POST "+g+"/research/cancel", s.authorized(s.handleCancelResearch))
+	mux.HandleFunc("POST "+g+"/research/record", s.authorized(s.handleRecord))
 	mux.HandleFunc("POST "+g+"/vocabulary/namespace", s.authorized(s.handleAddNamespace))
 	mux.HandleFunc("POST /api/research", s.authorized(s.handleResearchQueue))
 	mux.HandleFunc("GET /api/research/batch", s.handleResearchBatch)

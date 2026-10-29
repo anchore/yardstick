@@ -505,3 +505,85 @@ func TestE2EResearchInFlight(t *testing.T) {
 		t.Errorf("summary after a cancel: %+v", s)
 	}
 }
+
+// notRecordedCommand stands in for research whose propose call was denied, as headless claude's
+// were in the CleanStart turnup: it writes its report and proposal where the skill does, and never
+// proposes
+const notRecordedCommand = `d=.yardstick/research/$YARDSTICK_RESEARCH_VULNERABILITY/tar && mkdir -p "$d" && printf '# %s on tar\n\ntp, medium confidence\n' "$YARDSTICK_RESEARCH_VULNERABILITY" > "$d/REPORT.md" && ` +
+	`printf '{"row":"%s","verdict":"tp","justification":"no-fix","confidence":"medium","note":"e2e","openQuestions":["Was the fix backported?"],"author":{"skill":"research-vuln","model":"e2e"}}\n' "$YARDSTICK_ROW" > "$d/proposal.json" && ` +
+	`echo '{"type":"result","subtype":"success","result":"Verdict I would propose: tp, no-fix, medium.","total_cost_usd":0.27,"num_turns":18,"permission_denials":[{"tool_name":"Bash","tool_use_id":"t1","tool_input":{"command":"yardstick claims agent propose --gate deb-java proposal.json"}}]}'`
+
+// research that ran but recorded nothing says so and why, shows what it wrote, and records it as
+// a hint on request without researching again
+func TestE2EResearchNotRecorded(t *testing.T) {
+	_, dir, _, bin := e2eServer(t)
+	runner := research.NewRunner(research.Config{
+		Command: notRecordedCommand, Dir: dir, Run: runrecord.DefaultName, Concurrency: 2, Timeout: time.Minute, Bin: bin,
+		Recorded: agentstore.Open(filepath.Join(dir, agentstore.Dir)).RecordedJobs,
+	})
+	srv, err := newServer(context.Background(), runner)
+	if err != nil {
+		t.Fatal(err)
+	}
+	h, token := srv.Handler(), srv.Token()
+	const tar = "e3bfd3b0b0c30ee6" // CVE-2026-18508 on tar, open in deb-java with no hint
+	if code := post(t, h, token, "/api/gates/deb-java/research", map[string]any{"rows": []string{tar}, "from": "finding"}, nil); code != http.StatusOK {
+		t.Fatalf("research: %d", code)
+	}
+	// one row's research is no batch: wait for the runner
+	runner.Wait()
+	row := func() labelserver.RowResponse {
+		t.Helper()
+		var d labelserver.RowResponse
+		get(t, h, "/api/gates/deb-java/rows/"+tar, &d)
+		return d
+	}
+	d := row()
+	if j := d.Row.Research; j == nil || j.Status != research.NotRecorded || j.Error != "the agent was refused 1 tool use: Bash yardstick claims agent propose --gate deb-java proposal.json" || j.CostUSD != 0.27 {
+		t.Fatalf("the row's research: %+v", j)
+	}
+	r := d.Research
+	if r == nil || !r.Recordable || r.Summary != "Verdict I would propose: tp, no-fix, medium." || r.Output == nil ||
+		r.Output.Dir != filepath.Join(".yardstick", "research", "CVE-2026-18508", "tar") || !slices.Equal(r.Output.Files, []string{"REPORT.md", "proposal.json"}) ||
+		!strings.Contains(r.Output.Report, "tp, medium confidence") || r.Output.Proposal == nil || r.Output.Proposal.Verdict != "tp" ||
+		!slices.Equal(r.Output.Proposal.OpenQuestions, []string{"Was the fix backported?"}) {
+		t.Fatalf("what the research wrote: %+v %+v", r, r.Output)
+	}
+	if d.Hint != nil {
+		t.Fatalf("expected no hint before recording, got %+v", d.Hint)
+	}
+
+	// recording it is propose on what it wrote, as the job: the hint arrives, and the job is done
+	var rec map[string]string
+	if code := post(t, h, token, "/api/gates/deb-java/research/record", map[string]string{"row": tar}, &rec); code != http.StatusOK || rec["status"] != "done" {
+		t.Fatalf("record: %d %v", code, rec)
+	}
+	d = row()
+	if d.Hint == nil || d.Hint.Proposal.Verdict != "tp" || d.Hint.Proposal.Author.ResearchJob != tar || d.Row.Research.Status != research.Done || d.Research.Recordable {
+		t.Errorf("after recording: hint %+v, research %+v %+v", d.Hint, d.Row.Research, d.Research)
+	}
+	if code := post(t, h, token, "/api/gates/deb-java/research/record", map[string]string{"row": tar}, nil); code != http.StatusBadRequest {
+		t.Errorf("recording twice: expected 400, got %d", code)
+	}
+
+	// propose run in a job leaves its refusal in the job's directory, and a success clears it
+	jobDir := t.TempDir()
+	propose := func(in string) error {
+		cmd := exec.Command(bin, "claims", "agent", "propose", "--gate", "deb-java")
+		cmd.Dir, cmd.Env, cmd.Stdin = dir, append(os.Environ(), research.JobDirEnv+"="+jobDir), strings.NewReader(in)
+		return cmd.Run()
+	}
+	refusal := filepath.Join(jobDir, research.ProposeErrorFile)
+	if err := propose(`{"row":"` + tar + `","verdict":"tp","justification":"not-a-justification","author":{"skill":"e2e"}}`); err == nil {
+		t.Fatal("expected propose to refuse an unlisted justification")
+	}
+	if b, err := os.ReadFile(refusal); err != nil || !strings.Contains(string(b), `justification "not-a-justification"`) {
+		t.Errorf("expected the refusal in the job's directory: %q %v", b, err)
+	}
+	if err := propose(`{"row":"` + tar + `","verdict":"tp","justification":"no-fix","author":{"skill":"e2e"}}`); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(refusal); !os.IsNotExist(err) {
+		t.Errorf("expected a success to clear the refusal: %v", err)
+	}
+}
