@@ -35,7 +35,8 @@ type UnlistedNamespace struct {
 	// ID is the refused vulnerability, or on a gate's state the first open row's in the namespace.
 	ID        string `json:"id"`
 	Namespace string `json:"namespace"`
-	// Suggest is the list the scan's ids suggest, absent when the scan has none in the namespace.
+	// Suggest is the list the scan's ids suggest: advisory-ids when one names several vulnerabilities,
+	// absent when they can't tell (none in the namespace, or each naming at most one).
 	Suggest string `json:"suggest,omitempty" tstype:"VocabularyList"`
 	// Checked counts the scan's ids in the namespace; Example is one that shows the suggestion.
 	Checked int               `json:"checked"`

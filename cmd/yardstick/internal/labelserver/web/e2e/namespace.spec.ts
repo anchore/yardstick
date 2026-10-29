@@ -26,12 +26,13 @@ test("research on an unlisted namespace asks to add it, and adding it starts the
   const dialog = page.getByTestId("namespace-dialog");
   await expect(dialog).toBeVisible();
   await expect(dialog.getByRole("heading")).toHaveText("GHSA isn't in the claims vocabulary");
-  await expect(dialog).toContainText("The one GHSA id in this scan names one vulnerability (GHSA-67hx-6x53-jw92 → CVE-2023-45133), so it looks like a disclosure namespace.");
+  await expect(dialog).toContainText("The one GHSA id in this scan names one vulnerability (GHSA-67hx-6x53-jw92 → CVE-2023-45133): " +
+    "a disclosure's ids each do, and so can an advisory's, so this scan can't tell which kind GHSA is.");
   await expect(dialog.getByTestId("namespace-file")).toHaveText("Writes claims/vocabulary.yaml; your PR will show the change.");
-  // the suggested list is the primary, the other list beside it
+  // the scan can't tell, so both lists are offered and neither is the primary
   const adds = dialog.getByTestId("namespace-add");
   await expect(adds).toHaveText(["Add as advisory", "Add as disclosure"]);
-  await expect(dialog.locator('[data-list="vulnerability-namespaces"]')).not.toHaveAttribute("data-variant", "outline");
+  for (const list of ["vulnerability-namespaces", "advisory-ids"]) await expect(dialog.locator(`[data-list="${list}"]`)).toHaveAttribute("data-variant", "outline");
   // it stays until answered, unlike a toast
   await page.waitForTimeout(3000);
   await expect(dialog).toBeVisible();

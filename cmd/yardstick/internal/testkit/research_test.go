@@ -256,11 +256,12 @@ func TestE2EUnlistedNamespace(t *testing.T) {
 		h.ServeHTTP(rec, req)
 		return rec
 	}
-	// the GHSA names one CVE, so the scan suggests a disclosure namespace, in the writable
-	// source's vocabulary.yaml, named relative to the workspace
-	want := labelserver.UnlistedNamespace{Gate: "deb-npm", ID: "GHSA-67hx-6x53-jw92", Namespace: "GHSA", Suggest: claimsv1.ListDisclosure, Checked: 1,
+	// the GHSA names one CVE, as a disclosure's or an advisory's id can, so the scan suggests
+	// neither list; the file is the writable source's vocabulary.yaml, named relative to the workspace
+	want := labelserver.UnlistedNamespace{Gate: "deb-npm", ID: "GHSA-67hx-6x53-jw92", Namespace: "GHSA", Checked: 1,
 		Example: &labelserver.NamespaceExample{ID: "GHSA-67hx-6x53-jw92", Names: []string{"CVE-2023-45133"}}, File: filepath.Join("claims", claimsv1.VocabularyFile)}
-	text := "This gate's scan has 1 GHSA id; each names exactly 1 vulnerability (e.g. GHSA-67hx-6x53-jw92 → CVE-2023-45133), so add it to vulnerability-namespaces in claims/vocabulary.yaml."
+	text := "This gate's scan has 1 GHSA id; each names exactly 1 vulnerability (e.g. GHSA-67hx-6x53-jw92 → CVE-2023-45133), as a disclosure's do and an advisory's can, " +
+		"so the scan can't tell: add it to vulnerability-namespaces in claims/vocabulary.yaml if each of its ids names one vulnerability"
 	var st labelserver.State
 	get(t, h, "/api/gates/deb-npm/state", &st)
 	if len(st.Unlisted) != 1 || !reflect.DeepEqual(st.Unlisted[0], want) {

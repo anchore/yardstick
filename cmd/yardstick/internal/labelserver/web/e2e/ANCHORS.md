@@ -49,7 +49,7 @@ Routes (`route.ts`): `/ui/gates/` (level 0, `?tab=unlabeled|labels`), `/ui/gates
 | `toast-action` | Undo in a write's toast: removes the labels that write wrote | |
 | `toast-close` | × on a toast longer than a line, which stays until it is clicked | |
 | `namespace-dialog` | the dialog research refused for a namespace the claims vocabulary lacks opens, which stays until answered | |
-| `namespace-add` | an add button, in the dialog or a notice: the suggested list's first and primary | `data-list` (`vulnerability-namespaces` or `advisory-ids`) |
+| `namespace-add` | an add button, in the dialog or a notice: the suggested list's first and primary, neither primary when the scan can't tell | `data-list` (`vulnerability-namespaces` or `advisory-ids`) |
 | `namespace-cancel`, `namespace-file`, `namespace-status` | the dialog's Cancel, its "Writes <file>" line, and what an add is doing or why it failed | |
 | `unlisted-namespaces` | the notice of open rows' namespaces the vocabulary lacks, above a gate's page and the gates page's work banner | |
 | `work-unlisted` | the gates page's slot for that notice, empty when none | |

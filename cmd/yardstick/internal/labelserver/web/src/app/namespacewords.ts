@@ -1,9 +1,9 @@
 // namespacewords.ts is what the UI says about a namespace the claims vocabulary lacks: why nothing
-// on its rows can be recorded, which list the gate's scan suggests, the buttons that add it to each
-// list (the suggested one first), and the file an add writes.
+// on its rows can be recorded, which list the gate's scan suggests if any, the buttons that add it
+// to each list (the suggested one first and primary), and the file an add writes.
 import type { UnlistedNamespace, VocabularyList } from "../gen/wire";
 
-export interface NamespaceAdd { list: VocabularyList; text: string }
+export interface NamespaceAdd { list: VocabularyList; text: string; primary: boolean }
 export interface NamespaceWords { title: string; body: string; adds: [NamespaceAdd, NamespaceAdd]; small: string; writable: boolean }
 
 const kinds: Record<VocabularyList, string> = { "vulnerability-namespaces": "disclosure", "advisory-ids": "advisory" };
@@ -19,21 +19,22 @@ function shows(u: UnlistedNamespace) {
 // judged says what the scan's ids show and the kind of namespace that makes it
 function judged(u: UnlistedNamespace) {
   const ns = u.namespace, one = u.checked === 1;
-  if (!u.suggest) return `This scan has no ${ns} id to judge it by: a disclosure namespace's ids each name one vulnerability, an advisory's can name several.`;
-  const kind = kinds[u.suggest];
+  if (!u.checked) return `This scan has no ${ns} id to judge it by: a disclosure namespace's ids each name one vulnerability, an advisory's can name several.`;
   if (u.suggest === "advisory-ids") {
     return one
-      ? `The one ${ns} id in this scan names several vulnerabilities (${shows(u)}), so it looks like an ${kind} namespace.`
-      : `Some ${ns} ids in this scan name several vulnerabilities (e.g. ${shows(u)}), so it looks like an ${kind} namespace.`;
+      ? `The one ${ns} id in this scan names several vulnerabilities (${shows(u)}), so it looks like an advisory namespace.`
+      : `Some ${ns} ids in this scan name several vulnerabilities (e.g. ${shows(u)}), so it looks like an advisory namespace.`;
   }
-  return one
-    ? `The one ${ns} id in this scan names one vulnerability (${shows(u)}), so it looks like a ${kind} namespace.`
-    : `Each ${ns} id in this scan names one vulnerability at most (e.g. ${shows(u)}), so it looks like a ${kind} namespace.`;
+  // an advisory addressing one vulnerability names one too, so this can't tell which it is
+  const seen = one
+    ? `The one ${ns} id in this scan names one vulnerability (${shows(u)})`
+    : `Each ${ns} id in this scan names one vulnerability at most (e.g. ${shows(u)})`;
+  return `${seen}: a disclosure's ids each do, and so can an advisory's, so this scan can't tell which kind ${ns} is.`;
 }
 
 export function namespaceWords(u: UnlistedNamespace): NamespaceWords {
   const first = u.suggest ?? "vulnerability-namespaces";
-  const add = (list: VocabularyList): NamespaceAdd => ({ list, text: `Add as ${kinds[list]}` });
+  const add = (list: VocabularyList): NamespaceAdd => ({ list, text: `Add as ${kinds[list]}`, primary: list === u.suggest });
   return {
     title: `${u.namespace} isn't in the claims vocabulary`,
     body: `Research and labels on its rows can't be recorded until it is. ${judged(u)}`,

@@ -10,11 +10,11 @@ import { addedWords, namespaceWords, retried } from "./namespacewords";
 // unlistedIn is the namespace a research refusal is about, if that is why it was refused
 export const unlistedIn = (e: unknown) => (e instanceof api.ApiError ? e.unlisted : undefined);
 
-// adds is the add buttons, the suggested list first and primary; each writes and then runs after,
-// showing what went wrong in place of status
+// adds is the add buttons, the suggested list first and primary (neither is when the scan can't
+// tell); each writes and then runs after, showing what went wrong in place of status
 function adds(u: UnlistedNamespace, status: HTMLElement, after: (list: VocabularyList, file: string) => Promise<void>) {
   const w = namespaceWords(u);
-  const buttons = w.adds.map((a, i) => el("button", { type: "button", class: "btn", "data-variant": i ? "outline" : null, disabled: !w.writable,
+  const buttons = w.adds.map((a) => el("button", { type: "button", class: "btn", "data-variant": a.primary ? null : "outline", disabled: !w.writable,
     "data-testid": "namespace-add", "data-list": a.list, onclick: () => void go(a.list) }, a.text));
   async function go(list: VocabularyList) {
     for (const b of buttons) b.disabled = true;

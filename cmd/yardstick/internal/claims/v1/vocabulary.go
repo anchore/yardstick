@@ -239,14 +239,14 @@ const (
 )
 
 // Unlisted is the refusal of an id whose namespace is on neither list, with which list a scan's ids
-// in the namespace suggest: an id naming at most one vulnerability is a disclosure, one naming
-// several is an advisory.
+// in the namespace suggest: one naming several vulnerabilities is an advisory. Ids naming at most
+// one each suggest neither, since an advisory addressing one vulnerability names one too.
 type Unlisted struct {
 	ID, Namespace string
 	// File is the vocabulary.yaml to add the namespace in; empty when the caller can't say which
 	// claims source's it is.
 	File string
-	// Suggest is ListDisclosure or ListAdvisory, empty when the scan had no id in the namespace.
+	// Suggest is ListAdvisory when some id names several vulnerabilities, else empty.
 	Suggest string
 	// Checked counts the scan's ids in the namespace, Several those naming more than one
 	// vulnerability and Unnamed those naming none.
@@ -259,9 +259,10 @@ type Unlisted struct {
 func (u *Unlisted) Error() string {
 	file := cmp.Or(u.File, "a claims source's "+VocabularyFile)
 	head := fmt.Sprintf("vulnerability %s: namespace %q is not in any claims source's %s", u.ID, u.Namespace, VocabularyFile)
-	if u.Suggest == "" {
-		return fmt.Sprintf("%s; add it to %s in %s if each of its ids names one vulnerability, "+
-			"or to %s if an id can name several (as an ELSA names several CVEs)", head, ListDisclosure, file, ListAdvisory)
+	either := fmt.Sprintf("add it to %s in %s if each of its ids names one vulnerability, "+
+		"or to %s if an id can name several (as an ELSA names several CVEs)", ListDisclosure, file, ListAdvisory)
+	if u.Checked == 0 {
+		return head + "; " + either
 	}
 	count := fmt.Sprintf("This gate's scan has %d %s id", u.Checked, u.Namespace)
 	if u.Checked > 1 {
@@ -283,8 +284,8 @@ func (u *Unlisted) Error() string {
 	if u.Unnamed > 0 {
 		each = "none names more than 1 vulnerability"
 	}
-	return fmt.Sprintf("%s. %s; %s (e.g. %s), so add it to %s in %s. "+
-		"(An id naming several CVEs would belong in %s.)", head, count, each, example, ListDisclosure, file, ListAdvisory)
+	return fmt.Sprintf("%s. %s; %s (e.g. %s), as a disclosure's do and an advisory's can, so the scan can't tell: %s.",
+		head, count, each, example, either)
 }
 
 // CheckScanned is CheckVulnerability, refusing with an *Unlisted that judges which list the
@@ -316,14 +317,10 @@ func (v *Vocabulary) CheckScanned(id, file string, related map[string][]string) 
 	}
 	u.Several = len(several)
 	switch {
-	case u.Checked == 0:
 	case len(several) > 0:
 		u.Suggest, u.Example = ListAdvisory, several[0]
-	default:
-		u.Suggest = ListDisclosure
-		if len(one) > 0 {
-			u.Example = one[0]
-		}
+	case len(one) > 0:
+		u.Example = one[0]
 	}
 	if u.Example != "" {
 		u.Names = names(u.Example, related[u.Example])
