@@ -472,31 +472,21 @@ func (v *Vocabulary) Allowed(verdict Verdict) []string {
 }
 
 // AddToList is a vocabulary.yaml with a namespace appended to one of its lists, the list added when
-// the file has none; data may be empty, for a file not yet written. The file is edited as a YAML
-// tree, so its comments, key order and styles stay as they were.
+// the file has none; data may be empty, for a file not yet written. The namespace is spliced into
+// the file's text after the list's last item, and a missing list goes at the end, so every other
+// byte stays as it was; a file laid out otherwise (an empty list key, an inline mapping) is edited
+// as a YAML tree, which keeps comments, key order and styles but may drop blank lines.
 func AddToList(data []byte, ns, list string) ([]byte, error) {
 	var doc yaml.Node
 	if err := yaml.Unmarshal(data, &doc); err != nil {
 		return nil, fmt.Errorf("%s: %w", VocabularyFile, err)
 	}
-	if doc.Kind == 0 {
-		// no file, or only comments, which yaml.v3 doesn't keep for a document with no node: the
-		// text stays as it is, the list after it
-		list, err := encode(&yaml.Node{Kind: yaml.MappingNode, Content: []*yaml.Node{str(list), flowList(ns)}})
-		if err != nil {
-			return nil, err
-		}
-		out := slices.Clone(data)
-		if len(out) > 0 && !bytes.HasSuffix(out, []byte("\n")) {
-			out = append(out, '\n')
-		}
-		return append(out, list...), nil
+	// no file, only comments (which yaml.v3 doesn't keep for a document with no node), or an empty
+	// document ("---", which loading reads as an empty vocabulary): the list goes after the text
+	if doc.Kind == 0 || doc.Content[0].Kind == yaml.ScalarNode && doc.Content[0].Tag == "!!null" {
+		return appendList(data, ns, list)
 	}
 	root := doc.Content[0]
-	// a document with no content ("---"), which loading reads as an empty vocabulary
-	if root.Kind == yaml.ScalarNode && root.Tag == "!!null" {
-		root.Kind, root.Tag, root.Value = yaml.MappingNode, "!!map", ""
-	}
 	if root.Kind != yaml.MappingNode {
 		return nil, fmt.Errorf("%s is not a mapping", VocabularyFile)
 	}
@@ -507,18 +497,120 @@ func AddToList(data []byte, ns, list string) ([]byte, error) {
 		}
 	}
 	switch {
+	case seq == nil && root.Style&yaml.FlowStyle == 0:
+		return appendList(data, ns, list)
 	case seq == nil:
 		root.Content = append(root.Content, str(list), flowList(ns))
 	case seq.Kind == yaml.SequenceNode:
-		if !slices.ContainsFunc(seq.Content, func(n *yaml.Node) bool { return n.Value == ns }) {
-			seq.Content = append(seq.Content, str(ns))
+		if slices.ContainsFunc(seq.Content, func(n *yaml.Node) bool { return n.Value == ns }) {
+			return data, nil
 		}
+		if out, ok := splice(data, seq, ns); ok && listIs(out, list, seq, ns) {
+			return out, nil
+		}
+		seq.Content = append(seq.Content, str(ns))
 	case seq.Tag == "!!null":
 		*seq = *flowList(ns)
 	default:
 		return nil, fmt.Errorf("%s in %s is not a list", list, VocabularyFile)
 	}
 	return encode(&doc)
+}
+
+// appendList is data with a list holding ns after it.
+func appendList(data []byte, ns, list string) ([]byte, error) {
+	text, err := encode(&yaml.Node{Kind: yaml.MappingNode, Content: []*yaml.Node{str(list), flowList(ns)}})
+	if err != nil {
+		return nil, err
+	}
+	out := slices.Clone(data)
+	if len(out) > 0 && !bytes.HasSuffix(out, []byte("\n")) {
+		out = append(out, '\n')
+	}
+	return append(out, text...), nil
+}
+
+// splice is data with ns written after seq's last item, in seq's style: ", ns" inline, or a line
+// of its own indented as the item above it. ok is false when the text isn't where the nodes say.
+func splice(data []byte, seq *yaml.Node, ns string) (out []byte, ok bool) {
+	item, err := encode(str(ns))
+	if err != nil {
+		return nil, false
+	}
+	item = bytes.TrimSuffix(item, []byte("\n"))
+	lines := bytes.SplitAfter(data, []byte("\n"))
+	// at is the byte offset of a node, whose line and column yaml.v3 counts from 1, in runes
+	at := func(n *yaml.Node) int {
+		if n.Line < 1 || n.Line > len(lines) || n.Column < 1 {
+			return -1
+		}
+		off := 0
+		for _, l := range lines[:n.Line-1] {
+			off += len(l)
+		}
+		line := []rune(string(lines[n.Line-1]))
+		if n.Column > len(line) {
+			return -1
+		}
+		return off + len(string(line[:n.Column-1]))
+	}
+	insert := func(i int, parts ...[]byte) []byte {
+		return slices.Concat(data[:i], bytes.Join(parts, nil), data[i:])
+	}
+	if seq.Style&yaml.FlowStyle != 0 {
+		if len(seq.Content) == 0 {
+			i := at(seq)
+			return insert(i+1, item), i >= 0 && data[i] == '['
+		}
+		last := seq.Content[len(seq.Content)-1]
+		i := at(last)
+		if i < 0 {
+			return nil, false
+		}
+		// a plain item is its value as written; a quoted one is checked again by the caller
+		end := i + len(last.Value)
+		if last.Style&(yaml.DoubleQuotedStyle|yaml.SingleQuotedStyle) != 0 {
+			end += 2
+		}
+		if end > len(data) {
+			return nil, false
+		}
+		return insert(end, []byte(", "), item), true
+	}
+	last := seq.Content[len(seq.Content)-1]
+	i := at(last)
+	if i < 0 {
+		return nil, false
+	}
+	// the item's line up to it, such as "  - ", is the new line's too
+	start := bytes.LastIndexByte(data[:i], '\n') + 1
+	prefix := data[start:i]
+	if len(bytes.TrimSpace(prefix)) != 1 || bytes.TrimSpace(prefix)[0] != '-' {
+		return nil, false
+	}
+	end := bytes.IndexByte(data[i:], '\n')
+	if end < 0 {
+		return insert(len(data), []byte("\n"), prefix, item, []byte("\n")), true
+	}
+	return insert(i+end+1, prefix, item, []byte("\n")), true
+}
+
+// listIs says whether data's list is seq's items and then ns, as splice meant it to be.
+func listIs(data []byte, list string, seq *yaml.Node, ns string) bool {
+	var m map[string]yaml.Node
+	var got []string
+	if yaml.Unmarshal(data, &m) != nil {
+		return false
+	}
+	n := m[list]
+	if n.Decode(&got) != nil {
+		return false
+	}
+	want := make([]string, 0, len(seq.Content)+1)
+	for _, c := range seq.Content {
+		want = append(want, c.Value)
+	}
+	return slices.Equal(got, append(want, ns))
 }
 
 // str is a string node; flowList a one-item list written inline, [ns].

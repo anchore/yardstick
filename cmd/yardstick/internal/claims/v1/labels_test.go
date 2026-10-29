@@ -392,7 +392,17 @@ vulnerability-namespaces:
 		"comments only": {"# CleanStart's own namespaces\n# moved to anchore/claims by a bot", "CLEANSTART", ListDisclosure,
 			"# CleanStart's own namespaces\n# moved to anchore/claims by a bot\nvulnerability-namespaces: [CLEANSTART]\n"},
 		// a document with nothing in it, which loading takes as an empty vocabulary
-		"empty document": {"---\n", "CLEANSTART", ListDisclosure, "vulnerability-namespaces: [CLEANSTART]\n"},
+		"empty document": {"---\n", "CLEANSTART", ListDisclosure, "---\nvulnerability-namespaces: [CLEANSTART]\n"},
+		// blank lines and everything else around the list stay as they were
+		"blank lines kept": {"advisory-ids: [ELSA]\n\n# disclosures\nvulnerability-namespaces: [CVE]\n\nrules: {}\n", "GO", ListDisclosure,
+			"advisory-ids: [ELSA]\n\n# disclosures\nvulnerability-namespaces: [CVE, GO]\n\nrules: {}\n"},
+		"block list, no newline at the end": {"vulnerability-namespaces:\n    -   CVE\n\n    -   GHSA", "GO", ListDisclosure,
+			"vulnerability-namespaces:\n    -   CVE\n\n    -   GHSA\n    -   GO\n"},
+		"empty flow list":                             {"vulnerability-namespaces: [ ]   # none yet\n", "GO", ListDisclosure, "vulnerability-namespaces: [GO ]   # none yet\n"},
+		"multiline flow list":                         {"vulnerability-namespaces: [\n  CVE,\n  'GHSA'\n]\n\nx: 1\n", "GO", ListDisclosure, "vulnerability-namespaces: [\n  CVE,\n  'GHSA', GO\n]\n\nx: 1\n"},
+		"a namespace YAML would read as another type": {"vulnerability-namespaces: [CVE]\n", "NULL", ListDisclosure, "vulnerability-namespaces: [CVE, \"NULL\"]\n"},
+		// a quoted item with an escape isn't as long as its value: edited as a tree instead
+		"escaped item": {"vulnerability-namespaces: [\"C\\x56E\"]\n\nx: 1\n", "GO", ListDisclosure, "vulnerability-namespaces: [\"CVE\", GO]\nx: 1\n"},
 	} {
 		got, err := AddToList([]byte(tc.in), tc.ns, tc.list)
 		if err != nil || string(got) != tc.want {
@@ -401,6 +411,34 @@ vulnerability-namespaces:
 	}
 	if _, err := AddToList([]byte("vulnerability-namespaces: CVE\n"), "GO", ListDisclosure); err == nil {
 		t.Error("expected a list that isn't one refused")
+	}
+
+	// on the published corpus's own file, adding to either list changes only that list's line
+	corpusFile, err := os.ReadFile(filepath.Join("testdata", VocabularyFile))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, tc := range []struct{ ns, list, line string }{
+		{"CLEANSTART", ListDisclosure, "vulnerability-namespaces: [CVE, GHSA, GO, PYSEC, RUSTSEC, BDSA, RSEC]"},
+		{"IC", ListAdvisory, `advisory-ids: ["ALAS*", ALSA, ELSA, RLSA, RHSA, RHBA, RHEA, AVG, FEDORA, BIT, DSA, DLA, USN, "ADV*"]`},
+	} {
+		got, err := AddToList(corpusFile, tc.ns, tc.list)
+		if err != nil {
+			t.Fatal(err)
+		}
+		before, after := strings.Split(string(corpusFile), "\n"), strings.Split(string(got), "\n")
+		if len(before) != len(after) {
+			t.Fatalf("adding %s: %d lines became %d", tc.ns, len(before), len(after))
+		}
+		for i := range before {
+			want := before[i]
+			if want == tc.line {
+				want = strings.TrimSuffix(tc.line, "]") + ", " + tc.ns + "]"
+			}
+			if after[i] != want {
+				t.Errorf("adding %s, line %d:\ngot  %s\nwant %s", tc.ns, i+1, after[i], want)
+			}
+		}
 	}
 }
 
