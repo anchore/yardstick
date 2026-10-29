@@ -427,7 +427,8 @@ func (s *Server) handleRecord(w http.ResponseWriter, req *http.Request) {
 	if !decode(w, req, &body) {
 		return
 	}
-	if _, v := s.viewFor(w, req); v == nil {
+	e, v := s.viewFor(w, req)
+	if v == nil {
 		return
 	}
 	idx, err := s.researchIndex()
@@ -438,6 +439,11 @@ func (s *Server) handleRecord(w http.ResponseWriter, req *http.Request) {
 	sum := idx.newest[body.Row]
 	if sum == nil {
 		http.Error(w, "no research job on row "+body.Row, http.StatusNotFound)
+		return
+	}
+	// the gate the request is about is the one the job researched under, whose scans its rows are
+	if g := idx.byID[sum.Job].Gate; g != e.name {
+		http.Error(w, fmt.Sprintf("row %s's research job is about gate %s, not %s", body.Row, g, e.name), http.StatusBadRequest)
 		return
 	}
 	job, err := s.opts.Research.Record(s.ctx, sum.Job)

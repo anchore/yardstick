@@ -558,6 +558,10 @@ func TestE2EResearchNotRecorded(t *testing.T) {
 		t.Errorf("expected the batch plan to research it again: %d %v", code, planLines(plan))
 	}
 
+	// a job is recorded only under the gate it researched
+	if code := post(t, h, token, "/api/gates/deb-npm/research/record", map[string]string{"row": tar}, nil); code == http.StatusOK {
+		t.Errorf("recording under another gate: expected a refusal, got %d", code)
+	}
 	// recording it is propose on what it wrote, as the job: the hint arrives, and the job is done
 	var rec map[string]string
 	if code := post(t, h, token, "/api/gates/deb-java/research/record", map[string]string{"row": tar}, &rec); code != http.StatusOK || rec["status"] != "done" {

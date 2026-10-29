@@ -101,13 +101,17 @@ type Written struct {
 }
 
 // Output is what a job's agent left in its output directory: the files there of the skill's, the
-// report's text, and the proposal when it holds a verdict (the plugin writes it first as a
-// skeleton with none).
+// report's text, and the proposal when it holds a verdict (the plugin writes it first as a skeleton
+// with none). The directory is the vulnerability's and package's, with no subject, so another
+// job's agent can write there too: a report or proposal counts only when written since this run
+// started, and a proposal only when it is about one of this job's rows. OtherRow is the row a
+// proposal there names instead, another finding's research.
 type Output struct {
 	Dir      string   `json:"dir"`
 	Files    []string `json:"files"`
 	Report   string   `json:"report,omitempty"`
 	Proposal *Written `json:"proposal,omitempty"`
+	OtherRow string   `json:"otherRow,omitempty"`
 }
 
 // Output reads what the job's agent wrote; nil when it has no output directory.
@@ -118,14 +122,32 @@ func (r *Runner) Output(job Job) *Output {
 	}
 	out := &Output{Dir: rel, Files: []string{}}
 	dir := filepath.Join(r.cfg.Dir, rel)
-	if data, err := readCapped(filepath.Join(dir, Report)); err == nil {
-		out.Files, out.Report = append(out.Files, Report), string(data)
+	// this run's: written since it started
+	ours := func(name string) bool {
+		info, err := os.Stat(filepath.Join(dir, name))
+		if err == nil {
+			out.Files = append(out.Files, name)
+		}
+		return err == nil && !info.ModTime().Before(job.Started)
 	}
-	if data, err := os.ReadFile(filepath.Join(dir, ProposalFile)); err == nil {
-		out.Files = append(out.Files, ProposalFile)
-		var w Written
-		if json.Unmarshal(data, &w) == nil && w.Verdict != "" {
-			out.Proposal = &w
+	report, proposal := ours(Report), ours(ProposalFile)
+	if proposal {
+		var w struct {
+			Written
+			Row string `json:"row"`
+		}
+		data, err := os.ReadFile(filepath.Join(dir, ProposalFile))
+		switch {
+		case err != nil || json.Unmarshal(data, &w) != nil:
+		case w.Row != "" && !slices.Contains(job.Rows, w.Row):
+			out.OtherRow = w.Row
+		case w.Row != "" && w.Verdict != "":
+			out.Proposal = &w.Written
+		}
+	}
+	if report && out.OtherRow == "" {
+		if data, err := readCapped(filepath.Join(dir, Report)); err == nil {
+			out.Report = string(data)
 		}
 	}
 	return out
@@ -145,27 +167,27 @@ func readCapped(path string) ([]byte, error) {
 	return buf[:n], nil
 }
 
-// proposals are the files the agent meant to record: a copy per row when it researched several
-// binary packages (proposal-<row>.json), else proposal.json.
-func proposals(dir string) []string {
-	rows, _ := filepath.Glob(filepath.Join(dir, "proposal-*.json"))
-	if len(rows) > 0 {
-		slices.Sort(rows)
-		return rows
-	}
-	return []string{filepath.Join(dir, ProposalFile)}
-}
-
-// Record records what the job's agent wrote but didn't record, as it would have: this yardstick's
-// `claims agent propose` on its proposal files, in the job's environment, so the calls carry the
-// job's id and are checked as the agent's are. Once recorded the job is Done; a refusal is
-// returned as propose said it, and the job left as it was. Nothing is researched again.
+// Record records the proposal the job's agent wrote but didn't record, as it would have: this
+// yardstick's `claims agent propose` on proposal.json, in the job's environment, so the call carries
+// the job's id and is checked as the agent's are. It records exactly what Output shows: this run's
+// proposal, about one of the job's rows. The job is judged as Jobs reads it, so one from before
+// yardstick told done from not recorded can be recorded too. Once recorded the job is Done; a
+// refusal is returned as propose said it, and the job left as it was. Nothing is researched again.
 func (r *Runner) Record(ctx context.Context, id string) (Job, error) {
+	r.mu.Lock()
 	job, err := r.load(id)
-	if err != nil {
-		return job, err
+	live := r.live[id]
+	if err == nil && !live {
+		jobs := []Job{job}
+		r.reconcile(jobs)
+		job = jobs[0]
 	}
+	r.mu.Unlock()
 	switch {
+	case err != nil:
+		return job, err
+	case live:
+		return job, errors.New("research is running on it again")
 	case job.Status != NotRecorded:
 		return job, fmt.Errorf("the job is %s, not %s", job.Status, NotRecorded)
 	case r.cfg.Bin == "":
@@ -173,12 +195,12 @@ func (r *Runner) Record(ctx context.Context, id string) (Job, error) {
 	}
 	o := r.Output(job)
 	if o == nil || o.Proposal == nil {
-		return job, errors.New("the agent wrote no proposal with a verdict to record")
+		return job, errors.New("this run wrote no proposal with a verdict about its rows to record")
 	}
-	args := append([]string{"claims", "agent", "propose", "--name", cmp.Or(job.Run, r.cfg.Run), "--gate", job.Gate}, proposals(filepath.Join(r.cfg.Dir, o.Dir))...)
+	args := []string{"claims", "agent", "propose", "--name", cmp.Or(job.Run, r.cfg.Run), "--gate", job.Gate, filepath.Join(r.cfg.Dir, o.Dir, ProposalFile)}
 	ctx, cancel := context.WithTimeout(ctx, time.Minute)
 	defer cancel()
-	cmd := exec.CommandContext(ctx, r.cfg.Bin, args...) //nolint:gosec // G204: this binary, the job's own files
+	cmd := exec.CommandContext(ctx, r.cfg.Bin, args...) //nolint:gosec // G204: this binary, the job's own file
 	cmd.Dir = r.cfg.Dir
 	cmd.Env = append(childEnv(os.Environ()), job.env(r.cfg)...)
 	var out bytes.Buffer
@@ -194,9 +216,17 @@ func (r *Runner) Record(ctx context.Context, id string) (Job, error) {
 		}
 		return job, fmt.Errorf("propose refused it: %s", msg)
 	}
-	job.Status, job.Error = Done, ""
-	if err := r.save(job); err != nil {
+	// a rerun started while propose ran is the job's record now: it says what it comes to
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	cur, err := r.load(id)
+	if err != nil {
 		return job, err
 	}
-	return job, nil
+	if r.live[id] || !cur.Queued.Equal(job.Queued) {
+		return cur, errors.New("recorded, but research started on it again meanwhile, so the job says what that run comes to")
+	}
+	cur.Status, cur.Error, cur.Recorded = Done, "", true
+	cur.LastDone = time.Now().UTC()
+	return cur, r.save(cur)
 }
