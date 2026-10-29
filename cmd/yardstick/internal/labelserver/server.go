@@ -110,7 +110,9 @@
 //	                            job's vulnerability is in a namespace its gate's vocabulary lacks:
 //	                            Vocabulary.CheckScanned over the gate's rows
 //	state.unlisted            ← the same, for each namespace of the gate's open rows
-//	POST vocabulary/namespace ← claimsv1.AddToList on the writable source's vocabulary.yaml
+//	POST vocabulary/namespace ← claimsv1.AddToList on the writable source's vocabulary.yaml. The
+//	                            gate only picks the source: every gate on that source reads the
+//	                            change, not just this one
 //	row.research.status       ← research.Job.Status: not-recorded when the job exited 0 but recorded no
 //	                            call, error saying why; costUSD from its Usage
 //	rows/{id}.research        ← the newest job's Summary and research.Output (its REPORT.md and
