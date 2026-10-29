@@ -85,7 +85,7 @@ export function jobsView(host: HTMLElement, r: Extract<Route, { level: "jobs" }>
     concurrency = s.concurrency;
     fill(sub, `${modelWords(j.jobs[0]?.model ?? basis?.model ?? "")}, ${concurrency || "?"} at a time. Jobs write hints, never labels.`);
     const big = (b: Child, word: string, testid: string) => el("div", { class: "big" }, el("b", { "data-testid": testid }, b), el("span", {}, word));
-    const finished = s.done + s.failed + s.cancelled, act = s.running + s.queued;
+    const finished = s.done + s.notRecorded + s.failed + s.cancelled, act = s.running + s.queued;
     const fresh = newHints(j.jobs, pending);
     const review = fresh > 0 && el("a", { class: "btn", href: hintsHref({}), "data-testid": "jobs-review" }, `Review ${plural(fresh, "new hint")} `, kbd("h"));
     const so = (["fp", "tp", "unclear"] as const).filter((v) => s.hints[v] > 0).map((v) => `${s.hints[v]} ${words[v].word}`).join(", ");

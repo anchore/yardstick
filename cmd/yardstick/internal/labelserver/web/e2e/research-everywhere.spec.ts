@@ -34,7 +34,7 @@ const ago = (s: number) => new Date(Date.now() - s * 1000).toISOString();
 const job = (id: string, rows: string[], vulnerability: string, extra: Partial<ResearchJob>): ResearchJob =>
   ({ id, rows, vulnerability, package: "pkg:deb/debian/tar@1.34", gate: "deb-java", status: "done", command: "", dir: "", queued: ago(600), hints: [], ...extra });
 const summary = (extra: Partial<ResearchJobsSummary> = {}): ResearchJobsSummary =>
-  ({ total: 0, done: 0, running: 0, queued: 0, failed: 0, cancelled: 0, spent: 0, estimate: 0, secondsLeft: 0, concurrency: 2, hints: { tp: 0, fp: 0, unclear: 0 }, ...extra });
+  ({ total: 0, done: 0, running: 0, queued: 0, failed: 0, notRecorded: 0, cancelled: 0, spent: 0, estimate: 0, secondsLeft: 0, concurrency: 2, hints: { tp: 0, fp: 0, unclear: 0 }, ...extra });
 const fakeJobs = (page: Page, jobs: ResearchJob[], s: Partial<ResearchJobsSummary>) =>
   page.route("**/api/research/jobs", (r) => r.fulfill({ json: { jobs, summary: summary(s) } satisfies ResearchJobs }));
 

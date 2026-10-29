@@ -36,7 +36,7 @@ describe("estimate words", () => {
 });
 
 const batch = (b: Partial<ResearchBatch>): ResearchBatch => ({
-  id: "b1", started: "", model: "sonnet", total: 21, done: 0, running: 0, queued: 0, failed: 0, cancelled: 0, spent: 0, estimate: 0, secondsLeft: 0,
+  id: "b1", started: "", model: "sonnet", total: 21, done: 0, running: 0, queued: 0, failed: 0, notRecorded: 0, cancelled: 0, spent: 0, estimate: 0, secondsLeft: 0,
   hints: { tp: 0, fp: 0, unclear: 0 }, ...b,
 });
 
@@ -49,6 +49,7 @@ describe("batch words", () => {
   test("a finished batch keeps its real total", () => {
     expect(finishedWords(batch({ done: 21, spent: 4.84 }))).toBe("Research finished · 21 jobs · $4.84");
     expect(finishedWords(batch({ done: 12, cancelled: 8, failed: 1, spent: 2.71 }))).toBe("Research stopped · 12 of 21 jobs done · $2.71 · 1 failed");
+    expect(finishedWords(batch({ done: 18, notRecorded: 2, failed: 1, spent: 2.71 }))).toBe("Research finished · 21 jobs · $2.71 · 2 not recorded · 1 failed");
   });
 });
 

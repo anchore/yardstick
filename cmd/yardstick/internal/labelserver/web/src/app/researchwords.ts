@@ -95,7 +95,7 @@ export function batchWords(b: ResearchBatch): BatchWords {
 export function finishedWords(b: ResearchBatch): string {
   const stopped = b.cancelled > 0;
   return [stopped ? "Research stopped" : "Research finished", stopped ? `${b.done} of ${plural(b.total, "job")} done` : plural(b.total, "job"),
-    money(b.spent), b.failed > 0 && `${b.failed} failed`].filter(Boolean).join(" · ");
+    money(b.spent), b.notRecorded > 0 && `${b.notRecorded} not recorded`, b.failed > 0 && `${b.failed} failed`].filter(Boolean).join(" · ");
 }
 
 // ---------- the research page's rows ----------

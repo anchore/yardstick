@@ -406,7 +406,8 @@ type ResearchProgress struct {
 	Done        int     `json:"done"`
 	Running     int     `json:"running"`
 	Queued      int     `json:"queued"`
-	Failed      int     `json:"failed"` // failed, timed out or interrupted
+	Failed      int     `json:"failed"`      // failed, timed out or interrupted
+	NotRecorded int     `json:"notRecorded"` // ran, but recorded no call
 	Cancelled   int     `json:"cancelled"`
 	Spent       float64 `json:"spent"`
 	Estimate    float64 `json:"estimate"`
@@ -442,6 +443,8 @@ func progress(all, jobs []research.Job, concurrency int) ResearchProgress {
 			mean += basis.Mean
 		case research.Cancelled:
 			out.Cancelled++
+		case research.NotRecorded:
+			out.NotRecorded++
 		default:
 			out.Failed++
 		}

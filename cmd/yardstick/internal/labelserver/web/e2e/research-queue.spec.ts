@@ -26,7 +26,7 @@ const segment = (page: Page, id: string) => page.getByTestId("work-legend").loca
 const gateResearch = (page: Page, gate: string) => page.locator(`[data-testid=gate-row][data-gate=${gate}]`).getByTestId("gate-research");
 
 // a batch partway through, since the stand-in's jobs finish in a second or two
-const partway: ResearchBatch = { id: "b1", started: "2026-10-20T10:00:00Z", model: "sonnet", total: 21, done: 12, running: 2, queued: 7, failed: 0, cancelled: 0,
+const partway: ResearchBatch = { id: "b1", started: "2026-10-20T10:00:00Z", model: "sonnet", total: 21, done: 12, running: 2, queued: 7, failed: 0, notRecorded: 0, cancelled: 0,
   spent: 2.71, estimate: 4.83, secondsLeft: 240, hints: { tp: 0, fp: 9, unclear: 3 } };
 const fakeRunning = (page: Page) => page.route("**/api/research/batch", (r) => r.fulfill({ json: partway }));
 
