@@ -101,11 +101,17 @@ func ValidateCorpus(dir string) ([]Problem, error) {
 
 func (c *corpusCheck) loadRoot() error {
 	var err error
-	if c.vocab, err = claimsv1.LoadVocabulary(c.fsys); err != nil {
+	c.vocab, err = claimsv1.LoadVocabulary(c.fsys)
+	switch {
+	case err != nil:
 		c.addf(claimsv1.VocabularyFile, "", "%v", err)
-	} else if c.vocab == nil {
+	case c.vocab == nil:
 		c.addf(claimsv1.VocabularyFile, "", "missing: a corpus lists its justifications and fact sources")
-	} else {
+	case c.vocab.Fragment():
+		// labels checked against it alone would each be refused, for what the corpus it adds to lists
+		c.addf(claimsv1.VocabularyFile, "", "lists no justifications: it only adds to another claims source's, so this is no whole corpus to validate")
+		c.vocab = nil
+	default:
 		for _, p := range c.vocab.CheckRules() {
 			c.addf(claimsv1.VocabularyFile, "", "%s", p)
 		}

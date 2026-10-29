@@ -647,6 +647,9 @@ func TestValidateCorpus(t *testing.T) {
 			// the SBOM's manifest is another digest than the directory's: the directory's is an index
 			edit(debDir+"/"+ImageSBOMFile, `"manifestDigest":"`+debDigest, `"manifestDigest":"sha256:`+strings.Repeat("0", 64))(t, dir)
 		}, debFile, "", "subject.platform must say which platform"},
+		{"a vocabulary that only adds a namespace", func(t *testing.T, dir string) {
+			write(t, filepath.Join(dir, claimsv1.VocabularyFile), "vulnerability-namespaces: [CVE]\n")
+		}, claimsv1.VocabularyFile, "", "lists no justifications: it only adds to another claims source's"},
 		{"a schema v2 file", edit(debFile, `"schema": "`+claimsv1.Version+`"`, `"schema": "2.0.0"`), debFile, "", "reads v1"},
 	}
 	for _, tt := range tests {
