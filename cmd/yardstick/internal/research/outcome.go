@@ -123,7 +123,8 @@ func (r *Runner) reconcile(jobs []Job) {
 }
 
 // whyNotRecorded says why a job that exited 0 recorded nothing: propose's refusal when it left one,
-// else the tool uses the agent was refused, else that it never proposed.
+// else the tool uses the agent was refused. Otherwise it says only that nothing was recorded: a job
+// from before propose left its refusal may well have proposed, and the log says what happened.
 func (r *Runner) whyNotRecorded(job *Job, end ending) string {
 	if data, err := os.ReadFile(filepath.Join(r.jobs, job.ID, ProposeErrorFile)); err == nil {
 		if msg := strings.TrimSpace(ansi.ReplaceAllString(string(data), "")); msg != "" {
@@ -144,7 +145,7 @@ func (r *Runner) whyNotRecorded(job *Job, end ending) string {
 		}
 		return fmt.Sprintf("the agent was refused %d tool %s: %s%s", n, plural(n, "use", "uses"), strings.Join(shown, "; "), more)
 	}
-	return "the agent ended without proposing"
+	return "nothing was recorded; the log says what happened"
 }
 
 // ansi is a terminal color sequence, as the CLI's log lines carry

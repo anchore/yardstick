@@ -66,7 +66,7 @@ describe("the finding page's research section", () => {
     for (const det of [wrote(null), undefined]) {
       expect(researchOutcome(ran({ status: "not-recorded", error: why }), det, when)).toMatchObject({ kind: "nothing", text: `Research ran but wrote no result: ${why}` });
     }
-    expect(researchOutcome(ran({ status: "not-recorded" }), undefined, when).text).toBe("Research ran but wrote no result: the agent ended without proposing");
+    expect(researchOutcome(ran({ status: "not-recorded" }), undefined, when).text).toBe("Research ran but wrote no result: nothing was recorded; the log says what happened");
   });
   test("running, failed and cancelled are the job's own", () => {
     expect(researchOutcome(ran({ status: "running", started: "2026-10-20T10:00:19Z", finished: undefined }), undefined, when, now))

@@ -69,7 +69,7 @@ func TestAJobIsDoneOnlyOnceItRecordedACall(t *testing.T) {
 		// propose refused the call, and said why in the job's directory, colors and all
 		"propose refused": {`printf '\033[31mproposal 1: vulnerability CLEANSTART-2026-GU36052: namespace "CLEANSTART" is not in any claims source'"'"'s vocabulary.yaml\033[0m\n' > "$YARDSTICK_RESEARCH_JOB_DIR/propose-error.txt"; ` + echo(deniedResult), false, NotRecorded,
 			`propose refused it: proposal 1: vulnerability CLEANSTART-2026-GU36052: namespace "CLEANSTART" is not in any claims source's vocabulary.yaml`},
-		"never proposed": {echo(`{"type":"result","total_cost_usd":0.1,"permission_denials":[],"result":"done"}`), false, NotRecorded, "the agent ended without proposing"},
+		"nothing on record": {echo(`{"type":"result","total_cost_usd":0.1,"permission_denials":[],"result":"done"}`), false, NotRecorded, "nothing was recorded; the log says what happened"},
 	} {
 		rec := &recorder{ok: tc.recorded}
 		j, _ := runOne(t, tc.command, rec.recorded)
@@ -83,7 +83,7 @@ func TestAJobIsDoneOnlyOnceItRecordedACall(t *testing.T) {
 		if recorded := tc.status == Done; j.Researched() != recorded || j.LastDone.IsZero() == recorded || j.Recorded != recorded || j.Usage == nil {
 			t.Errorf("%s: expected researched=%v with its cost, got %+v", name, recorded, j)
 		}
-		if name != "never proposed" && j.Summary != "I couldn't finish this one. Verdict I would propose: tp, fix-newer, medium." {
+		if name != "nothing on record" && j.Summary != "I couldn't finish this one. Verdict I would propose: tp, fix-newer, medium." {
 			t.Errorf("%s: expected the agent's last message kept, got %q", name, j.Summary)
 		}
 	}
@@ -107,7 +107,7 @@ func TestARerunDropsTheLastRunsRefusal(t *testing.T) {
 	}
 	r.Wait()
 	jobs, _ := r.Jobs()
-	if jobs[0].Error != "the agent ended without proposing" {
+	if jobs[0].Error != "nothing was recorded; the log says what happened" {
 		t.Errorf("rerun: %+v", jobs[0])
 	}
 	if _, err := os.Stat(filepath.Join(r.jobs, "aaa", ProposeErrorFile)); !os.IsNotExist(err) {

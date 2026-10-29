@@ -111,7 +111,7 @@ export function researchOutcome(j: ResearchSummary, d: ResearchDetail | undefine
   }
   if (failedJob(j)) return { kind: "failed", head, text: `Research ${j.status === "failed" ? "failed" : j.status.replace("-", " ")}${j.error ? `: ${j.error}` : "."}` };
   if (j.status === "cancelled") return { kind: "cancelled", head, text: "Research was cancelled before it finished." };
-  const why = j.error || "the agent ended without proposing";
+  const why = j.error || "nothing was recorded; the log says what happened";
   if (j.status === "not-recorded") {
     const p = d?.output?.proposal;
     return p
