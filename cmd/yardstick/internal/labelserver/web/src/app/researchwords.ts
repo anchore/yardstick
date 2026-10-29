@@ -33,7 +33,7 @@ export const modelWords = (m: string) => (m ? cap(m) : "the configured model");
 // A branch build's note (research on, with a reason) is said too. Null when there's nothing to say.
 export function offWords(a: Availability | undefined): { title: string; body: string; command?: string } | null {
   if (!a?.reason) return null;
-  if (a.available) return { title: "Research runs the installed plugin", body: cap(a.reason) + "." };
+  if (a.available) return { title: "Which plugin research runs", body: cap(a.reason) + "." };
   return { title: "Research is off", body: `${cap(a.reason)}, so no table offers research.${a.command ? " To turn it on, run this, then restart claims serve:" : ""}`, command: a.command };
 }
 

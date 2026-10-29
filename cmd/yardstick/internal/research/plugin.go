@@ -68,15 +68,12 @@ func CheckPluginDir(dir, version string) Availability {
 		return Availability{Reason: fmt.Sprintf("%s is not a yardstick plugin directory (it needs .claude-plugin/plugin.json naming yardstick)", dir)}
 	}
 	a := pluginAvailability([]installedPlugin{{ID: "yardstick@" + dir, Version: manifest.Version, Enabled: true}}, version)
-	switch {
-	case !a.Available:
+	if !a.Available {
 		a.Command = "" // updating the marketplace doesn't change a directory
-	case a.Reason == "":
-		a.Reason = "research runs the yardstick plugin in " + dir
-	default:
-		a.Reason = strings.Replace(a.Reason, "the installed yardstick plugin", "the yardstick plugin in "+dir, 1)
+		return a
 	}
-	return a
+	// a directory given on purpose is presumably this build's own plugin, so no caveat, just where
+	return Availability{Available: true, Reason: fmt.Sprintf("research runs the yardstick plugin %s in %s", manifest.Version, dir)}
 }
 
 func pluginAvailability(plugins []installedPlugin, version string) Availability {

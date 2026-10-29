@@ -145,7 +145,7 @@ describe("research off words", () => {
     expect(w?.command).toBe("claude plugin update yardstick@yardstick");
   });
   test("a branch build's note is said, research still on", () => {
-    expect(offWords({ available: true, reason: "this yardstick is v0.17.0-b, a build of 0.17.0" })?.title).toBe("Research runs the installed plugin");
+    expect(offWords({ available: true, reason: "this yardstick is v0.17.0-b, a build of 0.17.0" })?.title).toBe("Which plugin research runs");
   });
   test("nothing to say", () => {
     expect(offWords(undefined)).toBeNull();
