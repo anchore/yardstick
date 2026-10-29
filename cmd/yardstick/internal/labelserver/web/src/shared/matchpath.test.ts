@@ -95,8 +95,11 @@ describe("match path", () => {
     const src = det("exact-indirect-match");
     src.searchedBy.package = { name: "binutils-src", version: "2.45.1-r1" };
     expect(cells({ matchDetails: [src] })[1]).toBe("via | via source package binutils-src | 2.45.1-r1");
-    // without a raw match, the row's match types and upstreams are all the lane has
-    expect(cells()[1]).toBe("via | via source package binutils | ");
+    // without a raw match, the row's match types and upstreams are all the lane has: an upstream
+    // that is the package's own name is no source package either, and another is
+    expect(cells().map((c) => c.split(" | ")[0])).not.toContain("via");
+    row.candidate!.upstreams = ["binutils", "binutils-src"];
+    expect(cells()[1]).toBe("via | via source package binutils-src | ");
   });
   test("each of the other DB's records says how it relates to the row", () => {
     const [cpe, distro] = nak.candidateRecords ?? [];

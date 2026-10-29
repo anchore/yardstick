@@ -44,7 +44,7 @@ export function steps(r: Row, side: Side, raw: GrypeMatch | undefined, rel: Rele
     const sb: SearchedBy = md?.searchedBy || {}, fd = md?.found || {};
     const types = md ? [md.type || ""] : d.matchTypes || [];
     const ns = md ? sb.namespace : d.namespace, matcher = md ? md.matcher || "" : (d.matchers || [])[0] || "";
-    const viaName = !types.includes("exact-indirect-match") ? null : md ? (sb.package?.name !== pk.name ? sb.package?.name : null) : (d.upstreams || [])[0];
+    const viaName = !types.includes("exact-indirect-match") ? null : md ? (sb.package?.name !== pk.name ? sb.package?.name : null) : (d.upstreams || []).find((u) => u !== pk.name) ?? null;
     if (types.includes("cpe-match") || sb.cpes?.length) out.push(viaCPE(md ? sb.cpes || [] : d.cpes || []));
     else if (viaName) out.push({ k: "via", t: `via source package ${viaName}`, sub: sb.package?.version && sb.package.version !== pk.version ? sb.package.version : "" });
     out.push({ k: "searched", t: nsHuman(ns), sub: matcher.replace(/-matcher$/, " matcher"), title: ns, same: sameRelease(ns, rel) });
