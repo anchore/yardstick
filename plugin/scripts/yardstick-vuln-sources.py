@@ -108,6 +108,10 @@ def main() -> None:
         out = Path(os.environ["YARDSTICK_RESEARCH_OUT"]).resolve()
         if out == research or not out.is_relative_to(research):
             sys.exit(f"YARDSTICK_RESEARCH_OUT {out} is not under {research}")
+    # research/jobs/ is where yardstick kept its job records, and moves them from once: never write there
+    # (in any case, for a case-insensitive filesystem)
+    if out.relative_to(research).parts[0].lower() == "jobs":
+        sys.exit(f"{out} is under {research / 'jobs'}, which holds no research")
     out.mkdir(parents=True, exist_ok=True)
     S: list[str] = [f"# Sources for {vuln}" + (f" on {args.pkg}" if args.pkg else ""), ""]
     links: list[str] = []

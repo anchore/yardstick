@@ -230,7 +230,7 @@ func TestAJobsIDIsItsDirectory(t *testing.T) {
 
 // the agent may write research output, never a job record the server trusts
 func TestDefaultCommandDeniesJobRecords(t *testing.T) {
-	if !strings.Contains(DefaultCommand, `--disallowedTools "Edit(/$YARDSTICK_ROOT/.yardstick/jobs/**)"`) {
+	if !strings.Contains(DefaultCommand, `--disallowedTools "Edit(/$YARDSTICK_ROOT/.yardstick/jobs/**),Edit(/$YARDSTICK_ROOT/.yardstick/research/jobs/**)"`) {
 		t.Errorf("expected job records denied, got %s", DefaultCommand)
 	}
 }
@@ -266,5 +266,29 @@ func TestOldJobRecordsMoveOutOfTheResearchTree(t *testing.T) {
 	}
 	if _, err := os.Stat(old); !os.IsNotExist(err) {
 		t.Errorf("expected nothing left under .yardstick/research/jobs: %v", err)
+	}
+	// once only: a record planted in the old place later is never imported
+	planted := filepath.Join(dir, ".yardstick", "research", "jobs", "bbb")
+	if err := os.MkdirAll(planted, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(planted, "job.json"), []byte(`{"rows":["bbb"],"status":"done"}`), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if jobs, err := NewRunner(Config{Dir: dir}).Jobs(); err != nil || len(jobs) != 1 || jobs[0].ID != "aaa" {
+		t.Errorf("expected only the moved job, got %+v %v", jobs, err)
+	}
+	// and with no old records at all, the first start still settles it
+	fresh := t.TempDir()
+	NewRunner(Config{Dir: fresh})
+	plant := filepath.Join(fresh, ".yardstick", "research", "jobs", "ccc")
+	if err := os.MkdirAll(plant, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(plant, "job.json"), []byte(`{"rows":["ccc"],"status":"done"}`), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if jobs, _ := NewRunner(Config{Dir: fresh}).Jobs(); len(jobs) != 0 {
+		t.Errorf("expected nothing imported from a later plant, got %+v", jobs)
 	}
 }

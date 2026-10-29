@@ -42,7 +42,8 @@ import (
 // records under .yardstick/jobs/ sit outside that rule: the server trusts them for a job's status, its
 // refusal and the paths it reads and writes, so the agent, which reads pages anyone can write, must not
 // be able to forge or edit one. They are denied too (a deny rule wins over any allow), so an allow rule
-// in the user's own settings that is broader than this one doesn't reach them either.
+// in the user's own settings that is broader than this one doesn't reach them either, and so is
+// .yardstick/research/jobs/, where they used to be and from where NewRunner moves them once.
 //
 // With Config.PluginDir set, the plugin is loaded from there for this run only (--plugin-dir wins
 // over an installed plugin of the same name), so a branch's skills can be tried without touching the
@@ -50,7 +51,7 @@ import (
 const DefaultCommand = `claude -p "/yardstick:research-vuln row:$YARDSTICK_ROW $YARDSTICK_ROOT" --model "${YARDSTICK_MODEL:-sonnet}" ` +
 	`${YARDSTICK_PLUGIN_DIR:+--plugin-dir "$YARDSTICK_PLUGIN_DIR"} ` +
 	`--allowedTools "Bash(yardstick claims agent propose *),Bash(yardstick claims policy),Bash(yardstick claims policy *),Read,Grep,Glob,Edit(/$YARDSTICK_ROOT/.yardstick/research/**),WebFetch,WebSearch" ` +
-	`--disallowedTools "Edit(/$YARDSTICK_ROOT/.yardstick/jobs/**)" ` +
+	`--disallowedTools "Edit(/$YARDSTICK_ROOT/.yardstick/jobs/**),Edit(/$YARDSTICK_ROOT/.yardstick/research/jobs/**)" ` +
 	`--output-format stream-json --verbose`
 
 // DefaultModel is the model research runs on unless configured otherwise: a name or alias the
@@ -173,10 +174,14 @@ func NewRunner(cfg Config) *Runner {
 		cfg.Timeout = 20 * time.Minute
 	}
 	jobs := filepath.Join(cfg.Dir, ".yardstick", "jobs")
-	// job records were kept under .yardstick/research/jobs/, where the agent may write: move them once
+	// job records were kept under .yardstick/research/jobs/, where the agent may write: move them once.
+	// jobs/ is made right after, so a later start never imports what an agent left in the old place
 	if _, err := os.Stat(jobs); errors.Is(err, os.ErrNotExist) {
 		if err := os.Rename(filepath.Join(cfg.Dir, ".yardstick", "research", "jobs"), jobs); err != nil && !errors.Is(err, os.ErrNotExist) {
 			log.Warnf("unable to move the research jobs to %s: %v", jobs, err)
+		}
+		if err := os.MkdirAll(jobs, 0o755); err != nil {
+			log.Warnf("unable to make %s: %v", jobs, err)
 		}
 	}
 	return &Runner{
