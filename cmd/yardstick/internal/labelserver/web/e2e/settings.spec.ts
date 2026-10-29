@@ -21,6 +21,8 @@ test("the cog opens and closes by click, Esc and a click outside; Esc doesn't wa
   await expect(panel(page)).toBeHidden();
 
   await cog(page).click();
+  // the panel fades in from visibility: hidden, and focus() on a switch it still hides does nothing
+  await expect(panel(page)).toBeVisible();
   await page.getByTestId("advance-checkbox").focus();
   await page.keyboard.press("Escape");
   await expect(panel(page)).toBeHidden();
@@ -40,6 +42,7 @@ test("j and n typed inside the open cog stay there", async ({ page }) => {
   await openFinding(page, rows.tarDropped);
   const url = page.url();
   await cog(page).click();
+  await expect(panel(page)).toBeVisible();
   await page.getByTestId("queue-skip").focus();
   for (const k of ["j", "n", "k", "h"]) await page.keyboard.press(k);
   await expect(panel(page)).toBeVisible();
