@@ -12,10 +12,9 @@ import (
 	"path/filepath"
 	"regexp"
 	"slices"
+	"strconv"
 	"strings"
 	"time"
-
-	"github.com/anchore/packageurl-go"
 )
 
 // What a job's agent writes: the research-vuln skill keeps its report and the proposal it means to
@@ -37,20 +36,55 @@ var unsafePart = regexp.MustCompile(`[^A-Za-z0-9._+-]`)
 // safePart is one path component as the plugin's safe_part makes it; empty when it refuses one.
 func safePart(s string) string {
 	s = unsafePart.ReplaceAllString(s, "_")
-	if s == "." || s == ".." {
+	if s == "" || s == "." || s == ".." {
 		return ""
 	}
 	return s
 }
 
-// OutputDir is where the job's agent writes its report and proposal, relative to the workspace;
-// empty when the job's vulnerability can't name one.
-func OutputDir(job Job) string {
-	pkg := "all"
-	if p, err := packageurl.FromString(job.Package); err == nil && p.Name != "" {
-		pkg = p.Name
+// purlName is the plugin's PURL_RE (yardstick_common.py) up to the name: one optional namespace
+// segment, then the name up to the version, qualifiers or subpath. A Go module keeps the path past
+// its first segment in the name (golang.org/x/net names "x/net"), as the plugin's parse_purl does.
+var purlName = regexp.MustCompile(`^pkg:[^/]+/(?:[^/]+/)?([^@?#]+)`)
+
+// packageDir is the plugin's directory for a package: safe_part of parse_purl's name, the purl
+// itself when it doesn't parse, "all" with none.
+func packageDir(purl string) string {
+	name := purl
+	if m := purlName.FindStringSubmatch(purl); m != nil {
+		name = unquote(m[1])
 	}
-	vuln, name := safePart(job.Vulnerability), safePart(pkg)
+	if name == "" {
+		name = "all"
+	}
+	return safePart(name)
+}
+
+// unquote decodes %XX escapes as Python's urllib.parse.unquote does: a malformed escape is left as
+// it is, and the bytes are read as UTF-8. Invalid UTF-8 becomes U+FFFD, one per run here where
+// Python may give several; either way safePart makes each "_", so only such a name's length differs.
+func unquote(s string) string {
+	if !strings.Contains(s, "%") {
+		return s
+	}
+	var b []byte
+	for i := 0; i < len(s); i++ {
+		if s[i] == '%' && i+2 < len(s) {
+			if v, err := strconv.ParseUint(s[i+1:i+3], 16, 8); err == nil {
+				b = append(b, byte(v))
+				i += 2
+				continue
+			}
+		}
+		b = append(b, s[i])
+	}
+	return strings.ToValidUTF8(string(b), "\uFFFD")
+}
+
+// OutputDir is where the job's agent writes its report and proposal, relative to the workspace, as
+// the plugin's yardstick-vuln-sources.py names it; empty when the plugin would refuse the name.
+func OutputDir(job Job) string {
+	vuln, name := safePart(job.Vulnerability), packageDir(job.Package)
 	if vuln == "" || name == "" {
 		return ""
 	}
