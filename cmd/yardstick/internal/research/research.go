@@ -31,19 +31,29 @@ import (
 // the agent works, so the log is live, and ends in the result line the job's Usage is read from.
 //
 // The agent reads pages anyone can write, so it gets the tools the skill uses and no more: the two
-// yardstick commands it runs, and file writes only under the workspace's .yardstick/research/ (an
-// Edit path rule covers Write too). The skill's own allowed-tools adds its helper script, by the
-// plugin's path, which writes only there as well. Its environment is childEnv's.
+// yardstick commands it runs, file reads and searches only in the workspace, and file writes only
+// under the workspace's .yardstick/research/ (an Edit path rule covers Write too). The skill's own
+// allowed-tools adds its helper script, by the plugin's path, which writes only there as well. Its
+// environment is childEnv's.
 //
-// The Edit rule is absolute ("//" + the workspace, as /$YARDSTICK_ROOT expands to): Claude Code
-// resolves a relative rule against the session's current directory, which moves when the agent runs
-// `cd` in Bash (allowed, as a read-only command), and every write after that was refused. Start
-// refuses a workspace whose path could change what the rule means (see checkRulePath). The job
-// records under .yardstick/jobs/ sit outside that rule: the server trusts them for a job's status, its
-// refusal and the paths it reads and writes, so the agent, which reads pages anyone can write, must not
-// be able to forge or edit one. They are denied too (a deny rule wins over any allow), so an allow rule
-// in the user's own settings that is broader than this one doesn't reach them either, and so is
-// .yardstick/research/jobs/, where they used to be and from where NewRunner moves them once.
+// The Read, Grep, Glob and Edit rules are absolute ("//" + the workspace, as /$YARDSTICK_ROOT
+// expands to): Claude Code resolves a relative rule against the session's current directory, which
+// moves when the agent runs `cd` in Bash (allowed, as a read-only command), and every write after
+// that was refused. Start refuses a workspace whose path could change what the rule means (see
+// checkRulePath). The job records under .yardstick/jobs/ sit outside that rule: the server trusts
+// them for a job's status, its refusal and the paths it reads and writes, so the agent, which reads
+// pages anyone can write, must not be able to forge or edit one. They are denied too (a deny rule
+// wins over any allow), so an allow rule in the user's own settings that is broader than this one
+// doesn't reach them either, and so is .yardstick/research/jobs/, where they used to be and from
+// where NewRunner moves them once.
+//
+// An allow rule doesn't fence reads on its own: a person's own settings may allow Read anywhere. So
+// the command also sets blockReadsOutsideWorkingDirectories, which has Read, Grep and Glob refuse any
+// path outside the working directories (the workspace, where Start runs the agent, plus any
+// additionalDirectories in a person's own settings) whatever the allow rules say, and has a shell
+// command that reads outside them ask first, which -p refuses. ponytail:
+// it needs Claude Code v2.1.257 or later and an older one ignores it; check `claude --version` in
+// Start if that matters.
 //
 // The user's Claude Code settings still load, so their deny rules apply, but they would also bring
 // a defaultMode (acceptEdits or bypassPermissions would hand the agent writes, or everything) and
@@ -55,8 +65,9 @@ import (
 // user's Claude Code setup.
 const DefaultCommand = `claude -p "/yardstick:research-vuln row:$YARDSTICK_ROW $YARDSTICK_ROOT" --model "${YARDSTICK_MODEL:-sonnet}" ` +
 	`${YARDSTICK_PLUGIN_DIR:+--plugin-dir "$YARDSTICK_PLUGIN_DIR"} ` +
-	`--allowedTools "Bash(yardstick claims agent propose *),Bash(yardstick claims policy),Bash(yardstick claims policy *),Read,Grep,Glob,Edit(/$YARDSTICK_ROOT/.yardstick/research/**),WebFetch,WebSearch" ` +
+	`--allowedTools "Bash(yardstick claims agent propose *),Bash(yardstick claims policy),Bash(yardstick claims policy *),Read(/$YARDSTICK_ROOT/**),Grep(/$YARDSTICK_ROOT/**),Glob(/$YARDSTICK_ROOT/**),Edit(/$YARDSTICK_ROOT/.yardstick/research/**),WebFetch,WebSearch" ` +
 	`--disallowedTools "Edit(/$YARDSTICK_ROOT/.yardstick/jobs/**),Edit(/$YARDSTICK_ROOT/.yardstick/research/jobs/**)" ` +
+	`--settings '{"permissions":{"blockReadsOutsideWorkingDirectories":true}}' ` +
 	`--permission-mode default --strict-mcp-config --output-format stream-json --verbose`
 
 // DefaultModel is the model research runs on unless configured otherwise: a name or alias the
@@ -286,7 +297,7 @@ func (r *Runner) Start(ctx context.Context, req Request) (Job, error) {
 }
 
 // check refuses a request this runner can't start: an unknown model, or a workspace the default
-// command's Edit rule can't name
+// command's rules can't name
 func (r *Runner) check(req Request) error {
 	for _, c := range r.cfg.Claims {
 		if strings.Contains(c, ",") {
@@ -409,7 +420,7 @@ func (r *Runner) finish(job *Job, s Status, err error) {
 	log.Infof("research %s: %s", job.ID, s)
 }
 
-// checkRulePath refuses a workspace the default command can't name in its Edit rule: it has to be
+// checkRulePath refuses a workspace the default command can't name in its rules: it has to be
 // absolute, and free of what would end the rule or the shell's quoting early, or widen it as a glob
 // (a workspace named "x),Bash(*" would otherwise grant a shell).
 func checkRulePath(dir string) error {
@@ -417,7 +428,7 @@ func checkRulePath(dir string) error {
 		return fmt.Errorf("research needs an absolute workspace path, got %q", dir)
 	}
 	if i := strings.IndexAny(dir, "(),*?[]{}\"'`$\\!\n\r"); i >= 0 {
-		return fmt.Errorf("research can't run in %s: its path contains %q, which would change the permission rule that confines the agent's writes to .yardstick/research; run claims serve from a directory without it", dir, dir[i])
+		return fmt.Errorf("research can't run in %s: its path contains %q, which would change the permission rules that confine the agent's reads to the workspace and its writes to .yardstick/research; run claims serve from a directory without it", dir, dir[i])
 	}
 	return nil
 }

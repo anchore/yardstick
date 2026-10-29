@@ -4,19 +4,21 @@ description: Deep-dive one vulnerability finding from a yardstick gate — what 
 argument-hint: <CVE or GHSA id | row:<row id>> [workspace dir] [package name]
 disable-model-invocation: true
 # the skill reads pages anyone can write (upstream commits, issues, advisories), so it runs only the
-# commands it names and writes only under .yardstick/research/; a label is never written here.
-# The Edit rule below is relative, so it follows the session's current directory and only means the
-# workspace in an interactive run started there. A research job from `yardstick claims serve` gets
-# an absolute Edit rule on the workspace (and a deny on its job records) on the command line, and
-# that is the one to trust: frontmatter can't name $YARDSTICK_ROOT
+# commands it names, reads only the workspace and writes only under .yardstick/research/; a label is
+# never written here.
+# The Read, Grep, Glob and Edit rules below are relative, so they follow the session's current
+# directory and only mean the workspace in an interactive run started there. A research job from
+# `yardstick claims serve` gets absolute rules on the workspace, a deny on its job records and a
+# block on reads outside the workspace on the command line, and those are the ones to trust:
+# frontmatter can't name $YARDSTICK_ROOT
 allowed-tools:
   - Bash(python3 -I ${CLAUDE_PLUGIN_ROOT}/scripts/yardstick-vuln-sources.py *)
   - Bash(yardstick claims agent propose *)
   - Bash(yardstick claims policy)
   - Bash(yardstick claims policy *)
-  - Read
-  - Grep
-  - Glob
+  - Read(./**)
+  - Grep(./**)
+  - Glob(./**)
   - Edit(.yardstick/research/**)
   - WebFetch
   - WebSearch
