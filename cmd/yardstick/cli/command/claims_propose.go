@@ -206,7 +206,8 @@ func describeSubject(s claimsv1.Subject) string {
 }
 
 // fillDefaults fills what an agent may leave out of a record: schema, id, timestamp and the author
-// kind (agent); and stamps the research job it runs in, replacing any the record names.
+// kind (agent); and stamps the research job it runs in, replacing any the record names. In a job
+// the timestamp and kind are always now and agent, whatever the record says.
 func fillDefaults(schema, id *string, ts *time.Time, a *agentstore.Author, job string, now time.Time) {
 	if *schema == "" {
 		*schema = agentstore.Schema
@@ -214,10 +215,12 @@ func fillDefaults(schema, id *string, ts *time.Time, a *agentstore.Author, job s
 	if *id == "" {
 		*id = uuid.NewString()
 	}
-	if ts.IsZero() {
+	// a job counts as recorded by a call stamped with it since the job started, so a call dated
+	// ahead would mark every later run of the job recorded, and one dated back none
+	if ts.IsZero() || job != "" {
 		*ts = now
 	}
-	if a.Kind == "" {
+	if a.Kind == "" || job != "" {
 		a.Kind = agentstore.Agent
 	}
 	// the job is the one propose runs in, never what the record says: a job counts as having
@@ -300,7 +303,8 @@ plus confidence (high or medium, and none on an unclear), openQuestions and auth
 fields are refused. For convenience:
   - "row": a row id from yardstick score -o json stands in for subject, package and vulnerability
   - schema, id, timestamp and gate are filled in, and author.kind defaults to agent
-  - author.researchJob is filled from YARDSTICK_RESEARCH_JOB for an agent
+  - in a research job (YARDSTICK_RESEARCH_JOB, set by yardstick claims serve), author.researchJob
+    is that job, timestamp is now and author.kind is agent, whatever the line says
 
 A proposal is checked against the claims vocabulary and the labeling policy: a justification or
 evidence rule that is not listed, a rule of the other verdict, a confidence above the rule's

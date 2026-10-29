@@ -52,6 +52,25 @@ func TestTheResearchJobIsTheOneProposeRunsIn(t *testing.T) {
 	}
 }
 
+// in a research job a record's timestamp and author kind are propose's, not the record's; outside
+// one they are kept
+func TestAResearchJobsCallIsAnAgentsNow(t *testing.T) {
+	now := time.Date(2026, 10, 29, 0, 0, 0, 0, time.UTC)
+	ahead := now.AddDate(70, 0, 0)
+	for job, want := range map[string]struct {
+		ts   time.Time
+		kind agentstore.AuthorKind
+	}{"job-a": {now, agentstore.Agent}, "": {ahead, agentstore.Human}} {
+		var schema, id string
+		ts := ahead
+		a := agentstore.Author{Kind: agentstore.Human}
+		fillDefaults(&schema, &id, &ts, &a, job, now)
+		if !ts.Equal(want.ts) || a.Kind != want.kind {
+			t.Errorf("in job %q: got %s %s, want %s %s", job, ts, a.Kind, want.ts, want.kind)
+		}
+	}
+}
+
 // the research job is read from the environment the label server sets, and no flag can name it
 func TestTheResearchJobIsEnvOnly(t *testing.T) {
 	cfg := clio.NewSetupConfig(clio.Identification{Name: "yardstick"})
