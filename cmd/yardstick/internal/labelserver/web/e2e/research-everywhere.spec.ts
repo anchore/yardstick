@@ -12,6 +12,8 @@ import { checkPage, gatePage, gatesPage, images, openFinding, rows, startedBatch
 // research-queue.spec.ts fakes a batch.
 
 test.setTimeout(90_000);
+// a page that polls (a queued job's finding) can have a faked state in flight as a test ends
+test.afterEach(async ({ page }) => page.unrouteAll({ behavior: "ignoreErrors" }));
 
 const noHints = () => {
   for (const f of ["proposals.jsonl", "causes.jsonl"]) rmSync(join(workspace, ".yardstick", f), { force: true });

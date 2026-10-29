@@ -20,6 +20,7 @@ import (
 	"github.com/anchore/clio"
 	"github.com/anchore/yardstick/cmd/yardstick/cli"
 	"github.com/anchore/yardstick/cmd/yardstick/internal/labelserver"
+	"github.com/anchore/yardstick/cmd/yardstick/internal/research"
 	"github.com/anchore/yardstick/cmd/yardstick/internal/testkit"
 )
 
@@ -105,27 +106,35 @@ type swap struct {
 
 	mu     sync.RWMutex
 	cancel context.CancelFunc
+	runner *research.Runner
 	next   http.Handler
 }
 
 func (s *swap) start() error {
 	ctx, cancel := context.WithCancel(context.Background())
-	srv, err := testkit.NewServer(ctx, s.dir, s.bin)
+	srv, runner, err := testkit.NewServer(ctx, s.dir, s.bin)
 	if err != nil {
 		cancel()
 		return err
 	}
+	s.cancel, s.runner, s.next = cancel, runner, srv.Handler()
+	return nil
+}
+
+// stop ends the current server and waits for its research jobs, which write into the workspace
+// (a test that started research can end while its job is still recording)
+func (s *swap) stop() {
 	if s.cancel != nil {
 		s.cancel()
+		s.runner.Wait()
 	}
-	s.cancel, s.next = cancel, srv.Handler()
-	return nil
 }
 
 func (s *swap) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if r.Method == http.MethodPost && r.URL.Path == "/__e2e/reset" {
 		s.mu.Lock()
 		defer s.mu.Unlock()
+		s.stop()
 		// contents only: the seed's working directory is dir itself
 		cmd := exec.Command("sh", "-c", `find . -mindepth 1 -delete && cp -a "$1"/. .`, "sh", s.pristine) //nolint:gosec // the seed's own snapshot
 		cmd.Dir = s.dir

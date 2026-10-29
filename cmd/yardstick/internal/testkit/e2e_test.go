@@ -95,7 +95,7 @@ func e2eServer(t *testing.T) (srv *labelserver.Server, dir, tools, bin string) {
 	}
 	t.Chdir(dir)
 	E2E(t, dir, tools, bin)
-	srv, err := NewServer(context.Background(), dir, bin)
+	srv, _, err := NewServer(context.Background(), dir, bin)
 	if err != nil {
 		t.Fatal(err)
 	}

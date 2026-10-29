@@ -46,8 +46,9 @@ export function unlistedDialog(u: UnlistedNamespace, after: () => Promise<void> 
       toast(addedWords(u.namespace, list, file));
       dialog.close();
     });
-    const dialog: HTMLDialogElement = el("dialog", { class: "dialog namespace-dialog", "aria-labelledby": "namespace-title", "aria-describedby": "namespace-body", "data-testid": "namespace-dialog" },
-      el("div", {},
+    // the testid is on the box: the dialog itself has none, Basecoat fixes its child in place
+    const dialog: HTMLDialogElement = el("dialog", { class: "dialog namespace-dialog", "aria-labelledby": "namespace-title", "aria-describedby": "namespace-body" },
+      el("div", { "data-testid": "namespace-dialog" },
         el("header", {}, el("h2", { id: "namespace-title" }, w.title), el("p", { id: "namespace-body" }, w.body)),
         el("section", {}, el("p", { class: "muted", "data-testid": "namespace-file" }, w.small), status),
         el("footer", {}, cancel, ...buttons.slice().reverse())));
