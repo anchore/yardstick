@@ -33,7 +33,7 @@ jobs:
           persist-credentials: false
 
       - name: Bootstrap environment
-        uses: anchore/go-make/.github/actions/setup@abf41688f36f2cbec13105747abbe8e60f5c56ca # v0.9.3
+        uses: anchore/go-make/.github/actions/setup@ca8128d2bbb21d2ce828b00b11873ddd305b4fc5 # v0.9.7-0.20261106012740-ca8128d2bbb2
 
       - name: Run static analysis
         run: make static-analysis
@@ -72,7 +72,7 @@ jobs:
           persist-credentials: false
 
       - name: Bootstrap environment
-        uses: anchore/go-make/.github/actions/setup@abf41688f36f2cbec13105747abbe8e60f5c56ca # v0.9.3
+        uses: anchore/go-make/.github/actions/setup@ca8128d2bbb21d2ce828b00b11873ddd305b4fc5 # v0.9.7-0.20261106012740-ca8128d2bbb2
         with:
           # race and coverage builds share nothing with the other jobs' builds
           cache-key-prefix: "unit-go"
@@ -100,7 +100,7 @@ jobs:
           persist-credentials: false
 
       - name: Bootstrap environment
-        uses: anchore/go-make/.github/actions/setup@abf41688f36f2cbec13105747abbe8e60f5c56ca # v0.9.3
+        uses: anchore/go-make/.github/actions/setup@ca8128d2bbb21d2ce828b00b11873ddd305b4fc5 # v0.9.7-0.20261106012740-ca8128d2bbb2
         with:
           # generate is the only go here, so this job's build cache is too thin to be the saved one
           cache-save: "false"
@@ -128,7 +128,7 @@ jobs:
           persist-credentials: false
 
       - name: Bootstrap environment
-        uses: anchore/go-make/.github/actions/setup@abf41688f36f2cbec13105747abbe8e60f5c56ca # v0.9.3
+        uses: anchore/go-make/.github/actions/setup@ca8128d2bbb21d2ce828b00b11873ddd305b4fc5 # v0.9.7-0.20261106012740-ca8128d2bbb2
 
       # bun's install cache, keyed on the lockfile (hashFiles is empty until bun.lock exists, which still yields a valid key)
       - name: Cache bun installs
@@ -169,7 +169,7 @@ jobs:
           persist-credentials: false
 
       - name: Bootstrap environment
-        uses: anchore/go-make/.github/actions/setup@abf41688f36f2cbec13105747abbe8e60f5c56ca # v0.9.3
+        uses: anchore/go-make/.github/actions/setup@ca8128d2bbb21d2ce828b00b11873ddd305b4fc5 # v0.9.7-0.20261106012740-ca8128d2bbb2
 
       # the key is test/cli's pins: the two grype releases its gates install and the claims snapshot
       # (claimsPin in test/cli/utils_test.go). The DB is built per run and never cached.
@@ -200,7 +200,7 @@ jobs:
           persist-credentials: false
 
       - name: Bootstrap environment
-        uses: anchore/go-make/.github/actions/setup@abf41688f36f2cbec13105747abbe8e60f5c56ca # v0.9.3
+        uses: anchore/go-make/.github/actions/setup@ca8128d2bbb21d2ce828b00b11873ddd305b4fc5 # v0.9.7-0.20261106012740-ca8128d2bbb2
         with:
           # why have another build cache key? We don't want unit/integration/etc test build caches to replace
           # the snapshot build cache, which includes builds for all OSs and architectures. As long as this key is
