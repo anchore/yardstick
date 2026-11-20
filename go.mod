@@ -13,7 +13,7 @@ require (
 	github.com/anchore/fangs v0.1.1
 	github.com/anchore/go-logger v0.2.0
 	github.com/anchore/go-sync v0.1.2
-	github.com/anchore/grype v0.121.2
+	github.com/anchore/grype v0.121.3
 	github.com/anchore/packageurl-go v0.2.0
 	github.com/anchore/syft v1.57.1
 	github.com/charmbracelet/bubbletea v1.3.10
