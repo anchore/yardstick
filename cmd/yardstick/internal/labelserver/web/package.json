@@ -4,7 +4,7 @@
   "type": "module",
   "trustedDependencies": [],
   "devDependencies": {
-    "@playwright/test": "1.64.0",
+    "@playwright/test": "1.65.0",
     "@types/bun": "1.4.3"
   },
   "dependencies": {
